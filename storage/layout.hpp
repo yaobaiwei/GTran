@@ -8,34 +8,14 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
-// FOR VERTEX AND EDGE 
-// __attributed__((packed)) might be worse 
-// __attribute__((aligned)) could be used for better cache performance 
+#include "utils/type.hpp"
 
-const int CACHE_LINE = 64;
-const int PROPERTY_BLOCK_SIZE = 1024;
+using namespace std;
 
-typedef struct Vertex {
-    uint32_t next_in_rel;
-    uint32_t next_out_rel;
-    uint32_t next_property;
-    uint32_t label;
-}Vertex;
-
-typedef struct Edge {
-	uint32_t v_1;
-	uint32_t v_2;
-	uint32_t rel_type;
-	uint32_t v_1_next_in_rel;
-	uint32_t v_1_next_out_rel;
-	uint32_t next_property;
-} Edge;
-
-typedef struct Property_KV{
-	//uint32_t key;
-	uint32_t value;
-}Property_KV;
+//const int CACHE_LINE = 64;
+//const int PROPERTY_BLOCK_SIZE = 1024;
 
 //typedef struct __attribute__((aligned (CACHE_LINE))) {
 //    bool used_flag;
@@ -55,5 +35,27 @@ typedef struct Property_KV{
 //    char payoff[1000];
 //    uint32_t next_block;
 //} PropertyBlock;
+
+struct Vertex {
+	vid_t id;
+	vector<vid_t> in_nbs;
+	vector<vid_t> out_nbs;
+	label_t label;
+    ptr_t p_addr;
+};
+
+struct Edge {
+	vid_t v_1;
+	vid_t v_2;
+	label_t label;
+	ptr_t p_addr;
+} Edge;
+
+struct KV{
+	//uint32_t key;
+	value_t value;
+}Property_KV;
+
+
 
 
