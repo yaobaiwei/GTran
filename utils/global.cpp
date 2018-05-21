@@ -138,6 +138,46 @@ void load_config(Config & config)
 		exit(-1);
 	}
 
+	str = iniparser_getstring(ini, "HDFS:HDFS_INDEX_PATH", str_not_found);
+	if(strcmp(str, str_not_found)!=0) config.HDFS_INDEX_PATH=val;
+	else
+	{
+		fprintf(stderr, "must enter the HDFS_INDEX_PATH. exits.\n");
+		exit(-1);
+	}
+
+	str = iniparser_getstring(ini, "HDFS:HDFS_VTX_SUBFOLDER", str_not_found);
+	if(strcmp(str, str_not_found)!=0) config.HDFS_VTX_SUBFOLDER=val;
+	else
+	{
+		fprintf(stderr, "must enter the HDFS_VTX_SUBFOLDER. exits.\n");
+		exit(-1);
+	}
+
+	str = iniparser_getstring(ini, "HDFS:HDFS_EDGE_SUBFOLDER", str_not_found);
+	if(strcmp(str, str_not_found)!=0) config.HDFS_EDGE_SUBFOLDER=val;
+	else
+	{
+		fprintf(stderr, "must enter the HDFS_EDGE_SUBFOLDER. exits.\n");
+		exit(-1);
+	}
+
+	str = iniparser_getstring(ini, "HDFS:HDFS_VP_SUBFOLDER", str_not_found);
+	if(strcmp(str, str_not_found)!=0) config.HDFS_VP_SUBFOLDER=val;
+	else
+	{
+		fprintf(stderr, "must enter the HDFS_VP_SUBFOLDER. exits.\n");
+		exit(-1);
+	}
+
+	str = iniparser_getstring(ini, "HDFS:HDFS_EP_SUBFOLDER", str_not_found);
+	if(strcmp(str, str_not_found)!=0) config.HDFS_EP_SUBFOLDER=val;
+	else
+	{
+		fprintf(stderr, "must enter the HDFS_EP_SUBFOLDER. exits.\n");
+		exit(-1);
+	}
+
 	str = iniparser_getstring(ini, "HDFS:HDFS_OUTPUT_PATH", str_not_found);
 	if(strcmp(str, str_not_found)!=0) config.HDFS_OUTPUT_PATH=val;
 	else

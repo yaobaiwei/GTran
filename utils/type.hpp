@@ -9,7 +9,10 @@
 #define TYPE_HPP_
 
 #include <stdint.h>
+#include <unordered_map>
+#include <string.h>
 
+using namespace std;
 // 64-bit internal pointer (size < 256M and off < 64GB)
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
@@ -145,6 +148,17 @@ uint64_t pid : PID_BITS;
 };
 
 typedef uint8_t label_t;
-typedef uint32_t value_t;
+//typedef uint32_t value_t;
+
+struct string_index{
+	unordered_map<string, label_t> str2el; //map to edge_label
+	unordered_map<label_t, string> el2str;
+	unordered_map<string, label_t> str2epk; //map to edge's property key
+	unordered_map<label_t, string> epk2str;
+	unordered_map<string, label_t> str2vl; //map to vtx_label
+	unordered_map<label_t, string> vl2str;
+	unordered_map<string, label_t> str2vpk; //map to vtx's property key
+	unordered_map<label_t, string> vpk2str;
+};
 
 #endif /* TYPE_HPP_ */

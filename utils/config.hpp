@@ -15,14 +15,21 @@
 
 using namespace std;
 
-typedef struct Config{
+struct Config{
 	//immutable_config
 	//============================HDFS Parameters==========================
 	string HDFS_HOST_ADDRESS;
 	int HDFS_PORT;
 	string HDFS_INPUT_PATH;
-	string HDFS_OUTPUT_PATH;
 
+	string HDFS_INDEX_PATH;
+
+	string HDFS_VTX_SUBFOLDER;
+	string HDFS_EDGE_SUBFOLDER;
+	string HDFS_VP_SUBFOLDER;
+	string HDFS_EP_SUBFOLDER;
+
+	string HDFS_OUTPUT_PATH;
 	//==========================System Parameters==========================
 	int global_num_machines;
 	int global_num_threads;
@@ -124,6 +131,6 @@ typedef struct Config{
     	buffer_sz = datastore_sz + send_buffer_sz + recv_buffer_sz;
     }
 
-}Config;
+};
 
 #endif /* CONFIG_HPP_ */

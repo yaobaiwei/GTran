@@ -22,6 +22,7 @@ extern "C" {
 
 using namespace std;
 
+#define MASTER_RANK 0
 //============================
 
 extern int _my_rank;

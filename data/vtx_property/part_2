@@ -1,4 +1,2 @@
-{
-	"2":["name":"vadas"	,"age":27],
-	"5":["name":"ripple"	,"lang":"java"]
-}
+2	[1:"vadas",2:27]
+5	[1:"ripple",3:"java"]
