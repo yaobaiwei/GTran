@@ -11,7 +11,6 @@
 #include <vector>
 #include <assert.h>
 
-/* NOTE: math will conflict with other lib; so it's named mymath */
 class mymath {
 public:
     uint64_t static get_distribution(int r, std::vector<int>& distribution) {

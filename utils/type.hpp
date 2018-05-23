@@ -11,8 +11,15 @@
 #include <stdint.h>
 #include <unordered_map>
 #include <string.h>
+#include <ext/hash_map>
+#include <ext/hash_set>
+#include "utils/mymath.hpp"
+
+using __gnu_cxx::hash_map;
+using __gnu_cxx::hash_set;
 
 using namespace std;
+
 // 64-bit internal pointer (size < 256M and off < 64GB)
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
@@ -42,6 +49,7 @@ enum {VID_BITS = 26}; // <32; the total # of vertices should no be more than 2^2
 enum {EID_BITS = (VID_BITS * 2)}; //eid = v1_id | v2_id (52 bits)
 enum {PID_BITS = (64 - EID_BITS)}; //the total # of property should no be more than 2^PID_BITS
 
+//vid: 32bits 0000|00-vid
 struct vid_t {
 	uint32_t vid: VID_BITS;
 
@@ -65,6 +73,17 @@ struct vid_t {
 	}
 };
 
+namespace __gnu_cxx {
+	template <>
+	struct hash<vid_t> {
+		size_t operator()(const vid_t& vid) const {
+			//TODO
+
+		}
+	};
+}
+
+//vid: 64bits 0000|0000|0000|in_v|out_v
 struct eid_t {
 uint64_t in_v : VID_BITS;
 uint64_t out_v : VID_BITS;
@@ -92,6 +111,17 @@ uint64_t out_v : VID_BITS;
     }
 };
 
+namespace __gnu_cxx {
+	template <>
+	struct hash<eid_t> {
+		size_t operator()(const eid_t& eid) const {
+			//TODO
+
+		}
+	};
+}
+
+//vpid: 64bits  vid|0x26|pid
 struct vpid_t {
 uint64_t vid : VID_BITS;
 uint64_t pid : PID_BITS;
@@ -114,19 +144,32 @@ uint64_t pid : PID_BITS;
         uint64_t r = 0;
         r += vid;
         r <<= VID_BITS;
-        r <<= VID_BITS; //twice
+        r <<= PID_BITS;
         r += pid;
         return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
 
+//vpid: 64bits  v_in|v_out|pid
 struct epid_t {
 uint64_t eid : EID_BITS;
 uint64_t pid : PID_BITS;
 
 	epid_t(): eid(0), pid(0) { }
 
-	epid_t(int _eid, int _pid): eid(_eid), pid(_pid) {
+	epid_t(eid_t _eid, int _pid): pid(_pid) {
+		uint64_t tmp = _eid.in_v;
+		tmp <<= VID_BITS;
+		tmp += _eid.out_v;
+		eid = tmp;
+        assert((eid == tmp) && (pid == _pid) ); // no key truncate
+    }
+
+	epid_t(int _in_v, int _out_v, int _pid): pid(_pid) {
+		uint64_t _eid = _in_v;
+		_eid <<= VID_BITS;
+		_eid += _out_v;
+		eid = _eid;
         assert((eid == _eid) && (pid == _pid) ); // no key truncate
     }
 
@@ -141,14 +184,25 @@ uint64_t pid : PID_BITS;
     uint64_t hash() {
         uint64_t r = 0;
         r += eid;
-        r <<= EID_BITS;
+        r <<= PID_BITS;
         r += pid;
         return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
 
 typedef uint8_t label_t;
-//typedef uint32_t value_t;
+
+//type
+//1->int, 2->double, 3->char, 4->string
+struct value_t {
+	vector<char> content;
+	uint8_t type;
+};
+
+struct kv_pair {
+	int key;
+	value_t value;
+};
 
 struct string_index{
 	unordered_map<string, label_t> str2el; //map to edge_label

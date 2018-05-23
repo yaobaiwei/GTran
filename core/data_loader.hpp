@@ -10,12 +10,18 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <ext/hash_map>
+#include <ext/hash_set>
 
 #include <hdfs.h>
 #include "utils/hdfs_core.hpp"
 #include "utils/type.hpp"
+#include "utils/tool.hpp"
 #include "utils/global.hpp"
 #include "base/communication.hpp"
+
+using __gnu_cxx::hash_map;
+using __gnu_cxx::hash_set;
 
 class DataLoader {
 public:
@@ -149,15 +155,11 @@ public:
 	void get_vertices(vector<Vertex*> & vertices){
 		//check path + arrangement
 		const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_VTX_SUBFOLDER).c_str();
+
 		if (_my_rank == MASTER_RANK)
 		{
-			hdfsFS fs = get_hdfs_fs();
-			if (hdfsExists(fs, indir) != 0)
-			{
-				fprintf(stderr, "Input path \"%s\" does not exist!\n", indir);
-			}
-			hdfsDisconnect(fs);
-			return;
+			if(dir_check(indir) == -1)
+				exit(-1);
 		}
 
 		vector<vector<string> >* arrangement;
@@ -186,13 +188,18 @@ public:
 		hdfsFS fs = get_hdfs_fs();
 		hdfsFile in = get_r_handle(inpath, fs);
 		LineReader reader(fs, in);
+		int count = 0;
 		while (true)
 		{
 			reader.read_line();
-			if (!reader.eof())
-				vertices.push_back(to_vertex(reader.get_line()));
-			else
+			if (!reader.eof()){
+				Vertex * v = to_vertex(reader.get_line());
+				vertices.push_back(v);
+				vtx_off_map[v->id] = count;
+				count++;
+			}else{
 				break;
+			}
 		}
 		hdfsCloseFile(fs, in);
 		hdfsDisconnect(fs);
@@ -221,8 +228,220 @@ public:
 		return v;
 	}
 
+	void get_edges(vector<Edge*> & edges){
+		//check path + arrangement
+		const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_EDGE_SUBFOLDER).c_str();
+		if (_my_rank == MASTER_RANK)
+		{
+			if(dir_check(indir) == -1)
+				exit(-1);
+		}
+
+		vector<vector<string> >* arrangement;
+		if (_my_rank == MASTER_RANK)
+		{
+			arrangement = dispatch_locality(indir);
+			master_scatter(*arrangement);
+			vector<string>& assigned_splits = (*arrangement)[0];
+			//reading assigned splits (map)
+			for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
+				load_edges(it->c_str(), edges);
+			delete arrangement;
+		}
+		else
+		{
+			vector<string> assigned_splits;
+			slave_scatter(assigned_splits);
+			//reading assigned splits (map)
+			for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
+				load_edges(it->c_str(), edges);
+		}
+	}
+
+	void load_edges(const char* inpath, vector<Edge*> & edges)
+	{
+		hdfsFS fs = get_hdfs_fs();
+		hdfsFile in = get_r_handle(inpath, fs);
+		LineReader reader(fs, in);
+		int count = 0;
+		while (true)
+		{
+			reader.read_line();
+			if (!reader.eof()){
+				Edge * e = to_edge(reader.get_line());
+				edges.push_back(e);
+				edge_off_map[e->id] = count;
+				count++;
+			}else{
+				break;
+			}
+		}
+		hdfsCloseFile(fs, in);
+		hdfsDisconnect(fs);
+	}
+
+	Edge* to_edge(char* line)
+	{
+		Edge * e = new Edge;
+		char * pch;
+		pch = strtok(line, "\t");
+		int v_1 = atoi(pch);
+		pch = strtok(NULL, "\t");
+		int v_2 = atoi(pch);
+
+		eid_t eid(v_1, v_2);
+		e->id = eid;
+		pch = strtok(NULL, "\t");
+		e->label = (label_t)atoi(pch);
+		return e;
+	}
+
+	void get_vplist(vector<VProperty*> & vplist){
+		//check path + arrangement
+		const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_VP_SUBFOLDER).c_str();
+		if (_my_rank == MASTER_RANK)
+		{
+			if(dir_check(indir) == -1)
+				exit(-1);
+		}
+
+		vector<vector<string> >* arrangement;
+		if (_my_rank == MASTER_RANK)
+		{
+			arrangement = dispatch_locality(indir);
+			master_scatter(*arrangement);
+			vector<string>& assigned_splits = (*arrangement)[0];
+			//reading assigned splits (map)
+			for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
+				load_vplist(it->c_str(), vplist);
+			delete arrangement;
+		}
+		else
+		{
+			vector<string> assigned_splits;
+			slave_scatter(assigned_splits);
+			//reading assigned splits (map)
+			for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
+				load_vplist(it->c_str(), vplist);
+		}
+	}
+
+	void load_vplist(const char* inpath, vector<VProperty*> & vplist)
+	{
+		hdfsFS fs = get_hdfs_fs();
+		hdfsFile in = get_r_handle(inpath, fs);
+		LineReader reader(fs, in);
+		while (true)
+		{
+			reader.read_line();
+			if (!reader.eof())
+				vplist.push_back(to_vp(reader.get_line()));
+			else
+				break;
+		}
+		hdfsCloseFile(fs, in);
+		hdfsDisconnect(fs);
+	}
+
+	VProperty* to_vp(char* line)
+	{
+		VProperty * vp = new VProperty;
+		char * pch;
+		pch = strtok(line, "\t");
+		int vid = atoi(pch);
+		vp->id = vid;
+		pch = strtok(NULL, "\t");
+		string s(pch);
+
+		vector<string> kvpairs = Tool::split(s, "\[\],");
+		for(int i = 0 ; i < kvpairs.size(); i++){
+			kv_pair p;
+			Tool::get_kvpair(kvpairs[i], p);
+
+			V_KVpair v_pair;
+			v_pair.key = vpid_t(vid, p.key);
+			v_pair.value = p.value;
+			vp->plist.push_back(v_pair);
+		}
+		return vp;
+	}
+
+	void get_eplist(vector<EProperty*> & eplist){
+		//check path + arrangement
+		const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_EP_SUBFOLDER).c_str();
+		if (_my_rank == MASTER_RANK)
+		{
+			if(dir_check(indir) == -1)
+				exit(-1);
+		}
+
+		vector<vector<string> >* arrangement;
+		if (_my_rank == MASTER_RANK)
+		{
+			arrangement = dispatch_locality(indir);
+			master_scatter(*arrangement);
+			vector<string>& assigned_splits = (*arrangement)[0];
+			//reading assigned splits (map)
+			for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
+				load_eplist(it->c_str(), eplist);
+			delete arrangement;
+		}
+		else
+		{
+			vector<string> assigned_splits;
+			slave_scatter(assigned_splits);
+			//reading assigned splits (map)
+			for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
+				load_eplist(it->c_str(), eplist);
+		}
+	}
+
+	void load_eplist(const char* inpath, vector<EProperty*> & eplist)
+	{
+		hdfsFS fs = get_hdfs_fs();
+		hdfsFile in = get_r_handle(inpath, fs);
+		LineReader reader(fs, in);
+		while (true)
+		{
+			reader.read_line();
+			if (!reader.eof())
+				eplist.push_back(to_ep(reader.get_line()));
+			else
+				break;
+		}
+		hdfsCloseFile(fs, in);
+		hdfsDisconnect(fs);
+	}
+
+	EProperty* to_ep(char* line)
+	{
+		EProperty * ep = new EProperty;
+		char * pch;
+		pch = strtok(line, "\t");
+		int in_v = atoi(pch);
+		pch = strtok(NULL, "\t");
+		int out_v = atoi(pch);
+		ep->id = eid_t(in_v, out_v);
+
+		pch = strtok(NULL, "\t");
+		string s(pch);
+
+		vector<string> kvpairs = Tool::split(s, "\[\],");
+		for(int i = 0 ; i < kvpairs.size(); i++){
+			kv_pair p;
+			Tool::get_kvpair(kvpairs[i], p);
+
+			E_KVpair e_pair;
+			e_pair.key = epid_t(in_v, out_v, p.key);
+			e_pair.value = p.value;
+			ep->plist.push_back(e_pair);
+		}
+		return ep;
+	}
 private:
 	Config * config_;
+	hash_map<vid_t, int> vtx_off_map;
+	hash_map<eid_t, int> edge_off_map;
 };
 
 
