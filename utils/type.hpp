@@ -71,6 +71,15 @@ struct vid_t {
     	this->vid = i;
 		return *this;
 	}
+
+    uint32_t value(){
+    	return (uint32_t)vid;
+    }
+
+    uint64_t hash() {
+        uint64_t r = value();
+        return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
+    }
 };
 
 namespace __gnu_cxx {
@@ -78,7 +87,10 @@ namespace __gnu_cxx {
 	struct hash<vid_t> {
 		size_t operator()(const vid_t& vid) const {
 			//TODO
-
+			int key = (int)vid.vid;
+			size_t seed = 0;
+			mymath::hash_combine(seed, key);
+			return seed;
 		}
 	};
 }
@@ -102,12 +114,16 @@ uint64_t out_v : VID_BITS;
 
     bool operator != (const eid_t &eid) { return !(operator == (eid)); }
 
-    uint64_t hash() {
+    uint64_t value(){
         uint64_t r = 0;
         r += in_v;
         r <<= VID_BITS;
         r += out_v;
-        return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
+        return r;
+    }
+
+    uint64_t hash() {
+        return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
 
@@ -116,7 +132,12 @@ namespace __gnu_cxx {
 	struct hash<eid_t> {
 		size_t operator()(const eid_t& eid) const {
 			//TODO
-
+			int k1 = (int)eid.in_v;
+			int k2 = (int)eid.out_v;
+			size_t seed = 0;
+			mymath::hash_combine(seed, k1);
+			mymath::hash_combine(seed, k2);
+			return seed;
 		}
 	};
 }
@@ -140,13 +161,17 @@ uint64_t pid : PID_BITS;
 
     bool operator != (const vpid_t &vpid) { return !(operator == (vpid)); }
 
-    uint64_t hash() {
+    uint64_t value(){
         uint64_t r = 0;
         r += vid;
         r <<= VID_BITS;
         r <<= PID_BITS;
         r += pid;
-        return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
+        return r;
+    }
+
+    uint64_t hash() {
+        return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
 
@@ -181,16 +206,20 @@ uint64_t pid : PID_BITS;
 
     bool operator != (const epid_t &epid) { return !(operator == (epid)); }
 
-    uint64_t hash() {
+    uint64_t value(){
         uint64_t r = 0;
         r += eid;
         r <<= PID_BITS;
         r += pid;
-        return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
+        return r;
+    }
+
+    uint64_t hash() {
+        return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
 
-typedef uint8_t label_t;
+typedef uint16_t label_t;
 
 //type
 //1->int, 2->double, 3->char, 4->string
