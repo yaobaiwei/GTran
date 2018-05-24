@@ -109,4 +109,9 @@ public:
              << std::endl;
         return upper;
     }
+
+    static void hash_combine(size_t& seed, int v)
+    {
+        seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
 };
