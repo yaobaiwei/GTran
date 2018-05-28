@@ -99,24 +99,11 @@ struct Config{
 	uint32_t num_vertex_property;
 	uint32_t num_edge_property;
 
-    // how to partition INT(UINT32_T) into v_id / e_id / p_id
-	uint32_t VID_EID;
-	uint32_t EID_PID;
-
-    // info of machines
-    Node my_node;
-    vector<Node> nodes;
-
-    //TODO
-    void set_nodes_config(){
-
-    }
-
     void set_more(){
     	max_num_vertex_node = GiB2B(global_vertex_nodes_sz_gb) / sizeof(Vertex);
     	max_num_vertex_node = GiB2B(global_edge_nodes_sz_gb) / sizeof(Edge);
-    	max_num_vertex_property = GiB2B(global_vertex_property_kv_sz_gb) / sizeof(Property_KV);
-    	max_num_edge_property = GiB2B(global_edge_property_kv_sz_gb) / sizeof(Property_KV);
+    	max_num_vertex_property = GiB2B(global_vertex_property_kv_sz_gb) / sizeof(V_KVpair);  //TODO
+    	max_num_edge_property = GiB2B(global_edge_property_kv_sz_gb) / sizeof(E_KVpair);  //TODO
 
     	datastore_sz = GiB2B(global_vertex_nodes_sz_gb) +  GiB2B(global_edge_nodes_sz_gb) +
     					GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);

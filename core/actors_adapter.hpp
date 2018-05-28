@@ -23,7 +23,7 @@ using namespace std;
 template <class T>
 class ActorAdapter {
 public:
-	ActorAdapter(Config* config , Node node, AbstractMailbox<T>* mailbox) : config_(config), node_(node), mailbox_(mailbox) { }
+	ActorAdapter(Config* config , Node & node, AbstractMailbox<T>* mailbox) : config_(config), node_(node), mailbox_(mailbox) { }
 
 	void Init(){
 		actors_[ACTOR_T::HW] = new HwActor<int>(0, node_, mailbox_);

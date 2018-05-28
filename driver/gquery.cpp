@@ -10,9 +10,11 @@
 #include "core/buffer.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/data_loader.hpp"
-#include "core/actors_adaptor.hpp"
+#include "core/actors_adapter.hpp"
 #include "utils/hdfs_core.hpp"
 #include "storage/layout.hpp"
+#include "base/node.hpp"
+#include "base/node_util.hpp"
 
 
 void shuffle(vector<Vertex*> & vertices, vector<Edge*> & edges, vector<VProperty*> & vplist, vector<EProperty*> & eplist){
@@ -87,18 +89,25 @@ void shuffle(vector<Vertex*> & vertices, vector<Edge*> & edges, vector<VProperty
 	ep_parts.clear();
 }
 
+//program	node_config_file	host_fname
 int main(int argc, char* argv[])
 {
 	init_worker(&argc, &argv);
 
+	//get nodes from config file
+	string node_config_fname = std::string(argv[1]);
+	std::vector<Node> nodes = ParseFile(node_config_fname);
+	CHECK(CheckValidNodeIds(nodes));
+	CHECK(CheckUniquePort(nodes));
+	CHECK(CheckConsecutiveIds(nodes));
+	Node my_node = GetNodeById(nodes, get_node_id());
+
+
 	Config * config = new Config();
 	load_config(*config);
-	config->set_nodes_config(); //TODO UNFINISHED
 	config->set_more();
 
-	string host_fname = std::string(argv[2]);
-
-	NaiveIdMapper * id_mapper = new NaiveIdMapper(config);
+	NaiveIdMapper * id_mapper = new NaiveIdMapper(config, my_node);
 
 	//set the in-memory layout for buffer
 	Buffer<int> * buf = new Buffer<int>(config, id_mapper);
@@ -107,6 +116,7 @@ int main(int argc, char* argv[])
 	buf->SetBuf();
 
 	//init the rdma mailbox
+	string host_fname = std::string(argv[2]);
 	RdmaMailbox<int> * mailbox = RdmaMailbox<int>(config, id_mapper, buf);
 	mailbox->Init(host_fname);
 
@@ -125,7 +135,7 @@ int main(int argc, char* argv[])
 	data_loader->get_vplist(vplist, vertices);
 	data_loader->get_eplist(eplist, edges);
 
-	//data shuffle
+	//=======data shuffle==========
 	shuffle(vertices, edges, vplist, eplist);
 
 	//barrier for data loading
@@ -136,9 +146,9 @@ int main(int argc, char* argv[])
 
 
 	//TODO init node and nodes
-	Node node(1,"localhost", 9000);
+
 	//actor driver starts
-	ActorAdapter<int> * actor_adapter = new ActorAdapter<int>(config, node, mailbox);
+	ActorAdapter<int> * actor_adapter = new ActorAdapter<int>(config, my_node, mailbox);
 	actor_adapter->Start();
 
 	worker_finalize();

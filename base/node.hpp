@@ -15,8 +15,7 @@ using namespace std;
 
 struct Node {
 public:
-
-	int id;
+	uint32_t id;
 	string hostname;
 	int port;
 
