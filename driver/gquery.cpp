@@ -10,6 +10,7 @@
 #include "core/buffer.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/data_loader.hpp"
+#include "core/actors_adaptor.hpp"
 #include "utils/hdfs_core.hpp"
 #include "storage/layout.hpp"
 
@@ -132,6 +133,13 @@ int main(int argc, char* argv[])
 	//=====end of data shuffle======
 
 	//=====load vp_list & ep_list to kv-store =====
+
+
+	//TODO init node and nodes
+	Node node(1,"localhost", 9000);
+	//actor driver starts
+	ActorAdapter<int> * actor_adapter = new ActorAdapter<int>(config, node, mailbox);
+	actor_adapter->Start();
 
 	worker_finalize();
 	return 0;

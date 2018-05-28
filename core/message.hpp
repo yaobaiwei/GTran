@@ -9,16 +9,9 @@
 
 #include <vector>
 #include "base/serialization.hpp"
+#include "utils/type.hpp"
+
 #include "glog/logging.h"
-
-// Spawn: spawn a new actor
-// Feed: "proxy" feed actor a input
-// Reply: actor returns the intermidiate result to actor
-enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, EXIT };
-static const char *TypeName[] = {"spawn", "feed", "reply", "barrier", "exit"};
-
-enum class ACTOR_T : char { ADD, PROXY, HW, OUT };
-static const char *ActorType[] = {"add", "proxy", "hello world", ""};
 
 struct Meta {
   // query

@@ -50,9 +50,10 @@ public:
         while (true) {
         	Message<M> msg_to_recv;
             int machine_id = (scheduler_++) % config_->global_num_machines;
-            if (buffer_->CheckRecvBuf(machine_id))
+            if (buffer_->CheckRecvBuf(machine_id)){
                 buffer_->FetchMsgFromRecvBuf(machine_id, msg_to_recv);
-            return msg_to_recv;
+                return msg_to_recv;
+            }
         }
     }
 
@@ -66,6 +67,7 @@ public:
 				return true;
 			}
 		}
+		return false;
     }
 
     // When sent to the same recv buffer, the consistency relies on
