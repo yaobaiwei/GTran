@@ -47,7 +47,7 @@ struct ptr_t {
 
 enum {VID_BITS = 26}; // <32; the total # of vertices should no be more than 2^26
 enum {EID_BITS = (VID_BITS * 2)}; //eid = v1_id | v2_id (52 bits)
-enum {PID_BITS = (64 - EID_BITS)}; //the total # of property should no be more than 2^PID_BITS
+enum {PID_BITS = (64 - EID_BITS)}; //12, the total # of property should no be more than 2^PID_BITS
 
 //vid: 32bits 0000|00-vid
 struct vid_t {
@@ -177,29 +177,24 @@ uint64_t pid : PID_BITS;
 
 //vpid: 64bits  v_in|v_out|pid
 struct epid_t {
-uint64_t eid : EID_BITS;
+uint64_t in_vid : VID_BITS;
+uint64_t out_vid : VID_BITS;
 uint64_t pid : PID_BITS;
 
-	epid_t(): eid(0), pid(0) { }
+	epid_t(): in_vid(0), out_vid(0), pid(0) { }
 
 	epid_t(eid_t _eid, int _pid): pid(_pid) {
-		uint64_t tmp = _eid.in_v;
-		tmp <<= VID_BITS;
-		tmp += _eid.out_v;
-		eid = tmp;
-        assert((eid == tmp) && (pid == _pid) ); // no key truncate
+		in_vid = _eid.in_v;
+		out_vid = _eid.out_v;
+        assert((in_vid == _eid.in_v) && (out_vid == _eid.out_v) && (pid == _pid) ); // no key truncate
     }
 
-	epid_t(int _in_v, int _out_v, int _pid): pid(_pid) {
-		uint64_t _eid = _in_v;
-		_eid <<= VID_BITS;
-		_eid += _out_v;
-		eid = _eid;
-        assert((eid == _eid) && (pid == _pid) ); // no key truncate
+	epid_t(int _in_v, int _out_v, int _pid): in_vid(_in_v), out_vid(_out_v), pid(_pid) {
+		assert((in_vid == _in_v) && (out_vid == _out_v) && (pid == _pid) ); // no key truncate
     }
 
     bool operator == (const epid_t &epid) {
-        if ((eid == epid.eid) && (pid == epid.pid))
+        if ((in_vid == epid.in_vid) && (out_vid == epid.out_vid) && (pid == epid.pid))
             return true;
         return false;
     }
@@ -208,7 +203,9 @@ uint64_t pid : PID_BITS;
 
     uint64_t value(){
         uint64_t r = 0;
-        r += eid;
+        r += in_vid;
+        r <<= VID_BITS;
+        r += out_vid;
         r <<= PID_BITS;
         r += pid;
         return r;

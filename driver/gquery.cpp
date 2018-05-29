@@ -4,6 +4,9 @@
  *  Created on: May 9, 2018
  *      Author: Hongzhi Chen
  */
+#include "gflags/gflags.h"
+#include "glog/logging.h"
+
 #include "utils/global.hpp"
 #include "utils/config.hpp"
 #include "core/id_mapper.hpp"
@@ -89,23 +92,31 @@ void shuffle(vector<Vertex*> & vertices, vector<Edge*> & edges, vector<VProperty
 	ep_parts.clear();
 }
 
-//program	node_config_file	host_fname
+DEFINE_string(node_config_fname, "", "The node config file path");
+DEFINE_string(host_fname,"", "The host file path");
+
+//
 int main(int argc, char* argv[])
 {
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
+	google::InitGoogleLogging(argv[0]);
+
+	CHECK(!FLAGS_node_config_fname.empty());
+	CHECK(!FLAGS_host_fname.empty());
+	VLOG(1) << FLAGS_node_config_fname << " " << FLAGS_host_fname;
+
 	init_worker(&argc, &argv);
 
 	//get nodes from config file
-	string node_config_fname = std::string(argv[1]);
-	std::vector<Node> nodes = ParseFile(node_config_fname);
+	std::vector<Node> nodes = ParseFile(FLAGS_node_config_fname);
 	CHECK(CheckValidNodeIds(nodes));
 	CHECK(CheckUniquePort(nodes));
 	CHECK(CheckConsecutiveIds(nodes));
 	Node my_node = GetNodeById(nodes, get_node_id());
-
+	LOG(INFO) << my_node.DebugString();
 
 	Config * config = new Config();
-	load_config(*config);
-	config->set_more();
+	config->Init();
 
 	NaiveIdMapper * id_mapper = new NaiveIdMapper(config, my_node);
 

@@ -4,14 +4,17 @@
  *  Created on: May 9, 2018
  *      Author: Hongzhi Chen
  */
-
+//
 #ifndef CONFIG_HPP_
 #define CONFIG_HPP_
 
 #include <cstdint>
 #include <string>
 #include "utils/unit.hpp"
-#include "storage/layout.hpp"
+
+extern "C" {
+#include "utils/iniparser/iniparser.h"
+}
 
 using namespace std;
 
@@ -34,22 +37,19 @@ struct Config{
 	int global_num_machines;
 	int global_num_threads;
 
-	// vertex_nodes_sz = num_vertex_nodes * sz_per_vertex_node (fixed value. bytes)
-	int global_vertex_nodes_sz_gb;
 
-	// edge_nodes_sz = num_edge_nodes * sz_per_vertex_node (fixed value. bytes)
-	int global_edge_nodes_sz_gb;
-
-	// TODO: the structure of property is not decided yet
 	int global_vertex_property_kv_sz_gb;
 	int global_edge_property_kv_sz_gb;
 
-	// TODO: send_buffer_sz should be equal or less than recv_buffer_sz
+
+	// send_buffer_sz should be equal or less than recv_buffer_sz
 	// per send buffer should be exactly ONE msg size
 	int global_per_send_buffer_sz_mb;
 
+
 	// per recv buffer should be able to contain up to N msg
 	int global_per_recv_buffer_sz_mb;
+
 
 	bool global_use_rdma;
 	bool global_enable_caching;
@@ -58,39 +58,28 @@ struct Config{
 
 	//================================================================
 	//mutable_config
-	//maps to vertex_nodes_sz_gb
-	uint32_t max_num_vertex_node;
 
-	//maps to edge_nodes_sz_gb
-	uint32_t max_num_edge_node;
-
-	//maps to global_vertex_property_kv_sz_gb
-	uint32_t max_num_vertex_property;
-
-	//maps to global_edge_property_kv_sz_gb
-	uint32_t max_num_edge_property;
-
-	// data_store = vertex_nodes_sz + edge_nodes_sz + vertex_property_kv_sz + edge_property_kv_sz
-	uint64_t datastore_sz;
-	uint64_t datastore_offset;
+	// kvstore = vertex_property_kv_sz + edge_property_kv_sz
+	uint64_t kvstore_sz;
+	uint64_t kvstore_offset;
 
 	// send_buffer_sz = num_threads * global_per_send_buffer_sz_mb
-	int send_buffer_sz;
+	uint64_t send_buffer_sz;
 	// send_buffer_offset = data_store_sz
 	uint64_t send_buffer_offset;
 
 	// recv_buffer_sz = num_machines * global_per_recv_buffer_sz_mb
-	int recv_buffer_sz;
+	uint64_t recv_buffer_sz;
 	// recv_buffer_offset = global_datastore_sz_gb + send_buffer_sz_mb
 	uint64_t recv_buffer_offset;
 
-	// buffer_sz = data_store_sz + send_buffer_sz + recv_buffer_sz
+	// buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz
 	uint64_t buffer_sz;
 
 
 	//================================================================
 	//settle down after data loading
-	uint64_t datastore;
+	uint64_t kvstore;
 	uint64_t send_buf;
 	uint64_t recv_buf;
 
@@ -99,25 +88,187 @@ struct Config{
 	uint32_t num_vertex_property;
 	uint32_t num_edge_property;
 
-    void set_more(){
-    	max_num_vertex_node = GiB2B(global_vertex_nodes_sz_gb) / sizeof(Vertex);
-    	max_num_vertex_node = GiB2B(global_edge_nodes_sz_gb) / sizeof(Edge);
-    	max_num_vertex_property = GiB2B(global_vertex_property_kv_sz_gb) / sizeof(V_KVpair);  //TODO
-    	max_num_edge_property = GiB2B(global_edge_property_kv_sz_gb) / sizeof(E_KVpair);  //TODO
+    void Init(){
+    	dictionary *ini;
+		int val, val_not_found = -1;
+		char *str, *str_not_found = "null";
 
-    	datastore_sz = GiB2B(global_vertex_nodes_sz_gb) +  GiB2B(global_edge_nodes_sz_gb) +
-    					GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
-    	datastore_offset = 0;
+		const char* GQUERY_HOME = getenv("GQUERY_HOME");
+		if(GQUERY_HOME == NULL)
+		{
+			fprintf(stderr, "must conf the ENV: GQUERY_HOME. exits.\n");
+			exit(-1);
+		}
+		string conf_path(GQUERY_HOME);
+		conf_path.append("/gquery-conf.ini");
+		ini = iniparser_load(conf_path.c_str());
+		if(ini == NULL)
+		{
+			fprintf(stderr, "can not open %s. exits.\n", "gquery-conf.ini");
+			exit(-1);
+		}
+
+		// [HDFS]
+		str = iniparser_getstring(ini,"HDFS:HDFS_HOST_ADDRESS", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_HOST_ADDRESS = str;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_HOST_ADDRESS. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getint(ini, "HDFS:HDFS_PORT", val_not_found);
+		if(val!=val_not_found) HDFS_PORT=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_PORT. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_INPUT_PATH", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_INPUT_PATH=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_INPUT_PATH. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_INDEX_PATH", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_INDEX_PATH=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_INDEX_PATH. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_VTX_SUBFOLDER", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_VTX_SUBFOLDER=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_VTX_SUBFOLDER. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_EDGE_SUBFOLDER", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_EDGE_SUBFOLDER=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_EDGE_SUBFOLDER. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_VP_SUBFOLDER", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_VP_SUBFOLDER=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_VP_SUBFOLDER. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_EP_SUBFOLDER", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_EP_SUBFOLDER=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_EP_SUBFOLDER. exits.\n");
+			exit(-1);
+		}
+
+		str = iniparser_getstring(ini, "HDFS:HDFS_OUTPUT_PATH", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_OUTPUT_PATH=val;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_INPUT_PATH. exits.\n");
+			exit(-1);
+		}
+
+		//[SYSTEM]
+		val = iniparser_getint(ini, "SYSTEM:NUM_MACHINES", val_not_found);
+		if(val!=val_not_found) global_num_machines=val;
+		else
+		{
+			fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
+		if(val!=val_not_found) global_num_threads=val;
+		else
+		{
+			fprintf(stderr, "must enter the NUM_THREADS. exits.\n");
+			exit(-1);
+		}
+
+
+		val = iniparser_getint(ini, "SYSTEM:VTX_P_KV_SZ_GB", val_not_found);
+		if(val!=val_not_found) global_vertex_property_kv_sz_gb=val;
+		else
+		{
+			fprintf(stderr, "must enter the VTX_P_KV_SZ_GB. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getint(ini, "SYSTEM:EDGE_P_KV_SZ_GB", val_not_found);
+		if(val!=val_not_found) global_edge_property_kv_sz_gb=val;
+		else
+		{
+			fprintf(stderr, "must enter the EDGE_P_KV_SZ_GB. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getint(ini, "SYSTEM:PER_SEND_BUF_SZ_MB", val_not_found);
+		if(val!=val_not_found) global_per_send_buffer_sz_mb=val;
+		else
+		{
+			fprintf(stderr, "must enter the PER_SEND_BUF_SZ_MB. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getint(ini, "SYSTEM:PER_RECV_BUF_SZ_MB", val_not_found);
+		if(val!=val_not_found) global_per_recv_buffer_sz_mb=val;
+		else
+		{
+			fprintf(stderr, "must enter the PER_RECV_BUF_SZ_MB. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getboolean(ini, "SYSTEM:USE_RDMA", val_not_found);
+		if(val!=val_not_found) global_use_rdma=val;
+		else
+		{
+			fprintf(stderr, "must enter the USE_RDMA. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_CACHE", val_not_found);
+		if(val!=val_not_found) global_enable_caching=val;
+		else
+		{
+			fprintf(stderr, "must enter the ENABLE_CACHE. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_STEALING", val_not_found);
+		if(val!=val_not_found) global_enable_workstealing=val;
+		else
+		{
+			fprintf(stderr, "must enter the ENABLE_STEALING. exits.\n");
+			exit(-1);
+		}
+
+		iniparser_freedict(ini);
+
+
+    	kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
+    	kvstore_offset = 0;
 
     	send_buffer_sz = global_num_threads * MiB2B(global_per_send_buffer_sz_mb);
-    	send_buffer_offset = datastore_offset + datastore_sz;
+    	send_buffer_offset = kvstore_offset + kvstore_sz;
 
     	recv_buffer_sz = global_num_machines * MiB2B(global_per_recv_buffer_sz_mb);
     	recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
-    	buffer_sz = datastore_sz + send_buffer_sz + recv_buffer_sz;
+    	buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz;
     }
-
 };
 
 #endif /* CONFIG_HPP_ */

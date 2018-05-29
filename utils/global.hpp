@@ -1,6 +1,10 @@
-//Copyright 2018 Husky Data Lab, CUHK
-//Authors: Hongzhi Chen
-
+/*
+ * global.hpp
+ *
+ *  Created on: May 9, 2018
+ *      Author: Hongzhi Chen
+ */
+//
 
 #ifndef GLOBAL_HPP_
 #define GLOBAL_HPP_
@@ -13,12 +17,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <iostream>
-
-#include "utils/config.hpp"
-
-extern "C" {
-#include "utils/iniparser/iniparser.h"
-}
 
 using namespace std;
 
@@ -48,10 +46,5 @@ void mk_dir(const char *dir);
 void rm_dir(string path);
 void check_dir(string path, bool force_write);
 //=========================================================
-
-void load_config(Config & config);
-
-//=====================================================================
-
 
 #endif /* GLOBAL_HPP_ */
