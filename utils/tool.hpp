@@ -114,6 +114,22 @@ public:
 		}
 	}
 
+	//TODO 4 functions
+	vid_t static uint2vid_t(uint64_t id){
+		return id;
+	}
+
+	eid_t static uint2eid_t(uint64_t id){
+		return id;
+	}
+
+	vpid_t static uint2vpid_t(uint64_t id){
+		return id;
+	}
+
+	epid_t static uint2epid_t(uint64_t id){
+		return id;
+	}
 
 private:
 	int checktype(string s){

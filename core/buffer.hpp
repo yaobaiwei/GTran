@@ -54,8 +54,8 @@ public:
     	return config_->buffer_sz;
     }
 
-    inline char * GetVPStore(){
-    	return config_->kvstore;
+    inline KVStore * GetVPStore(){
+    	return vpstore_;
     }
 
     inline uint64_t GetVPStoreSize(){
@@ -66,8 +66,8 @@ public:
     	return config_->kvstore_offset;
     }
 
-    inline char * GetEPStore(){
-    	return config_->kvstore + GiB2B(config_->global_vertex_property_kv_sz_gb);
+    inline KVStore * GetEPStore(){
+    	return epstore_;
     }
 
     inline uint64_t GetEPStoreSize(){

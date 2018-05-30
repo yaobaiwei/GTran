@@ -20,10 +20,10 @@
 
 using namespace std;
 
-template <class T>
+
 class ActorAdapter {
 public:
-	ActorAdapter(Config* config , Node & node, AbstractMailbox<T>* mailbox) : config_(config), node_(node), mailbox_(mailbox) { }
+	ActorAdapter(Config* config , Node & node, AbstractMailbox * mailbox) : config_(config), node_(node), mailbox_(mailbox) { }
 
 	void Init(){
 		actors_[ACTOR_T::HW] = new HwActor<int>(0, node_, mailbox_);
@@ -33,7 +33,7 @@ public:
 	void Start(){
 		Init();
 		for(int i = 0; i < config_->global_num_threads; ++i)
-			thread_pool_.emplace_back(ThreadExecutor);
+			thread_pool_.emplace_back(ThreadExecutor, i);
 	}
 
 	void Stop(){
@@ -44,11 +44,12 @@ public:
 		  delete actor.second;
 	}
 
-	void ThreadExecutor() {
+	void ThreadExecutor(int t_id) {
 	    while (true) {
-	        Message<T> recv_msg = mailbox_->Recv();
+	    	//TODO template should not be fixed in here. BUT HOW!
+	        Message<int> recv_msg = mailbox_->Recv<int>();
 	        ACTOR_T next_actor = recv_msg.meta.qlink[recv_msg.meta.step];
-	        actors_[next_actor]->process(recv_msg);
+	        actors_[next_actor]->process(t_id, recv_msg);
 	    }
 	};
 
@@ -57,11 +58,11 @@ private:
   Config* config_;
 
   // Mailbox
-  AbstractMailbox<T> * mailbox_;
+  AbstractMailbox * mailbox_;
   Node node_;
 
   // Actors pool <actor_type, [actors]>
-  unordered_map<ACTOR_T, AbstractActor<T>*> actors_;
+  unordered_map<ACTOR_T, AbstractActor*> actors_;
 
   // Actor ID counter
   atomic<int> actor_id_counter_;

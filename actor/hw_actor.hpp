@@ -11,16 +11,17 @@
 #include <string>
 
 #include "core/message.hpp"
+#include "core/abstract_mailbox.hpp"
 #include "base/node.hpp"
-#include "base/abstract_mailbox.hpp"
 #include "utils/type.hpp"
 #include "actor/abstract_actor.hpp"
+
 #include "glog/logging.h"
 
-template <class T>
-class HwActor : private AbstractActor<T> {
+
+class HwActor : private AbstractActor {
 public:
-    HwActor(int id, Node node, AbstractMailbox<T>* mailbox) :
+    HwActor(int id, Node node, AbstractMailbox * mailbox) :
         id_(id), node_(node), mailbox_(mailbox) { type_ = ACTOR_T::HW; }
 
     virtual ~HwActor(){}
@@ -29,8 +30,7 @@ public:
         return id_;
     }
 
-    // node0 send out "2018" and "49"
-    // node1 recv msg and print it
+    template <class T>
     virtual void process(int t_id, Message<T>& msg) override {
         if (node_.id == 0){
             // create msg
@@ -47,8 +47,9 @@ public:
 
             // send msg
             mailbox_->Send(t_id, msg_to_send.meta.recver_node, msg_to_send);
+
         }else if (node_.id == 1) {
-            Message<T> msg_to_recv = mailbox_->Recv();
+            Message<T> msg_to_recv = mailbox_->Recv<T>();
 
             // Do checking
             CHECK_EQ(msg_to_recv.meta.sender_node, 0);
@@ -69,7 +70,7 @@ private:
   Node node_;
 
   // Handler of mailbox
-  AbstractMailbox<T>* mailbox_;
+  AbstractMailbox * mailbox_;
 
   // Ensure only one thread ever runs the actor
   std::mutex thread_mutex_;
