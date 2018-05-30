@@ -71,40 +71,40 @@ struct Meta {
 //DataElem should implement serialization operators << & >>
 template <class DataElem>
 class Message {
-  Meta meta;
-  // vector of intermidiate result
-  std::vector<DataElem> data;
+	Meta meta;
+	// vector of intermidiate result
+	std::vector<DataElem> data;
 
-  ibinstream& operator<<(ibinstream& m, const Message& msg)
-  {
-	  m << msg.meta;
-	  m << msg.data;
-	  return m;
-  }
+	ibinstream& operator<<(ibinstream& m, const Message& msg)
+	{
+		m << msg.meta;
+		m << msg.data;
+		return m;
+	}
 
-  obinstream& operator>>(obinstream& m, Message& msg)
-  {
-	  m >> msg.meta;
-	  m >> msg.data;
-	  return m;
-  }
+	obinstream& operator>>(obinstream& m, Message& msg)
+	{
+		m >> msg.meta;
+		m >> msg.data;
+		return m;
+	}
 
-  void AddData(DataElem & e){
-	  data.push_back(e);
-  }
+	void AddData(DataElem & e){
+		data.push_back(e);
+	}
 
-  void AddData(vector<DataElem> & e_list) {
-    data.insert(std::end(data), std::begin(e_list), std::end(e_list));
-  }
+	void AddData(vector<DataElem> & e_list) {
+		data.insert(std::end(data), std::begin(e_list), std::end(e_list));
+	}
 
-  std::string DebugString() const {
-    std::stringstream ss;
-    ss << meta.DebugString();
-    if (data.size()) {
-      ss << " data:";
-      for (const auto &entry : data)
-        ss << " " << entry;
-    }
-    return ss.str();
-  }
+	std::string DebugString() const {
+		std::stringstream ss;
+		ss << meta.DebugString();
+		if (data.size()) {
+			ss << " data:";
+			for (const auto &entry : data)
+				ss << " " << entry;
+		}
+		return ss.str();
+	}
 };

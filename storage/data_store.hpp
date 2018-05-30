@@ -12,12 +12,10 @@
 #include "core/id_mapper.hpp"
 #include "utils/unit.hpp"
 #include "utils/config.hpp"
-#include "storage/abstract_storage.hpp"
 
-// might be revised if RDMA is enabled
-class DataStore : public AbstractStorage {
+class DataStore {
 public:
-	DataStore(){}
+	DataStore(Config * config, AbstractIdMapper * id_mapper, Buffer * buf): config_(config), id_mapper_(id_mapper), buf_(buf){}
 
 	void Set(char* data_store, Config* config, AbstractIdMapper* id_mapper) {
 		data_store_ = data_store;
@@ -64,17 +62,10 @@ public:
       // destructor is not necessary because destructor is trivial
   }
 
-  private:
-    // vertex | edge | property
-    char* data_store_;
-    Config* config_;
-    AbstractIdMapper* id_mapper_;
+private:
+	Buffer * buffer_;
+	AbstractIdMapper* id_mapper_;
+	Config* config_;
 
-    /*
-    // All the vertex in local machine
-    std::vector<int> V;
 
-    // All the edge in local machine
-    std::vector<int> E;
-    */
-  };
+};

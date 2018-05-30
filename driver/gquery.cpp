@@ -120,16 +120,15 @@ int main(int argc, char* argv[])
 
 	NaiveIdMapper * id_mapper = new NaiveIdMapper(config, my_node);
 
-	//set the in-memory layout for buffer
-	Buffer<int> * buf = new Buffer<int>(config, id_mapper);
-	buf->InitBuf();
-	buf->SetStorage();
-	buf->SetBuf();
+	//set the in-memory layout for RDMA buf
+	Buffer * buf = new Buffer(config);
+	buf->Init();
 
 	//init the rdma mailbox
-	string host_fname = std::string(argv[2]);
-	RdmaMailbox<int> * mailbox = RdmaMailbox<int>(config, id_mapper, buf);
-	mailbox->Init(host_fname);
+	RdmaMailbox * mailbox = RdmaMailbox(config, id_mapper, buf);
+	mailbox->Init(FLAGS_host_fname);
+
+	DataStore * datastore = new DataStore(config, id_mapper, buf);
 
 	//load the index and data from HDFS
 	string_index indexes; //index is global, no need to shuffle
@@ -154,9 +153,6 @@ int main(int argc, char* argv[])
 	//=====end of data shuffle======
 
 	//=====load vp_list & ep_list to kv-store =====
-
-
-	//TODO init node and nodes
 
 	//actor driver starts
 	ActorAdapter<int> * actor_adapter = new ActorAdapter<int>(config, my_node, mailbox);

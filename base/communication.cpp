@@ -71,6 +71,8 @@ void send_ibinstream(ibinstream& m, int dst, int tag)
 	pregel_send(m.get_buf(), m.size(), dst, tag);
 }
 
+//TODO
+//OPT Performance, avoid copy before return
 obinstream recv_obinstream(int src, int tag)
 {
 	size_t size;

@@ -79,9 +79,9 @@ struct Config{
 
 	//================================================================
 	//settle down after data loading
-	uint64_t kvstore;
-	uint64_t send_buf;
-	uint64_t recv_buf;
+	char * kvstore;
+	char * send_buf;
+	char * recv_buf;
 
 	uint32_t num_vertex_node;
 	uint32_t num_edge_node;

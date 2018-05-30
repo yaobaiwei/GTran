@@ -1,7 +1,7 @@
 /*
  * rdma_mailbox.hpp
  *
- *  Created on: May 9, 2018
+ *  Created on: May 12, 2018
  *      Author: Hongzhi Chen
  */
 
@@ -13,24 +13,21 @@
 
 #include "core/buffer.hpp"
 #include "core/message.hpp"
-#include "utils/config.hpp"
+#include "core/abstract_mailbox.hpp"
 #include "base/rdma.hpp"
 #include "base/serialization.hpp"
-#include "base/abstract_mailbox.hpp"
+#include "base/abstract_id_mapper.hpp"
+#include "utils/config.hpp"
 #include "utils/global.hpp"
 
 #include "glog/logging.h"
 
-// #include "rdma/rdma.hpp"
-template <class M>
-class RdmaMailbox : public AbstractMailbox<M> {
+
+class RdmaMailbox : public AbstractMailbox {
 public:
-    RdmaMailbox(Config* config, AbstractIdMapper* id_mapper, Buffer<M>* buffer) :
+    RdmaMailbox(Config* config, AbstractIdMapper* id_mapper, Buffer * buffer) :
         config_(config), id_mapper_(id_mapper), buffer_(buffer) {
     	scheduler_ = 0;
-        // Do some checking
-        CHECK_NOTNULL(id_mapper);
-        CHECK_NOTNULL(buffer);
     }
 
     virtual ~RdmaMailbox() {}
@@ -43,6 +40,7 @@ public:
     }
 
     //local read
+    template <class M>
     Message<M> Recv() {
         // Only one thread can enter the handler
         std::lock_guard<std::mutex> lk(recv_mu_);
@@ -51,19 +49,24 @@ public:
         	Message<M> msg_to_recv;
             int machine_id = (scheduler_++) % config_->global_num_machines;
             if (buffer_->CheckRecvBuf(machine_id)){
-                buffer_->FetchMsgFromRecvBuf(machine_id, msg_to_recv);
+            	obinstream um;
+                buffer_->FetchMsgFromRecvBuf(machine_id, um);
+                um >> msg_to_recv;
                 return msg_to_recv;
             }
         }
     }
 
+    template <class M>
     bool TryRecv(Message<M> & msg){
     	// Only one thread can enter the handler
 		std::lock_guard<std::mutex> lk(recv_mu_);
 
 		for (int machine_id = 0; machine_id < config_->global_num_machines; machine_id++) {
 			if (buffer_->CheckRecvBuf(machine_id)){
-				buffer_->FetchMsgFromRecvBuf(machine_id, msg);
+				obinstream um;
+				buffer_->FetchMsgFromRecvBuf(machine_id, um);
+				um >> msg;
 				return true;
 			}
 		}
@@ -72,6 +75,7 @@ public:
 
     // When sent to the same recv buffer, the consistency relies on
     // the lock in the id_mapper
+    template <class M>
     virtual int Send(const int t_id, const int dst_nid, const Message<M>& msg) {
         // get the recv buffer by index
     	ibinstream im;
@@ -98,11 +102,9 @@ public:
 			off += ceil(data_sz, sizeof(uint64_t));
 			*((uint64_t *)(recv_buf_ptr + off % rbf_sz)) = data_sz;       // footer
         }else{
-        	//TODO
-        	//????
-        	//why we must follow Wukong's design to copy send-data to send-buf first???
-        	//????
         	// prepare RDMA buffer for RDMA-WRITE
+        	//TODO
+        	//why we must follow Wukong's design to copy send-data to send-buf first???
 			char *rdma_buf = buffer_->GetSendBuf(t_id);
 
 			*((uint64_t *)rdma_buf) = data_sz;  // header
@@ -136,7 +138,7 @@ public:
 private:
     Config* config_;
     AbstractIdMapper* id_mapper_;
-    Buffer<M>* buffer_;
+    Buffer * buffer_;
 
     // round-robin scheduler
     int scheduler_;

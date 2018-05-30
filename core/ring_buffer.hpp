@@ -1,15 +1,21 @@
+/*
+ * ring_buffer.hpp
+ *
+ *  Created on: May 12, 2018
+ *      Author: Hongzhi Chen
+ */
+
 #pragma once
 
 #include <stdio.h>
 #include <string.h>
 
-#include "core/message.hpp"
 #include "base/serialization.hpp"
 #include "utils/unit.hpp"
 
-template <class MSG>
 class RingBuffer {
 public:
+	RingBuffer(){}
     RingBuffer(char* buffer, int size) : buffer_(buffer), size_(size), header_(0) {}
 
     void Init() {
@@ -17,7 +23,7 @@ public:
     }
 
     // The first byte of msg should not be 0
-    bool Pop(MSG & pop_msg) {
+    bool Pop(obinstream & um) {
         // check header
     	uint64_t pop_msg_size = CheckHeader();
         if (pop_msg_size) {
@@ -37,16 +43,17 @@ public:
 
                 //register tmp_buf into obinstream,
                 //the obinstream will charge the memory of buf, including memory release
-                obinstream um = obinstream(tmp_buf, pop_msg_size);
-                um >> pop_msg;
+                um.assign(tmp_buf, pop_msg_size, 0);
                 
                 // clean
                 memset(buffer_ + start, 0, pop_msg_size - end);
                 memset(buffer_, 0, ceil(end, sizeof(uint64_t)));
             }
             else {
-                obinstream um = obinstream(buffer_ + start, pop_msg_size);
-                um >> pop_msg;
+            	char* tmp_buf = new char[pop_msg_size];
+            	memcpy(tmp_buf, buffer_ + start, pop_msg_size);
+
+            	um.assign(tmp_buf, pop_msg_size, 0);
 
                 // clean the data
                 memset(buffer_ + start, 0, ceil(pop_msg_size, sizeof(uint64_t)));
