@@ -230,6 +230,15 @@ struct kv_pair {
 	value_t value;
 };
 
+//the return value from kv_store
+//type
+//1->int, 2->double, 3->char, 4->string
+struct elem_t{
+	uint8_t type;
+	uint32_t sz;
+	char * content;
+};
+
 struct string_index{
 	unordered_map<string, label_t> str2el; //map to edge_label
 	unordered_map<label_t, string> el2str;
