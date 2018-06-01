@@ -3,7 +3,7 @@
 #include <queue> 
 
 #include "core/message.hpp"
-#include "base/abstract_mailbox.hpp"
+#include "core/abstract_mailbox.hpp"
 #include "base/abstract_sender.hpp"
 
 class Sender : public AbstractSender {

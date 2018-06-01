@@ -45,6 +45,38 @@ struct ptr_t {
     }
 };
 
+// 128-bit vp/ep-key (key)
+struct ikey_t {
+    /* 64-bit: 26   | 26    | 12
+    * Vertex: v-id | 0x26  | property-id
+    * Edge:   in-v | out-v | property-id
+    */
+    uint64_t pid;
+    // 64-bit: size | off
+    ptr_t ptr;
+
+	ikey_t(){
+	    pid = 0;
+	}
+
+    ikey_t(uint64_t _pid, ptr_t _ptr){
+        pid = _pid;
+        ptr = _ptr;
+    }
+
+    bool operator == (const ikey_t &key) {
+        if (pid == key.pid)
+            return true;
+        return false;
+    }
+
+    bool operator != (const ikey_t &key) {
+        return !(operator == (key));
+    }
+
+    bool is_empty() { return pid == 0; }
+};
+
 enum {VID_BITS = 26}; // <32; the total # of vertices should no be more than 2^26
 enum {EID_BITS = (VID_BITS * 2)}; //eid = v1_id | v2_id (52 bits)
 enum {PID_BITS = (64 - EID_BITS)}; //12, the total # of property should no be more than 2^PID_BITS
@@ -234,6 +266,7 @@ struct kv_pair {
 //type
 //1->int, 2->double, 3->char, 4->string
 struct elem_t{
+	elem_t():sz(0), type(0), content(NULL){}
 	uint8_t type;
 	uint32_t sz;
 	char * content;

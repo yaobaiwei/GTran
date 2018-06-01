@@ -26,17 +26,12 @@ public:
     }
 
     ~Buffer() {
-    	delete vpstore_;
-    	delete epstore_;
     	for (int i = 0; i < config_->global_num_machines; i ++)
     		delete rdma_recv_buffer_[i];
         delete[] buffer_;
     }
 
     void Init() {
-    	vpstore_ = new KVStore(config_->kvstore, GiB2B(config_->global_vertex_property_kv_sz_gb));
-    	epstore_ = new KVStore(config_->kvstore + GiB2B(config_->global_vertex_property_kv_sz_gb), GiB2B(config_->global_edge_property_kv_sz_gb));
-
         for (int i = 0; i < config_->global_num_threads; i ++)
             rdma_send_buffer_.push_back(buffer_ + config_->send_buffer_offset + i * MiB2B(config_->global_per_send_buffer_sz_mb));
 
@@ -54,20 +49,12 @@ public:
     	return config_->buffer_sz;
     }
 
-    inline KVStore * GetVPStore(){
-    	return vpstore_;
-    }
-
     inline uint64_t GetVPStoreSize(){
     	return GiB2B(config_->global_vertex_property_kv_sz_gb);
     }
 
     inline uint64_t GetVPStoreOffset(){
     	return config_->kvstore_offset;
-    }
-
-    inline KVStore * GetEPStore(){
-    	return epstore_;
     }
 
     inline uint64_t GetEPStoreSize(){
@@ -119,9 +106,6 @@ private:
     // layout: (kv-store) | send_buffer | recv_buffer
     char* buffer_;
     Config* config_;
-
-    KVStore * vpstore_;
-    KVStore * epstore_;
 
     // TODO: check overflow for rdma_send_buffer
     std::vector<char*> rdma_send_buffer_;

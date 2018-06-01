@@ -56,15 +56,15 @@ int main(int argc, char* argv[])
 	mailbox->Init(FLAGS_host_fname);
 
 	DataStore * datastore = new DataStore(config, id_mapper, buf);
+	datastore->Init();
+
 	datastore->LoadDataFromHDFS();
 	//=======data shuffle==========
 	datastore->Shuffle();
 	worker_barrier();
 	//=======data shuffle==========
 
-	//TODO
-	//load vp_list & ep_list to kv-store
-	datastore->Load2KVStore();
+	datastore->DataConverter();
 
 
 	//actor driver starts

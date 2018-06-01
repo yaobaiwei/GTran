@@ -4,7 +4,7 @@
 #include <queue>
 #include <condition_variable>
 
-#include "base/abstract_thread_safe_queue.hpp"
+#include "core/abstract_thread_safe_queue.hpp"
 
 template <typename T> 
 class ThreadSafeQueue : public AbstractThreadSafeQueue<T> {

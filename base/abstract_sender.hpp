@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/message.hpp"
+#include "core/message.hpp"
 
 class AbstractSender {
 public:

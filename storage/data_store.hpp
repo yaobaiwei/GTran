@@ -21,7 +21,10 @@
 #include "utils/tool.hpp"
 #include "utils/global.hpp"
 #include "core/id_mapper.hpp"
+#include "core/buffer.hpp"
 #include "base/communication.hpp"
+#include "storage/vkvstore.hpp"
+#include "storage/ekvstore.hpp"
 
 using __gnu_cxx::hash_map;
 using __gnu_cxx::hash_set;
@@ -31,8 +34,21 @@ public:
 	DataStore(Config * config, AbstractIdMapper * id_mapper, Buffer * buf): config_(config), id_mapper_(id_mapper), buffer_(buf){
 		vtx_count = 0;
 		edge_count = 0;
+		vpstore_ = NULL;
+		epstore_ = NULL;
 	}
 
+	~DataStore(){
+		delete vpstore_;
+		delete epstore_;
+	}
+
+	void Init(){
+    	vpstore_ = new VKVStore(config_, buffer_);
+    	epstore_ = new EKVStore(config_, buffer_);
+    	vpstore_->init();
+    	epstore_->init();
+	}
 	//index format
 	//string \t index [int]
 	/*
@@ -127,35 +143,74 @@ public:
 		ep_parts.clear();
 	}
 
-	//vplist & eplist
-	void Load2KVStore(){
-		KVStore * vp_kvs = buffer_->GetVPStore();
-		KVStore * ep_kvs = buffer_->GetEPStore();
-		//...
+
+	void DataConverter(){
+
+		for(int i = 0 ; i < vertices.size(); i++){
+			v_table[vertices[i]->id] = vertices[i];
+		}
+		vector<Vertex*>().swap(vertices);
+
+		for(int i = 0 ; i < edges.size(); i++){
+			e_table[edges[i]->id] = edges[i];
+		}
+		vector<Edge*>().swap(edges);
+
+		vpstore_->insert_vertex_properties(vplist);
+		//clean the vp_list
+		for(int i = 0 ; i < vplist.size(); i++) delete vplist[i];
+		vector<VProperty*>().swap(vplist);
+
+		epstore_->insert_edge_properties(eplist);
+		//clean the ep_list
+		for(int i = 0 ; i < eplist.size(); i++) delete eplist[i];
+		vector<EProperty*>().swap(eplist);
 	}
 
-	//TODO get by id locally or remotely
-	virtual Vertex* GetVertex(vid_t v_id) override {
+	Vertex* GetVertex(vid_t v_id){
 		CHECK(id_mapper_->IsVertexLocal(v_id));
-
-
+		return v_table[v_id];
 	}
 
-	virtual Edge* GetEdge(eid_t e_id) override {
+	Edge* GetEdge(eid_t e_id){
 		CHECK(id_mapper_->IsEdgeLocal(e_id));
-
+		return e_table[e_id];
 	}
 
 
-	virtual value_t* GetPropertyForVertex(vpid_t vp_id) override {
-		CHECK(id_mapper_->IsVPropertyLocal(vp_id));
+	void GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
+		elem_t em;
+		if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
+			vpstore_->get_property_local(vp_id.value(), em);
+		}else{										//remotely
+			vpstore_->get_property_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), em);
+		}
 
+		if(em.sz > 0){
+			val.type = em.type;
+			val.content.resize(em.sz);
+			std::copy(em.content, em.content+em.sz, val.content.begin());
+		}else{
+			fprintf(stderr,"ERROR: Failed to get property based on vp_id\n");
+		}
 	}
 
 
-	virtual value_t* GetPropertyForEdge(epid_t ep_id) override {
-		CHECK(id_mapper_->IsEPropertyLocal(ep_id));
+	void GetPropertyForEdge(int tid, epid_t ep_id, value_t & val){
+		elem_t em;
+		if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
+			epstore_->get_property_local(ep_id.value(), em);
+		}else{										//remotely
+			epstore_->get_property_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), em);
+		}
 
+		if(em.sz > 0){
+			val.type = em.type;
+			val.content.resize(em.sz);
+			std::copy(em.content, em.content+em.sz, val.content.begin());
+		}else{
+			fprintf(stderr,"ERROR: Failed to get property based on ep_id\n");
+		}
 	}
 
 private:
@@ -166,6 +221,13 @@ private:
 
 	//load the index and data from HDFS
 	string_index indexes; //index is global, no need to shuffle
+	hash_map<vid_t, Vertex*> v_table;
+	hash_map <eid_t, Edge*> e_table;
+
+    VKVStore * vpstore_;
+    EKVStore * epstore_;
+	//=========tmp usage=========
+
 	vector<Vertex*> vertices;
 	vector<Edge*> edges;
 	vector<VProperty*> vplist;
@@ -174,9 +236,10 @@ private:
 	hash_map<vid_t, uint32_t> vtx_offset_map;
 	hash_map<eid_t, uint32_t> edge_offset_map;
 
-	//for tmp usage
 	uint32_t vtx_count;
 	uint32_t edge_count;
+
+	//==========tmp usage=========
 
 	void get_string_indexes()
 	{

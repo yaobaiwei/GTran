@@ -8,7 +8,7 @@
 #ifndef IDMAPPER_HPP_
 #define IDMAPPER_HPP_
 
-#include "base/abstract_id_mapper.hpp"
+#include "core/abstract_id_mapper.hpp"
 #include "utils/config.hpp"
 #include "utils/unit.hpp"
 #include "utils/type.hpp"
