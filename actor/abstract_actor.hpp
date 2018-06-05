@@ -15,14 +15,19 @@
 
 class AbstractActor {
 public:
-  virtual ~AbstractActor() {}
+	AbstractActor(int id):id_(id){}
 
-  virtual const int GetActorId() = 0;
+	virtual ~AbstractActor() {}
 
-  template <class T>
-  virtual void process(int t_id, Message<T> & msg) = 0;
+
+	const int GetActorId(){return id_;}
+
+
+	virtual void process(int t_id, Message & msg) = 0;
 
 private:
+  // Actor ID
+  int id_;
 };
 
 #endif /* ABSTRACT_ACTOR_HPP_ */

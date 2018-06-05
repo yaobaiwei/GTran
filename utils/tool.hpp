@@ -114,7 +114,7 @@ public:
 		}
 	}
 
-	//TODO 4 functions
+	//TODO 4 type convert functions
 	vid_t static uint2vid_t(uint64_t id){
 		return id;
 	}

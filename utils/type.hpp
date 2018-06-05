@@ -13,7 +13,9 @@
 #include <string.h>
 #include <ext/hash_map>
 #include <ext/hash_set>
+
 #include "utils/mymath.hpp"
+#include "base/serialization.hpp"
 
 using __gnu_cxx::hash_map;
 using __gnu_cxx::hash_set;
@@ -287,9 +289,35 @@ struct string_index{
 // Feed: "proxy" feed actor a input
 // Reply: actor returns the intermidiate result to actor
 enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, EXIT };
-static const char *TypeName[] = {"spawn", "feed", "reply", "barrier", "exit"};
+static const char *MsgType[] = {"spawn", "feed", "reply", "barrier", "exit"};
+
+ibinstream& operator<<(ibinstream& m, const MSG_T& type){
+	int t = type;
+	m << t;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, MSG_T& type){
+	int tmp;
+	m >> tmp;
+	type = static_cast<MSG_T>(tmp);
+	return m;
+}
 
 enum class ACTOR_T : char { ADD, PROXY, HW, OUT };
 static const char *ActorType[] = {"add", "proxy", "hello world", ""};
+
+ibinstream& operator<<(ibinstream& m, const ACTOR_T& type){
+	int t = type;
+	m << t;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, ACTOR_T& type){
+	int tmp;
+	m >> tmp;
+	type = static_cast<ACTOR_T>(tmp);
+	return m;
+}
 
 #endif /* TYPE_HPP_ */

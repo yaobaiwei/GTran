@@ -30,7 +30,6 @@
 
 #pragma GCC diagnostic warning "-fpermissive"
 
-#define HAS_RDMA
 #define DEFAULT_THREAD_CHL 0
 
 #include <iostream>     // std::cout

@@ -21,6 +21,7 @@
 using namespace std;
 
 #define MASTER_RANK 0
+#define COMMUN_CHANNEL 200
 //============================
 
 extern int _my_rank;

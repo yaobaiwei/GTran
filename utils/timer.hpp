@@ -8,6 +8,7 @@
 #ifndef TIMER_HPP_
 #define TIMER_HPP_
 
+#include <emmintrin.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdint.h>

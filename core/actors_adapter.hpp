@@ -15,6 +15,8 @@
 
 #include "utils/config.hpp"
 #include "utils/type.hpp"
+#include "base/node.hpp"
+#include "core/abstract_mailbox.hpp"
 #include "actor/abstract_actor.hpp"
 
 
@@ -46,9 +48,8 @@ public:
 
 	void ThreadExecutor(int t_id) {
 	    while (true) {
-	    	//TODO template should not be fixed in here. BUT HOW!
-	        Message<int> recv_msg = mailbox_->Recv<int>();
-	        ACTOR_T next_actor = recv_msg.meta.qlink[recv_msg.meta.step];
+	        Message recv_msg = mailbox_->Recv();
+	        ACTOR_T next_actor = recv_msg.meta.chains[recv_msg.meta.step];
 	        actors_[next_actor]->process(t_id, recv_msg);
 	    }
 	};

@@ -1,11 +1,10 @@
-include_directories(${PROJECT_SOURCE_DIR} ${GQS_EXTERNAL_INCLUDE})
+include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
+ 
+file(GLOB store-src-files
+    ekvstore.cpp
+    vkvstore.cpp
+    )
 
-file(GLOB storage-src-files
-  abstract_storage.hpp
-  storage.hpp
-  abstract_cache.hpp)
+add_library(store-objs OBJECT ${store-src-files})
 
-add_library(storage-objs OBJECT ${storage-src-files})
-set_property(TARGET storage-objs PROPERTY CXX_STANDARD 11)
-add_dependencies(storage-objs ${external_project_dependencies})
-
+#target_link_libraries(store-objs ${GQUERY_EXTERNAL_LIBRARIES})

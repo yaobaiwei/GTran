@@ -2,8 +2,6 @@
 //Authors: Hongzhi Chen, Miao Liu
 //Acknowledgements: this code is implemented by referencing pregel-mpi (https://code.google.com/p/pregel-mpi/) by Chuntao Hong.
 
-#include <vector>
-#include "utils/global.hpp"
 #include "base/communication.hpp"
 
 using namespace std;
@@ -51,12 +49,12 @@ bool all_land(bool my_copy)
 }
 
 //============================================
-void pregel_send(void* buf, int size, int dst, int tag)
+void pregel_send(void* buf, int size, int dst, int tag = COMMUN_CHANNEL)
 {
 	MPI_Send(buf, size, MPI_CHAR, dst, tag, MPI_COMM_WORLD);
 }
 
-int pregel_recv(void* buf, int size, int src, int tag) //return the actual source, since "src" can be MPI_ANY_SOURCE
+int pregel_recv(void* buf, int size, int src, int tag = COMMUN_CHANNEL) //return the actual source, since "src" can be MPI_ANY_SOURCE
 {
 	MPI_Status status;
 	MPI_Recv(buf, size, MPI_CHAR, src, tag, MPI_COMM_WORLD, &status);
@@ -64,7 +62,7 @@ int pregel_recv(void* buf, int size, int src, int tag) //return the actual sourc
 }
 
 //============================================
-void send_ibinstream(ibinstream& m, int dst, int tag)
+void send_ibinstream(ibinstream& m, int dst, int tag = COMMUN_CHANNEL)
 {
 	size_t size = m.size();
 	pregel_send(&size, sizeof(size_t), dst, tag);
@@ -73,7 +71,7 @@ void send_ibinstream(ibinstream& m, int dst, int tag)
 
 //TODO
 //OPT Performance, avoid copy before return
-obinstream recv_obinstream(int src, int tag)
+obinstream recv_obinstream(int src, int tag = COMMUN_CHANNEL)
 {
 	size_t size;
 	src = pregel_recv(&size, sizeof(size_t), src, tag); //must receive the content (paired with the msg-size) from the msg-size source

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/abstract_thread_safe_queue.hpp"
+#include "core/abstract_thread_safe_queue.hpp"
 #include "core/ring_buffer.hpp"
 
 template <typename T>

@@ -1,13 +1,15 @@
 //Copyright 2018 Husky Data Lab, CUHK
 //Authors: Hongzhi Chen, Miao Liu
-//Acknowledgements: this code is implemented by referencing pregel-mpi (https://code.google.com/p/pregel-mpi/) by Chuntao Hong.
 
 
 #ifndef COMMUNICATION_HPP_
 #define COMMUNICATION_HPP_
 
 #include <mpi.h>
+
 #include <vector>
+#include "base/serialization.hpp"
+#include "utils/global.hpp"
 
 using namespace std;
 //============================================
@@ -26,17 +28,15 @@ bool all_land(bool my_copy);
 
 //============================================
 
-void pregel_send(void* buf, int size, int dst, int tag = 200);
+void pregel_send(void* buf, int size, int dst, int tag);
 
-int pregel_recv(void* buf, int size, int src, int tag = 200); //return the actual source, since "src" can be MPI_ANY_SOURCE
+int pregel_recv(void* buf, int size, int src, int tag); //return the actual source, since "src" can be MPI_ANY_SOURCE
 
 //============================================
 
-void send_ibinstream(ibinstream& m, int dst, int tag = 200);
+void send_ibinstream(ibinstream& m, int dst, int tag);
 
-obinstream recv_obinstream(int src, int tag = 200);
-
-obinstream recv_obinstream(int src, int tag, int& true_src);
+obinstream recv_obinstream(int src, int tag);
 
 //============================================
 //obj-level send/recv

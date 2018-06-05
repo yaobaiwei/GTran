@@ -6,7 +6,6 @@
  */
 //
 #include "base/node_util.hpp"
-#include "glog/logging.h"
 
 #include <fstream>
 #include <stdexcept>
