@@ -8,7 +8,7 @@
 #ifndef ACTORS_ADAPTER_HPP_
 #define ACTORS_ADAPTER_HPP_
 
-#include <unordered_map>
+#include <map>
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -18,7 +18,7 @@
 #include "base/node.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "actor/abstract_actor.hpp"
-
+#include "actor/hw_actor.hpp"
 
 using namespace std;
 
@@ -28,22 +28,19 @@ public:
 	ActorAdapter(Config* config , Node & node, AbstractMailbox * mailbox) : config_(config), node_(node), mailbox_(mailbox) { }
 
 	void Init(){
-		actors_[ACTOR_T::HW] = new HwActor<int>(0, node_, mailbox_);
+		actors_[ACTOR_T::HW] = unique_ptr<AbstractActor>(new HwActor(0, node_, mailbox_));
 		//TODO add more
 	}
 
 	void Start(){
 		Init();
 		for(int i = 0; i < config_->global_num_threads; ++i)
-			thread_pool_.emplace_back(ThreadExecutor, i);
+			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
 	}
 
 	void Stop(){
 	  for (auto &thread : thread_pool_)
 		thread.join();
-
-	  for (auto actor : actors_)
-		  delete actor.second;
 	}
 
 	void ThreadExecutor(int t_id) {
@@ -63,7 +60,7 @@ private:
   Node node_;
 
   // Actors pool <actor_type, [actors]>
-  unordered_map<ACTOR_T, AbstractActor*> actors_;
+  map<ACTOR_T, unique_ptr<AbstractActor>> actors_;
 
   // Actor ID counter
   atomic<int> actor_id_counter_;

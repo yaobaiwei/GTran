@@ -70,6 +70,7 @@ class RDMA {
             }
 
             while (1) {
+            	int connected = 0;
             	for (uint i = 0; i < num_nodes; ++i) {
 					Qp *qp = ctrl->create_rc_qp(DEFAULT_THREAD_CHL, i, 0, 1);
 					if (qp->inited_) connected += 1;

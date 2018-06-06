@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <string>
 #include <vector>
 
@@ -24,8 +25,11 @@ using namespace std;
 static const int HDFS_BUF_SIZE = 65536;
 static const int LINE_DEFAULT_SIZE = 4096;
 static const int HDFS_BLOCK_SIZE = 8388608; // 8M
+static string HDFS_HOST_ADDRESS = "";
+static int HDFS_PORT = -1;
 
 //====== get File System ======
+void hdfs_init(string _host, int _port);
 
 hdfsFS get_hdfs_fs();
 

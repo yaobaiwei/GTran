@@ -43,7 +43,7 @@ public:
             msg_to_send.AddData(send_data);
 
             // send msg
-            mailbox_->Send(t_id, msg_to_send.meta.recver, msg_to_send);
+            mailbox_->Send(t_id, msg_to_send);
 
         }else if (node_.id == 1) {
             Message msg_to_recv = mailbox_->Recv();

@@ -5,10 +5,17 @@
 
 const char* newLine = "\n";
 
+void hdfs_init(string _host, int _port){
+	HDFS_HOST_ADDRESS = _host;
+	HDFS_PORT = _port;
+}
+
 //====== get File System ======
 
 hdfsFS get_hdfs_fs()
 {
+	assert(HDFS_HOST_ADDRESS!="" && HDFS_PORT!=-1);
+
 #ifdef USE_HDFS2_
 	hdfsBuilder * bld = hdfsNewBuilder();
 	hdfsBuilderSetNameNode(bld, HDFS_HOST_ADDRESS.c_str());
@@ -923,7 +930,7 @@ vector<string>* dispatch_locality(const char* in_dir, int num_slaves) //remember
 vector<vector<string> >* dispatch_run(const char* in_dir) //remember to delete assignment after used
 {
 	//locality is not considered for simplicity
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(_num_workers);
+	vector<vector<string> >* assignment_pointer = new vector<vector<string>>(get_num_nodes());
 	vector<vector<string> >& assignment = *assignment_pointer;
 	hdfsFS fs = get_hdfs_fs();
 	int num_files;
@@ -933,8 +940,8 @@ vector<vector<string> >* dispatch_run(const char* in_dir) //remember to delete a
 		fprintf(stderr, "Failed to list directory %s!\n", in_dir);
 		exit(-1);
 	}
-	tOffset* assigned = new tOffset[_num_workers];
-	for (int i = 0; i < _num_workers; i++)
+	tOffset* assigned = new tOffset[get_num_nodes()];
+	for (int i = 0; i < get_num_nodes(); i++)
 		assigned[i] = 0;
 	//sort files by size
 	vector<sizedFName> sizedfile;
@@ -953,7 +960,7 @@ vector<vector<string> >* dispatch_run(const char* in_dir) //remember to delete a
 	{
 		int min = 0;
 		tOffset minSize = assigned[0];
-		for (int j = 1; j < _num_workers; j++)
+		for (int j = 1; j < get_num_nodes(); j++)
 		{
 			if (minSize > assigned[j])
 			{
@@ -973,7 +980,7 @@ vector<vector<string> >* dispatch_run(const char* in_dir) //remember to delete a
 vector<vector<string> >* dispatch_run(vector<string>& in_dirs) //remember to delete assignment after used
 {
 	//locality is not considered for simplicity
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(_num_workers);
+	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(get_num_nodes());
 	vector<vector<string> >& assignment = *assignment_pointer;
 	hdfsFS fs = get_hdfs_fs();
 	vector<sizedFString> sizedfile;
@@ -1000,8 +1007,8 @@ vector<vector<string> >* dispatch_run(vector<string>& in_dirs) //remember to del
 	hdfsDisconnect(fs);
 	//sort files by size
 	sort(sizedfile.begin(), sizedfile.end());
-	tOffset* assigned = new tOffset[_num_workers];
-	for (int i = 0; i < _num_workers; i++)
+	tOffset* assigned = new tOffset[get_num_nodes()];
+	for (int i = 0; i < get_num_nodes(); i++)
 		assigned[i] = 0;
 	//allocate files to slaves
 	vector<sizedFString>::iterator it;
@@ -1009,7 +1016,7 @@ vector<vector<string> >* dispatch_run(vector<string>& in_dirs) //remember to del
 	{
 		int min = 0;
 		tOffset minSize = assigned[0];
-		for (int j = 1; j < _num_workers; j++)
+		for (int j = 1; j < get_num_nodes(); j++)
 		{
 			if (minSize > assigned[j])
 			{
@@ -1034,7 +1041,7 @@ vector<vector<string> >* dispatch_run(vector<string>& in_dirs) //remember to del
 vector<vector<string> >* dispatch_locality(const char* in_dir) //remember to delete assignment after used
 {
 	//considers locality
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(_num_workers);
+	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(get_num_nodes());
 	vector<vector<string> >& assignment = *assignment_pointer;
 	hdfsFS fs = get_hdfs_fs();
 	int num_files;
@@ -1044,8 +1051,8 @@ vector<vector<string> >* dispatch_locality(const char* in_dir) //remember to del
 		fprintf(stderr, "Failed to list directory %s!\n", in_dir);
 		exit(-1);
 	}
-	tOffset* assigned = new tOffset[_num_workers];
-	for (int i = 0; i < _num_workers; i++)
+	tOffset* assigned = new tOffset[get_num_nodes()];
+	for (int i = 0; i < get_num_nodes(); i++)
 		assigned[i] = 0;
 	//sort files by size
 	vector<sizedFName> sizedfile;
@@ -1059,7 +1066,7 @@ vector<vector<string> >* dispatch_locality(const char* in_dir) //remember to del
 			avg += fileinfo[i].mSize;
 		}
 	}
-	avg /= _num_workers;
+	avg /= get_num_nodes();
 	sort(sizedfile.begin(), sizedfile.end());
 	//allocate files to slaves
 	vector<sizedFName>::iterator it;
@@ -1083,7 +1090,7 @@ vector<vector<string> >* dispatch_locality(const char* in_dir) //remember to del
 	{
 		int min = 0;
 		tOffset minSize = assigned[0];
-		for (int j = 1; j < _num_workers; j++)
+		for (int j = 1; j < get_num_nodes(); j++)
 		{
 			if (minSize > assigned[j])
 			{
@@ -1103,7 +1110,7 @@ vector<vector<string> >* dispatch_locality(const char* in_dir) //remember to del
 vector<vector<string> >* dispatch_locality(vector<string>& in_dirs) //remember to delete assignment after used
 {
 	//considers locality
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(_num_workers);
+	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(get_num_nodes());
 	vector<vector<string> >& assignment = *assignment_pointer;
 	hdfsFS fs = get_hdfs_fs();
 	vector<sizedFString> sizedfile;
@@ -1130,11 +1137,11 @@ vector<vector<string> >* dispatch_locality(vector<string>& in_dirs) //remember t
 		hdfsFreeFileInfo(fileinfo, num_files);
 	}
 	hdfsDisconnect(fs);
-	tOffset* assigned = new tOffset[_num_workers];
-	for (int i = 0; i < _num_workers; i++)
+	tOffset* assigned = new tOffset[get_num_nodes()];
+	for (int i = 0; i < get_num_nodes(); i++)
 		assigned[i] = 0;
 	//sort files by size
-	avg /= _num_workers;
+	avg /= get_num_nodes();
 	sort(sizedfile.begin(), sizedfile.end());
 	//allocate files to slaves
 	vector<sizedFString>::iterator it;
@@ -1158,7 +1165,7 @@ vector<vector<string> >* dispatch_locality(vector<string>& in_dirs) //remember t
 	{
 		int min = 0;
 		tOffset minSize = assigned[0];
-		for (int j = 1; j < _num_workers; j++)
+		for (int j = 1; j < get_num_nodes(); j++)
 		{
 			if (minSize > assigned[j])
 			{
@@ -1188,7 +1195,7 @@ void report_assignment(vector<string>* assignment, int num_slaves)
 
 void report_assignment(vector<vector<string> >* assignment)
 {
-	for (int i = 0; i < _num_workers; i++)
+	for (int i = 0; i < get_num_nodes(); i++)
 	{
 		cout << "====== Rank " << i << " ======" << endl;
 		vector<string>::iterator it;

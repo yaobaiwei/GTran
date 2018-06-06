@@ -292,7 +292,7 @@ enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, EXIT };
 static const char *MsgType[] = {"spawn", "feed", "reply", "barrier", "exit"};
 
 ibinstream& operator<<(ibinstream& m, const MSG_T& type){
-	int t = type;
+	int t = static_cast<int>(type);
 	m << t;
 	return m;
 }
@@ -308,7 +308,7 @@ enum class ACTOR_T : char { ADD, PROXY, HW, OUT };
 static const char *ActorType[] = {"add", "proxy", "hello world", ""};
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type){
-	int t = type;
+	int t = static_cast<int>(type);
 	m << t;
 	return m;
 }

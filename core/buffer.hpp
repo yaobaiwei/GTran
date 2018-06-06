@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "utils/config.hpp"
 #include "utils/unit.hpp"
 #include "core/ring_buffer.hpp"
@@ -26,8 +28,6 @@ public:
     }
 
     ~Buffer() {
-    	for (int i = 0; i < config_->global_num_machines; i ++)
-    		delete rdma_recv_buffer_[i];
         delete[] buffer_;
     }
 

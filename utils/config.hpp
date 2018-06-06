@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <string>
 #include "utils/unit.hpp"
+#include "utils/hdfs_core.hpp"
 
 extern "C" {
 #include "utils/iniparser/iniparser.h"
@@ -268,6 +269,9 @@ struct Config{
     	recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
     	buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz;
+
+    	//init hdfs
+    	hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);
     }
 };
 

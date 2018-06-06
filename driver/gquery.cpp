@@ -5,17 +5,17 @@
  *      Author: Hongzhi Chen
  */
 
-
+#include "base/node.hpp"
+#include "base/node_util.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
+#include "utils/hdfs_core.hpp"
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/actors_adapter.hpp"
-#include "utils/hdfs_core.hpp"
 #include "storage/layout.hpp"
-#include "base/node.hpp"
-#include "base/node_util.hpp"
+#include "storage/data_store.hpp"
 
 #include "glog/logging.h"
 
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 	buf->Init();
 
 	//init the rdma mailbox
-	RdmaMailbox * mailbox = RdmaMailbox(config, id_mapper, buf);
+	RdmaMailbox * mailbox = new RdmaMailbox(config, id_mapper, buf);
 	mailbox->Init(host_fname);
 
 	DataStore * datastore = new DataStore(config, id_mapper, buf);

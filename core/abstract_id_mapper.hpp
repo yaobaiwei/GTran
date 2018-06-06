@@ -8,6 +8,9 @@
 #ifndef ABSTRACT_IDMAPPER_HPP_
 #define ABSTRACT_IDMAPPER_HPP_
 
+#include <stdint.h>
+#include "utils/type.hpp"
+
 class AbstractIdMapper {
 public:
   virtual ~AbstractIdMapper() {}

@@ -79,11 +79,11 @@ public:
 		return v.content[0];
 	}
 
-	string static value_t2string(value_t & v){
+	static string value_t2string(value_t & v){
 		return string(v.content.begin(), v.content.end());
 	}
 
-	void static get_kvpair(string str, kv_pair & kvpair){
+	static void get_kvpair(string str, kv_pair & kvpair){
 		vector<string> words = split(str,":");
 
 		//only possible case is a kv-pair
@@ -115,24 +115,23 @@ public:
 	}
 
 	//TODO 4 type convert functions
-	vid_t static uint2vid_t(uint64_t id){
-		return id;
-	}
+//	static vid_t uint2vid_t(uint64_t id){
+//		return id;
+//	}
+//
+//	static eid_t uint2eid_t(uint64_t id){
+//		return id;
+//	}
+//
+//	static vpid_t uint2vpid_t(uint64_t id){
+//		return id;
+//	}
+//
+//	static epid_t uint2epid_t(uint64_t id){
+//		return id;
+//	}
 
-	eid_t static uint2eid_t(uint64_t id){
-		return id;
-	}
-
-	vpid_t static uint2vpid_t(uint64_t id){
-		return id;
-	}
-
-	epid_t static uint2epid_t(uint64_t id){
-		return id;
-	}
-
-private:
-	int checktype(string s){
+	static int checktype(string s){
 		string quote = "\"";
 		string squote = "\'";
 		string dot = ".";
@@ -147,17 +146,17 @@ private:
 		return -1;
 	}
 
-	void str2str(string s, value_t & v){
+	static void str2str(string s, value_t & v){
 		v.content.insert(v.content.end(), s.begin(), s.end());
 		v.type = 4;
 	}
 
-	void str2char(string s, value_t & v){
+	static void str2char(string s, value_t & v){
 		v.content.push_back(s[0]);
 		v.type = 3;
 	}
 
-	void str2double(string s, value_t & v){
+	static void str2double(string s, value_t & v){
 		double d = atof(s.c_str());
 		size_t sz = sizeof(double);
 		char f[sz];
@@ -168,7 +167,7 @@ private:
 		v.type = 2;
 	}
 
-	void str2int(string s, value_t & v){
+	static void str2int(string s, value_t & v){
 		int i = atoi(s.c_str());
 		size_t sz = sizeof(int);
 		char f[sz];
@@ -179,7 +178,6 @@ private:
 		v.type = 1;
 	}
 };
-
 
 
 #endif /* TOOL_HPP_ */
