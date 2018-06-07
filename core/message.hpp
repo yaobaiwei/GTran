@@ -105,7 +105,7 @@ struct Message {
 	}
 };
 
-Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender, int _recver,
+static Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender, int _recver,
 		vector<ACTOR_T> _chains = {}, SArray<int> data = {}) {
 	Message m;
 	m.meta.msg_type = _type;

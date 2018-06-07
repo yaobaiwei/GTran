@@ -17,6 +17,7 @@
 #include "utils/mymath.hpp"
 #include "base/serialization.hpp"
 
+
 using __gnu_cxx::hash_map;
 using __gnu_cxx::hash_set;
 
@@ -25,6 +26,9 @@ using namespace std;
 // 64-bit internal pointer (size < 256M and off < 64GB)
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
+
+static uint64_t _28LFLAG = 0xFFFFFFF;
+static uint64_t _12LFLAG = 0xFFF;
 
 struct ptr_t {
 	uint64_t size: NBITS_SIZE;
@@ -42,19 +46,43 @@ struct ptr_t {
         return false;
     }
 
-    bool operator != (const ptr_t &ptr) {
-        return !(operator == (ptr));
+	friend ibinstream& operator<<(ibinstream& m, const ptr_t& p)
+	{
+		uint64_t v = ptr_t2uint(p);
+		m << v;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, ptr_t& p)
+	{
+		uint64_t v;
+		m >> v;
+		uint2ptr_t(v,p);
+		return m;
+	}
+
+    uint64_t value(){
+        uint64_t r = 0;
+        r += off;
+        r <<= NBITS_SIZE;
+        r += size;
+        return r;
+    }
+
+    uint64_t hash() {
+        return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
 
-// 128-bit vp/ep-key (key)
+uint64_t ptr_t2uint(const ptr_t & p);
+
+void uint2ptr_t(uint64_t v, ptr_t & p);
+
+bool operator == (const ptr_t &p1, const ptr_t &p2);
+
+
 struct ikey_t {
-    /* 64-bit: 26   | 26    | 12
-    * Vertex: v-id | 0x26  | property-id
-    * Edge:   in-v | out-v | property-id
-    */
     uint64_t pid;
-    // 64-bit: size | off
     ptr_t ptr;
 
 	ikey_t(){
@@ -72,12 +100,24 @@ struct ikey_t {
         return false;
     }
 
-    bool operator != (const ikey_t &key) {
-        return !(operator == (key));
-    }
-
     bool is_empty() { return pid == 0; }
+
+	friend ibinstream& operator<<(ibinstream& m, const ikey_t& p)
+	{
+		m << p.pid;
+		m << p.ptr;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, ikey_t& p)
+	{
+		m >> p.pid;
+		m >> p.ptr;
+		return m;
+	}
 };
+
+bool operator == (const ikey_t &p1, const ikey_t &p2);
 
 enum {VID_BITS = 26}; // <32; the total # of vertices should no be more than 2^26
 enum {EID_BITS = (VID_BITS * 2)}; //eid = v1_id | v2_id (52 bits)
@@ -96,14 +136,25 @@ struct vid_t {
         return false;
     }
 
-    bool operator != (const vid_t &vid1) {
-        return !(operator == (vid1));
-    }
-
     vid_t& operator =(int i)
 	{
     	this->vid = i;
 		return *this;
+	}
+
+	friend ibinstream& operator<<(ibinstream& m, const vid_t& v)
+	{
+		uint32_t value = vid_t2uint(v);
+		m << value;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, vid_t& v)
+	{
+		uint32_t value;
+		m >> value;
+		uint2vid_t(value, v);
+		return m;
 	}
 
     uint32_t value(){
@@ -115,6 +166,12 @@ struct vid_t {
         return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+uint32_t vid_t2uint(const vid_t & vid);
+
+void uint2vid_t(uint32_t v, vid_t & vid);
+
+bool operator == (const vid_t &p1, const vid_t &p2);
 
 namespace __gnu_cxx {
 	template <>
@@ -146,7 +203,20 @@ uint64_t out_v : VID_BITS;
         return false;
     }
 
-    bool operator != (const eid_t &eid) { return !(operator == (eid)); }
+    friend ibinstream& operator<<(ibinstream& m, const eid_t& e)
+	{
+    	uint64_t value = eid_t2uint(e);
+		m << value;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, eid_t& e)
+	{
+		uint64_t value;
+		m >> value;
+		uint2eid_t(value, e);
+		return m;
+	}
 
     uint64_t value(){
         uint64_t r = 0;
@@ -160,6 +230,12 @@ uint64_t out_v : VID_BITS;
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+uint64_t eid_t2uint(const eid_t & eid);
+
+void uint2eid_t(uint64_t v, eid_t & eid);
+
+bool operator == (const eid_t &p1, const eid_t &p2);
 
 namespace __gnu_cxx {
 	template <>
@@ -193,7 +269,20 @@ uint64_t pid : PID_BITS;
         return false;
     }
 
-    bool operator != (const vpid_t &vpid) { return !(operator == (vpid)); }
+    friend ibinstream& operator<<(ibinstream& m, const vpid_t& vp)
+	{
+    	uint64_t value = vpid_t2uint(vp);
+		m << value;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, vpid_t& vp)
+	{
+		uint64_t value;
+		m >> value;
+		uint2vpid_t(value, vp);
+		return m;
+	}
 
     uint64_t value(){
         uint64_t r = 0;
@@ -208,6 +297,12 @@ uint64_t pid : PID_BITS;
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+uint64_t vpid_t2uint(const vpid_t & vp);
+
+void uint2vpid_t(uint64_t v, vpid_t & vp);
+
+bool operator == (const vpid_t &p1, const vpid_t &p2);
 
 //vpid: 64bits  v_in|v_out|pid
 struct epid_t {
@@ -233,7 +328,20 @@ uint64_t pid : PID_BITS;
         return false;
     }
 
-    bool operator != (const epid_t &epid) { return !(operator == (epid)); }
+    friend ibinstream& operator<<(ibinstream& m, const epid_t& ep)
+	{
+    	uint64_t value = epid_t2uint(ep);
+		m << value;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, epid_t& ep)
+	{
+		uint64_t value;
+		m >> value;
+		uint2epid_t(value, ep);
+		return m;
+	}
 
     uint64_t value(){
         uint64_t r = 0;
@@ -250,6 +358,12 @@ uint64_t pid : PID_BITS;
     }
 };
 
+uint64_t epid_t2uint(const epid_t & ep);
+
+void uint2epid_t(uint64_t v, epid_t & ep);
+
+bool operator == (const epid_t &p1, const epid_t &p2);
+
 typedef uint16_t label_t;
 
 //type
@@ -257,11 +371,39 @@ typedef uint16_t label_t;
 struct value_t {
 	vector<char> content;
 	uint8_t type;
+
+    friend ibinstream& operator<<(ibinstream& m, const value_t& v)
+	{
+    	m << v.content;
+		m << v.type;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, value_t& v)
+	{
+    	m >> v.content;
+		m >> v.type;
+		return m;
+	}
 };
 
 struct kv_pair {
 	int key;
 	value_t value;
+
+    friend ibinstream& operator<<(ibinstream& m, const kv_pair& p)
+	{
+    	m << p.key;
+		m << p.value;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, kv_pair& p)
+	{
+    	m >> p.key;
+		m >> p.value;
+		return m;
+	}
 };
 
 //the return value from kv_store
@@ -272,6 +414,24 @@ struct elem_t{
 	uint8_t type;
 	uint32_t sz;
 	char * content;
+
+    friend ibinstream& operator<<(ibinstream& m, const elem_t& e)
+	{
+    	vector<char> vec(e.content, e.content+e.sz);
+    	m << e.type;
+		m << vec;
+		return m;
+	}
+
+	friend obinstream& operator>>(obinstream& m, elem_t& e)
+	{
+		vector<char> vec;
+    	m >> e.type;
+		m >> vec;
+		e.content = new char[vec.size()];
+		e.sz = vec.size();
+		return m;
+	}
 };
 
 struct string_index{
@@ -291,33 +451,15 @@ struct string_index{
 enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, EXIT };
 static const char *MsgType[] = {"spawn", "feed", "reply", "barrier", "exit"};
 
-ibinstream& operator<<(ibinstream& m, const MSG_T& type){
-	int t = static_cast<int>(type);
-	m << t;
-	return m;
-}
+ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 
-obinstream& operator>>(obinstream& m, MSG_T& type){
-	int tmp;
-	m >> tmp;
-	type = static_cast<MSG_T>(tmp);
-	return m;
-}
+obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char { ADD, PROXY, HW, OUT };
 static const char *ActorType[] = {"add", "proxy", "hello world", ""};
 
-ibinstream& operator<<(ibinstream& m, const ACTOR_T& type){
-	int t = static_cast<int>(type);
-	m << t;
-	return m;
-}
+ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
-obinstream& operator>>(obinstream& m, ACTOR_T& type){
-	int tmp;
-	m >> tmp;
-	type = static_cast<ACTOR_T>(tmp);
-	return m;
-}
+obinstream& operator>>(obinstream& m, ACTOR_T& type);
 
 #endif /* TYPE_HPP_ */

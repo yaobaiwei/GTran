@@ -1,11 +1,8 @@
-#Copyright 2018 Husky Data Lab, CUHK
-#Authors: Hongzhi Chen, Miao Liu
+include_directories(${PROJECT_SOURCE_DIR})
 
-
-include_directories(${PROJECT_SOURCE_DIR} ${GMINER_EXTERNAL_INCLUDES})
-link_directories(${GMINER_EXTERNAL_LIBRARIES})
-
-add_library(iniparser-objs OBJECT
+file(GLOB iniparser-src-files
     dictionary.c
     iniparser.c
     )
+
+add_library(iniparser-objs OBJECT ${iniparser-src-files})

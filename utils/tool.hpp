@@ -114,23 +114,6 @@ public:
 		}
 	}
 
-	//TODO 4 type convert functions
-//	static vid_t uint2vid_t(uint64_t id){
-//		return id;
-//	}
-//
-//	static eid_t uint2eid_t(uint64_t id){
-//		return id;
-//	}
-//
-//	static vpid_t uint2vpid_t(uint64_t id){
-//		return id;
-//	}
-//
-//	static epid_t uint2epid_t(uint64_t id){
-//		return id;
-//	}
-
 	static int checktype(string s){
 		string quote = "\"";
 		string squote = "\'";

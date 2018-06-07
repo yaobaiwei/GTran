@@ -13,9 +13,15 @@
 #include "utils/unit.hpp"
 #include "utils/hdfs_core.hpp"
 
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 #include "utils/iniparser/iniparser.h"
+
+#ifdef __cplusplus
 }
+#endif
 
 using namespace std;
 

@@ -2,9 +2,7 @@
 //Authors: Hongzhi Chen, Miao Liu
 //Acknowledgements: this code is implemented by referencing pregel-mpi (https://code.google.com/p/pregel-mpi/) by Chuntao Hong.
 
-#include "base/communication.hpp"
 
-using namespace std;
 //============================================
 int all_sum(int my_copy)
 {

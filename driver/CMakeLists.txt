@@ -5,6 +5,7 @@ add_library(all-deps STATIC
   $<TARGET_OBJECTS:core-objs>
   $<TARGET_OBJECTS:store-objs>
   $<TARGET_OBJECTS:utils-objs>
+  $<TARGET_OBJECTS:iniparser-objs>
   )
   
 add_executable(driver gquery.cpp)

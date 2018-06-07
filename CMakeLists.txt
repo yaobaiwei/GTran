@@ -14,6 +14,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64")
 
+set(COMMON_LINK_LIBS "-lrt")
 
 set(ZMQ_ROOT "/data/hzchen/lib/libzmq")
 set(GLOG_ROOT "/data/hzchen/lib/glog")
@@ -24,6 +25,8 @@ set(RDMA_ROOT "/data/miao/lib/librdma-1.0.0")
 add_definitions(-DUSE_HDFS2_)  #use hdfs v2.x.x by defalut
 add_definitions(-DHAS_RDMA)  #use RDMA
 
+find_package(Threads)
+
 # External Dependencies
 include(cmake/modules/glog.cmake)
 include(cmake/modules/hdfs.cmake)
@@ -32,7 +35,7 @@ include(cmake/modules/librdma.cmake)
 include(cmake/modules/zmq.cmake)
 
 set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR} ${RDMA_INCLUDE_DIR} ${ZMQ_INCLUDE_DIR})
-set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${RDMA_LIBRARIES} ${ZMQ_LIBRARIES})
+set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${RDMA_LIBRARIES} ${ZMQ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS})
 
 add_subdirectory(base)
 add_subdirectory(core)

@@ -1,6 +1,7 @@
 include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
  
 file(GLOB store-src-files
+	data_store.cpp
     ekvstore.cpp
     vkvstore.cpp
     )

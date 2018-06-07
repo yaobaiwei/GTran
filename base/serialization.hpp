@@ -44,6 +44,12 @@ ibinstream& operator<<(ibinstream& m, int i);
 
 ibinstream& operator<<(ibinstream& m, double i);
 
+ibinstream& operator<<(ibinstream& m, uint8_t i);
+
+ibinstream& operator<<(ibinstream& m, uint16_t i);
+
+ibinstream& operator<<(ibinstream& m, uint32_t i);
+
 ibinstream& operator<<(ibinstream& m, unsigned long long i);
 
 ibinstream& operator<<(ibinstream& m, char c);
@@ -112,6 +118,12 @@ obinstream& operator>>(obinstream& m, int& i);
 
 obinstream& operator>>(obinstream& m, double& i);
 
+obinstream& operator>>(obinstream& m, uint8_t& i);
+
+obinstream& operator>>(obinstream& m, uint16_t& i);
+
+obinstream& operator>>(obinstream& m, uint32_t& i);
+
 obinstream& operator>>(obinstream& m, unsigned long long& i);
 
 obinstream& operator>>(obinstream& m, char& c);
@@ -147,5 +159,7 @@ obinstream& operator>>(obinstream& m, hash_set<T>& v);
 
 template <class T, class _HashFcn,  class _EqualKey >
 obinstream& operator>>(obinstream& m, hash_set<T, _HashFcn, _EqualKey>& v);
+
+#include "serialization.tpp"
 
 #endif /* SERIALIZATION_HPP_ */

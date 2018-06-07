@@ -1,8 +1,6 @@
 //Copyright 2018 Husky Data Lab, CUHK
 //Authors: Hongzhi Chen, Miao Liu
 
-#include "base/serialization.hpp"
-#include <vector>
 
 char* ibinstream::get_buf()
 {
@@ -59,6 +57,30 @@ ibinstream& operator<<(ibinstream& m, unsigned long long i)
 	m.raw_bytes(&i, sizeof(unsigned long long));
 	return m;
 }
+
+ibinstream& operator<<(ibinstream& m, uint8_t i)
+{
+	m.raw_byte(i);
+	return m;
+}
+
+ibinstream& operator<<(ibinstream& m, uint16_t i)
+{
+	m.raw_bytes(&i, sizeof(uint16_t));
+	return m;
+}
+
+ibinstream& operator<<(ibinstream& m, uint32_t i)
+{
+	m.raw_bytes(&i, sizeof(uint32_t));
+	return m;
+}
+
+//ibinstream& operator<<(ibinstream& m, uint64_t i)
+//{
+//	m.raw_bytes(&i, sizeof(uint64_t));
+//	return m;
+//}
 
 ibinstream& operator<<(ibinstream& m, char c)
 {
@@ -237,6 +259,30 @@ obinstream& operator>>(obinstream& m, double& i)
 	i = *(double*)m.raw_bytes(sizeof(double));
 	return m;
 }
+
+obinstream& operator>>(obinstream& m, uint8_t& i)
+{
+	i = m.raw_byte();
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, uint16_t& i)
+{
+	i = *(uint16_t*)m.raw_bytes(sizeof(uint16_t));
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, uint32_t& i)
+{
+	i = *(uint32_t*)m.raw_bytes(sizeof(uint32_t));
+	return m;
+}
+
+//obinstream& operator>>(obinstream& m, uint64_t& i)
+//{
+//	i = *(uint64_t*)m.raw_bytes(sizeof(uint64_t));
+//	return m;
+//}
 
 obinstream& operator>>(obinstream& m, unsigned long long& i)
 {

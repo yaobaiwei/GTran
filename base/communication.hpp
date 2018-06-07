@@ -93,4 +93,6 @@ void master_bcast(T& to_send);
 template <class T>
 void slave_bcast(T& to_get);
 
+#include "communication.tpp"
+
 #endif /* COMMUNICATION_HPP_ */

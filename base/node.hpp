@@ -11,6 +11,8 @@
 #include <string>
 #include <sstream>
 
+#include "base/serialization.hpp"
+
 using namespace std;
 
 struct Node {
@@ -34,6 +36,22 @@ public:
 
 	bool operator==(const Node &other) const {
 		return id == other.id && hostname == other.hostname && port == other.port;
+	}
+
+	ibinstream& operator<<(ibinstream& m, const Node& node)
+	{
+		m << id;
+		m << hostname;
+		m << port;
+		return m;
+	}
+
+	obinstream& operator>>(obinstream& m, Node& node)
+	{
+		m >> id;
+		m >> hostname;
+		m >> port;
+		return m;
 	}
 };
 
