@@ -60,10 +60,8 @@ ibinstream& operator<<(ibinstream& m, const T* p);
 template <class T>
 ibinstream& operator<<(ibinstream& m, const vector<T>& v);
 
-template <>
 ibinstream& operator<<(ibinstream& m, const vector<int>& v);
 
-template <>
 ibinstream& operator<<(ibinstream& m, const vector<double>& v);
 
 template <class T>
@@ -134,10 +132,8 @@ obinstream& operator>>(obinstream& m, T*& p);
 template <class T>
 obinstream& operator>>(obinstream& m, vector<T>& v);
 
-template <>
 obinstream& operator>>(obinstream& m, vector<int>& v);
 
-template <>
 obinstream& operator>>(obinstream& m, vector<double>& v);
 
 template <class T>

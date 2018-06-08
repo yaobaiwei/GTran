@@ -18,7 +18,7 @@
 #include <cstring>
 #include <vector>
 
-#include "utils/type.hpp"
+#include "base/type.hpp"
 
 using namespace std;
 class Tool{

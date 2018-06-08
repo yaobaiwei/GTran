@@ -46,21 +46,6 @@ struct ptr_t {
         return false;
     }
 
-	friend ibinstream& operator<<(ibinstream& m, const ptr_t& p)
-	{
-		uint64_t v = ptr_t2uint(p);
-		m << v;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, ptr_t& p)
-	{
-		uint64_t v;
-		m >> v;
-		uint2ptr_t(v,p);
-		return m;
-	}
-
     uint64_t value(){
         uint64_t r = 0;
         r += off;
@@ -73,6 +58,10 @@ struct ptr_t {
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+ibinstream& operator<<(ibinstream& m, const ptr_t& p);
+
+obinstream& operator>>(obinstream& m, ptr_t& p);
 
 uint64_t ptr_t2uint(const ptr_t & p);
 
@@ -101,21 +90,11 @@ struct ikey_t {
     }
 
     bool is_empty() { return pid == 0; }
-
-	friend ibinstream& operator<<(ibinstream& m, const ikey_t& p)
-	{
-		m << p.pid;
-		m << p.ptr;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, ikey_t& p)
-	{
-		m >> p.pid;
-		m >> p.ptr;
-		return m;
-	}
 };
+
+ibinstream& operator<<(ibinstream& m, const ikey_t& p);
+
+obinstream& operator>>(obinstream& m, ikey_t& p);
 
 bool operator == (const ikey_t &p1, const ikey_t &p2);
 
@@ -142,21 +121,6 @@ struct vid_t {
 		return *this;
 	}
 
-	friend ibinstream& operator<<(ibinstream& m, const vid_t& v)
-	{
-		uint32_t value = vid_t2uint(v);
-		m << value;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, vid_t& v)
-	{
-		uint32_t value;
-		m >> value;
-		uint2vid_t(value, v);
-		return m;
-	}
-
     uint32_t value(){
     	return (uint32_t)vid;
     }
@@ -166,6 +130,10 @@ struct vid_t {
         return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+ibinstream& operator<<(ibinstream& m, const vid_t& v);
+
+obinstream& operator>>(obinstream& m, vid_t& v);
 
 uint32_t vid_t2uint(const vid_t & vid);
 
@@ -203,21 +171,6 @@ uint64_t out_v : VID_BITS;
         return false;
     }
 
-    friend ibinstream& operator<<(ibinstream& m, const eid_t& e)
-	{
-    	uint64_t value = eid_t2uint(e);
-		m << value;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, eid_t& e)
-	{
-		uint64_t value;
-		m >> value;
-		uint2eid_t(value, e);
-		return m;
-	}
-
     uint64_t value(){
         uint64_t r = 0;
         r += in_v;
@@ -230,6 +183,10 @@ uint64_t out_v : VID_BITS;
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+ibinstream& operator<<(ibinstream& m, const eid_t& e);
+
+obinstream& operator>>(obinstream& m, eid_t& e);
 
 uint64_t eid_t2uint(const eid_t & eid);
 
@@ -269,21 +226,6 @@ uint64_t pid : PID_BITS;
         return false;
     }
 
-    friend ibinstream& operator<<(ibinstream& m, const vpid_t& vp)
-	{
-    	uint64_t value = vpid_t2uint(vp);
-		m << value;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, vpid_t& vp)
-	{
-		uint64_t value;
-		m >> value;
-		uint2vpid_t(value, vp);
-		return m;
-	}
-
     uint64_t value(){
         uint64_t r = 0;
         r += vid;
@@ -297,6 +239,10 @@ uint64_t pid : PID_BITS;
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
 };
+
+ibinstream& operator<<(ibinstream& m, const vpid_t& vp);
+
+obinstream& operator>>(obinstream& m, vpid_t& vp);
 
 uint64_t vpid_t2uint(const vpid_t & vp);
 
@@ -328,21 +274,6 @@ uint64_t pid : PID_BITS;
         return false;
     }
 
-    friend ibinstream& operator<<(ibinstream& m, const epid_t& ep)
-	{
-    	uint64_t value = epid_t2uint(ep);
-		m << value;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, epid_t& ep)
-	{
-		uint64_t value;
-		m >> value;
-		uint2epid_t(value, ep);
-		return m;
-	}
-
     uint64_t value(){
         uint64_t r = 0;
         r += in_vid;
@@ -358,6 +289,10 @@ uint64_t pid : PID_BITS;
     }
 };
 
+ibinstream& operator<<(ibinstream& m, const epid_t& ep);
+
+obinstream& operator>>(obinstream& m, epid_t& ep);
+
 uint64_t epid_t2uint(const epid_t & ep);
 
 void uint2epid_t(uint64_t v, epid_t & ep);
@@ -371,40 +306,20 @@ typedef uint16_t label_t;
 struct value_t {
 	vector<char> content;
 	uint8_t type;
-
-    friend ibinstream& operator<<(ibinstream& m, const value_t& v)
-	{
-    	m << v.content;
-		m << v.type;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, value_t& v)
-	{
-    	m >> v.content;
-		m >> v.type;
-		return m;
-	}
 };
+
+ibinstream& operator<<(ibinstream& m, const value_t& v);
+
+obinstream& operator>>(obinstream& m, value_t& v);
 
 struct kv_pair {
 	int key;
 	value_t value;
-
-    friend ibinstream& operator<<(ibinstream& m, const kv_pair& p)
-	{
-    	m << p.key;
-		m << p.value;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, kv_pair& p)
-	{
-    	m >> p.key;
-		m >> p.value;
-		return m;
-	}
 };
+
+ibinstream& operator<<(ibinstream& m, const kv_pair& p);
+
+obinstream& operator>>(obinstream& m, kv_pair& p);
 
 //the return value from kv_store
 //type
@@ -414,25 +329,11 @@ struct elem_t{
 	uint8_t type;
 	uint32_t sz;
 	char * content;
-
-    friend ibinstream& operator<<(ibinstream& m, const elem_t& e)
-	{
-    	vector<char> vec(e.content, e.content+e.sz);
-    	m << e.type;
-		m << vec;
-		return m;
-	}
-
-	friend obinstream& operator>>(obinstream& m, elem_t& e)
-	{
-		vector<char> vec;
-    	m >> e.type;
-		m >> vec;
-		e.content = new char[vec.size()];
-		e.sz = vec.size();
-		return m;
-	}
 };
+
+ibinstream& operator<<(ibinstream& m, const elem_t& e);
+
+obinstream& operator>>(obinstream& m, elem_t& e);
 
 struct string_index{
 	unordered_map<string, label_t> str2el; //map to edge_label

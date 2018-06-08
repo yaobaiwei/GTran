@@ -15,17 +15,18 @@
 #include <hdfs.h>
 #include "glog/logging.h"
 
+#include "storage/vkvstore.hpp"
+#include "storage/ekvstore.hpp"
+#include "core/id_mapper.hpp"
+#include "core/buffer.hpp"
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
 #include "utils/unit.hpp"
-#include "utils/type.hpp"
 #include "utils/tool.hpp"
 #include "utils/global.hpp"
-#include "core/id_mapper.hpp"
-#include "core/buffer.hpp"
+#include "base/type.hpp"
 #include "base/communication.hpp"
-#include "storage/vkvstore.hpp"
-#include "storage/ekvstore.hpp"
+
 
 using __gnu_cxx::hash_map;
 using __gnu_cxx::hash_set;

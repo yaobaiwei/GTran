@@ -9,7 +9,7 @@
 #define ABSTRACT_IDMAPPER_HPP_
 
 #include <stdint.h>
-#include "utils/type.hpp"
+#include "base/type.hpp"
 
 class AbstractIdMapper {
 public:

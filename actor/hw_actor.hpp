@@ -15,7 +15,7 @@
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/node.hpp"
-#include "utils/type.hpp"
+#include "base/type.hpp"
 
 
 class HwActor : public AbstractActor {

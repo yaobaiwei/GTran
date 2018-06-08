@@ -5,7 +5,6 @@ add_subdirectory(iniparser)
 file(GLOB utils-src-files
     global.cpp
     hdfs_core.cpp
-    type.cpp
     )
 
 add_library(utils-objs OBJECT ${utils-src-files})

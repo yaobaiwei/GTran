@@ -28,31 +28,13 @@ public:
 		port = port_;
 	}
 
-	std::string DebugString() const {
-		std::stringstream ss;
-		ss << "Node: { id = " << id << " hostname = " << hostname << " port = " << port << " }";
-		return ss.str();
-	}
+	std::string DebugString() const ;
 
-	bool operator==(const Node &other) const {
-		return id == other.id && hostname == other.hostname && port == other.port;
-	}
-
-	ibinstream& operator<<(ibinstream& m, const Node& node)
-	{
-		m << id;
-		m << hostname;
-		m << port;
-		return m;
-	}
-
-	obinstream& operator>>(obinstream& m, Node& node)
-	{
-		m >> id;
-		m >> hostname;
-		m >> port;
-		return m;
-	}
+	bool operator==(const Node &other) const;
 };
+
+ibinstream& operator<<(ibinstream& m, const Node& node);
+
+obinstream& operator>>(obinstream& m, Node& node);
 
 #endif /* NODE_HPP_ */

@@ -14,7 +14,7 @@
 #include <thread>
 
 #include "utils/config.hpp"
-#include "utils/type.hpp"
+#include "base/type.hpp"
 #include "base/node.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "actor/abstract_actor.hpp"

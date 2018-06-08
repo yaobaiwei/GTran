@@ -28,15 +28,15 @@ bool all_land(bool my_copy);
 
 //============================================
 
-void pregel_send(void* buf, int size, int dst, int tag);
+void pregel_send(void* buf, int size, int dst, int tag = COMMUN_CHANNEL);
 
-int pregel_recv(void* buf, int size, int src, int tag); //return the actual source, since "src" can be MPI_ANY_SOURCE
+int pregel_recv(void* buf, int size, int src, int tag = COMMUN_CHANNEL); //return the actual source, since "src" can be MPI_ANY_SOURCE
 
 //============================================
 
-void send_ibinstream(ibinstream& m, int dst, int tag);
+void send_ibinstream(ibinstream& m, int dst, int tag = COMMUN_CHANNEL);
 
-obinstream recv_obinstream(int src, int tag);
+obinstream recv_obinstream(int src, int tag = COMMUN_CHANNEL);
 
 //============================================
 //obj-level send/recv

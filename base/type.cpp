@@ -6,7 +6,22 @@
  *
  */
 
-#include "utils/type.hpp"
+#include "base/type.hpp"
+
+ibinstream& operator<<(ibinstream& m, const ptr_t& p)
+{
+	uint64_t v = ptr_t2uint(p);
+	m << v;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, ptr_t& p)
+{
+	uint64_t v;
+	m >> v;
+	uint2ptr_t(v,p);
+	return m;
+}
 
 uint64_t ptr_t2uint(const ptr_t & p){
     uint64_t r = 0;
@@ -28,11 +43,40 @@ bool operator == (const ptr_t &p1, const ptr_t &p2){
 	 return false;
 }
 
+ibinstream& operator<<(ibinstream& m, const ikey_t& p)
+{
+	m << p.pid;
+	m << p.ptr;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, ikey_t& p)
+{
+	m >> p.pid;
+	m >> p.ptr;
+	return m;
+}
+
 bool operator == (const ikey_t &p1, const ikey_t &p2){
 	if((p1.pid == p2.pid) && (p1.ptr == p2.ptr))
 	 return true;
    else
 	 return false;
+}
+
+ibinstream& operator<<(ibinstream& m, const vid_t& v)
+{
+	uint32_t value = vid_t2uint(v);
+	m << value;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, vid_t& v)
+{
+	uint32_t value;
+	m >> value;
+	uint2vid_t(value, v);
+	return m;
 }
 
 uint32_t vid_t2uint(const vid_t & vid){
@@ -50,6 +94,21 @@ bool operator == (const vid_t &p1, const vid_t &p2)
 	 return true;
    else
 	 return false;
+}
+
+ibinstream& operator<<(ibinstream& m, const eid_t& e)
+{
+	uint64_t value = eid_t2uint(e);
+	m << value;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, eid_t& e)
+{
+	uint64_t value;
+	m >> value;
+	uint2eid_t(value, e);
+	return m;
 }
 
 uint64_t eid_t2uint(const eid_t & eid){
@@ -71,6 +130,21 @@ bool operator == (const eid_t &p1, const eid_t &p2)
 	 return true;
    else
 	 return false;
+}
+
+ibinstream& operator<<(ibinstream& m, const vpid_t& vp)
+{
+	uint64_t value = vpid_t2uint(vp);
+	m << value;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, vpid_t& vp)
+{
+	uint64_t value;
+	m >> value;
+	uint2vpid_t(value, vp);
+	return m;
 }
 
 uint64_t vpid_t2uint(const vpid_t & vp){
@@ -97,6 +171,21 @@ bool operator == (const vpid_t &p1, const vpid_t &p2)
 	 return false;
 }
 
+ibinstream& operator<<(ibinstream& m, const epid_t& ep)
+{
+	uint64_t value = epid_t2uint(ep);
+	m << value;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, epid_t& ep)
+{
+	uint64_t value;
+	m >> value;
+	uint2epid_t(value, ep);
+	return m;
+}
+
 uint64_t epid_t2uint(const epid_t & ep){
     uint64_t r = 0;
     r += ep.in_vid;
@@ -121,6 +210,52 @@ bool operator == (const epid_t &p1, const epid_t &p2)
 	 return true;
    else
 	 return false;
+}
+
+ibinstream& operator<<(ibinstream& m, const value_t& v)
+{
+	m << v.content;
+	m << v.type;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, value_t& v)
+{
+	m >> v.content;
+	m >> v.type;
+	return m;
+}
+
+ibinstream& operator<<(ibinstream& m, const kv_pair& p)
+{
+	m << p.key;
+	m << p.value;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, kv_pair& p)
+{
+	m >> p.key;
+	m >> p.value;
+	return m;
+}
+
+ibinstream& operator<<(ibinstream& m, const elem_t& e)
+{
+	vector<char> vec(e.content, e.content+e.sz);
+	m << e.type;
+	m << vec;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, elem_t& e)
+{
+	vector<char> vec;
+	m >> e.type;
+	m >> vec;
+	e.content = new char[vec.size()];
+	e.sz = vec.size();
+	return m;
 }
 
 ibinstream& operator<<(ibinstream& m, const MSG_T& type){

@@ -15,8 +15,8 @@
 #include <pthread.h>
 
 #include "base/rdma.hpp"
+#include "base/type.hpp"
 #include "utils/mymath.hpp"
-#include "utils/type.hpp"
 #include "utils/unit.hpp"
 #include "utils/config.hpp"
 #include "core/buffer.hpp"

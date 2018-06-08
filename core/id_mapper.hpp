@@ -8,15 +8,17 @@
 #ifndef IDMAPPER_HPP_
 #define IDMAPPER_HPP_
 
+#include <vector>
+#include <mutex>
+
 #include "core/abstract_id_mapper.hpp"
 #include "utils/config.hpp"
 #include "utils/unit.hpp"
-#include "utils/type.hpp"
+#include "base/type.hpp"
 #include "base/node.hpp"
 
 #include "glog/logging.h"
-#include <vector>
-#include <mutex>
+
 
 class NaiveIdMapper : public AbstractIdMapper {
 public:
