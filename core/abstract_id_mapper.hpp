@@ -14,6 +14,7 @@
 class AbstractIdMapper {
 public:
   virtual ~AbstractIdMapper() {}
+  virtual void Init() = 0;
 
   virtual bool IsVertex(uint64_t v_id) = 0;
   virtual bool IsEdge(uint64_t e_id) = 0;

@@ -23,6 +23,7 @@
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
 {
+	google::InitGoogleLogging(argv[0]);
 	init_worker(&argc, &argv);
 
 	string node_config_fname = argv[1];
@@ -43,27 +44,41 @@ int main(int argc, char* argv[])
 	Config * config = new Config();
 	config->Init();
 
+	LOG(INFO) << "DONE -> Config->Init()";
+
 	NaiveIdMapper * id_mapper = new NaiveIdMapper(config, my_node);
+	id_mapper->Init();
+
+	LOG(INFO) << "DONE -> NaiveIdMapper->Init()";
 
 	//set the in-memory layout for RDMA buf
 	Buffer * buf = new Buffer(config);
 	buf->Init();
 
+	LOG(INFO) << "DONE -> Buffer->Init()";
+
 	//init the rdma mailbox
 	RdmaMailbox * mailbox = new RdmaMailbox(config, id_mapper, buf);
 	mailbox->Init(host_fname);
 
+	LOG(INFO) << "DONE -> RdmaMailbox->Init()";
+
 	DataStore * datastore = new DataStore(config, id_mapper, buf);
 	datastore->Init();
+
+	LOG(INFO) << "DONE -> DataStore->Init()";
 
 	datastore->LoadDataFromHDFS();
 	//=======data shuffle==========
 	datastore->Shuffle();
 	worker_barrier();
+
+	LOG(INFO) << "DONE -> datastore->Shuffle()";
 	//=======data shuffle==========
 
 	datastore->DataConverter();
 
+	LOG(INFO) << "DONE -> datastore->DataConverter()";
 
 	//actor driver starts
 	ActorAdapter * actor_adapter = new ActorAdapter(config, my_node, mailbox);

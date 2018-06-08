@@ -308,7 +308,7 @@ void DataStore::get_string_indexes()
 void DataStore::get_vertices()
 {
 	//check path + arrangement
-	const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_VTX_SUBFOLDER).c_str();
+	const char * indir = config_->HDFS_VTX_SUBFOLDER.c_str();
 
 	if (_my_rank == MASTER_RANK)
 	{
@@ -384,7 +384,7 @@ Vertex* DataStore::to_vertex(char* line)
 void DataStore::get_edges()
 {
 	//check path + arrangement
-	const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_EDGE_SUBFOLDER).c_str();
+	const char * indir = config_->HDFS_EDGE_SUBFOLDER.c_str();
 	if (_my_rank == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)
@@ -452,7 +452,7 @@ Edge* DataStore::to_edge(char* line)
 void DataStore::get_vplist()
 {
 	//check path + arrangement
-	const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_VP_SUBFOLDER).c_str();
+	const char * indir = config_->HDFS_VP_SUBFOLDER.c_str();
 	if (_my_rank == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)
@@ -533,7 +533,7 @@ VProperty* DataStore::to_vp(char* line)
 void DataStore::get_eplist()
 {
 	//check path + arrangement
-	const char * indir = (config_->HDFS_INPUT_PATH + config_->HDFS_EP_SUBFOLDER).c_str();
+	const char * indir = config_->HDFS_EP_SUBFOLDER.c_str();
 	if (_my_rank == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)

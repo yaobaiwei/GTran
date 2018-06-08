@@ -22,7 +22,9 @@
 
 class NaiveIdMapper : public AbstractIdMapper {
 public:
-	NaiveIdMapper(Config * config, Node & node) : config_(config), my_node_(node) {
+	NaiveIdMapper(Config * config, Node & node) : config_(config), my_node_(node) {}
+
+	virtual void Init(){
 		node_offset_.resize(config_->global_num_machines, 0);
 	}
 

@@ -12,6 +12,7 @@
 #include <string>
 #include "utils/unit.hpp"
 #include "utils/hdfs_core.hpp"
+#include "glog/logging.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,7 +134,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_INPUT_PATH", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_INPUT_PATH=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_INPUT_PATH=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_INPUT_PATH. exits.\n");
@@ -141,7 +142,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_INDEX_PATH", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_INDEX_PATH=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_INDEX_PATH=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_INDEX_PATH. exits.\n");
@@ -149,7 +150,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_VTX_SUBFOLDER", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_VTX_SUBFOLDER=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_VTX_SUBFOLDER=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_VTX_SUBFOLDER. exits.\n");
@@ -157,7 +158,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_EDGE_SUBFOLDER", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_EDGE_SUBFOLDER=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_EDGE_SUBFOLDER=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_EDGE_SUBFOLDER. exits.\n");
@@ -165,7 +166,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_VP_SUBFOLDER", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_VP_SUBFOLDER=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_VP_SUBFOLDER=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_VP_SUBFOLDER. exits.\n");
@@ -173,7 +174,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_EP_SUBFOLDER", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_EP_SUBFOLDER=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_EP_SUBFOLDER=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_EP_SUBFOLDER. exits.\n");
@@ -181,7 +182,7 @@ struct Config{
 		}
 
 		str = iniparser_getstring(ini, "HDFS:HDFS_OUTPUT_PATH", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_OUTPUT_PATH=val;
+		if(strcmp(str, str_not_found)!=0) HDFS_OUTPUT_PATH=str;
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_INPUT_PATH. exits.\n");
@@ -278,6 +279,35 @@ struct Config{
 
     	//init hdfs
     	hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);
+
+    	LOG(INFO) << DebugString();
+    }
+
+    string DebugString() const {
+    	std::stringstream ss;
+    	ss << "HDFS_HOST_ADDRESS : " << HDFS_HOST_ADDRESS << endl;
+    	ss << "HDFS_PORT : " << HDFS_PORT << endl;
+    	ss << "HDFS_INPUT_PATH : " << HDFS_INPUT_PATH << endl;
+    	ss << "HDFS_INDEX_PATH : " << HDFS_INDEX_PATH << endl;
+    	ss << "HDFS_VTX_SUBFOLDER : " << HDFS_VTX_SUBFOLDER << endl;
+    	ss << "HDFS_EDGE_SUBFOLDER : " << HDFS_EDGE_SUBFOLDER << endl;
+    	ss << "HDFS_VP_SUBFOLDER : " << HDFS_VP_SUBFOLDER << endl;
+    	ss << "HDFS_EP_SUBFOLDER : " << HDFS_EP_SUBFOLDER << endl;
+    	ss << "HDFS_OUTPUT_PATH : " << HDFS_OUTPUT_PATH << endl;
+
+    	ss << "global_num_machines : " << global_num_machines << endl;
+    	ss << "global_num_threads : " << global_num_threads << endl;
+
+    	ss << "global_vertex_property_kv_sz_gb : " << global_vertex_property_kv_sz_gb << endl;
+    	ss << "global_edge_property_kv_sz_gb : " << global_edge_property_kv_sz_gb << endl;
+    	ss << "global_per_send_buffer_sz_mb : " << global_per_send_buffer_sz_mb << endl;
+    	ss << "global_per_recv_buffer_sz_mb : " << global_per_recv_buffer_sz_mb << endl;
+
+    	ss << "global_use_rdma : " << global_use_rdma << endl;
+    	ss << "global_enable_caching : " << global_enable_caching << endl;
+    	ss << "global_enable_workstealing : " << global_enable_workstealing << endl;
+
+    	return ss.str();
     }
 };
 

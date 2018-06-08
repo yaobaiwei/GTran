@@ -8,10 +8,10 @@
 #include "base/node.hpp"
 
 std::string Node::DebugString() const {
-		std::stringstream ss;
-		ss << "Node: { id = " << id << " hostname = " << hostname << " port = " << port << " }";
-		return ss.str();
-	}
+	std::stringstream ss;
+	ss << "Node: { id = " << id << " hostname = " << hostname << " port = " << port << " }";
+	return ss.str();
+}
 
 bool Node::operator==(const Node &other) const {
 	return id == other.id && hostname == other.hostname && port == other.port;

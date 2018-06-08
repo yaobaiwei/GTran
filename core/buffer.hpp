@@ -66,7 +66,7 @@ public:
     }
 
     inline char* GetSendBuf(int index) {
-        CHECK_LT(index, config_->global_num_threads - 1);
+        CHECK_LT(index, config_->global_num_threads);
         return rdma_send_buffer_[index];
     }
 
@@ -75,12 +75,12 @@ public:
     }
 
     inline int GetSendBufOffset(int index) {
-    	CHECK_LT(index, config_->global_num_threads - 1);
+    	CHECK_LT(index, config_->global_num_threads);
     	return config_->send_buffer_offset + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 
     char* GetRecvBuf(int index){
-        CHECK_LT(index, config_->global_num_machines - 1);
+        CHECK_LT(index, config_->global_num_machines);
         return buffer_ + config_->recv_buffer_offset + index * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
@@ -89,7 +89,7 @@ public:
     }
 
     int GetRecvBufOffset(int index) {
-        CHECK_LT(index, config_->global_num_machines - 1);
+        CHECK_LT(index, config_->global_num_machines);
         return config_->recv_buffer_offset + index * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
