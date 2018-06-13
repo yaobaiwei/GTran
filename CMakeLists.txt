@@ -16,7 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64")
 
 set(COMMON_LINK_LIBS "-lrt")
 
-set(ZMQ_ROOT "/data/hzchen/lib/libzmq")
+set(ZMQ_ROOT "/data/opt")
 set(GLOG_ROOT "/data/hzchen/lib/glog")
 set(HDFS2_ROOT "/data/opt/hadoop-2.6.0")
 set(IBVERB_ROOT "/data/miao/lib/libibverbs-1.2.0")

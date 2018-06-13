@@ -9,7 +9,7 @@
 
 std::string Node::DebugString() const {
 	std::stringstream ss;
-	ss << "Node: { id = " << id << " hostname = " << hostname << " port = " << port << " }";
+	ss << "Node: { id = " << id << " hostname = " << hostname << " port = " << port << " }" << endl;
 	return ss.str();
 }
 

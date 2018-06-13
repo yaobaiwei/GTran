@@ -27,10 +27,10 @@ public:
   virtual bool IsEPropertyLocal(const epid_t p_id) = 0;
 
   // vertex/edge/property -> machine index mapping
-  virtual int GetMachineIdForVertex(const vid_t v_id) = 0;
-  virtual int GetMachineIdForEdge(const eid_t e_id) = 0;
-  virtual int GetMachineIdForVProperty(const vpid_t p_id) = 0;
-  virtual int GetMachineIdForEProperty(const epid_t p_id) = 0;
+  virtual int GetMachineIdForVertex(vid_t v_id) = 0;
+  virtual int GetMachineIdForEdge(eid_t e_id) = 0;
+  virtual int GetMachineIdForVProperty(vpid_t p_id) = 0;
+  virtual int GetMachineIdForEProperty(epid_t p_id) = 0;
 
   // Node Id -> RDMA ring buffer offset
   virtual int GetAndIncrementRdmaRingBufferOffset(const int n_id, const int msg_sz) = 0;

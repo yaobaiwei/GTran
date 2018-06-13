@@ -39,50 +39,51 @@ int main(int argc, char* argv[])
 	CHECK(CheckUniquePort(nodes));
 	CHECK(CheckConsecutiveIds(nodes));
 	Node my_node = GetNodeById(nodes, get_node_id());
-	LOG(INFO) << my_node.DebugString();
+
+	cout << my_node.DebugString();
 
 	Config * config = new Config();
 	config->Init();
 
-	LOG(INFO) << "DONE -> Config->Init()";
+	LOG(INFO) << "DONE -> Config->Init()" << endl;
 
 	NaiveIdMapper * id_mapper = new NaiveIdMapper(config, my_node);
 	id_mapper->Init();
 
-	LOG(INFO) << "DONE -> NaiveIdMapper->Init()";
+	LOG(INFO) <<  "DONE -> NaiveIdMapper->Init()" << endl;
 
 	//set the in-memory layout for RDMA buf
 	Buffer * buf = new Buffer(config);
 	buf->Init();
 
-	LOG(INFO) << "DONE -> Buffer->Init()";
+	LOG(INFO) << "DONE -> Buffer->Init()" << endl;
 
 	//init the rdma mailbox
 	RdmaMailbox * mailbox = new RdmaMailbox(config, id_mapper, buf);
 	mailbox->Init(host_fname);
 
-	LOG(INFO) << "DONE -> RdmaMailbox->Init()";
+	LOG(INFO) << "DONE -> RdmaMailbox->Init()" << endl;
 
 	DataStore * datastore = new DataStore(config, id_mapper, buf);
 	datastore->Init();
 
-	LOG(INFO) << "DONE -> DataStore->Init()";
+	LOG(INFO) << "DONE -> DataStore->Init()" << endl;
 
 	datastore->LoadDataFromHDFS();
-	//=======data shuffle==========
-	datastore->Shuffle();
 	worker_barrier();
 
-	LOG(INFO) << "DONE -> datastore->Shuffle()";
+	//=======data shuffle==========
+	datastore->Shuffle();
 	//=======data shuffle==========
 
 	datastore->DataConverter();
 
-	LOG(INFO) << "DONE -> datastore->DataConverter()";
+	LOG(INFO) << "DONE -> Datastore->DataConverter()" << endl;
+	worker_barrier();
 
 	//actor driver starts
-	ActorAdapter * actor_adapter = new ActorAdapter(config, my_node, mailbox);
-	actor_adapter->Start();
+//	ActorAdapter * actor_adapter = new ActorAdapter(config, my_node, mailbox);
+//	actor_adapter->Start();
 
 	worker_finalize();
 	return 0;

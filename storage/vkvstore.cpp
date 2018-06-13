@@ -26,7 +26,7 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
             //assert(vertices[slot_id].key != key); // no duplicate key
             if (keys[slot_id].pid == _pid) {
                 // Cannot get the original pid
-                cout << "ERROR: conflict at slot["
+                cout << "VKVStore ERROR: conflict at slot["
                      << slot_id << "] of bucket["
                      << bucket_id << "]" << endl;
                 assert(false);
@@ -49,7 +49,7 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
         // allocate and link a new indirect header
         pthread_spin_lock(&bucket_ext_lock);
         if (last_ext >= num_buckets_ext) {
-            cout << "ERROR: out of indirect-header region." << endl;
+            cout << "VKVStore ERROR: out of indirect-header region." << endl;
             assert(last_ext < num_buckets_ext);
         }
         keys[slot_id].pid = num_buckets + (last_ext++);
@@ -100,7 +100,7 @@ uint64_t VKVStore::sync_fetch_and_alloc_values(uint64_t n) {
     orig = last_entry;
     last_entry += n;
     if (last_entry >= num_entries) {
-        cout << "ERROR: out of entry region." << endl;
+        cout << "VKVStore ERROR: out of entry region." << endl;
         assert(last_entry < num_entries);
     }
     pthread_spin_unlock(&entry_lock);
@@ -141,17 +141,18 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
 
         RDMA &rdma = RDMA::get_rdma();
         rdma.dev->RdmaRead(dst_nid, buffer, sz, off);
-        ikey_t *iks = (ikey_t *)buffer;
+
+        ikey_t * keys = (ikey_t *)buffer;
         for (int i = 0; i < ASSOCIATIVITY; i++) {
             if (i < ASSOCIATIVITY - 1) {
-                if (iks[i] == key) {
-                    key = iks[i];
+                if (keys[i].pid == pid) {
+                    key = keys[i];
                 }
             } else {
-                if (iks[i].is_empty())
+                if (keys[i].is_empty())
                     return; // not found
 
-                bucket_id = iks[i].pid; // move to next bucket
+                bucket_id = keys[i].pid; // move to next bucket
                 break; // break for-loop
             }
         }
@@ -175,10 +176,10 @@ VKVStore::VKVStore(Config * config, Buffer * buf) : config_(config), buf_(buf)
     last_ext = 0;
 
     // entry region
-    num_entries = entry_sz / sizeof(char);
+    num_entries = entry_sz;
     last_entry = 0;
 
-    cout << "INFO: gstore = " << header_sz + entry_sz << " bytes " << std::endl
+    cout << "INFO: vkvstore = " << header_sz + entry_sz << " bytes " << std::endl
          << "      header region: " << num_slots << " slots"
          << " (main = " << num_buckets << ", indirect = " << num_buckets_ext << ")" << std::endl
          << "      entry region: " << num_entries << " entries" << std::endl;
@@ -199,12 +200,11 @@ void VKVStore::init() {
     for (uint64_t i = 0; i < num_slots; i++) {
         keys[i] = ikey_t();
     }
-    cout << "Init Done!" << endl;
 }
 
 // Insert a list of Vertex properties
 void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
-    cout << "size of vplist: " << vplist.size() << endl;
+//	cout << "NodeID: " << get_node_id() << " | Insert # of vplist: " << vplist.size() << endl; //DEBUG
     for (int i = 0; i < vplist.size(); i++){
       insert_single_vertex_property(vplist.at(i));
     }
@@ -240,8 +240,8 @@ void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, elem_t & 
     }
 
     char * buffer = buf_->GetSendBuf(tid);
-    uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off * sizeof(char);
-    uint64_t r_sz = key.ptr.off * sizeof(char);
+    uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
+    uint64_t r_sz = key.ptr.size;
 
     RDMA &rdma = RDMA::get_rdma();
     rdma.dev->RdmaRead(dst_nid, buffer, r_sz, r_off);
@@ -263,7 +263,7 @@ void VKVStore::print_mem_usage() {
         }
     }
 
-    cout << "main header: " << B2MiB(num_buckets * ASSOCIATIVITY * sizeof(ikey_t))
+    cout << "VKVStore main header: " << B2MiB(num_buckets * ASSOCIATIVITY * sizeof(ikey_t))
          << " MB (" << num_buckets * ASSOCIATIVITY << " slots)" << endl;
     cout << "\tused: " << 100.0 * used_slots / (num_buckets * ASSOCIATIVITY)
          << " % (" << used_slots << " slots)" << endl;

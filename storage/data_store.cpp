@@ -8,8 +8,6 @@
 #include "storage/data_store.hpp"
 
 DataStore::DataStore(Config * config, AbstractIdMapper * id_mapper, Buffer * buf): config_(config), id_mapper_(id_mapper), buffer_(buf){
-	vtx_count = 0;
-	edge_count = 0;
 	vpstore_ = NULL;
 	epstore_ = NULL;
 }
@@ -118,6 +116,40 @@ void DataStore::Shuffle()
 		eplist.insert(eplist.end(), ep_parts[i].begin(), ep_parts[i].end());
 	}
 	ep_parts.clear();
+
+	//vp_lists
+	vector<vector<vp_list*>> vpl_parts;
+	vpl_parts.resize((get_num_nodes()));
+	for (int i = 0; i < vp_buf.size(); i++)
+	{
+		vp_list* vp = vp_buf[i];
+		vpl_parts[mymath::hash_mod(vp->vid.hash(), get_num_nodes())].push_back(vp);
+	}
+	all_to_all(vpl_parts);
+	vp_buf.clear();
+
+	for (int i = 0; i < get_num_nodes(); i++)
+	{
+		vp_buf.insert(vp_buf.end(), vpl_parts[i].begin(), vpl_parts[i].end());
+	}
+	vpl_parts.clear();
+
+	//ep_lists
+	vector<vector<ep_list*>> epl_parts;
+	epl_parts.resize((get_num_nodes()));
+	for (int i = 0; i < ep_buf.size(); i++)
+	{
+		ep_list* ep = ep_buf[i];
+		epl_parts[mymath::hash_mod(ep->eid.hash(), get_num_nodes())].push_back(ep);
+	}
+	all_to_all(epl_parts);
+	ep_buf.clear();
+
+	for (int i = 0; i < get_num_nodes(); i++)
+	{
+		ep_buf.insert(ep_buf.end(), epl_parts[i].begin(), epl_parts[i].end());
+	}
+	epl_parts.clear();
 }
 
 
@@ -128,34 +160,81 @@ void DataStore::DataConverter(){
 	}
 	vector<Vertex*>().swap(vertices);
 
+	for(int i = 0 ; i < vp_buf.size(); i++){
+		hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);
+		if(vIter == v_table.end()){
+			cout << "ERROR: FAILED TO MATCH ONE ELEMENT in vp_buf" << endl;
+			exit(-1);
+		}
+		Vertex * v = vIter->second;
+		v->vp_list.insert(v->vp_list.end(), vp_buf[i]->pkeys.begin(), vp_buf[i]->pkeys.end());
+//		cout << v->DebugString(); //TEST
+	}
+	//clean the vp_buf
+	for(int i = 0 ; i < vp_buf.size(); i++) delete vp_buf[i];
+	vector<vp_list*>().swap(vp_buf);
+
+
 	for(int i = 0 ; i < edges.size(); i++){
 		e_table[edges[i]->id] = edges[i];
 	}
 	vector<Edge*>().swap(edges);
 
+	for(int i = 0 ; i < ep_buf.size(); i++){
+		hash_map<eid_t, Edge*>::iterator eIter = e_table.find(ep_buf[i]->eid);
+		if(eIter == e_table.end()){
+			cout << "ERROR: FAILED TO MATCH ONE ELEMENT in ep_buf" << endl;
+			exit(-1);
+		}
+		Edge * e = eIter->second;
+		e->ep_list.insert(e->ep_list.end(), ep_buf[i]->pkeys.begin(), ep_buf[i]->pkeys.end());
+//		cout << e->DebugString(); //TEST
+	}
+	//clean the ep_buf
+	for(int i = 0 ; i < ep_buf.size(); i++) delete ep_buf[i];
+	vector<ep_list*>().swap(ep_buf);
+
 	vpstore_->insert_vertex_properties(vplist);
 	//clean the vp_list
-	for(int i = 0 ; i < vplist.size(); i++) delete vplist[i];
+	for(int i = 0 ; i < vplist.size(); i++){
+//		cout << vplist[i]->DebugString(); //TEST
+		delete vplist[i];
+	}
 	vector<VProperty*>().swap(vplist);
 
 	epstore_->insert_edge_properties(eplist);
 	//clean the ep_list
-	for(int i = 0 ; i < eplist.size(); i++) delete eplist[i];
+	for(int i = 0 ; i < eplist.size(); i++){
+//		cout << eplist[i]->DebugString();  //TEST
+		delete eplist[i];
+	}
 	vector<EProperty*>().swap(eplist);
 }
 
 Vertex* DataStore::GetVertex(vid_t v_id){
 	CHECK(id_mapper_->IsVertexLocal(v_id));
-	return v_table[v_id];
+//	return v_table[v_id];
+
+	hash_map<vid_t, Vertex*>::iterator vt_itr = v_table.find(v_id);
+	if(vt_itr != v_table.end()){
+		return vt_itr->second;
+	}
+	return NULL;
 }
 
 Edge* DataStore::GetEdge(eid_t e_id){
 	CHECK(id_mapper_->IsEdgeLocal(e_id));
-	return e_table[e_id];
+//	return e_table[e_id];
+
+	hash_map <eid_t, Edge*> ::iterator et_itr = e_table.find(e_id);
+	if(et_itr != e_table.end()){
+		return et_itr->second;
+	}
+	return NULL;
 }
 
 
-void DataStore::GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
+bool DataStore::GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
 	elem_t em;
 	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
 		vpstore_->get_property_local(vp_id.value(), em);
@@ -167,13 +246,13 @@ void DataStore::GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
 		val.type = em.type;
 		val.content.resize(em.sz);
 		std::copy(em.content, em.content+em.sz, val.content.begin());
-	}else{
-		fprintf(stderr,"ERROR: Failed to get property based on vp_id\n");
+		return true;
 	}
+	return false;
 }
 
 
-void DataStore::GetPropertyForEdge(int tid, epid_t ep_id, value_t & val){
+bool DataStore::GetPropertyForEdge(int tid, epid_t ep_id, value_t & val){
 	elem_t em;
 	if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
 		epstore_->get_property_local(ep_id.value(), em);
@@ -185,9 +264,9 @@ void DataStore::GetPropertyForEdge(int tid, epid_t ep_id, value_t & val){
 		val.type = em.type;
 		val.content.resize(em.sz);
 		std::copy(em.content, em.content+em.sz, val.content.begin());
-	}else{
-		fprintf(stderr,"ERROR: Failed to get property based on ep_id\n");
+		return true;
 	}
+	return false;
 }
 
 
@@ -348,8 +427,6 @@ void DataStore::load_vertices(const char* inpath)
 		if (!reader.eof()){
 			Vertex * v = to_vertex(reader.get_line());
 			vertices.push_back(v);
-			vtx_offset_map[v->id] = vtx_count;
-			vtx_count++;
 		}else{
 			break;
 		}
@@ -423,8 +500,6 @@ void DataStore::load_edges(const char* inpath)
 		if (!reader.eof()){
 			Edge * e = to_edge(reader.get_line());
 			edges.push_back(e);
-			edge_offset_map[e->id] = edge_count;
-			edge_count++;
 		}else{
 			break;
 		}
@@ -478,8 +553,6 @@ void DataStore::get_vplist()
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_vplist(it->c_str());
 	}
-	//clear map
-	vtx_offset_map.clear();
 }
 
 void DataStore::load_vplist(const char* inpath)
@@ -491,7 +564,7 @@ void DataStore::load_vplist(const char* inpath)
 	{
 		reader.read_line();
 		if (!reader.eof())
-			vplist.push_back(to_vp(reader.get_line()));
+			to_vp(reader.get_line(), vplist, vp_buf);
 		else
 			break;
 	}
@@ -499,35 +572,36 @@ void DataStore::load_vplist(const char* inpath)
 	hdfsDisconnect(fs);
 }
 
-VProperty* DataStore::to_vp(char* line)
+void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf)
 {
 	VProperty * vp = new VProperty;
+	vp_list * vpl = new vp_list;
+
 	char * pch;
 	pch = strtok(line, "\t");
 	int vid = atoi(pch);
 	vp->id = vid;
+	vpl->vid = vp->id;
 	pch = strtok(NULL, "\t");
 	string s(pch);
-
-	int offset = vtx_offset_map[vp->id];
-	Vertex * v = vertices[offset];
 
 	vector<string> kvpairs = Tool::split(s, "\[\],");
 	for(int i = 0 ; i < kvpairs.size(); i++){
 		kv_pair p;
 		Tool::get_kvpair(kvpairs[i], p);
-
 		V_KVpair v_pair;
 		v_pair.key = vpid_t(vid, p.key);
 		v_pair.value = p.value;
 		vp->plist.push_back(v_pair);
-
-		v->vp_list.push_back((label_t)p.key);
+		vpl->pkeys.push_back((label_t)p.key);
 	}
 
 	//sort p_list in vertex
-	sort(v->vp_list.begin(), v->vp_list.end());
-	return vp;
+	sort(vpl->pkeys.begin(), vpl->pkeys.end());
+	vplist.push_back(vp);
+	vp_buf.push_back(vpl);
+
+//	cout << "####### " << vp->DebugString(); //DEBUG
 }
 
 void DataStore::get_eplist()
@@ -559,8 +633,6 @@ void DataStore::get_eplist()
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_eplist(it->c_str());
 	}
-	//clear map
-	edge_offset_map.clear();
 }
 
 void DataStore::load_eplist(const char* inpath)
@@ -572,7 +644,7 @@ void DataStore::load_eplist(const char* inpath)
 	{
 		reader.read_line();
 		if (!reader.eof())
-			eplist.push_back(to_ep(reader.get_line()));
+			to_ep(reader.get_line(), eplist, ep_buf);
 		else
 			break;
 	}
@@ -580,21 +652,20 @@ void DataStore::load_eplist(const char* inpath)
 	hdfsDisconnect(fs);
 }
 
-EProperty* DataStore::to_ep(char* line)
+void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> & ep_buf)
 {
 	EProperty * ep = new EProperty;
+	ep_list * epl = new ep_list;
 	char * pch;
 	pch = strtok(line, "\t");
 	int in_v = atoi(pch);
 	pch = strtok(NULL, "\t");
 	int out_v = atoi(pch);
 	ep->id = eid_t(in_v, out_v);
+	epl->eid = ep->id;
 
 	pch = strtok(NULL, "\t");
 	string s(pch);
-
-	int offset = edge_offset_map[ep->id];
-	Edge * e = edges[offset];
 
 	vector<string> kvpairs = Tool::split(s, "\[\],");
 	for(int i = 0 ; i < kvpairs.size(); i++){
@@ -605,13 +676,14 @@ EProperty* DataStore::to_ep(char* line)
 		e_pair.key = epid_t(in_v, out_v, p.key);
 		e_pair.value = p.value;
 		ep->plist.push_back(e_pair);
-
-		e->ep_list.push_back((label_t)p.key);
+		epl->pkeys.push_back((label_t)p.key);
 	}
 
 	//sort p_list in vertex
-	sort(e->ep_list.begin(), e->ep_list.end());
+	sort(epl->pkeys.begin(), epl->pkeys.end());
+	eplist.push_back(ep);
+	ep_buf.push_back(epl);
 
-	return ep;
+//	cout << "####### " << ep->DebugString(); //DEBUG
 }
 

@@ -54,19 +54,18 @@ public:
 
 	void LoadDataFromHDFS();
 	void Shuffle();
-
-
 	void DataConverter();
+
 
 	Vertex* GetVertex(vid_t v_id);
 
 	Edge* GetEdge(eid_t e_id);
 
 
-	void GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
+	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
 
 
-	void GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);
+	bool GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);
 
 private:
 
@@ -87,12 +86,8 @@ private:
 	vector<Edge*> edges;
 	vector<VProperty*> vplist;
 	vector<EProperty*> eplist;
-
-	hash_map<vid_t, uint32_t> vtx_offset_map;
-	hash_map<eid_t, uint32_t> edge_offset_map;
-
-	uint32_t vtx_count;
-	uint32_t edge_count;
+	vector<vp_list*> vp_buf;
+	vector<ep_list*> ep_buf;
 
 	//==========tmp usage=========
 
@@ -113,11 +108,11 @@ private:
 
 	void load_vplist(const char* inpath);
 
-	VProperty* to_vp(char* line);
+	void to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf);
 
 	void get_eplist();
 
 	void load_eplist(const char* inpath);
 
-	EProperty* to_ep(char* line);
+	void to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> & ep_buf);
 };

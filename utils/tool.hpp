@@ -160,6 +160,12 @@ public:
 			v.content.push_back(f[k]);
 		v.type = 1;
 	}
+
+	static void elem_t2value_t(elem_t & e, value_t & v){
+		v.content.resize(e.sz);
+		v.content.insert(v.content.end(), e.content, e.content+e.sz);
+		v.type = e.type;
+	}
 };
 
 

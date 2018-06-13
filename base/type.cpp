@@ -226,6 +226,12 @@ obinstream& operator>>(obinstream& m, value_t& v)
 	return m;
 }
 
+string kv_pair::DebugString() const {
+	stringstream ss;
+	ss << "kv_pair: { key = " << key << ", value.type = " << (int)value.type << " }"<< endl;
+	return ss.str();
+}
+
 ibinstream& operator<<(ibinstream& m, const kv_pair& p)
 {
 	m << p.key;
@@ -237,6 +243,34 @@ obinstream& operator>>(obinstream& m, kv_pair& p)
 {
 	m >> p.key;
 	m >> p.value;
+	return m;
+}
+
+ibinstream& operator<<(ibinstream& m, const vp_list& vp)
+{
+	m << vp.vid;
+	m << vp.pkeys;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, vp_list& vp)
+{
+	m >> vp.vid;
+	m >> vp.pkeys;
+	return m;
+}
+
+ibinstream& operator<<(ibinstream& m, const ep_list& ep)
+{
+	m << ep.eid;
+	m << ep.pkeys;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, ep_list& ep)
+{
+	m >> ep.eid;
+	m >> ep.pkeys;
 	return m;
 }
 

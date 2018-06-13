@@ -19,6 +19,7 @@
 #include "utils/mymath.hpp"
 #include "utils/unit.hpp"
 #include "utils/config.hpp"
+#include "utils/global.hpp"
 #include "core/buffer.hpp"
 #include "storage/layout.hpp"
 

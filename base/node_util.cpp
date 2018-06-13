@@ -34,7 +34,7 @@ std::vector<Node> ParseFile(const std::string& filename) {
 			nodes.push_back(std::move(node));
 		}
 		catch(const std::invalid_argument& ia) {
-			LOG(FATAL) << "Invalid argument: " << ia.what() << "\n";
+			LOG(FATAL) << "node_util.cpp --> Invalid argument: " << ia.what() << "\n";
 		}
 	}
 	return nodes;

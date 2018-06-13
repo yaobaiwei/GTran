@@ -14,6 +14,7 @@
 #include "core/abstract_id_mapper.hpp"
 #include "utils/config.hpp"
 #include "utils/unit.hpp"
+#include "utils/mymath.hpp"
 #include "base/type.hpp"
 #include "base/node.hpp"
 
@@ -75,20 +76,26 @@ public:
 	}
 
 	// vertex/edge/property -> machine index mapping
-	int GetMachineIdForVertex(const vid_t v_id) {
-		return v_id.vid % config_->global_num_machines;
+	int GetMachineIdForVertex(vid_t v_id) {
+		return mymath::hash_mod(v_id.hash(), get_num_nodes());
+//		return v_id.vid % config_->global_num_machines;
 	}
 
-	int GetMachineIdForEdge(const eid_t e_id) {
-		return (e_id.in_v + e_id.out_v) % config_->global_num_machines;
+	int GetMachineIdForEdge(eid_t e_id) {
+		return mymath::hash_mod(e_id.hash(), get_num_nodes());
+//		return (e_id.in_v + e_id.out_v) % config_->global_num_machines;
 	}
 
-	int GetMachineIdForVProperty(const vpid_t vp_id) {
-		return vp_id.vid % config_->global_num_machines;
+	int GetMachineIdForVProperty(vpid_t vp_id) {
+		vid_t v(vp_id.vid);
+		return mymath::hash_mod(v.hash(), get_num_nodes());
+//		return vp_id.vid % config_->global_num_machines;
 	}
 
-	int GetMachineIdForEProperty(const epid_t ep_id) {
-		return (ep_id.in_vid + ep_id.out_vid) % config_->global_num_machines;
+	int GetMachineIdForEProperty(epid_t ep_id) {
+		eid_t e(ep_id.in_vid, ep_id.out_vid);
+		return mymath::hash_mod(e.hash(), get_num_nodes());
+//		return (ep_id.in_vid + ep_id.out_vid) % config_->global_num_machines;
 	}
 
 	// TODO: every entry of node_offset_ need a mutex, but the mutex need to be wrapped
