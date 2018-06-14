@@ -8,6 +8,7 @@
 #ifndef HW_ACTOR_HPP_
 #define HW_ACTOR_HPP_
 
+#include <iostream>
 #include <string>
 #include "glog/logging.h"
 
@@ -17,6 +18,7 @@
 #include "base/node.hpp"
 #include "base/type.hpp"
 
+using namespace std;
 
 class HwActor : public AbstractActor {
 public:
@@ -26,35 +28,38 @@ public:
     virtual ~HwActor(){}
 
     void process(int t_id, Message & msg){
-    	if (node_.id == 0){
-    		// create msg
-    		Message msg_to_send;
-    		msg_to_send.meta.sender = 0;
-    		msg_to_send.meta.recver = 1;
-    		msg_to_send.meta.qid = 0;
-    		msg_to_send.meta.step = 1;
-    		msg_to_send.meta.msg_type = MSG_T::FEED;
-    		msg_to_send.meta.chains.push_back(ACTOR_T::HW);
+    	//TEST
+    	cout << "RANK:" << get_node_id() << " => ACTOR TYPE:HW, " << "DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
 
-    		SArray<int> send_data;
-    		send_data.push_back(4);
-    		send_data.push_back(9);
-
-    		msg_to_send.AddData(send_data);
-
-    		// send msg
-    		mailbox_->Send(t_id, msg_to_send);
-
-    	}else if (node_.id == 1) {
-    		Message msg_to_recv = mailbox_->Recv();
-
-    		// Do checking
-    		CHECK_EQ(msg_to_recv.meta.sender, 0);
-    		CHECK_EQ(msg_to_recv.meta.recver, 1);
-    		auto data = SArray<int>(msg_to_recv.data[0]);
-    		CHECK_EQ(data[0], 4);
-    		CHECK_EQ(data[1], 9);
-    	}
+//    	if (node_.id == 0){
+//    		// create msg
+//    		Message msg_to_send;
+//    		msg_to_send.meta.sender = 0;
+//    		msg_to_send.meta.recver = 1;
+//    		msg_to_send.meta.qid = 0;
+//    		msg_to_send.meta.step = 1;
+//    		msg_to_send.meta.msg_type = MSG_T::FEED;
+//    		msg_to_send.meta.chains.push_back(ACTOR_T::HW);
+//
+//    		SArray<int> send_data;
+//    		send_data.push_back(4);
+//    		send_data.push_back(9);
+//
+//    		msg_to_send.AddData(send_data);
+//
+//    		// send msg
+//    		mailbox_->Send(t_id, msg_to_send);
+//
+//    	}else if (node_.id == 1) {
+//    		Message msg_to_recv = mailbox_->Recv();
+//
+//    		// Do checking
+//    		CHECK_EQ(msg_to_recv.meta.sender, 0);
+//    		CHECK_EQ(msg_to_recv.meta.recver, 1);
+//    		auto data = SArray<int>(msg_to_recv.data[0]);
+//    		CHECK_EQ(data[0], 4);
+//    		CHECK_EQ(data[1], 9);
+//    	}
     }
 
 private:

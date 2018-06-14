@@ -54,4 +54,4 @@ ibinstream& operator<<(ibinstream& m, const Message& msg);
 obinstream& operator>>(obinstream& m, Message& msg);
 
 Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender, int _recver,
-		vector<ACTOR_T> _chains, SArray<int> data);
+		vector<ACTOR_T> _chains, SArray<char> data);

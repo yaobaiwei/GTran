@@ -77,13 +77,30 @@ int main(int argc, char* argv[])
 	//=======data shuffle==========
 
 	datastore->DataConverter();
-
-	LOG(INFO) << "DONE -> Datastore->DataConverter()" << endl;
 	worker_barrier();
+	LOG(INFO) << "DONE -> Datastore->DataConverter()" << endl;
+
+	//TEST
+	for(int i = 0 ; i < get_num_nodes(); i++){
+		MSG_T type = MSG_T::FEED;
+		int qid = 1;
+		int step = 0;
+		int sender = get_node_id();
+		int recver = i;
+		vector<ACTOR_T> chains;
+		chains.push_back(ACTOR_T::HW);
+		SArray<char> data;
+		data.push_back('a');
+		data.push_back('c');
+		Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
+		mailbox->Send(0,msg);
+	}
 
 	//actor driver starts
-//	ActorAdapter * actor_adapter = new ActorAdapter(config, my_node, mailbox);
-//	actor_adapter->Start();
+	ActorAdapter * actor_adapter = new ActorAdapter(config, my_node, mailbox);
+	actor_adapter->Start();
+
+	actor_adapter->Stop();
 
 	worker_finalize();
 	return 0;

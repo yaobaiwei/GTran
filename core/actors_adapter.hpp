@@ -34,7 +34,7 @@ public:
 
 	void Start(){
 		Init();
-		for(int i = 0; i < config_->global_num_threads; ++i)
+		for(int i = 0; i < config_->global_num_threads; ++i) //DEBUG
 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
 	}
 
@@ -46,7 +46,8 @@ public:
 	void ThreadExecutor(int t_id) {
 	    while (true) {
 	        Message recv_msg = mailbox_->Recv();
-	        ACTOR_T next_actor = recv_msg.meta.chains[recv_msg.meta.step];
+	        Meta & m = recv_msg.meta;
+	        ACTOR_T next_actor = m.chains[m.step++];
 	        actors_[next_actor]->process(t_id, recv_msg);
 	    }
 	};

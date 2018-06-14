@@ -33,7 +33,7 @@ public:
 
     void Init() {
         for (int i = 0; i < config_->global_num_threads; i ++)
-            rdma_send_buffer_.push_back(buffer_ + config_->send_buffer_offset + i * MiB2B(config_->global_per_send_buffer_sz_mb));
+            rdma_send_buffer_.push_back(buffer_ + GetSendBufOffset(i));
 
         for (int i = 0; i < config_->global_num_machines; i ++)
             rdma_recv_buffer_.emplace_back(
@@ -74,7 +74,7 @@ public:
     	return MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 
-    inline int GetSendBufOffset(int index) {
+    inline uint64_t GetSendBufOffset(int index) {
     	CHECK_LT(index, config_->global_num_threads);
     	return config_->send_buffer_offset + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
@@ -88,14 +88,14 @@ public:
     	return MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
-    int GetRecvBufOffset(int index) {
+    inline uint64_t GetRecvBufOffset(int index) {
         CHECK_LT(index, config_->global_num_machines);
         return config_->recv_buffer_offset + index * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
     // Check corresponding buffer 
     bool CheckRecvBuf(int id) {
-        return rdma_recv_buffer_[id]->Check();
+    	return rdma_recv_buffer_[id]->Check();
     }
 
     void FetchMsgFromRecvBuf(int id, obinstream & um) {

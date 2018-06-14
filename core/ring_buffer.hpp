@@ -13,7 +13,7 @@
 class RingBuffer {
 public:
 	RingBuffer(){}
-    RingBuffer(char* buffer, int size) : buffer_(buffer), size_(size), header_(0) {}
+    RingBuffer(char* buffer, uint64_t size) : buffer_(buffer), size_(size), header_(0) {}
 
     void Init(){
     	memset(buffer_, 0, size_);
@@ -23,6 +23,7 @@ public:
     bool Pop(obinstream & um) {
     	// check header
     	uint64_t pop_msg_size = CheckHeader();
+
     	if (pop_msg_size) {
     		// Make sure RDMA trans is done
     		while (CheckFooter(pop_msg_size) != pop_msg_size) {
@@ -68,7 +69,8 @@ public:
     }
 
     bool Check(){
-    	return CheckHeader();
+    	uint64_t size = CheckHeader();
+    	return size != 0;
     }
 
 private:
@@ -78,7 +80,7 @@ private:
 
     // begin for the next msg
     uint64_t header_;
-    uint64_t CheckHeader() {
+    uint64_t CheckHeader(){
     	volatile uint64_t msg_size = *(volatile uint64_t *)(buffer_ + header_ % size_);  // header
     	return msg_size;
     }
