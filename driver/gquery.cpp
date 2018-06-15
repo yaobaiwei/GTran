@@ -83,15 +83,15 @@ int main(int argc, char* argv[])
 	//TEST
 	for(int i = 0 ; i < get_num_nodes(); i++){
 		MSG_T type = MSG_T::FEED;
-		int qid = 1;
+		int qid = i;
 		int step = 0;
 		int sender = get_node_id();
 		int recver = i;
 		vector<ACTOR_T> chains;
 		chains.push_back(ACTOR_T::HW);
 		SArray<char> data;
-		data.push_back('a');
-		data.push_back('c');
+		data.push_back(48+get_node_id());
+		data.push_back(48+i);
 		Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
 		mailbox->Send(0,msg);
 	}

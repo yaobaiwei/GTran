@@ -63,6 +63,7 @@ public:
 
     		// advance the pointer
     		header_ += 2 * sizeof(uint64_t) + ceil(pop_msg_size, sizeof(uint64_t));
+    		header_ %= size_;
     		return true;
     	}
     	return false;
