@@ -47,7 +47,7 @@ private:
     Buffer * buffer_;
 
     // round-robin scheduler
-    int scheduler_;
+    uint64_t scheduler_;
 
     // lock for recv 
     std::mutex recv_mu_;

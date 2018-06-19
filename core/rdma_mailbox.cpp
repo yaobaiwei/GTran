@@ -22,8 +22,7 @@ Message RdmaMailbox::Recv() {
 	while (true) {
 		Message msg_to_recv;
 		int machine_id = (scheduler_++) % config_->global_num_machines;
-		bool has = buffer_->CheckRecvBuf(machine_id);
-		if (has){
+		if(buffer_->CheckRecvBuf(machine_id)){
 			obinstream um;
 			buffer_->FetchMsgFromRecvBuf(machine_id, um);
 			um >> msg_to_recv;
@@ -58,10 +57,10 @@ int RdmaMailbox::Send(const int t_id, const Message & msg) {
 	int dst_nid = msg.meta.recver;
 	int src_nid = msg.meta.sender;
 	uint64_t msg_sz = sizeof(uint64_t) + ceil(data_sz, sizeof(uint64_t)) + sizeof(uint64_t);
-	uint64_t off = id_mapper_->GetAndIncrementRdmaRingBufferOffset(src_nid, msg_sz);
+	uint64_t off = id_mapper_->GetAndIncrementRdmaRingBufferOffset(dst_nid, msg_sz);
 	uint64_t rbf_sz = MiB2B(config_->global_per_recv_buffer_sz_mb);
 
-	if(get_node_id() == dst_nid){
+	if(src_nid == dst_nid){
 		char * recv_buf_ptr = buffer_->GetRecvBuf(src_nid);
 		// write msg to the local physical-queue
 		*((uint64_t *)(recv_buf_ptr + off % rbf_sz)) = data_sz;       // header
@@ -94,12 +93,11 @@ int RdmaMailbox::Send(const int t_id, const Message & msg) {
 		RDMA &rdma = RDMA::get_rdma();
 		uint64_t rdma_off = buffer_->GetRecvBufOffset(src_nid);
 		if (off / rbf_sz == (off + msg_sz - 1) / rbf_sz ) {
-			//rdma.dev->RdmaWriteSelective(tid, msg.meta.recver_node, buffer_->GetSendBuffer(t_id), (uint64_t)msg.meta.size, (uint64_t)recv_buffer_offset);
-			rdma.dev->RdmaWriteSelective(dst_nid, buffer_->GetSendBuf(t_id), msg_sz, rdma_off + (off % rbf_sz));
+			rdma.dev->RdmaWrite(dst_nid, buffer_->GetSendBuf(t_id), msg_sz, rdma_off + (off % rbf_sz));
 		} else {
 			uint64_t _sz = rbf_sz - (off % rbf_sz);
-			rdma.dev->RdmaWriteSelective(dst_nid, buffer_->GetSendBuf(t_id), _sz, rdma_off + (off % rbf_sz));
-			rdma.dev->RdmaWriteSelective(dst_nid, buffer_->GetSendBuf(t_id) + _sz, msg_sz - _sz, rdma_off);
+			rdma.dev->RdmaWrite(dst_nid, buffer_->GetSendBuf(t_id), _sz, rdma_off + (off % rbf_sz));
+			rdma.dev->RdmaWrite(dst_nid, buffer_->GetSendBuf(t_id) + _sz, msg_sz - _sz, rdma_off);
 		}
 		// Reset the send buffer
 		memset(buffer_->GetSendBuf(t_id), 0, MiB2B(config_->global_per_send_buffer_sz_mb));

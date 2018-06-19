@@ -34,7 +34,7 @@ public:
 
 	void Start(){
 		Init();
-		for(int i = 0; i < config_->global_num_threads; ++i) //DEBUG
+		for(int i = 0; i < config_->global_num_threads; ++i)
 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
 	}
 
