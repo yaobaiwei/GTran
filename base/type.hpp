@@ -314,7 +314,7 @@ ibinstream& operator<<(ibinstream& m, const value_t& v);
 obinstream& operator>>(obinstream& m, value_t& v);
 
 struct kv_pair {
-	int key;
+	uint32_t key;
 	value_t value;
 	string DebugString() const ;
 };

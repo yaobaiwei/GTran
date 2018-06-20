@@ -40,6 +40,8 @@ struct Config{
 	string HDFS_VP_SUBFOLDER;
 	string HDFS_EP_SUBFOLDER;
 
+	string HDFS_PTY_TYPE_PATH;
+
 	string HDFS_OUTPUT_PATH;
 	//==========================System Parameters==========================
 	int global_num_machines;
@@ -181,11 +183,19 @@ struct Config{
 			exit(-1);
 		}
 
+		str = iniparser_getstring(ini, "HDFS:HDFS_PTY_TYPE_PATH", str_not_found);
+		if(strcmp(str, str_not_found)!=0) HDFS_PTY_TYPE_PATH=str;
+		else
+		{
+			fprintf(stderr, "must enter the HDFS_PTY_TYPE_PATH. exits.\n");
+			exit(-1);
+		}
+
 		str = iniparser_getstring(ini, "HDFS:HDFS_OUTPUT_PATH", str_not_found);
 		if(strcmp(str, str_not_found)!=0) HDFS_OUTPUT_PATH=str;
 		else
 		{
-			fprintf(stderr, "must enter the HDFS_INPUT_PATH. exits.\n");
+			fprintf(stderr, "must enter the HDFS_OUTPUT_PATH. exits.\n");
 			exit(-1);
 		}
 

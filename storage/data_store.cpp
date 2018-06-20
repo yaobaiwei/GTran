@@ -43,6 +43,7 @@ void DataStore::LoadDataFromHDFS(){
 	get_edges();
 	get_vplist();
 	get_eplist();
+	upload_pty_types();
 }
 
 void DataStore::Shuffle()
@@ -355,7 +356,7 @@ void DataStore::get_string_indexes()
 	}
 	hdfsCloseFile(fs, vl_file);
 
-	string vpk_path = config_->HDFS_INDEX_PATH + "./edge_label";
+	string vpk_path = config_->HDFS_INDEX_PATH + "./vtx_property_index";
 	hdfsFile vpk_file = get_r_handle(vpk_path.c_str(), fs);
 	LineReader vpk_reader(fs, vpk_file);
 	while(true)
@@ -435,6 +436,8 @@ void DataStore::load_vertices(const char* inpath)
 	hdfsDisconnect(fs);
 }
 
+//Format
+//vid [\t] label [\t] #in_nbs [\t] nb1 [space] nb2 [space] ... #out_nbs nb1 [space] nb2 [space] ...
 Vertex* DataStore::to_vertex(char* line)
 {
 	Vertex * v = new Vertex;
@@ -508,6 +511,8 @@ void DataStore::load_edges(const char* inpath)
 	hdfsDisconnect(fs);
 }
 
+//Format
+//in_v [\t] out_v [\t] label
 Edge* DataStore::to_edge(char* line)
 {
 	Edge * e = new Edge;
@@ -572,6 +577,8 @@ void DataStore::load_vplist(const char* inpath)
 	hdfsDisconnect(fs);
 }
 
+//Format
+//vid [\t] [kid:value,kid:value,...]
 void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf)
 {
 	VProperty * vp = new VProperty;
@@ -592,8 +599,20 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
 		V_KVpair v_pair;
 		v_pair.key = vpid_t(vid, p.key);
 		v_pair.value = p.value;
+
+		//push to property_list of v
 		vp->plist.push_back(v_pair);
+
+		//for property index on v
 		vpl->pkeys.push_back((label_t)p.key);
+
+		//get and check property's type
+		type_map_itr ptr = vtx_pty_key_to_type.find(p.key);
+		if(ptr == vtx_pty_key_to_type.end()){
+			vtx_pty_key_to_type[p.key] = p.value.type;
+		}else{
+			CHECK(ptr->second == p.value.type);
+		}
 	}
 
 	//sort p_list in vertex
@@ -652,6 +671,8 @@ void DataStore::load_eplist(const char* inpath)
 	hdfsDisconnect(fs);
 }
 
+//Format
+//eid [\t] [kid:value,kid:value,...]
 void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> & ep_buf)
 {
 	EProperty * ep = new EProperty;
@@ -675,8 +696,17 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> 
 		E_KVpair e_pair;
 		e_pair.key = epid_t(in_v, out_v, p.key);
 		e_pair.value = p.value;
+
 		ep->plist.push_back(e_pair);
 		epl->pkeys.push_back((label_t)p.key);
+
+		//get and check property's type
+		type_map_itr ptr = edge_pty_key_to_type.find(p.key);
+		if(ptr == edge_pty_key_to_type.end()){
+			edge_pty_key_to_type[p.key] = p.value.type;
+		}else{
+			CHECK(ptr->second == p.value.type);
+		}
 	}
 
 	//sort p_list in vertex
@@ -687,3 +717,121 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> 
 //	cout << "####### " << ep->DebugString(); //DEBUG
 }
 
+void DataStore::upload_pty_types()
+{
+	if (_my_rank == MASTER_RANK)
+	{
+		vector<type_map> vtx_key_parts;
+		vtx_key_parts.resize(get_num_nodes());
+		master_gather(vtx_key_parts);
+
+		for (int i = 0; i < get_num_nodes(); i++)
+		{
+			if (i != MASTER_RANK)
+			{
+				type_map & part = vtx_key_parts[i];
+				for (type_map_itr it = part.begin(); it != part.end(); it++)
+				{
+					uint32_t key = it->first;
+					type_map_itr eit = vtx_pty_key_to_type.find(key);
+					if (eit == vtx_pty_key_to_type.end())
+						vtx_pty_key_to_type[key] = it->second;
+					else{
+						CHECK(eit->second == it->second);
+					}
+				}
+			}
+		}
+		worker_barrier(); //sync
+
+		vector<type_map> edge_key_parts;
+		edge_key_parts.resize(get_num_nodes());
+		master_gather(edge_key_parts);
+
+		for (int i = 0; i < get_num_nodes(); i++)
+		{
+			if (i != MASTER_RANK)
+			{
+				type_map & part = edge_key_parts[i];
+				for (type_map_itr it = part.begin(); it != part.end(); it++)
+				{
+					uint32_t key = it->first;
+					type_map_itr eit = edge_pty_key_to_type.find(key);
+					if (eit == edge_pty_key_to_type.end())
+						edge_pty_key_to_type[key] = it->second;
+					else{
+						CHECK(eit->second == it->second);
+					}
+				}
+			}
+		}
+		worker_barrier(); //sync
+
+		hdfsFS fs = get_hdfs_fs();
+
+		const char * dir = config_->HDFS_PTY_TYPE_PATH.c_str();
+		if (hdfsExists(fs, dir) == 0) //exists
+		{
+			if(hdfs_delete(fs, dir) == -1){
+				fprintf(stderr, "%s has already existed, try to delete but failed!\n", dir);
+				exit(-1);
+			}
+		}
+		if(hdfsCreateDirectory(fs, dir) == -1){
+			fprintf(stderr, "Failed to create folder %s!\n", dir);
+			exit(-1);
+		}
+
+		string path_to_vtx_key_type = config_->HDFS_PTY_TYPE_PATH + "./vtx_type_table";
+		hdfsFile vtx_file = get_w_handle(path_to_vtx_key_type.c_str(), fs);
+
+		for(type_map_itr ptr = vtx_pty_key_to_type.begin(); ptr != vtx_pty_key_to_type.end(); ptr++){
+			string str = indexes.vpk2str[ptr->first] + "\t" + to_string(ptr->first) + "\t" + to_string(ptr->second) + "\n";
+			char * line = str.c_str();
+			if (hdfsWrite(fs, vtx_file, line, str.length()) == -1)
+			{
+				fprintf(stderr, "Failed to write file %s!\n", path_to_vtx_key_type);
+				exit(-1);
+			}
+		}
+
+		//flush
+		if (hdfsFlush(fs, vtx_file))
+		{
+			fprintf(stderr, "Failed to 'flush' %s!\n", path_to_vtx_key_type);
+			exit(-1);
+		}
+		hdfsCloseFile(fs, vtx_file);
+
+
+
+		string path_to_edge_key_type = config_->HDFS_PTY_TYPE_PATH + "./edge_type_table";
+		hdfsFile edge_file = get_w_handle(path_to_edge_key_type.c_str(), fs);
+
+		for(type_map_itr ptr = edge_pty_key_to_type.begin(); ptr != edge_pty_key_to_type.end(); ptr++){
+			string str = indexes.epk2str[ptr->first] + "\t" + to_string(ptr->first) + "\t" + to_string(ptr->second) + "\n";
+			char * line = str.c_str();
+			if (hdfsWrite(fs, edge_file, line, str.length()) == -1)
+			{
+				fprintf(stderr, "Failed to write file %s!\n", path_to_edge_key_type);
+				exit(-1);
+			}
+		}
+
+		//flush
+		if (hdfsFlush(fs, edge_file))
+		{
+			fprintf(stderr, "Failed to 'flush' %s!\n", path_to_edge_key_type);
+			exit(-1);
+		}
+		hdfsCloseFile(fs, edge_file);
+		hdfsDisconnect(fs);
+	}
+	else
+	{
+		slave_gather(vtx_pty_key_to_type);
+		worker_barrier();
+		slave_gather(edge_pty_key_to_type);
+		worker_barrier();
+	}
+}

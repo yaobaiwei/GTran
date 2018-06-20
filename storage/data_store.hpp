@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <string.h>
+#include <string>
 #include <stdlib.h>
 #include <ext/hash_map>
 #include <ext/hash_set>
@@ -76,18 +76,23 @@ private:
 	//load the index and data from HDFS
 	string_index indexes; //index is global, no need to shuffle
 	hash_map<vid_t, Vertex*> v_table;
-	hash_map <eid_t, Edge*> e_table;
+	hash_map<eid_t, Edge*> e_table;
 
     VKVStore * vpstore_;
     EKVStore * epstore_;
-	//=========tmp usage=========
 
+	//=========tmp usage=========
 	vector<Vertex*> vertices;
 	vector<Edge*> edges;
 	vector<VProperty*> vplist;
 	vector<EProperty*> eplist;
 	vector<vp_list*> vp_buf;
 	vector<ep_list*> ep_buf;
+
+	typedef hash_map<uint32_t, uint8_t> type_map;
+	typedef hash_map<uint32_t, uint8_t>::iterator type_map_itr;
+	type_map vtx_pty_key_to_type;
+	type_map edge_pty_key_to_type;
 
 	//==========tmp usage=========
 
@@ -115,4 +120,6 @@ private:
 	void load_eplist(const char* inpath);
 
 	void to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> & ep_buf);
+
+	void upload_pty_types();
 };
