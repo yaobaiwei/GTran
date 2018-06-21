@@ -21,6 +21,7 @@
 using namespace std;
 
 #define MASTER_RANK 0
+#define HOSTER_RANK (_num_nodes - 1)
 #define COMMUN_CHANNEL 200
 //============================
 
