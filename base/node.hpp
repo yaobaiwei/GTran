@@ -11,30 +11,81 @@
 #include <string>
 #include <sstream>
 
+#include <mpi.h>
 #include "base/serialization.hpp"
 
 using namespace std;
 
 struct Node {
 public:
-	uint32_t id;
-	string hostname;
-	int port;
 
-	Node():id(0),port(0){}
-	Node(int id_, string hostname_, int port_){
-		id = id_;
-		hostname = hostname_;
-		port = port_;
+	MPI_Comm local_comm;
+
+	Node():world_rank_(0), world_size_(0), local_rank_(0), local_size_(0), color_(0){}
+
+	int get_world_rank()
+	{
+		return world_rank_;
 	}
 
-	std::string DebugString() const ;
+	void set_world_rank(int world_rank)
+	{
+		world_rank_ = world_rank;
+	}
 
-	bool operator==(const Node &other) const;
+	int get_world_size()
+	{
+		return world_size_;
+	}
+
+	void set_world_size(int world_size)
+	{
+		world_size_ = world_size;
+	}
+
+	int get_local_rank()
+	{
+		return local_rank_;
+	}
+
+	void set_local_rank(int local_rank)
+	{
+		local_rank_ = local_rank;
+	}
+
+	int get_local_size()
+	{
+		return local_size_;
+	}
+
+	void set_local_size(int local_size)
+	{
+		local_size_ = local_size;
+	}
+
+	int get_color()
+	{
+		return color_;
+	}
+
+	void set_color(int color)
+	{
+		color_ = color;
+	}
+
+	std::string Node::DebugString() const {
+		std::stringstream ss;
+		ss << "Node: { world_rank = " << world_rank_ << " world_size = " << world_size_ << " local_rank = "
+				<< local_rank_ << " local_size = " << local_size_ << " color = " << color_ << " }" << endl;
+		return ss.str();
+	}
+
+private:
+	int world_rank_;
+	int world_size_;
+	int local_rank_;
+	int local_size_;
+	int color_;
 };
-
-ibinstream& operator<<(ibinstream& m, const Node& node);
-
-obinstream& operator>>(obinstream& m, Node& node);
 
 #endif /* NODE_HPP_ */

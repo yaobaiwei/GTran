@@ -1,20 +1,20 @@
 /*
- * hoster.hpp
+ * master.hpp
  *
  *  Created on: Jun 21, 2018
  *      Author: Hongzhi Chen
  */
 
-#ifndef HOSTER_HPP_
-#define HOSTER_HPP_
+#ifndef MASTER_HPP_
+#define MASTER_HPP_
 
 #include "base/node.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
 
-class Hoster{
+class Master{
 public:
-	Hoster(Node & node, Config * config): node_(node), config_(config){}
+	Master(Node & node, Config * config): node_(node), config_(config){}
 
 	void Start(){
 
@@ -25,4 +25,4 @@ private:
 	Config * config_;
 };
 
-#endif /* HOSTER_HPP_ */
+#endif /* MASTER_HPP_ */

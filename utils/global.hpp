@@ -18,30 +18,18 @@
 #include <string.h>
 #include <iostream>
 
+#include "base/node.hpp"
+
 using namespace std;
 
 #define MASTER_RANK 0
-#define HOSTER_RANK (_num_nodes - 1)
 #define COMMUN_CHANNEL 200
 //============================
 
-extern int _my_rank;
-extern int _num_nodes;
-
-inline int get_node_id()
-{
-	return _my_rank;
-}
-
-inline int get_num_nodes()
-{
-	return _num_nodes;
-}
-
-void init_worker(int* argc, char*** argv);
-void worker_finalize();
-void worker_barrier();
-
+void InitMPIComm(int* argc, char*** argv, Node & node);
+void node_finalize(Node & node);
+void node_barrier(Node & node);
+void worker_barrier(Node & node);
 //============================
 
 void mk_dir(const char *dir);

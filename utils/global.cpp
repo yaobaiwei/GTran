@@ -8,10 +8,7 @@
 
 #include "utils/global.hpp"
 
-int _my_rank;
-int _num_nodes;
-
-void init_worker(int * argc, char*** argv)
+void InitMPIComm(int* argc, char*** argv, Node & node)
 {
 	int provided;
 	MPI_Init_thread(argc, argv, MPI_THREAD_MULTIPLE, &provided);
@@ -20,16 +17,41 @@ void init_worker(int * argc, char*** argv)
 		printf("MPI do not Support Multiple thread\n");
 		exit(0);
 	}
-	MPI_Comm_size(MPI_COMM_WORLD, &_num_nodes);
-	MPI_Comm_rank(MPI_COMM_WORLD, &_my_rank);
+	int num_nodes;
+	int rank;
+	MPI_Comm_size(MPI_COMM_WORLD, &num_nodes);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+	node.set_world_rank(rank);
+	node.set_world_size(num_nodes);
+
+	if(rank == MASTER_RANK)
+		node.set_color(0);
+	else
+		node.set_color(1);
+
+	MPI_Comm_split(MPI_COMM_WORLD, node.get_color(), node.get_world_rank(), &(node.local_comm));
+
+	int local_rank, local_size;
+	MPI_Comm_rank(node.local_comm, &local_rank);
+	MPI_Comm_size(node.local_comm, &local_size);
+
+	node.set_local_rank(local_rank);
+	node.set_local_size(local_size);
 }
 
-void worker_finalize()
+void node_finalize(Node & node)
 {
+	MPI_Comm_free(&(node.local_comm));
 	MPI_Finalize();
 }
 
-void worker_barrier()
+void worker_barrier(Node & node)
+{
+	MPI_Barrier(node.local_comm);
+}
+
+void node_barrier(Node & node)
 {
 	MPI_Barrier(MPI_COMM_WORLD);
 }
