@@ -27,9 +27,11 @@ using namespace std;
 //============================
 
 void InitMPIComm(int* argc, char*** argv, Node & node);
-void node_finalize(Node & node);
-void node_barrier(Node & node);
+void worker_finalize(Node & node);
 void worker_barrier(Node & node);
+void node_finalize();
+void node_barrier();
+
 //============================
 
 void mk_dir(const char *dir);

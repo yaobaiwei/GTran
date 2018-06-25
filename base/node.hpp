@@ -18,8 +18,8 @@ using namespace std;
 
 struct Node {
 public:
-
 	MPI_Comm local_comm;
+	char hostname[MPI_MAX_PROCESSOR_NAME];
 
 	Node():world_rank_(0), world_size_(0), local_rank_(0), local_size_(0), color_(0){}
 
@@ -73,10 +73,10 @@ public:
 		color_ = color;
 	}
 
-	std::string Node::DebugString() const {
+	std::string DebugString() const {
 		std::stringstream ss;
 		ss << "Node: { world_rank = " << world_rank_ << " world_size = " << world_size_ << " local_rank = "
-				<< local_rank_ << " local_size = " << local_size_ << " color = " << color_ << " }" << endl;
+				<< local_rank_ << " local_size = " << local_size_ << " color = " << color_ << " hostname = " << hostname << " }" << endl;
 		return ss.str();
 	}
 

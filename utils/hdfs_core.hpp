@@ -191,35 +191,11 @@ struct sizedFString
 
 const char* rfind(const char* str, char delim);
 
-vector<string>* dispatch_run(const char* in_dir, int num_slaves); //remember to "delete[] assignment" after used
+vector<vector<string>> dispatch_run(const char* in_dir, int num_slaves);
 
-//considers locality
-//1. compute avg size, define it as quota
-//2. sort files by size
-//3. for each file, if its slave has quota, assign it to the slave
-//4. for the rest, run the greedy assignment
-//(libhdfs do not have location info, but we can check slaveID from fileName)
-//*** NOTE: NOT SUITABLE FOR DATA "PUT" TO HDFS, ONLY FOR DATA PROCESSED BY AT LEAST ONE JOB
-vector<string>* dispatch_locality(const char* in_dir, int num_slaves); //remember to "delete[] assignment" after used
+vector<vector<string>> dispatch_locality(const char* in_dir, int num_slaves);
 
-vector<vector<string> >* dispatch_run(const char* in_dir); //remember to delete assignment after used
-
-vector<vector<string> >* dispatch_run(vector<string>& in_dirs); //remember to delete assignment after used
-
-//considers locality
-//1. compute avg size, define it as quota
-//2. sort files by size
-//3. for each file, if its slave has quota, assign it to the slave
-//4. for the rest, run the greedy assignment
-//(libhdfs do not have location info, but we can check slaveID from fileName)
-//*** NOTE: NOT SUITABLE FOR DATA "PUT" TO HDFS, ONLY FOR DATA PROCESSED BY AT LEAST ONE JOB
-vector<vector<string> >* dispatch_locality(const char* in_dir); //remember to delete assignment after used
-
-vector<vector<string> >* dispatch_locality(vector<string>& in_dirs); //remember to delete assignment after used
-
-void report_assignment(vector<string>* assignment, int num_slaves);
-
-void report_assignment(vector<vector<string> >* assignment);
+void report_assignment(vector<vector<string>> assignment, int num_slaves);
 
 
 #endif /* HDFS_CORE_HPP_ */

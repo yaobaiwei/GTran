@@ -7,7 +7,7 @@
 
 #include "storage/data_store.hpp"
 
-DataStore::DataStore(Config * config, AbstractIdMapper * id_mapper, Buffer * buf): config_(config), id_mapper_(id_mapper), buffer_(buf){
+DataStore::DataStore(Node & node, Config * config, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), config_(config), id_mapper_(id_mapper), buffer_(buf){
 	vpstore_ = NULL;
 	epstore_ = NULL;
 }
@@ -50,16 +50,16 @@ void DataStore::Shuffle()
 {
 	//vertices
 	vector<vector<Vertex*>> vtx_parts;
-	vtx_parts.resize((get_num_nodes()));
+	vtx_parts.resize(node_.get_local_size());
 	for (int i = 0; i < vertices.size(); i++)
 	{
 		Vertex* v = vertices[i];
-		vtx_parts[mymath::hash_mod(v->id.hash(), get_num_nodes())].push_back(v);
+		vtx_parts[mymath::hash_mod(v->id.hash(), node_.get_local_size())].push_back(v);
 	}
-	all_to_all(vtx_parts);
+	all_to_all(node_, false, vtx_parts);
 	vertices.clear();
 
-	for (int i = 0; i < get_num_nodes(); i++)
+	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		vertices.insert(vertices.end(), vtx_parts[i].begin(), vtx_parts[i].end());
 	}
@@ -67,17 +67,17 @@ void DataStore::Shuffle()
 
 	//edges
 	vector<vector<Edge*>> edges_parts;
-	edges_parts.resize((get_num_nodes()));
+	edges_parts.resize(node_.get_local_size());
 	for (int i = 0; i < edges.size(); i++)
 	{
 		Edge* e = edges[i];
-		edges_parts[mymath::hash_mod(e->id.hash(), get_num_nodes())].push_back(e);
+		edges_parts[mymath::hash_mod(e->id.hash(), node_.get_local_size())].push_back(e);
 	}
 
-	all_to_all(edges_parts);
+	all_to_all(node_, false, edges_parts);
 
 	edges.clear();
-	for (int i = 0; i < get_num_nodes(); i++)
+	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		edges.insert(edges.end(), edges_parts[i].begin(), edges_parts[i].end());
 	}
@@ -85,16 +85,16 @@ void DataStore::Shuffle()
 
 	//VProperty
 	vector<vector<VProperty*>> vp_parts;
-	vp_parts.resize((get_num_nodes()));
+	vp_parts.resize(node_.get_local_size());
 	for (int i = 0; i < vplist.size(); i++)
 	{
 		VProperty* vp = vplist[i];
-		vp_parts[mymath::hash_mod(vp->id.hash(), get_num_nodes())].push_back(vp);
+		vp_parts[mymath::hash_mod(vp->id.hash(), node_.get_local_size())].push_back(vp);
 	}
-	all_to_all(vp_parts);
+	all_to_all(node_, false, vp_parts);
 	vplist.clear();
 
-	for (int i = 0; i < get_num_nodes(); i++)
+	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		vplist.insert(vplist.end(), vp_parts[i].begin(), vp_parts[i].end());
 	}
@@ -102,17 +102,17 @@ void DataStore::Shuffle()
 
 	//EProperty
 	vector<vector<EProperty*>> ep_parts;
-	ep_parts.resize((get_num_nodes()));
+	ep_parts.resize(node_.get_local_size());
 	for (int i = 0; i < eplist.size(); i++)
 	{
 		EProperty* ep = eplist[i];
-		ep_parts[mymath::hash_mod(ep->id.hash(), get_num_nodes())].push_back(ep);
+		ep_parts[mymath::hash_mod(ep->id.hash(), node_.get_local_size())].push_back(ep);
 	}
 
-	all_to_all(ep_parts);
+	all_to_all(node_, false, ep_parts);
 	eplist.clear();
 
-	for (int i = 0; i < get_num_nodes(); i++)
+	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		eplist.insert(eplist.end(), ep_parts[i].begin(), ep_parts[i].end());
 	}
@@ -120,16 +120,16 @@ void DataStore::Shuffle()
 
 	//vp_lists
 	vector<vector<vp_list*>> vpl_parts;
-	vpl_parts.resize((get_num_nodes()));
+	vpl_parts.resize(node_.get_local_size());
 	for (int i = 0; i < vp_buf.size(); i++)
 	{
 		vp_list* vp = vp_buf[i];
-		vpl_parts[mymath::hash_mod(vp->vid.hash(), get_num_nodes())].push_back(vp);
+		vpl_parts[mymath::hash_mod(vp->vid.hash(), node_.get_local_size())].push_back(vp);
 	}
-	all_to_all(vpl_parts);
+	all_to_all(node_, false, vpl_parts);
 	vp_buf.clear();
 
-	for (int i = 0; i < get_num_nodes(); i++)
+	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		vp_buf.insert(vp_buf.end(), vpl_parts[i].begin(), vpl_parts[i].end());
 	}
@@ -137,16 +137,16 @@ void DataStore::Shuffle()
 
 	//ep_lists
 	vector<vector<ep_list*>> epl_parts;
-	epl_parts.resize((get_num_nodes()));
+	epl_parts.resize(node_.get_local_size());
 	for (int i = 0; i < ep_buf.size(); i++)
 	{
 		ep_list* ep = ep_buf[i];
-		epl_parts[mymath::hash_mod(ep->eid.hash(), get_num_nodes())].push_back(ep);
+		epl_parts[mymath::hash_mod(ep->eid.hash(), node_.get_local_size())].push_back(ep);
 	}
-	all_to_all(epl_parts);
+	all_to_all(node_, false, epl_parts);
 	ep_buf.clear();
 
-	for (int i = 0; i < get_num_nodes(); i++)
+	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		ep_buf.insert(ep_buf.end(), epl_parts[i].begin(), epl_parts[i].end());
 	}
@@ -390,27 +390,25 @@ void DataStore::get_vertices()
 	//check path + arrangement
 	const char * indir = config_->HDFS_VTX_SUBFOLDER.c_str();
 
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)
 			exit(-1);
 	}
 
-	vector<vector<string> >* arrangement;
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
-		arrangement = dispatch_locality(indir);
-		master_scatter(*arrangement);
-		vector<string>& assigned_splits = (*arrangement)[0];
+		vector<vector<string>> arrangement = dispatch_locality(indir, node_.get_local_size());
+		master_scatter(node_, false, arrangement);
+		vector<string>& assigned_splits = arrangement[0];
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_vertices(it->c_str());
-		delete arrangement;
 	}
 	else
 	{
 		vector<string> assigned_splits;
-		slave_scatter(assigned_splits);
+		slave_scatter(node_, false, assigned_splits);
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_vertices(it->c_str());
@@ -465,27 +463,25 @@ void DataStore::get_edges()
 {
 	//check path + arrangement
 	const char * indir = config_->HDFS_EDGE_SUBFOLDER.c_str();
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)
 			exit(-1);
 	}
 
-	vector<vector<string> >* arrangement;
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
-		arrangement = dispatch_locality(indir);
-		master_scatter(*arrangement);
-		vector<string>& assigned_splits = (*arrangement)[0];
+		vector<vector<string>> arrangement = dispatch_locality(indir, node_.get_local_size());
+		master_scatter(node_, false, arrangement);
+		vector<string>& assigned_splits = arrangement[0];
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_edges(it->c_str());
-		delete arrangement;
 	}
 	else
 	{
 		vector<string> assigned_splits;
-		slave_scatter(assigned_splits);
+		slave_scatter(node_, false, assigned_splits);
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_edges(it->c_str());
@@ -533,27 +529,25 @@ void DataStore::get_vplist()
 {
 	//check path + arrangement
 	const char * indir = config_->HDFS_VP_SUBFOLDER.c_str();
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)
 			exit(-1);
 	}
 
-	vector<vector<string> >* arrangement;
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
-		arrangement = dispatch_locality(indir);
-		master_scatter(*arrangement);
-		vector<string>& assigned_splits = (*arrangement)[0];
+		vector<vector<string>> arrangement = dispatch_locality(indir, node_.get_local_size());
+		master_scatter(node_, false, arrangement);
+		vector<string>& assigned_splits = arrangement[0];
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_vplist(it->c_str());
-		delete arrangement;
 	}
 	else
 	{
 		vector<string> assigned_splits;
-		slave_scatter(assigned_splits);
+		slave_scatter(node_, false, assigned_splits);
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_vplist(it->c_str());
@@ -627,27 +621,26 @@ void DataStore::get_eplist()
 {
 	//check path + arrangement
 	const char * indir = config_->HDFS_EP_SUBFOLDER.c_str();
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
 		if(dir_check(indir) == -1)
 			exit(-1);
 	}
 
-	vector<vector<string> >* arrangement;
-	if (_my_rank == MASTER_RANK)
+
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
-		arrangement = dispatch_locality(indir);
-		master_scatter(*arrangement);
-		vector<string>& assigned_splits = (*arrangement)[0];
+		vector<vector<string>> arrangement = dispatch_locality(indir, node_.get_local_size());
+		master_scatter(node_, false, arrangement);
+		vector<string>& assigned_splits = arrangement[0];
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_eplist(it->c_str());
-		delete arrangement;
 	}
 	else
 	{
 		vector<string> assigned_splits;
-		slave_scatter(assigned_splits);
+		slave_scatter(node_, false, assigned_splits);
 		//reading assigned splits (map)
 		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
 			load_eplist(it->c_str());
@@ -719,13 +712,13 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> 
 
 void DataStore::upload_pty_types()
 {
-	if (_my_rank == MASTER_RANK)
+	if (node_.get_local_rank() == MASTER_RANK)
 	{
 		vector<type_map> vtx_key_parts;
-		vtx_key_parts.resize(get_num_nodes());
-		master_gather(vtx_key_parts);
+		vtx_key_parts.resize(node_.get_local_size());
+		master_gather(node_, false, vtx_key_parts);
 
-		for (int i = 0; i < get_num_nodes(); i++)
+		for (int i = 0; i < node_.get_local_size(); i++)
 		{
 			if (i != MASTER_RANK)
 			{
@@ -742,13 +735,13 @@ void DataStore::upload_pty_types()
 				}
 			}
 		}
-		worker_barrier(); //sync
+		worker_barrier(node_); //sync
 
 		vector<type_map> edge_key_parts;
-		edge_key_parts.resize(get_num_nodes());
-		master_gather(edge_key_parts);
+		edge_key_parts.resize(node_.get_local_size());
+		master_gather(node_, false, edge_key_parts);
 
-		for (int i = 0; i < get_num_nodes(); i++)
+		for (int i = 0; i < node_.get_local_size(); i++)
 		{
 			if (i != MASTER_RANK)
 			{
@@ -765,7 +758,7 @@ void DataStore::upload_pty_types()
 				}
 			}
 		}
-		worker_barrier(); //sync
+		worker_barrier(node_); //sync
 
 		hdfsFS fs = get_hdfs_fs();
 
@@ -829,9 +822,9 @@ void DataStore::upload_pty_types()
 	}
 	else
 	{
-		slave_gather(vtx_pty_key_to_type);
-		worker_barrier();
-		slave_gather(edge_pty_key_to_type);
-		worker_barrier();
+		slave_gather(node_, false, vtx_pty_key_to_type);
+		worker_barrier(node_);
+		slave_gather(node_, false, edge_pty_key_to_type);
+		worker_barrier(node_);
 	}
 }

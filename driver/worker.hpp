@@ -25,54 +25,111 @@ public:
 	Worker(Node & node, Config * config, string host_fname): node_(node), config_(config), host_fname_(host_fname){}
 
 	void Start(){
-		NaiveIdMapper * id_mapper = new NaiveIdMapper(config_, node_);
+		NaiveIdMapper * id_mapper = new NaiveIdMapper(node_, config_);
 		id_mapper->Init();
 
-		LOG(INFO) <<  "DONE -> NaiveIdMapper->Init()" << endl;
+		cout <<  "DONE -> NaiveIdMapper->Init()" << endl;
 
 		//set the in-memory layout for RDMA buf
-		Buffer * buf = new Buffer(config_);
+		Buffer * buf = new Buffer(node_, config_);
 		buf->Init();
 
-		LOG(INFO) << "DONE -> Buffer->Init()" << endl;
-
 		//init the rdma mailbox
-		RdmaMailbox * mailbox = new RdmaMailbox(config_, id_mapper, buf);
+		RdmaMailbox * mailbox = new RdmaMailbox(node_, config_, id_mapper, buf);
 		mailbox->Init(host_fname_);
 
-		LOG(INFO) << "DONE -> RdmaMailbox->Init()" << endl;
+		cout << "DONE -> RdmaMailbox->Init()" << endl;
 
-		DataStore * datastore = new DataStore(config_, id_mapper, buf);
+		DataStore * datastore = new DataStore(node_, config_, id_mapper, buf);
 		datastore->Init();
 
-		LOG(INFO) << "DONE -> DataStore->Init()" << endl;
+		cout << "DONE -> DataStore->Init()" << endl;
 
 		datastore->LoadDataFromHDFS();
-		worker_barrier();
+		worker_barrier(node_);
 
+		//cout << "DONE -> DataStore->LoadDataFromHDFS()" << endl;
 		//=======data shuffle==========
 		datastore->Shuffle();
+		//cout << "DONE -> DataStore->Shuffle()" << endl;
 		//=======data shuffle==========
 
 		datastore->DataConverter();
-		worker_barrier();
-		LOG(INFO) << "DONE -> Datastore->DataConverter()" << endl;
+		worker_barrier(node_);
+		cout << "DONE -> Datastore->DataConverter()" << endl;
 
-		//TEST
-		for(int i = 0 ; i < get_num_nodes(); i++){
-			MSG_T type = MSG_T::FEED;
-			int qid = i;
-			int step = 0;
-			int sender = get_node_id();
-			int recver = i;
-			vector<ACTOR_T> chains;
-			chains.push_back(ACTOR_T::HW);
-			SArray<char> data;
-			data.push_back(48+get_node_id());
-			data.push_back(48+i);
-			Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
-			mailbox->Send(0,msg);
-		}
+//		//TEST
+//		vid_t vid(3);
+//		if(id_mapper->IsVertexLocal(vid)){
+//			Vertex* v = datastore->GetVertex(vid);
+//			cout << "RANK: " << node_.get_local_rank() << " GET VTX.IN_NBS => ";
+//			for(auto & nb : v->in_nbs){
+//				cout << nb.vid << ", ";
+//			}
+//			cout << endl;
+//		}
+//		eid_t eid(6,3);
+//		if(id_mapper->IsEdgeLocal(eid)){
+//			Edge* e = datastore->GetEdge(eid);
+//			cout << "RANK: " << node_.get_local_rank() << " GET EDGE.LABEL => " << e->label << endl;
+//		}
+//
+//		vpid_t vpid(6,2);
+//		value_t val;
+//		datastore->GetPropertyForVertex(0, vpid, val);
+//		cout << "RANK " << node_.get_local_rank() << " GET VP.VALUE => ";
+//		switch(val.type){
+//			case 1:
+//				cout << Tool::value_t2int(val) << endl;
+//				break;
+//			case 2:
+//				cout << Tool::value_t2double(val) << endl;
+//				break;
+//			case 3:
+//				cout << Tool::value_t2char(val) << endl;
+//				break;
+//			case 4:
+//				cout << Tool::value_t2string(val) << endl;
+//				break;
+//		}
+//
+//		worker_barrier(node_);
+//
+//		epid_t epid(1,3,1);
+//		value_t val2;
+//		datastore->GetPropertyForEdge(0, epid, val2);
+//		cout << "RANK " << node_.get_local_rank() << " GET EP.VALUE => ";
+//		switch(val2.type){
+//			case 1:
+//				cout << to_string(Tool::value_t2int(val2)) << endl;
+//				break;
+//			case 2:
+//				cout << to_string(Tool::value_t2double(val2)) << endl;
+//				break;
+//			case 3:
+//				cout << to_string(Tool::value_t2char(val2)) << endl;
+//				break;
+//			case 4:
+//				cout << Tool::value_t2string(val2) << endl;
+//				break;
+//		}
+//
+//		worker_barrier(node_);
+//
+//		for(int i = 0 ; i < node_.get_local_size(); i++){
+//			MSG_T type = MSG_T::FEED;
+//			int qid = i;
+//			int step = 0;
+//			int sender = node_.get_local_rank();
+//			int recver = i;
+//			vector<ACTOR_T> chains;
+//			chains.push_back(ACTOR_T::HW);
+//			SArray<char> data;
+//			data.push_back(48+node_.get_local_rank());
+//			data.push_back(48+i);
+//			Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
+//			mailbox->Send(0,msg);
+//		}
 
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(config_, node_, mailbox);

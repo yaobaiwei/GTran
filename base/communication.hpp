@@ -8,90 +8,85 @@
 #include <mpi.h>
 
 #include <vector>
+#include "base/node.hpp"
 #include "base/serialization.hpp"
 #include "utils/global.hpp"
 
 using namespace std;
 //============================================
 
-int all_sum(int my_copy);
+int all_sum(int my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
-long long master_sum_LL(long long my_copy);
+long long master_sum_LL(long long my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
-long long all_sum_LL(long long my_copy);
+long long all_sum_LL(long long my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
-char all_bor(char my_copy);
+char all_bor(char my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
-bool all_lor(bool my_copy);
+bool all_lor(bool my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
-bool all_land(bool my_copy);
-
-//============================================
-
-void pregel_send(void* buf, int size, int dst, int tag = COMMUN_CHANNEL);
-
-int pregel_recv(void* buf, int size, int src, int tag = COMMUN_CHANNEL); //return the actual source, since "src" can be MPI_ANY_SOURCE
+bool all_land(bool my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
 //============================================
 
-void send_ibinstream(ibinstream& m, int dst, int tag = COMMUN_CHANNEL);
+void pregel_send(void* buf, int size, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
-obinstream recv_obinstream(int src, int tag = COMMUN_CHANNEL);
+int pregel_recv(void* buf, int size, int src, MPI_Comm world, int tag = COMMUN_CHANNEL); //return the actual source, since "src" can be MPI_ANY_SOURCE
+
+//============================================
+
+void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
+
+obinstream recv_obinstream(int src, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
 //============================================
 //obj-level send/recv
 template <class T>
-void send_data(const T& data, int dst, int tag);
+void send_data(Node & node, const T& data, int dst, bool is_global, int tag = COMMUN_CHANNEL);
 
 template <class T>
-void send_data(const T& data, int dst);
-
-template <class T>
-T recv_data(int src, int tag);
-
-template <class T>
-T recv_data(int src);
+T recv_data(Node & node, int src, bool is_global, int tag = COMMUN_CHANNEL);
 
 //============================================
 //all-to-all
 template <class T>
-void all_to_all(std::vector<T>& to_exchange);
+void all_to_all(Node & node, bool is_global, std::vector<T>& to_exchange);
 
 template <class T>
-void all_to_all(vector<vector<T*> > & to_exchange);
+void all_to_all(Node & node, bool is_global, vector<vector<T*>> & to_exchange);
 
 template <class T, class T1>
-void all_to_all(vector<T>& to_send, vector<T1>& to_get);
+void all_to_all(Node & node, bool is_global, vector<T>& to_send, vector<T1>& to_get);
 
 template <class T, class T1>
-void all_to_all_cat(std::vector<T>& to_exchange1, std::vector<T1>& to_exchange2);
+void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, std::vector<T1>& to_exchange2);
 
 template <class T, class T1, class T2>
-void all_to_all_cat(std::vector<T>& to_exchange1, std::vector<T1>& to_exchange2, std::vector<T2>& to_exchange3);
+void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, std::vector<T1>& to_exchange2, std::vector<T2>& to_exchange3);
 
 //============================================
 //scatter
 template <class T>
-void master_scatter(vector<T>& to_send);
+void master_scatter(Node & node, bool is_global, vector<T>& to_send);
 
 template <class T>
-void slave_scatter(T& to_get);
+void slave_scatter(Node & node, bool is_global, T& to_get);
 
 //================================================================
 //gather
 template <class T>
-void master_gather(vector<T>& to_get);
+void master_gather(Node & node, bool is_global, vector<T>& to_get);
 
 template <class T>
-void slave_gather(T& to_send);
+void slave_gather(Node & node, bool is_global, T& to_send);
 
 //================================================================
 //bcast
 template <class T>
-void master_bcast(T& to_send);
+void master_bcast(Node & node, bool is_global, T& to_send);
 
 template <class T>
-void slave_bcast(T& to_get);
+void slave_bcast(Node & node, bool is_global, T& to_get);
 
 #include "communication.tpp"
 

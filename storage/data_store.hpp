@@ -33,7 +33,7 @@ using __gnu_cxx::hash_set;
 
 class DataStore {
 public:
-	DataStore(Config * config, AbstractIdMapper * id_mapper, Buffer * buf);
+	DataStore(Node & node, Config * config, AbstractIdMapper * id_mapper, Buffer * buf);
 
 	~DataStore();
 
@@ -72,6 +72,7 @@ private:
 	Buffer * buffer_;
 	AbstractIdMapper* id_mapper_;
 	Config* config_;
+	Node & node_;
 
 	//load the index and data from HDFS
 	string_index indexes; //index is global, no need to shuffle

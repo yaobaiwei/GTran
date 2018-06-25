@@ -15,6 +15,7 @@
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/abstract_id_mapper.hpp"
+#include "base/node.hpp"
 #include "base/rdma.hpp"
 #include "base/serialization.hpp"
 #include "utils/config.hpp"
@@ -24,8 +25,8 @@
 
 class RdmaMailbox : public AbstractMailbox {
 public:
-    RdmaMailbox(Config* config, AbstractIdMapper* id_mapper, Buffer * buffer) :
-        config_(config), id_mapper_(id_mapper), buffer_(buffer) {
+    RdmaMailbox(Node & node, Config* config, AbstractIdMapper* id_mapper, Buffer * buffer) :
+        node_(node), config_(config), id_mapper_(id_mapper), buffer_(buffer) {
     	scheduler_ = 0;
     }
 
@@ -42,6 +43,7 @@ public:
     bool TryRecv(Message & msg) override;
 
 private:
+    Node & node_;
     Config* config_;
     AbstractIdMapper* id_mapper_;
     Buffer * buffer_;

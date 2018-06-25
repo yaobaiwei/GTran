@@ -204,7 +204,6 @@ void EKVStore::init() {
 
 // Insert a list of Edge properties
 void EKVStore::insert_edge_properties(vector<EProperty*> & eplist) {
-//	cout << "NodeID: " << get_node_id() << " | Insert # of eplist: " << eplist.size() << endl; //DEBUG
     for (int i = 0; i < eplist.size(); i++){
       insert_single_edge_property(eplist.at(i));
     }

@@ -17,7 +17,7 @@ public:
 	Master(Node & node, Config * config): node_(node), config_(config){}
 
 	void Start(){
-
+		cout << "RANK: " << node_.get_world_rank() << " | " << node_.get_local_rank() << " DONE "<< endl;
 	}
 
 private:

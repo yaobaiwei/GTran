@@ -29,7 +29,7 @@ public:
 
     void process(int t_id, Message & msg){
     	//TEST
-    	cout << "RANK:" << get_node_id() << " => MSG FROM " << msg.meta.sender << " DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
+    	cout << "RANK:" << node_.get_local_rank() << " => MSG FROM " << msg.meta.sender << " DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
     }
 
 private:

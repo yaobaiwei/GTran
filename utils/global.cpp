@@ -38,12 +38,14 @@ void InitMPIComm(int* argc, char*** argv, Node & node)
 
 	node.set_local_rank(local_rank);
 	node.set_local_size(local_size);
+
+	int name_len;
+	MPI_Get_processor_name(node.hostname, &name_len);
 }
 
-void node_finalize(Node & node)
+void worker_finalize(Node & node)
 {
 	MPI_Comm_free(&(node.local_comm));
-	MPI_Finalize();
 }
 
 void worker_barrier(Node & node)
@@ -51,7 +53,12 @@ void worker_barrier(Node & node)
 	MPI_Barrier(node.local_comm);
 }
 
-void node_barrier(Node & node)
+void node_finalize()
+{
+	MPI_Finalize();
+}
+
+void node_barrier()
 {
 	MPI_Barrier(MPI_COMM_WORLD);
 }

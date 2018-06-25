@@ -803,10 +803,12 @@ const char* rfind(const char* str, char delim)
 	return str + pos;
 }
 
-vector<string>* dis_patch_run(const char* in_dir, int num_slaves) //remember to "delete[] assignment" after used
+vector<vector<string>> dispatch_run(const char* in_dir, int num_slaves) //remember to "delete[] assignment" after used
 {
 	//locality is not considered for simplicity
-	vector<string>* assignment = new vector<string>[num_slaves];
+	vector<vector<string>> assignment;
+	assignment.resize(num_slaves);
+
 	hdfsFS fs = get_hdfs_fs();
 	int num_files;
 	hdfsFileInfo* fileinfo = hdfsListDirectory(fs, in_dir, &num_files);
@@ -859,10 +861,11 @@ vector<string>* dis_patch_run(const char* in_dir, int num_slaves) //remember to 
 //4. for the rest, run the greedy assignment
 //(libhdfs do not have location info, but we can check slaveID from fileName)
 //*** NOTE: NOT SUITABLE FOR DATA "PUT" TO HDFS, ONLY FOR DATA PROCESSED BY AT LEAST ONE JOB
-vector<string>* dispatch_locality(const char* in_dir, int num_slaves) //remember to "delete[] assignment" after used
+vector<vector<string>> dispatch_locality(const char* in_dir, int num_slaves)
 {
-	//considers locality
-	vector<string>* assignment = new vector<string>[num_slaves];
+	vector<vector<string>> assignment;
+	assignment.resize(num_slaves);
+
 	hdfsFS fs = get_hdfs_fs();
 	int num_files;
 	hdfsFileInfo* fileinfo = hdfsListDirectory(fs, in_dir, &num_files);
@@ -927,279 +930,13 @@ vector<string>* dispatch_locality(const char* in_dir, int num_slaves) //remember
 	return assignment;
 }
 
-vector<vector<string> >* dispatch_run(const char* in_dir) //remember to delete assignment after used
-{
-	//locality is not considered for simplicity
-	vector<vector<string> >* assignment_pointer = new vector<vector<string>>(get_num_nodes());
-	vector<vector<string> >& assignment = *assignment_pointer;
-	hdfsFS fs = get_hdfs_fs();
-	int num_files;
-	hdfsFileInfo* fileinfo = hdfsListDirectory(fs, in_dir, &num_files);
-	if (fileinfo == NULL)
-	{
-		fprintf(stderr, "Failed to list directory %s!\n", in_dir);
-		exit(-1);
-	}
-	tOffset* assigned = new tOffset[get_num_nodes()];
-	for (int i = 0; i < get_num_nodes(); i++)
-		assigned[i] = 0;
-	//sort files by size
-	vector<sizedFName> sizedfile;
-	for (int i = 0; i < num_files; i++)
-	{
-		if (fileinfo[i].mKind == kObjectKindFile)
-		{
-			sizedFName cur = { fileinfo[i].mName, fileinfo[i].mSize };
-			sizedfile.push_back(cur);
-		}
-	}
-	sort(sizedfile.begin(), sizedfile.end());
-	//allocate files to slaves
-	vector<sizedFName>::iterator it;
-	for (it = sizedfile.begin(); it != sizedfile.end(); ++it)
-	{
-		int min = 0;
-		tOffset minSize = assigned[0];
-		for (int j = 1; j < get_num_nodes(); j++)
-		{
-			if (minSize > assigned[j])
-			{
-				min = j;
-				minSize = assigned[j];
-			}
-		}
-		assignment[min].push_back(it->fname);
-		assigned[min] += it->size;
-	}
-	delete[] assigned;
-	hdfsFreeFileInfo(fileinfo, num_files);
-	hdfsDisconnect(fs);
-	return assignment_pointer;
-}
-
-vector<vector<string> >* dispatch_run(vector<string>& in_dirs) //remember to delete assignment after used
-{
-	//locality is not considered for simplicity
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(get_num_nodes());
-	vector<vector<string> >& assignment = *assignment_pointer;
-	hdfsFS fs = get_hdfs_fs();
-	vector<sizedFString> sizedfile;
-	for (int pos = 0; pos < in_dirs.size(); pos++)
-	{
-		const char* in_dir = in_dirs[pos].c_str();
-		int num_files;
-		hdfsFileInfo* fileinfo = hdfsListDirectory(fs, in_dir, &num_files);
-		if (fileinfo == NULL)
-		{
-			fprintf(stderr, "Failed to list directory %s!\n", in_dir);
-			exit(-1);
-		}
-		for (int i = 0; i < num_files; i++)
-		{
-			if (fileinfo[i].mKind == kObjectKindFile)
-			{
-				sizedFString cur = { fileinfo[i].mName, fileinfo[i].mSize };
-				sizedfile.push_back(cur);
-			}
-		}
-		hdfsFreeFileInfo(fileinfo, num_files);
-	}
-	hdfsDisconnect(fs);
-	//sort files by size
-	sort(sizedfile.begin(), sizedfile.end());
-	tOffset* assigned = new tOffset[get_num_nodes()];
-	for (int i = 0; i < get_num_nodes(); i++)
-		assigned[i] = 0;
-	//allocate files to slaves
-	vector<sizedFString>::iterator it;
-	for (it = sizedfile.begin(); it != sizedfile.end(); ++it)
-	{
-		int min = 0;
-		tOffset minSize = assigned[0];
-		for (int j = 1; j < get_num_nodes(); j++)
-		{
-			if (minSize > assigned[j])
-			{
-				min = j;
-				minSize = assigned[j];
-			}
-		}
-		assignment[min].push_back(it->fname);
-		assigned[min] += it->size;
-	}
-	delete[] assigned;
-	return assignment_pointer;
-}
-
-//considers locality
-//1. compute avg size, define it as quota
-//2. sort files by size
-//3. for each file, if its slave has quota, assign it to the slave
-//4. for the rest, run the greedy assignment
-//(libhdfs do not have location info, but we can check slaveID from fileName)
-//*** NOTE: NOT SUITABLE FOR DATA "PUT" TO HDFS, ONLY FOR DATA PROCESSED BY AT LEAST ONE JOB
-vector<vector<string> >* dispatch_locality(const char* in_dir) //remember to delete assignment after used
-{
-	//considers locality
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(get_num_nodes());
-	vector<vector<string> >& assignment = *assignment_pointer;
-	hdfsFS fs = get_hdfs_fs();
-	int num_files;
-	hdfsFileInfo* fileinfo = hdfsListDirectory(fs, in_dir, &num_files);
-	if (fileinfo == NULL)
-	{
-		fprintf(stderr, "Failed to list directory %s!\n", in_dir);
-		exit(-1);
-	}
-	tOffset* assigned = new tOffset[get_num_nodes()];
-	for (int i = 0; i < get_num_nodes(); i++)
-		assigned[i] = 0;
-	//sort files by size
-	vector<sizedFName> sizedfile;
-	int avg = 0;
-	for (int i = 0; i < num_files; i++)
-	{
-		if (fileinfo[i].mKind == kObjectKindFile)
-		{
-			sizedFName cur = { fileinfo[i].mName, fileinfo[i].mSize };
-			sizedfile.push_back(cur);
-			avg += fileinfo[i].mSize;
-		}
-	}
-	avg /= get_num_nodes();
-	sort(sizedfile.begin(), sizedfile.end());
-	//allocate files to slaves
-	vector<sizedFName>::iterator it;
-	vector<sizedFName> recycler;
-	for (it = sizedfile.begin(); it != sizedfile.end(); ++it)
-	{
-		istringstream ss(rfind(it->fname, '/'));
-		string cur;
-		getline(ss, cur, '_');
-		getline(ss, cur, '_');
-		int slave_of_file = atoi(cur.c_str());
-		if (assigned[slave_of_file] + it->size <= avg)
-		{
-			assignment[slave_of_file].push_back(it->fname);
-			assigned[slave_of_file] += it->size;
-		}
-		else
-			recycler.push_back(*it);
-	}
-	for (it = recycler.begin(); it != recycler.end(); ++it)
-	{
-		int min = 0;
-		tOffset minSize = assigned[0];
-		for (int j = 1; j < get_num_nodes(); j++)
-		{
-			if (minSize > assigned[j])
-			{
-				min = j;
-				minSize = assigned[j];
-			}
-		}
-		assignment[min].push_back(it->fname);
-		assigned[min] += it->size;
-	}
-	delete[] assigned;
-	hdfsFreeFileInfo(fileinfo, num_files);
-	hdfsDisconnect(fs);
-	return assignment_pointer;
-}
-
-vector<vector<string> >* dispatch_locality(vector<string>& in_dirs) //remember to delete assignment after used
-{
-	//considers locality
-	vector<vector<string> >* assignment_pointer = new vector<vector<string> >(get_num_nodes());
-	vector<vector<string> >& assignment = *assignment_pointer;
-	hdfsFS fs = get_hdfs_fs();
-	vector<sizedFString> sizedfile;
-	int avg = 0;
-	for (int pos = 0; pos < in_dirs.size(); pos++)
-	{
-		const char* in_dir = in_dirs[pos].c_str();
-		int num_files;
-		hdfsFileInfo* fileinfo = hdfsListDirectory(fs, in_dir, &num_files);
-		if (fileinfo == NULL)
-		{
-			fprintf(stderr, "Failed to list directory %s!\n", in_dir);
-			exit(-1);
-		}
-		for (int i = 0; i < num_files; i++)
-		{
-			if (fileinfo[i].mKind == kObjectKindFile)
-			{
-				sizedFString cur = { fileinfo[i].mName, fileinfo[i].mSize };
-				sizedfile.push_back(cur);
-				avg += fileinfo[i].mSize;
-			}
-		}
-		hdfsFreeFileInfo(fileinfo, num_files);
-	}
-	hdfsDisconnect(fs);
-	tOffset* assigned = new tOffset[get_num_nodes()];
-	for (int i = 0; i < get_num_nodes(); i++)
-		assigned[i] = 0;
-	//sort files by size
-	avg /= get_num_nodes();
-	sort(sizedfile.begin(), sizedfile.end());
-	//allocate files to slaves
-	vector<sizedFString>::iterator it;
-	vector<sizedFString> recycler;
-	for (it = sizedfile.begin(); it != sizedfile.end(); ++it)
-	{
-		istringstream ss(rfind(it->fname.c_str(), '/'));
-		string cur;
-		getline(ss, cur, '_');
-		getline(ss, cur, '_');
-		int slave_of_file = atoi(cur.c_str());
-		if (assigned[slave_of_file] + it->size <= avg)
-		{
-			assignment[slave_of_file].push_back(it->fname);
-			assigned[slave_of_file] += it->size;
-		}
-		else
-			recycler.push_back(*it);
-	}
-	for (it = recycler.begin(); it != recycler.end(); ++it)
-	{
-		int min = 0;
-		tOffset minSize = assigned[0];
-		for (int j = 1; j < get_num_nodes(); j++)
-		{
-			if (minSize > assigned[j])
-			{
-				min = j;
-				minSize = assigned[j];
-			}
-		}
-		assignment[min].push_back(it->fname);
-		assigned[min] += it->size;
-	}
-	delete[] assigned;
-	return assignment_pointer;
-}
-
-void report_assignment(vector<string>* assignment, int num_slaves)
+void report_assignment(vector<vector<string>> assignment, int num_slaves)
 {
 	for (int i = 0; i < num_slaves; i++)
 	{
 		cout << "====== Rank " << i << " ======" << endl;
 		vector<string>::iterator it;
 		for (it = assignment[i].begin(); it != assignment[i].end(); ++it)
-		{
-			cout << *it << endl;
-		}
-	}
-}
-
-void report_assignment(vector<vector<string> >* assignment)
-{
-	for (int i = 0; i < get_num_nodes(); i++)
-	{
-		cout << "====== Rank " << i << " ======" << endl;
-		vector<string>::iterator it;
-		for (it = (*assignment)[i].begin(); it != (*assignment)[i].end(); ++it)
 		{
 			cout << *it << endl;
 		}

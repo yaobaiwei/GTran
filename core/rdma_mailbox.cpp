@@ -10,7 +10,7 @@
 
 void RdmaMailbox::Init(std::string host_fname) {
 	// Init RDMA
-	RDMA_init(config_->global_num_machines, get_node_id(), buffer_->GetBuf(), buffer_->GetBufSize(), host_fname);
+	RDMA_init(node_.get_local_size(), node_.get_local_rank(), buffer_->GetBuf(), buffer_->GetBufSize(), host_fname);
 	// init the scheduler
 	scheduler_ = 0;
 }
@@ -21,7 +21,7 @@ Message RdmaMailbox::Recv() {
 
 	while (true) {
 		Message msg_to_recv;
-		int machine_id = (scheduler_++) % config_->global_num_machines;
+		int machine_id = (scheduler_++) % node_.get_local_size();
 		if(buffer_->CheckRecvBuf(machine_id)){
 			obinstream um;
 			buffer_->FetchMsgFromRecvBuf(machine_id, um);
@@ -36,7 +36,7 @@ bool RdmaMailbox::TryRecv(Message & msg) {
 	// Only one thread can enter the handler
 	std::lock_guard<std::mutex> lk(recv_mu_);
 
-	for (int machine_id = 0; machine_id < config_->global_num_machines; machine_id++) {
+	for (int machine_id = 0; machine_id < node_.get_local_size(); machine_id++) {
 		if (buffer_->CheckRecvBuf(machine_id)){
 			obinstream um;
 			buffer_->FetchMsgFromRecvBuf(machine_id, um);

@@ -19,7 +19,7 @@
 
 class Buffer {
 public:
-    Buffer(Config * config) : config_(config){
+    Buffer(Node & node, Config * config) : node_(node), config_(config){
         buffer_ = new char[config_->buffer_sz];
         memset(buffer_, 0, config_->buffer_sz);
     	config_->kvstore = buffer_ + config_->kvstore_offset;
@@ -106,6 +106,7 @@ private:
     // layout: (kv-store) | send_buffer | recv_buffer
     char* buffer_;
     Config* config_;
+    Node & node_;
 
     // TODO: check overflow for rdma_send_buffer
     std::vector<char*> rdma_send_buffer_;

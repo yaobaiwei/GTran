@@ -23,7 +23,7 @@
 
 class NaiveIdMapper : public AbstractIdMapper {
 public:
-	NaiveIdMapper(Config * config, Node & node) : config_(config), my_node_(node) {}
+	NaiveIdMapper(Node & node, Config * config) : my_node_(node), config_(config) {}
 
 	virtual void Init(){
 		node_offset_.resize(config_->global_num_machines, 0);
@@ -64,15 +64,15 @@ public:
 	}
 
 	bool IsEdgeLocal(const eid_t e_id) {
-		return GetMachineIdForEdge(e_id) == my_node_.get_local_rank;
+		return GetMachineIdForEdge(e_id) == my_node_.get_local_rank();
 	}
   
 	bool IsVPropertyLocal(const vpid_t vp_id) {
-		return GetMachineIdForVProperty(vp_id) == my_node_.get_local_rank;
+		return GetMachineIdForVProperty(vp_id) == my_node_.get_local_rank();
 	}
 
 	bool IsEPropertyLocal(const epid_t ep_id) {
-		return GetMachineIdForEProperty(ep_id) == my_node_.get_local_rank;
+		return GetMachineIdForEProperty(ep_id) == my_node_.get_local_rank();
 	}
 
 	// vertex/edge/property -> machine index mapping

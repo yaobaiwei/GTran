@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 
 	Config * config = new Config();
 	config->Init();
-	LOG(INFO) << "DONE -> Config->Init()" << endl;
+	cout  << "DONE -> Config->Init()" << endl;
 
 	if(my_node.get_world_rank() == MASTER_RANK){
 		Master m(my_node, config);
@@ -35,9 +35,14 @@ int main(int argc, char* argv[])
 	}else{
 		Worker w(my_node, config, host_fname);
 		w.Start();
+
+		worker_barrier(my_node);
+		worker_finalize(my_node);
 	}
 
-	node_finalize(my_node);
+	void node_barrier();
+	void node_finalize();
+
 	return 0;
 }
 

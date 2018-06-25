@@ -204,9 +204,8 @@ void VKVStore::init() {
 
 // Insert a list of Vertex properties
 void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
-//	cout << "NodeID: " << get_node_id() << " | Insert # of vplist: " << vplist.size() << endl; //DEBUG
     for (int i = 0; i < vplist.size(); i++){
-      insert_single_vertex_property(vplist.at(i));
+    	insert_single_vertex_property(vplist.at(i));
     }
 }
 
