@@ -30,11 +30,11 @@ int main(int argc, char* argv[])
 	cout  << "DONE -> Config->Init()" << endl;
 
 	if(my_node.get_world_rank() == MASTER_RANK){
-		Master m(my_node, config);
-		m.Start();
+		Master master(my_node, config);
+		master.Start();
 	}else{
-		Worker w(my_node, config, host_fname);
-		w.Start();
+		Worker worker(my_node, config, host_fname);
+		worker.Start();
 
 		worker_barrier(my_node);
 		worker_finalize(my_node);

@@ -22,8 +22,21 @@
 
 using namespace std;
 
+enum MSG
+{
+	START = 0,
+	TERMINATE = 1,
+	REPORT = 2,
+	DONE = 3
+};
+
 #define MASTER_RANK 0
-#define COMMUN_CHANNEL 200
+
+const int COMMUN_CHANNEL=200;
+const int MONITOR_CHANNEL=201;
+const int MSCOMMUN_CHANNEL=202;
+const int COMMUN_TIME=1;
+
 //============================
 
 void InitMPIComm(int* argc, char*** argv, Node & node);

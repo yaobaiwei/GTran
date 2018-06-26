@@ -18,6 +18,7 @@
 #include "core/buffer.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/actors_adapter.hpp"
+#include "core/progress_monitor.hpp"
 #include "storage/data_store.hpp"
 
 class Worker{
@@ -131,11 +132,15 @@ public:
 //			mailbox->Send(0,msg);
 //		}
 
+		Monitor * monitor = new Monitor(node_);
+		thread th = monitor->Start();
+
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(config_, node_, mailbox);
 		actor_adapter->Start();
 
 		actor_adapter->Stop();
+		monitor->Stop(th);
 	}
 
 private:
