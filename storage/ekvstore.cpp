@@ -69,7 +69,21 @@ done:
 
 // Insert all properties for one vertex
 void EKVStore::insert_single_edge_property(EProperty* ep) {
-    // Every <vpid_t, value_t>
+	epid_t key(ep->id, 0);
+	string str = to_string(ep->label);
+
+	int slot_id = insert_id(key.hash());
+	uint64_t length = sizeof(label_t);
+	uint64_t off = sync_fetch_and_alloc_values(length);
+
+	// insert ptr
+	ptr_t ptr = ptr_t(length, off);
+	keys[slot_id].ptr = ptr;
+
+	// insert value
+	strncpy(&values[off], str.c_str(), length);
+
+	// Every <vpid_t, value_t>
     for (int i = 0; i < ep->plist.size(); i++) {
         E_KVpair e_kv = ep->plist[i];
         // insert key and get slot_id
@@ -210,31 +224,32 @@ void EKVStore::insert_edge_properties(vector<EProperty*> & eplist) {
 }
 
 // Get property by key locally
-void EKVStore::get_property_local(uint64_t pid, elem_t & elem) {
+void EKVStore::get_property_local(uint64_t pid, value_t & val) {
     ikey_t key;
     get_key_local(mymath::hash_u64(pid), key);
 
     if (key.is_empty()) {
-        elem.sz = 0;
-        elem.type = 0;
+        val.content.resize(0);
         return;
     }
 
-    elem.sz = key.ptr.size;
     uint64_t off = key.ptr.off;
+    uint64_t size = key.ptr.size - 1;
 
     // type : char to uint8_t
-    elem.type = values[off++];
-    elem.content = &(values[off]);
+    val.type = values[off++];
+	val.content.resize(size);
+
+	char * ctt = &(values[off]);
+	std::copy(ctt, ctt+size, val.content.begin());
 }
 
 // Get properties by key remotely
-void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, elem_t & elem) {
+void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t & val) {
     ikey_t key;
     get_key_remote(tid, dst_nid, mymath::hash_u64(pid), key);
     if (key.is_empty()) {
-        elem.sz = 0;
-        elem.type = 0;
+        val.content.resize(0);
         return;
     }
 
@@ -245,9 +260,46 @@ void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, elem_t & 
     RDMA &rdma = RDMA::get_rdma();
     rdma.dev->RdmaRead(dst_nid, buffer, r_sz, r_off);
 
-    elem.sz = key.ptr.size;
-    elem.type = buffer[0];
-    elem.content = &(buffer[1]);
+    // type : char to uint8_t
+    val.type = buffer[0];
+	val.content.resize(r_sz-1);
+
+	char * ctt = &(buffer[1]);
+	std::copy(ctt, ctt + r_sz-1, val.content.begin());
+}
+
+void EKVStore::get_label_local(uint64_t pid, label_t & label){
+    ikey_t key;
+    get_key_local(mymath::hash_u64(pid), key);
+
+	if (key.is_empty()) {
+		cout << "@@@@@@@@@@@@@" << endl;
+		return;
+	}
+
+    uint64_t off = key.ptr.off;
+
+    label = *reinterpret_cast<label_t *>(&(values[off]));
+}
+
+
+void EKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label){
+	ikey_t key;
+	get_key_remote(tid, dst_nid, mymath::hash_u64(pid), key);
+
+	if (key.is_empty()) {
+		cout << "@@@@@@@@@@@@@" << endl;
+		return;
+	}
+
+	char * buffer = buf_->GetSendBuf(tid);
+	uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
+	uint64_t r_sz = key.ptr.size;
+
+	RDMA &rdma = RDMA::get_rdma();
+	rdma.dev->RdmaRead(dst_nid, buffer, r_sz, r_off);
+
+	label = *reinterpret_cast<label_t *>(buffer);
 }
 
 // analysis

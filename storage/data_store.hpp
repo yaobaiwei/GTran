@@ -64,8 +64,11 @@ public:
 
 	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
 
-
 	bool GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);
+
+	bool GetLabelForVertex(int tid, vid_t vid, label_t & label);
+
+	bool GetLabelForEdge(int tid, eid_t eid, label_t & label);
 
 private:
 
@@ -83,44 +86,31 @@ private:
     EKVStore * epstore_;
 
 	//=========tmp usage=========
-	vector<Vertex*> vertices;
-	vector<Edge*> edges;
-	vector<VProperty*> vplist;
-	vector<EProperty*> eplist;
-	vector<vp_list*> vp_buf;
-	vector<ep_list*> ep_buf;
+	vector<Vertex*> vertices;  //x
+	vector<Edge*> edges; //x
+	vector<VProperty*> vplist; //x
+	vector<EProperty*> eplist; //x
+	vector<vp_list*> vp_buf; //x
 
 	typedef hash_map<uint32_t, uint8_t> type_map;
 	typedef hash_map<uint32_t, uint8_t>::iterator type_map_itr;
-	type_map vtx_pty_key_to_type;
-	type_map edge_pty_key_to_type;
+	type_map vtx_pty_key_to_type; //x
+	type_map edge_pty_key_to_type; //x
 
 	//==========tmp usage=========
 
 	void get_string_indexes();
 	void get_vertices();
-
 	void load_vertices(const char* inpath);
-
 	Vertex* to_vertex(char* line);
 
-	void get_edges();
-
-	void load_edges(const char* inpath);
-
-	Edge* to_edge(char* line);
-
 	void get_vplist();
-
 	void load_vplist(const char* inpath);
-
 	void to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf);
 
 	void get_eplist();
-
 	void load_eplist(const char* inpath);
-
-	void to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> & ep_buf);
+	void to_ep(char* line, vector<EProperty*> & eplist);
 
 	void upload_pty_types();
 };

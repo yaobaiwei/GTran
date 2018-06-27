@@ -9,7 +9,8 @@
 
 string Vertex::DebugString() const {
 	stringstream ss;
-	ss << "Vertex: { id = " << id.vid << " label = " << label << " in_nbs = [";
+	//ss << "Vertex: { id = " << id.vid << " label = " << label << " in_nbs = [";
+	ss << "Vertex: { id = " << id.vid << " in_nbs = [";
 	for(auto & vid : in_nbs)
 		ss << vid.vid << ", ";
 	ss << "] out_nbs = [";
@@ -25,7 +26,7 @@ string Vertex::DebugString() const {
 ibinstream& operator<<(ibinstream& m, const Vertex& v)
 {
 	m << v.id;
-	m << v.label;
+//	m << v.label;
 	m << v.in_nbs;
 	m << v.out_nbs;
 	m << v.vp_list;
@@ -35,7 +36,7 @@ ibinstream& operator<<(ibinstream& m, const Vertex& v)
 obinstream& operator>>(obinstream& m, Vertex& v)
 {
 	m >> v.id;
-	m >> v.label;
+//	m >> v.label;
 	m >> v.in_nbs;
 	m >> v.out_nbs;
 	m >> v.vp_list;
@@ -45,7 +46,8 @@ obinstream& operator>>(obinstream& m, Vertex& v)
 
 string Edge::DebugString() const {
 	stringstream ss;
-	ss << "Edge: { id = " << id.in_v << "," << id.out_v << " label = " << label << " ep_list = [";
+	//ss << "Edge: { id = " << id.in_v << "," << id.out_v << " label = " << label << " ep_list = [";
+	ss << "Edge: { id = " << id.in_v << "," << id.out_v <<  " ep_list = [";
 	for(auto & ep : ep_list)
 		ss << ep << ", ";
 	ss << "]}" << endl;
@@ -55,7 +57,7 @@ string Edge::DebugString() const {
 ibinstream& operator<<(ibinstream& m, const Edge& e)
 {
 	m << e.id;
-	m << e.label;
+//	m << e.label;
 	m << e.ep_list;
 	return m;
 }
@@ -63,7 +65,7 @@ ibinstream& operator<<(ibinstream& m, const Edge& e)
 obinstream& operator>>(obinstream& m, Edge& e)
 {
 	m >> e.id;
-	m >> e.label;
+//	m >> e.label;
 	m >> e.ep_list;
 	return m;
 }
@@ -100,6 +102,7 @@ string VProperty::DebugString() const {
 ibinstream& operator<<(ibinstream& m, const VProperty& vp)
 {
 	m << vp.id;
+	m << vp.label;
 	m << vp.plist;
 	return m;
 }
@@ -107,6 +110,7 @@ ibinstream& operator<<(ibinstream& m, const VProperty& vp)
 obinstream& operator>>(obinstream& m, VProperty& vp)
 {
 	m >> vp.id;
+	m >> vp.label;
 	m >> vp.plist;
 	return m;
 }
@@ -143,6 +147,7 @@ string EProperty::DebugString() const {
 ibinstream& operator<<(ibinstream& m, const EProperty& ep)
 {
 	m << ep.id;
+	m << ep.label;
 	m << ep.plist;
 	return m;
 }
@@ -150,6 +155,7 @@ ibinstream& operator<<(ibinstream& m, const EProperty& ep)
 obinstream& operator>>(obinstream& m, EProperty& ep)
 {
 	m >> ep.id;
+	m >> ep.label;
 	m >> ep.plist;
 	return m;
 }

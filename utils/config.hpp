@@ -36,7 +36,6 @@ struct Config{
 	string HDFS_INDEX_PATH;
 
 	string HDFS_VTX_SUBFOLDER;
-	string HDFS_EDGE_SUBFOLDER;
 	string HDFS_VP_SUBFOLDER;
 	string HDFS_EP_SUBFOLDER;
 
@@ -156,14 +155,6 @@ struct Config{
 		else
 		{
 			fprintf(stderr, "must enter the HDFS_VTX_SUBFOLDER. exits.\n");
-			exit(-1);
-		}
-
-		str = iniparser_getstring(ini, "HDFS:HDFS_EDGE_SUBFOLDER", str_not_found);
-		if(strcmp(str, str_not_found)!=0) HDFS_EDGE_SUBFOLDER=str;
-		else
-		{
-			fprintf(stderr, "must enter the HDFS_EDGE_SUBFOLDER. exits.\n");
 			exit(-1);
 		}
 
@@ -300,7 +291,6 @@ struct Config{
     	ss << "HDFS_INPUT_PATH : " << HDFS_INPUT_PATH << endl;
     	ss << "HDFS_INDEX_PATH : " << HDFS_INDEX_PATH << endl;
     	ss << "HDFS_VTX_SUBFOLDER : " << HDFS_VTX_SUBFOLDER << endl;
-    	ss << "HDFS_EDGE_SUBFOLDER : " << HDFS_EDGE_SUBFOLDER << endl;
     	ss << "HDFS_VP_SUBFOLDER : " << HDFS_VP_SUBFOLDER << endl;
     	ss << "HDFS_EP_SUBFOLDER : " << HDFS_EP_SUBFOLDER << endl;
     	ss << "HDFS_OUTPUT_PATH : " << HDFS_OUTPUT_PATH << endl;

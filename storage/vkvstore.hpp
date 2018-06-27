@@ -36,12 +36,17 @@ public:
     // Insert a list of Vertex properties
     void insert_vertex_properties(vector<VProperty*> & vplist);
 
-    // Get properties by key locally
-    void get_property_local(uint64_t pid, elem_t & elem);
+    // Get property by key locally
+    void get_property_local(uint64_t pid, value_t & val);
 
-    //TODO: tid --> SEND_BUF MAY NOT BE thread-safe
-    // Get properties by key remotely
-    void get_property_remote(int tid, int dst_nid, uint64_t pid, elem_t & elem);
+    // Get property by key remotely
+    void get_property_remote(int tid, int dst_nid, uint64_t pid, value_t & val);
+
+    // Get label by key locally
+    void get_label_local(uint64_t pid, label_t & label);
+
+    // Get label by key remotely
+    void get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label);
 
     // analysis
     void print_mem_usage();

@@ -40,7 +40,6 @@ void DataStore::Init(){
 void DataStore::LoadDataFromHDFS(){
 	get_string_indexes();
 	get_vertices();
-	get_edges();
 	get_vplist();
 	get_eplist();
 	upload_pty_types();
@@ -110,8 +109,8 @@ void DataStore::Shuffle()
 	}
 
 	all_to_all(node_, false, ep_parts);
-	eplist.clear();
 
+	eplist.clear();
 	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		eplist.insert(eplist.end(), ep_parts[i].begin(), ep_parts[i].end());
@@ -126,31 +125,15 @@ void DataStore::Shuffle()
 		vp_list* vp = vp_buf[i];
 		vpl_parts[mymath::hash_mod(vp->vid.hash(), node_.get_local_size())].push_back(vp);
 	}
-	all_to_all(node_, false, vpl_parts);
-	vp_buf.clear();
 
+	all_to_all(node_, false, vpl_parts);
+
+	vp_buf.clear();
 	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		vp_buf.insert(vp_buf.end(), vpl_parts[i].begin(), vpl_parts[i].end());
 	}
 	vpl_parts.clear();
-
-	//ep_lists
-	vector<vector<ep_list*>> epl_parts;
-	epl_parts.resize(node_.get_local_size());
-	for (int i = 0; i < ep_buf.size(); i++)
-	{
-		ep_list* ep = ep_buf[i];
-		epl_parts[mymath::hash_mod(ep->eid.hash(), node_.get_local_size())].push_back(ep);
-	}
-	all_to_all(node_, false, epl_parts);
-	ep_buf.clear();
-
-	for (int i = 0; i < node_.get_local_size(); i++)
-	{
-		ep_buf.insert(ep_buf.end(), epl_parts[i].begin(), epl_parts[i].end());
-	}
-	epl_parts.clear();
 }
 
 
@@ -180,20 +163,6 @@ void DataStore::DataConverter(){
 		e_table[edges[i]->id] = edges[i];
 	}
 	vector<Edge*>().swap(edges);
-
-	for(int i = 0 ; i < ep_buf.size(); i++){
-		hash_map<eid_t, Edge*>::iterator eIter = e_table.find(ep_buf[i]->eid);
-		if(eIter == e_table.end()){
-			cout << "ERROR: FAILED TO MATCH ONE ELEMENT in ep_buf" << endl;
-			exit(-1);
-		}
-		Edge * e = eIter->second;
-		e->ep_list.insert(e->ep_list.end(), ep_buf[i]->pkeys.begin(), ep_buf[i]->pkeys.end());
-//		cout << e->DebugString(); //TEST
-	}
-	//clean the ep_buf
-	for(int i = 0 ; i < ep_buf.size(); i++) delete ep_buf[i];
-	vector<ep_list*>().swap(ep_buf);
 
 	vpstore_->insert_vertex_properties(vplist);
 	//clean the vp_list
@@ -236,40 +205,50 @@ Edge* DataStore::GetEdge(eid_t e_id){
 
 
 bool DataStore::GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
-	elem_t em;
 	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
-		vpstore_->get_property_local(vp_id.value(), em);
+		vpstore_->get_property_local(vp_id.value(), val);
 	}else{										//remotely
-		vpstore_->get_property_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), em);
+		vpstore_->get_property_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), val);
 	}
 
-	if(em.sz > 0){
-		val.type = em.type;
-		val.content.resize(em.sz);
-		std::copy(em.content, em.content+em.sz, val.content.begin());
+	if(val.content.size())
 		return true;
-	}
 	return false;
 }
-
 
 bool DataStore::GetPropertyForEdge(int tid, epid_t ep_id, value_t & val){
-	elem_t em;
 	if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
-		epstore_->get_property_local(ep_id.value(), em);
+		epstore_->get_property_local(ep_id.value(), val);
 	}else{										//remotely
-		epstore_->get_property_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), em);
+		epstore_->get_property_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), val);
 	}
 
-	if(em.sz > 0){
-		val.type = em.type;
-		val.content.resize(em.sz);
-		std::copy(em.content, em.content+em.sz, val.content.begin());
+	if(val.content.size())
 		return true;
-	}
 	return false;
 }
 
+bool DataStore::GetLabelForVertex(int tid, vid_t vid, label_t & label){
+	label = 0;
+	vpid_t vp_id(vid, 0);
+	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
+		vpstore_->get_label_local(vp_id.value(), label);
+	}else{										//remotely
+		vpstore_->get_label_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), label);
+	}
+	return label;
+}
+
+bool DataStore::GetLabelForEdge(int tid, eid_t eid, label_t & label){
+	label = 0;
+	epid_t ep_id(eid, 0);
+	if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
+		epstore_->get_label_local(ep_id.value(), label);
+	}else{										//remotely
+		epstore_->get_label_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), label);
+	}
+	return label;
+}
 
 void DataStore::get_string_indexes()
 {
@@ -439,11 +418,13 @@ void DataStore::load_vertices(const char* inpath)
 Vertex* DataStore::to_vertex(char* line)
 {
 	Vertex * v = new Vertex;
+
 	char * pch;
 	pch = strtok(line, "\t");
-	v->id = atoi(pch);
-	pch = strtok(NULL, "\t");
-	v->label = (label_t)atoi(pch);
+
+	vid_t vid(atoi(pch));
+	v->id = vid;
+
 	pch = strtok(NULL, "\t");
 	int num_in_nbs = atoi(pch);
 	for(int i = 0 ; i < num_in_nbs; i++){
@@ -457,72 +438,6 @@ Vertex* DataStore::to_vertex(char* line)
 		v->out_nbs.push_back(atoi(pch));
 	}
 	return v;
-}
-
-void DataStore::get_edges()
-{
-	//check path + arrangement
-	const char * indir = config_->HDFS_EDGE_SUBFOLDER.c_str();
-	if (node_.get_local_rank() == MASTER_RANK)
-	{
-		if(dir_check(indir) == -1)
-			exit(-1);
-	}
-
-	if (node_.get_local_rank() == MASTER_RANK)
-	{
-		vector<vector<string>> arrangement = dispatch_locality(indir, node_.get_local_size());
-		master_scatter(node_, false, arrangement);
-		vector<string>& assigned_splits = arrangement[0];
-		//reading assigned splits (map)
-		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
-			load_edges(it->c_str());
-	}
-	else
-	{
-		vector<string> assigned_splits;
-		slave_scatter(node_, false, assigned_splits);
-		//reading assigned splits (map)
-		for (vector<string>::iterator it = assigned_splits.begin(); it != assigned_splits.end(); it++)
-			load_edges(it->c_str());
-	}
-}
-
-void DataStore::load_edges(const char* inpath)
-{
-	hdfsFS fs = get_hdfs_fs();
-	hdfsFile in = get_r_handle(inpath, fs);
-	LineReader reader(fs, in);
-	while (true)
-	{
-		reader.read_line();
-		if (!reader.eof()){
-			Edge * e = to_edge(reader.get_line());
-			edges.push_back(e);
-		}else{
-			break;
-		}
-	}
-	hdfsCloseFile(fs, in);
-	hdfsDisconnect(fs);
-}
-
-//Format
-//in_v [\t] out_v [\t] label
-Edge* DataStore::to_edge(char* line)
-{
-	Edge * e = new Edge;
-	char * pch;
-	pch = strtok(line, "\t");
-	int v_1 = atoi(pch);
-	pch = strtok(NULL, "\t");
-	int v_2 = atoi(pch);
-
-	eid_t eid(v_1, v_2);
-	e->id = eid;
-	pch = strtok(NULL, "\t");
-	e->label = (label_t)atoi(pch);
-	return e;
 }
 
 void DataStore::get_vplist()
@@ -580,9 +495,14 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
 
 	char * pch;
 	pch = strtok(line, "\t");
-	int vid = atoi(pch);
+	vid_t vid(atoi(pch));
 	vp->id = vid;
-	vpl->vid = vp->id;
+	vpl->vid = vid;
+
+	pch = strtok(NULL, "\t");
+	label_t label = (label_t)atoi(pch);
+	vp->label = label;
+
 	pch = strtok(NULL, "\t");
 	string s(pch);
 
@@ -656,7 +576,7 @@ void DataStore::load_eplist(const char* inpath)
 	{
 		reader.read_line();
 		if (!reader.eof())
-			to_ep(reader.get_line(), eplist, ep_buf);
+			to_ep(reader.get_line(), eplist);
 		else
 			break;
 	}
@@ -666,20 +586,28 @@ void DataStore::load_eplist(const char* inpath)
 
 //Format
 //eid [\t] [kid:value,kid:value,...]
-void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> & ep_buf)
+void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 {
+	Edge * e = new Edge;
 	EProperty * ep = new EProperty;
-	ep_list * epl = new ep_list;
+
 	char * pch;
 	pch = strtok(line, "\t");
 	int in_v = atoi(pch);
 	pch = strtok(NULL, "\t");
 	int out_v = atoi(pch);
-	ep->id = eid_t(in_v, out_v);
-	epl->eid = ep->id;
+
+	eid_t eid(in_v, out_v);
+	e->id = eid;
+	ep->id = eid;
+
+	pch = strtok(NULL, "\t");
+	label_t label = (label_t)atoi(pch);
+	ep->label = label;
 
 	pch = strtok(NULL, "\t");
 	string s(pch);
+	vector<label_t> pkeys;
 
 	vector<string> kvpairs = Tool::split(s, "\[\],");
 	for(int i = 0 ; i < kvpairs.size(); i++){
@@ -691,7 +619,7 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> 
 		e_pair.value = p.value;
 
 		ep->plist.push_back(e_pair);
-		epl->pkeys.push_back((label_t)p.key);
+		pkeys.push_back((label_t)p.key);
 
 		//get and check property's type
 		type_map_itr ptr = edge_pty_key_to_type.find(p.key);
@@ -703,9 +631,10 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist, vector<ep_list*> 
 	}
 
 	//sort p_list in vertex
-	sort(epl->pkeys.begin(), epl->pkeys.end());
+	sort(pkeys.begin(), pkeys.end());
+	e->ep_list.insert(e->ep_list.end(), pkeys.begin(), pkeys.end());
+	edges.push_back(e);
 	eplist.push_back(ep);
-	ep_buf.push_back(epl);
 
 //	cout << "####### " << ep->DebugString(); //DEBUG
 }
@@ -819,6 +748,10 @@ void DataStore::upload_pty_types()
 		}
 		hdfsCloseFile(fs, edge_file);
 		hdfsDisconnect(fs);
+
+		//clear intermediate data
+		vtx_pty_key_to_type.clear();
+		edge_pty_key_to_type.clear();
 	}
 	else
 	{
@@ -826,5 +759,9 @@ void DataStore::upload_pty_types()
 		worker_barrier(node_);
 		slave_gather(node_, false, edge_pty_key_to_type);
 		worker_barrier(node_);
+
+		//clear intermediate data
+		vtx_pty_key_to_type.clear();
+		edge_pty_key_to_type.clear();
 	}
 }

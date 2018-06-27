@@ -35,8 +35,8 @@ public:
 		while(!report_end_){
 			progress_[1] = num_task_;
 			send_data(node_, progress_, MASTER_RANK, true, MONITOR_CHANNEL);
-			//DEBUG
-			cout << "RANK " << node_.get_world_rank() << "=> SEND PROG " << num_task_ << endl;
+//			//DEBUG
+//			cout << "RANK " << node_.get_world_rank() << "=> SEND PROG " << num_task_ << endl;
 			sleep(COMMUN_TIME);
 		}
 		progress_[1] = -1;

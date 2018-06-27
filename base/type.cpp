@@ -260,20 +260,6 @@ obinstream& operator>>(obinstream& m, vp_list& vp)
 	return m;
 }
 
-ibinstream& operator<<(ibinstream& m, const ep_list& ep)
-{
-	m << ep.eid;
-	m << ep.pkeys;
-	return m;
-}
-
-obinstream& operator>>(obinstream& m, ep_list& ep)
-{
-	m >> ep.eid;
-	m >> ep.pkeys;
-	return m;
-}
-
 ibinstream& operator<<(ibinstream& m, const elem_t& e)
 {
 	vector<char> vec(e.content, e.content+e.sz);

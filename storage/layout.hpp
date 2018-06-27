@@ -19,7 +19,7 @@ using namespace std;
 
 struct Vertex {
 	vid_t id;
-	label_t label;
+//	label_t label;
 	vector<vid_t> in_nbs;
 	vector<vid_t> out_nbs;
 	vector<label_t> vp_list;
@@ -34,7 +34,7 @@ struct Edge {
 //	vid_t v_1;
 //	vid_t v_2;
 	eid_t id;
-	label_t label;
+//	label_t label;
 	vector<label_t> ep_list;
 	string DebugString() const ;
 };
@@ -55,6 +55,7 @@ obinstream& operator>>(obinstream& m, V_KVpair& pair);
 
 struct VProperty{
 	vid_t id;
+	label_t label;
 	vector<V_KVpair> plist;
 	string DebugString() const ;
 };
@@ -77,6 +78,7 @@ struct EProperty {
 //	vid_t v_1;
 //	vid_t v_2;
 	eid_t id;
+	label_t label;
 	vector<E_KVpair> plist;
 	string DebugString() const ;
 };

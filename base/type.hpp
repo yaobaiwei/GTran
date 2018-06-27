@@ -221,6 +221,11 @@ uint64_t pid : PID_BITS;
         assert((vid == _vid) && (pid == _pid) ); // no key truncate
     }
 
+	vpid_t(vid_t _vid, int _pid): pid(_pid) {
+		vid = _vid.vid;
+        assert((vid == _vid.vid) && (pid == _pid) ); // no key truncate
+    }
+
     bool operator == (const vpid_t &vpid) {
         if ((vid == vpid.vid) && (pid == vpid.pid))
             return true;
@@ -325,21 +330,12 @@ obinstream& operator>>(obinstream& m, kv_pair& p);
 
 struct vp_list{
 	vid_t vid;
-	vector<int> pkeys;
+	vector<label_t> pkeys;
 };
 
 ibinstream& operator<<(ibinstream& m, const vp_list& vp);
 
 obinstream& operator>>(obinstream& m, vp_list& vp);
-
-struct ep_list{
-	eid_t eid;
-	vector<int> pkeys;
-};
-
-ibinstream& operator<<(ibinstream& m, const ep_list& ep);
-
-obinstream& operator>>(obinstream& m, ep_list& ep);
 
 //the return value from kv_store
 //type
