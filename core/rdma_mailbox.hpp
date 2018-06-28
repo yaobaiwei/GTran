@@ -32,7 +32,7 @@ public:
 
     virtual ~RdmaMailbox() {}
 
-    void Init(std::string host_fname);
+    void Init(vector<Node> & nodes);
 
     // When sent to the same recv buffer, the consistency relies on
     // the lock in the id_mapper

@@ -19,7 +19,9 @@ using namespace std;
 struct Node {
 public:
 	MPI_Comm local_comm;
-	char hostname[MPI_MAX_PROCESSOR_NAME];
+	string hostname;
+	int tcp_port;
+	int rdma_port;
 
 	Node():world_rank_(0), world_size_(0), local_rank_(0), local_size_(0), color_(0){}
 

@@ -1,29 +1,42 @@
 /*
- * gquery.cpp
+ * client.cpp
  *
- *  Created on: May 9, 2018
+ *  Created on: Jun 24, 2018
  *      Author: Hongzhi Chen
  */
 
 #include "base/node.hpp"
-#include "utils/global.hpp"
-#include "utils/config.hpp"
-#include "driver/master.hpp"
-#include "driver/worker.hpp"
+#include "base/node_util.hpp"
 
 #include "glog/logging.h"
+
+class Client{
+public:
+	Client(string cfg_fname): fname_(cfg_fname){}
+	void Init(){
+		nodes_ = ParseFile(fname_);
+		CHECK(CheckUniquePort(nodes_));
+		master_ = GetNodeById(nodes_, 0);
+	}
+
+
+private:
+	string fname_;
+	vector<Node> nodes_;
+	Node master_;
+};
 
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
 {
 	google::InitGoogleLogging(argv[0]);
+	string cfg_fname = argv[1];
+	CHECK(!cfg_fname.empty());
 
-	Node my_node;
-	InitMPIComm(&argc, &argv, my_node);
-	cout << my_node.DebugString();
+	Client client(cfg_fname);
+	client.Init();
 
-	string host_fname = argv[1];
-	CHECK(!host_fname.empty());
+
 
 	Config * config = new Config();
 	config->Init();
@@ -33,7 +46,7 @@ int main(int argc, char* argv[])
 		Master master(my_node, config);
 		master.Start();
 	}else{
-		Worker worker(my_node, config, host_fname);
+		Worker worker(my_node, config, nodes);
 		worker.Start();
 
 		worker_barrier(my_node);
@@ -45,7 +58,3 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
-
-
-
-

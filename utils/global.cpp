@@ -40,7 +40,9 @@ void InitMPIComm(int* argc, char*** argv, Node & node)
 	node.set_local_size(local_size);
 
 	int name_len;
-	MPI_Get_processor_name(node.hostname, &name_len);
+	char hostname[MPI_MAX_PROCESSOR_NAME];
+	MPI_Get_processor_name(hostname, &name_len);
+	node.hostname = std::move(string(hostname));
 }
 
 void worker_finalize(Node & node)

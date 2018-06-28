@@ -47,12 +47,12 @@ bool all_land(bool my_copy, MPI_Comm world)
 }
 
 //============================================
-void pregel_send(void* buf, int size, int dst, MPI_Comm world, int tag)
+void send(void* buf, int size, int dst, MPI_Comm world, int tag)
 {
 	MPI_Send(buf, size, MPI_CHAR, dst, tag, world);
 }
 
-int pregel_recv(void* buf, int size, int src, MPI_Comm world, int tag) //return the actual source, since "src" can be MPI_ANY_SOURCE
+int recv(void* buf, int size, int src, MPI_Comm world, int tag) //return the actual source, since "src" can be MPI_ANY_SOURCE
 {
 	MPI_Status status;
 	MPI_Recv(buf, size, MPI_CHAR, src, tag, world, &status);
@@ -63,8 +63,8 @@ int pregel_recv(void* buf, int size, int src, MPI_Comm world, int tag) //return 
 void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag)
 {
 	size_t size = m.size();
-	pregel_send(&size, sizeof(size_t), dst, world, tag);
-	pregel_send(m.get_buf(), m.size(), dst, world, tag);
+	send(&size, sizeof(size_t), dst, world, tag);
+	send(m.get_buf(), m.size(), dst, world, tag);
 }
 
 //TODO
@@ -72,9 +72,9 @@ void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag)
 obinstream recv_obinstream(int src, MPI_Comm world, int tag)
 {
 	size_t size;
-	src = pregel_recv(&size, sizeof(size_t), src, world, tag); //must receive the content (paired with the msg-size) from the msg-size source
+	src = recv(&size, sizeof(size_t), src, world, tag); //must receive the content (paired with the msg-size) from the msg-size source
 	char* buf = new char[size];
-	pregel_recv(buf, size, src, world, tag);
+	recv(buf, size, src, world, tag);
 	return obinstream(buf, size);
 }
 

@@ -29,9 +29,9 @@ bool all_land(bool my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
 //============================================
 
-void pregel_send(void* buf, int size, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
+void send(void* buf, int size, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
-int pregel_recv(void* buf, int size, int src, MPI_Comm world, int tag = COMMUN_CHANNEL); //return the actual source, since "src" can be MPI_ANY_SOURCE
+int recv(void* buf, int size, int src, MPI_Comm world, int tag = COMMUN_CHANNEL); //return the actual source, since "src" can be MPI_ANY_SOURCE
 
 //============================================
 

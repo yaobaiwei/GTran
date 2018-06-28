@@ -8,9 +8,9 @@
 #include "core/rdma_mailbox.hpp"
 
 
-void RdmaMailbox::Init(std::string host_fname) {
+void RdmaMailbox::Init(vector<Node> & nodes) {
 	// Init RDMA
-	RDMA_init(node_.get_local_size(), node_.get_local_rank(), buffer_->GetBuf(), buffer_->GetBufSize(), host_fname);
+	RDMA_init(node_.get_local_size(), node_.get_local_rank(), buffer_->GetBuf(), buffer_->GetBufSize(), nodes);
 	// init the scheduler
 	scheduler_ = 0;
 }

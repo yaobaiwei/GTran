@@ -1,30 +1,24 @@
 /*
- * rdma.hpp
+ * Copyright (c) 2016 Shanghai Jiao Tong University.
+ *     All rights reserved.
  *
- *  Created on: May 14, 2018
- *      Author: Hongzhi Chen
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an "AS
+ *  IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *  express or implied.  See the License for the specific language
+ *  governing permissions and limitations under the License.
+ *
+ * For more about this software visit:
+ *
+ *      http://ipads.se.sjtu.edu.cn/projects/wukong
+ *
  */
-	/*
-	 * Copyright (c) 2016 Shanghai Jiao Tong University.
-	 *     All rights reserved.
-	 *
-	 *  Licensed under the Apache License, Version 2.0 (the "License");
-	 *  you may not use this file except in compliance with the License.
-	 *  You may obtain a copy of the License at
-	 *
-	 *      http://www.apache.org/licenses/LICENSE-2.0
-	 *
-	 *  Unless required by applicable law or agreed to in writing,
-	 *  software distributed under the License is distributed on an "AS
-	 *  IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
-	 *  express or implied.  See the License for the specific language
-	 *  governing permissions and limitations under the License.
-	 *
-	 * For more about this software visit:
-	 *
-	 *      http://ipads.se.sjtu.edu.cn/projects/wukong
-	 *
-	 */
 
 #pragma once
 
@@ -32,8 +26,12 @@
 
 #define DEFAULT_THREAD_CHL 0
 
+#include <vector>
+#include <string>
 #include <iostream>     // std::cout
 #include <fstream>      // std::ifstream
+#include "base/node.hpp"
+
 using namespace std;
 
 #ifdef HAS_RDMA
@@ -48,18 +46,17 @@ class RDMA {
     public:
         RdmaCtrl* ctrl = NULL;
 
-        RDMA_Device(int num_nodes, int nid, char *mem, uint64_t mem_sz, string ipfn) {
+        RDMA_Device(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
 
             // record IPs of ndoes
             vector<string> ipset;
-            ifstream ipfile(ipfn);
-            string ip;
-            while (ipfile >> ip)
-                ipset.push_back(ip);
+            for(const auto & node: nodes)
+                ipset.push_back(node.hostname);
 
+            int rdma_port = nodes[0].rdma_port;
             // initialization of new librdma
             // nid, ipset, port, thread_id-no use, enable single memory region
-            ctrl = new RdmaCtrl(nid, ipset, 19344, true);
+            ctrl = new RdmaCtrl(nid, ipset, rdma_port, true);
             ctrl->open_device();
             ctrl->set_connect_mr(mem, mem_sz);
             ctrl->register_connect_mr();//single
@@ -140,8 +137,8 @@ public:
 
     ~RDMA() { if (dev != NULL) delete dev; }
 
-    void init_dev(int num_nodes, int nid, char *mem, uint64_t mem_sz, string ipfn) {
-        dev = new RDMA_Device(num_nodes, nid, mem, mem_sz, ipfn);
+    void init_dev(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
+        dev = new RDMA_Device(num_nodes, nid, mem, mem_sz, nodes);
     }
 
     inline static bool has_rdma() { return true; }
@@ -152,14 +149,14 @@ public:
     }
 };
 
-void RDMA_init(int num_nodes, int nid, char *mem, uint64_t mem_sz, string ipfn);
+void RDMA_init(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes);
 
 #else
 
 class RDMA {
     class RDMA_Device {
     public:
-        RDMA_Device(int num_nodes, int nid, char *mem, uint64_t mem_sz, string fname) {
+        RDMA_Device(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
             cout << "This system is compiled without RDMA support." << endl;
             assert(false);
         }
@@ -196,8 +193,8 @@ public:
 
     ~RDMA() { }
 
-    void init_dev(int num_nodes, int nid, char *mem, uint64_t mem_sz, string ipfn) {
-        dev = new RDMA_Device(num_nodes, nid, mem, mem_sz, ipfn);
+    void init_dev(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
+        dev = new RDMA_Device(num_nodes, nid, mem, mem_sz, nodes);
     }
 
     inline static bool has_rdma() { return false; }
@@ -208,6 +205,6 @@ public:
     }
 };
 
-void RDMA_init(int num_nodes, int nid, char *mem, uint64_t mem_sz, string ipfn);
+void RDMA_init(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes);
 
 #endif

@@ -23,7 +23,7 @@
 
 class Worker{
 public:
-	Worker(Node & node, Config * config, string host_fname): node_(node), config_(config), host_fname_(host_fname){}
+	Worker(Node & node, Config * config, vector<Node> & nodes): node_(node), config_(config), nodes_(nodes){}
 
 	void Start(){
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(node_, config_);
@@ -37,7 +37,7 @@ public:
 
 		//init the rdma mailbox
 		RdmaMailbox * mailbox = new RdmaMailbox(node_, config_, id_mapper, buf);
-		mailbox->Init(host_fname_);
+		mailbox->Init(nodes_);
 
 		cout << "DONE -> RdmaMailbox->Init()" << endl;
 
@@ -143,20 +143,20 @@ public:
 		}
 
 		Monitor * monitor = new Monitor(node_);
-		thread th = monitor->Start();
+		monitor->Start();
 
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(config_, node_, mailbox);
 		actor_adapter->Start();
 
 		actor_adapter->Stop();
-		monitor->Stop(th);
+		monitor->Stop();
 	}
 
 private:
 	Node & node_;
 	Config * config_;
-	string host_fname_;
+	vector<Node> & nodes_;
 };
 
 

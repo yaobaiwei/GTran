@@ -43,23 +43,23 @@ public:
 		send_data(node_, progress_, MASTER_RANK, true, MONITOR_CHANNEL);
 	}
 
-	std::thread Start(){
+	void Start(){
 		Init();
-		return std::thread(&Monitor::ProgressReport, this);
+		thread_ = thread(&Monitor::ProgressReport, this);
 	}
 
-	void Stop(std::thread & th){
+	void Stop(){
 		report_end_ = true;
 		send_data(node_, DONE, MASTER_RANK, true, MSCOMMUN_CHANNEL);
-		th.join();
+		thread_.join();
 	}
 
 private:
 	Node & node_;
 	uint32_t num_task_;
-	bool report_end_;
+	thread thread_;
 	vector<uint32_t> progress_;
-
+	bool report_end_;
 	std::mutex mtx_;
 };
 
