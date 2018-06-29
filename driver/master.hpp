@@ -12,11 +12,14 @@
 #include <vector>
 #include <thread>
 #include <stdlib.h>
+#include <iostream>
+#include <string.h>
 
 #include "base/node.hpp"
 #include "base/communication.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
+#include "utils/zmq.hpp"
 
 using namespace std;
 
@@ -29,6 +32,18 @@ class Master{
 public:
 	Master(Node & node, Config * config): node_(node), config_(config){
 		is_end_ = false;
+		client_num = 0;
+	}
+
+	~Master(){
+		delete socket_;
+	}
+
+	void Init(){
+		socket_ = new zmq::socket_t(context_, ZMQ_REP);
+		char addr[64];
+		sprintf(addr, "tcp://*:%d", node_.tcp_port);
+		socket_->bind(addr);
 	}
 
 	void ProgListener(){
@@ -71,10 +86,28 @@ public:
 	void GetRequest(){
 		while(1)
 		{
-			int client_id = 0;
-			//zmq_recv to fill the client_id
+			zmq::message_t request;
+			socket_->recv(&request);
+
+			obinstream um;
+			char* buf = new char[request.size()];
+			strncpy(buf, (char *)request.data(), request.size());
+			um.assign(buf, request.size(), 0);
+
+			int client_id;
+			um >> client_id;
+			if(client_id == -1){
+				client_id = ++client_num;
+			}
+
 			int target_engine_id = ProgScheduler();
-			//zmq_send send #target_engine_id# to client_id
+			ibinstream m;
+			m << client_id;
+			m << target_engine_id;
+
+			zmq::message_t msg(m.size());
+			memcpy((void *)msg.data(), m.get_buf(), m.size());
+			socket_->send(msg);
 		}
 	}
 
@@ -100,8 +133,11 @@ private:
 	Node & node_;
 	Config * config_;
 	map<int, Progress> progress_map_;
+	int client_num;
 
 	bool is_end_;
+	zmq::context_t context_;
+	zmq::socket_t * socket_;
 };
 
 #endif /* MASTER_HPP_ */

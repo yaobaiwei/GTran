@@ -37,7 +37,7 @@ int recv(void* buf, int size, int src, MPI_Comm world, int tag = COMMUN_CHANNEL)
 
 void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
-obinstream recv_obinstream(int src, MPI_Comm world, int tag = COMMUN_CHANNEL);
+void recv_obinstream(obinstream& m, int src, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
 //============================================
 //obj-level send/recv

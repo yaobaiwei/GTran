@@ -10,19 +10,21 @@
 
 
 #include <vector>
-#include <unordered_map>
 #include "base/node.hpp"
+#include "base/serialization.hpp"
 #include "utils/zmq.hpp"
+
 
 class ClientConnection {
 public:
-	ClientConnection(const Node & master, vector<Node> & nodes):master_(master),nodes_(nodes){};
+	~ClientConnection();
+	void Init(vector<Node> & nodes);
+	void Send(int nid, ibinstream & m);
+	void Recv(int nid, obinstream & um);
 
 private:
-	Node & master_;
-	vector<Node> & nodes_;
-	zmq::socket_t receiver;
-	unordered_map<int, zmq::socket_t *> senders;
+	zmq::context_t context_;
+	vector<zmq::socket_t *> senders_;
 };
 
 #endif /* ZMQ_COMMUN_HPP_ */

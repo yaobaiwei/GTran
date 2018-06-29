@@ -18,7 +18,8 @@ T recv_data(Node & node, int src, bool is_global, int tag)
 		world = MPI_COMM_WORLD;
 	else
 		world = node.local_comm;
-	obinstream um = recv_obinstream(src, world, tag);
+	obinstream um;
+	recv_obinstream(um, src, world, tag);
 	T data;
 	um >> data;
 	return data;
@@ -59,13 +60,15 @@ void all_to_all(Node & node, bool is_global, std::vector<T>& to_exchange)
 				send_ibinstream(m, partner, world);
 
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 				um >> to_exchange[partner];
 			}
 			else
 			{
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 				T received;
 				um >> received;
 
@@ -113,13 +116,15 @@ void all_to_all(Node & node, bool is_global, vector<vector<T*> > & to_exchange)
 				delete m;
 
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 				um >> to_exchange[partner];
 			}
 			else
 			{
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 
 				//send
 				ibinstream * m = new ibinstream;
@@ -169,13 +174,15 @@ void all_to_all(Node & node, bool is_global, vector<T>& to_send, vector<T1>& to_
 				send_ibinstream(m, partner, world);
 
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 				um >> to_get[partner];
 			}
 			else
 			{
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 				T1 received;
 				um >> received;
 
@@ -223,7 +230,8 @@ void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, s
 				send_ibinstream(m, partner, world);
 
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 
 				um >> to_exchange1[partner];
 				um >> to_exchange2[partner];
@@ -231,7 +239,8 @@ void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, s
 			else
 			{
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 
 				T received1;
 				T1 received2;
@@ -286,7 +295,8 @@ void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, s
 				send_ibinstream(m, partner, world);
 
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 
 				um >> to_exchange1[partner];
 				um >> to_exchange2[partner];
@@ -295,7 +305,8 @@ void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, s
 			else
 			{
 				//receive
-				obinstream um = recv_obinstream(partner, world);
+				obinstream um;
+				recv_obinstream(um, partner, world);
 
 				T received1;
 				T1 received2;

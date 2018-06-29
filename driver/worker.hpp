@@ -25,6 +25,45 @@ class Worker{
 public:
 	Worker(Node & node, Config * config, vector<Node> & nodes): node_(node), config_(config), nodes_(nodes){}
 
+	~Worker(){
+		delete socket_;
+	}
+
+	void Init(){
+		socket_ = new zmq::socket_t(context_, ZMQ_REP);
+		char addr[64];
+		sprintf(addr, "tcp://*:%d", node_.tcp_port);
+		socket_->bind(addr);
+	}
+
+	//TODO : fake now
+	void RecvRequest(){
+		while(1)
+		{
+			zmq::message_t request;
+			socket_->recv(&request);
+
+			obinstream um;
+			char* buf = new char[request.size()];
+			strncpy(buf, (char *)request.data(), request.size());
+			um.assign(buf, request.size(), 0);
+
+			Message query;
+			um >> query;
+			cout << "RANK-" << node_.get_world_rank() << " : QID = " << query.meta.qid << " | Data={ " << query.data[0][0] << ", " <<  query.data[0][1] << "}" << endl;
+
+			SArray<int> re;
+			re.push_back(-1);
+			re.push_back(-2);
+
+			ibinstream m;
+			m << re;
+			zmq::message_t msg(m.size());
+			memcpy((void *)msg.data(), m.get_buf(), m.size());
+			socket_->send(msg);
+		}
+	}
+
 	void Start(){
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(node_, config_);
 		id_mapper->Init();
@@ -157,6 +196,9 @@ private:
 	Node & node_;
 	Config * config_;
 	vector<Node> & nodes_;
+
+	zmq::context_t context_;
+	zmq::socket_t * socket_;
 };
 
 

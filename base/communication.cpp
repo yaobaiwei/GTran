@@ -67,15 +67,14 @@ void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag)
 	send(m.get_buf(), m.size(), dst, world, tag);
 }
 
-//TODO
-//OPT Performance, avoid copy before return
-obinstream recv_obinstream(int src, MPI_Comm world, int tag)
+
+void recv_obinstream(obinstream& m, int src, MPI_Comm world, int tag)
 {
 	size_t size;
 	src = recv(&size, sizeof(size_t), src, world, tag); //must receive the content (paired with the msg-size) from the msg-size source
 	char* buf = new char[size];
 	recv(buf, size, src, world, tag);
-	return obinstream(buf, size);
+	m.assign(buf, size, 0);
 }
 
 //============================================

@@ -31,12 +31,16 @@ int main(int argc, char* argv[])
 	Node node = GetNodeById(nodes, my_node.get_world_rank());
 	CHECK_EQ(node.hostname, my_node.hostname);
 
+	my_node.tcp_port = node.tcp_port;
+
 	Config * config = new Config();
 	config->Init();
 	cout  << "DONE -> Config->Init()" << endl;
 
 	if(my_node.get_world_rank() == MASTER_RANK){
 		Master master(my_node, config);
+		master.Init();
+
 		master.Start();
 	}else{
 		Worker worker(my_node, config, nodes);
