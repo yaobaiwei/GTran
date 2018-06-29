@@ -42,16 +42,16 @@ std::vector<Node> ParseFile(const std::string& filename) {
 	return nodes;
 }
 
-Node GetNodeById(const std::vector<Node>& nodes, int id) {
-	for (const auto & node : nodes) {
-		if (id == node.get_world_rank()) {
-		  return node;
+Node GetNodeById(std::vector<Node>& nodes, int id) {
+	for (int i = 0; i < nodes.size(); i++) {
+		if (id == nodes[i].get_world_rank()) {
+		  return nodes[i];
 		}
 	}
 	CHECK(false) << "Node" << id << " is not in the given node list";
 }
 
-bool CheckUniquePort(const std::vector<Node>& nodes){
+bool CheckUniquePort(std::vector<Node>& nodes){
 	for (const auto& node : nodes) {
 		if(node.tcp_port == node.rdma_port)
 			return false;
@@ -59,9 +59,9 @@ bool CheckUniquePort(const std::vector<Node>& nodes){
 	return true;
 }
 
-bool HasNode(const std::vector<Node>& nodes, uint32_t id) {
-	for (const auto& node : nodes) {
-		if (node.get_world_rank() == id) {
+bool HasNode(std::vector<Node>& nodes, uint32_t id) {
+	for (int i = 0; i < nodes.size(); i++) {
+		if (nodes[i].get_world_rank() == id) {
 		  return true;
 		}
 	}

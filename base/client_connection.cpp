@@ -7,6 +7,7 @@
 
 #include "base/client_connection.hpp"
 
+#include <iostream>
 #include <stdio.h>
 #include <string.h>
 
@@ -34,7 +35,7 @@ void ClientConnection::Send(int nid, ibinstream & m){
 void ClientConnection::Recv(int nid, obinstream & um){
     zmq::message_t msg;
     if (senders_[nid]->recv(&msg) < 0) {
-        cout << "Client recvs with error " << strerror(errno) << endl;
+        std::cout << "Client recvs with error " << strerror(errno) << std::endl;
         exit(-1);
     }
     char* buf = new char[msg.size()];

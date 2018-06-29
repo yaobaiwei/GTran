@@ -17,13 +17,13 @@
 
 std::vector<Node> ParseFile(const std::string& filename);
 
-Node GetNodeById(const std::vector<Node>& nodes, int id);
+Node GetNodeById(std::vector<Node>& nodes, int id);
 
-bool CheckUniquePort(const std::vector<Node>& nodes);
+bool CheckUniquePort(std::vector<Node>& nodes);
 
 /*
  * Return true if id is in nodes, false otherwise
  */
-bool HasNode(const std::vector<Node>& nodes, uint32_t id);
+bool HasNode(std::vector<Node>& nodes, uint32_t id);
 
 #endif /* NODE_UTIL_HPP_ */

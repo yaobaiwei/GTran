@@ -65,6 +65,8 @@ public:
 	}
 
 	void Start(){
+		thread recv(&Worker::RecvRequest, this);
+
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(node_, config_);
 		id_mapper->Init();
 
@@ -190,6 +192,7 @@ public:
 
 		actor_adapter->Stop();
 		monitor->Stop();
+		recv.join();
 	}
 
 private:
