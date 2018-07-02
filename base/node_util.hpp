@@ -17,7 +17,7 @@
 
 std::vector<Node> ParseFile(const std::string& filename);
 
-Node GetNodeById(std::vector<Node>& nodes, int id);
+Node & GetNodeById(std::vector<Node>& nodes, int id);
 
 bool CheckUniquePort(std::vector<Node>& nodes);
 

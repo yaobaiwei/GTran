@@ -21,17 +21,20 @@ int main(int argc, char* argv[])
 
 	Node my_node;
 	InitMPIComm(&argc, &argv, my_node);
-	cout << my_node.DebugString();
 
 	string cfg_fname = argv[1];
 	CHECK(!cfg_fname.empty());
 
 	vector<Node> nodes = ParseFile(cfg_fname);
 	CHECK(CheckUniquePort(nodes));
-	Node node = GetNodeById(nodes, my_node.get_world_rank());
-	CHECK_EQ(node.hostname, my_node.hostname);
+	Node & node = GetNodeById(nodes, my_node.get_world_rank());
 
+	my_node.ibname = node.ibname;
 	my_node.tcp_port = node.tcp_port;
+	my_node.rdma_port = node.rdma_port;
+	cout << my_node.DebugString();
+	nodes.erase(nodes.begin()); //delete the master info in nodes (array) for rdma init
+
 
 	Config * config = new Config();
 	config->Init();
@@ -44,6 +47,7 @@ int main(int argc, char* argv[])
 		master.Start();
 	}else{
 		Worker worker(my_node, config, nodes);
+		worker.Init();
 		worker.Start();
 
 		worker_barrier(my_node);

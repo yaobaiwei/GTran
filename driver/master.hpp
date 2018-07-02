@@ -15,6 +15,7 @@
 #include <iostream>
 #include <string.h>
 
+
 #include "base/node.hpp"
 #include "base/communication.hpp"
 #include "utils/global.hpp"
@@ -49,8 +50,8 @@ public:
 	void ProgListener(){
 		while(1){
 			vector<uint32_t> prog = recv_data<vector<uint32_t>>(node_, MPI_ANY_SOURCE, true, MONITOR_CHANNEL);
-//			//DEBUG
-//			cout << "RANK " << node_.get_world_rank() << "=> RECV PROG " << prog[0] << " / " << prog[1] << endl;
+			//DEBUG
+			cout << "@@@@@ Master gets progress report from " << prog[0] << "=> " << prog[1] << endl;
 
 			int src = prog[0];  //the slave ID
 			Progress & p = progress_map_[src];
@@ -101,10 +102,14 @@ public:
 			}
 
 			int target_engine_id = ProgScheduler();
+			//DEBUG
+			cout << "##### Master recvs request from Client: " << client_id << " and reply " << target_engine_id << endl;
+
 			ibinstream m;
 			m << client_id;
 			m << target_engine_id;
 
+			cout << "##### Total MSG Size = " << m.size() << endl;
 			zmq::message_t msg(m.size());
 			memcpy((void *)msg.data(), m.get_buf(), m.size());
 			socket_->send(msg);

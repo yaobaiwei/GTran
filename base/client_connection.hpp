@@ -8,11 +8,11 @@
 #ifndef CLIENT_CONNECTION_HPP_
 #define CLIENT_CONNECTION_HPP_
 
+#include "utils/zmq.hpp"
 
 #include <vector>
 #include "base/node.hpp"
 #include "base/serialization.hpp"
-#include "utils/zmq.hpp"
 
 
 class ClientConnection {

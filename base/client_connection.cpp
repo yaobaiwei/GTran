@@ -18,10 +18,11 @@ ClientConnection::~ClientConnection(){
 }
 
 void ClientConnection::Init(vector<Node> & nodes){
+	senders_.resize(nodes.size());
 	for(int i = 0 ; i < nodes.size(); i++){
 		senders_[i] = new zmq::socket_t(context_, ZMQ_REQ);
 		char addr[64];
-		sprintf(addr, "tcp://%s:%d", nodes[i].hostname, nodes[i].tcp_port);
+		sprintf(addr, "tcp://%s:%d", nodes[i].hostname.c_str(), nodes[i].tcp_port);
 		senders_[i]->connect(addr);
 	}
 }
@@ -38,6 +39,7 @@ void ClientConnection::Recv(int nid, obinstream & um){
         std::cout << "Client recvs with error " << strerror(errno) << std::endl;
         exit(-1);
     }
+    cout << "Client recvs a MSG with Size = " << msg.size() << endl;
     char* buf = new char[msg.size()];
     strncpy(buf, (char *)msg.data(), msg.size());
     um.assign(buf, msg.size(), 0);

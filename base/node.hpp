@@ -20,6 +20,7 @@ struct Node {
 public:
 	MPI_Comm local_comm;
 	string hostname;
+	string ibname;
 	int tcp_port;
 	int rdma_port;
 
@@ -78,7 +79,8 @@ public:
 	std::string DebugString() const {
 		std::stringstream ss;
 		ss << "Node: { world_rank = " << world_rank_ << " world_size = " << world_size_ << " local_rank = "
-				<< local_rank_ << " local_size = " << local_size_ << " color = " << color_ << " hostname = " << hostname << " }" << endl;
+				<< local_rank_ << " local_size = " << local_size_ << " color = " << color_
+				<< " hostname = " << hostname << " ibname = " << ibname << "}" << endl;
 		return ss.str();
 	}
 

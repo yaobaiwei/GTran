@@ -51,7 +51,7 @@ class RDMA {
             // record IPs of ndoes
             vector<string> ipset;
             for(const auto & node: nodes)
-                ipset.push_back(node.hostname);
+                ipset.push_back(node.ibname);
 
             int rdma_port = nodes[0].rdma_port;
             // initialization of new librdma

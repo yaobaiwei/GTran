@@ -8,11 +8,14 @@
 #ifndef WORKER_HPP_
 #define WORKER_HPP_
 
+#include "utils/zmq.hpp"
+
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "base/sarray.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
+
 #include "core/message.hpp"
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
@@ -50,7 +53,7 @@ public:
 
 			Message query;
 			um >> query;
-			cout << "RANK-" << node_.get_world_rank() << " : QID = " << query.meta.qid << " | Data={ " << query.data[0][0] << ", " <<  query.data[0][1] << "}" << endl;
+			cout << "$$$$$ Worker-" << node_.get_local_rank() << " : QID = " << query.meta.qid << " | Data={ " << query.data[0][0] << ", " <<  query.data[0][1] << "}" << endl;
 
 			SArray<int> re;
 			re.push_back(-1);
@@ -65,8 +68,6 @@ public:
 	}
 
 	void Start(){
-		thread recv(&Worker::RecvRequest, this);
-
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(node_, config_);
 		id_mapper->Init();
 
@@ -75,6 +76,7 @@ public:
 		//set the in-memory layout for RDMA buf
 		Buffer * buf = new Buffer(node_, config_);
 		buf->Init();
+		cout <<  "DONE -> Buff->Init()" << endl;
 
 		//init the rdma mailbox
 		RdmaMailbox * mailbox = new RdmaMailbox(node_, config_, id_mapper, buf);
@@ -168,21 +170,25 @@ public:
 //		cout << "RANK " << node_.get_local_rank() << " GET EDGE LABEL => " << (char)el << endl;
 
 
-		for(int i = 0 ; i < node_.get_local_size(); i++){
-			MSG_T type = MSG_T::FEED;
-			int qid = i;
-			int step = 0;
-			int sender = node_.get_local_rank();
-			int recver = i;
-			vector<ACTOR_T> chains;
-			chains.push_back(ACTOR_T::HW);
-			SArray<char> data;
-			data.push_back(48+node_.get_local_rank());
-			data.push_back(48+i);
-			Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
-			mailbox->Send(0,msg);
-		}
+//TEST the commun function within each worker by rdma
 
+//		for(int i = 0 ; i < node_.get_local_size(); i++){
+//			MSG_T type = MSG_T::FEED;
+//			int qid = i;
+//			int step = 0;
+//			int sender = node_.get_local_rank();
+//			int recver = i;
+//			vector<ACTOR_T> chains;
+//			chains.push_back(ACTOR_T::HW);
+//			SArray<char> data;
+//			data.push_back(48+node_.get_local_rank());
+//			data.push_back(48+i);
+//			Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
+//			mailbox->Send(0,msg);
+//		}
+
+
+		thread recv(&Worker::RecvRequest, this);
 		Monitor * monitor = new Monitor(node_);
 		monitor->Start();
 

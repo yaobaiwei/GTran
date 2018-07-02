@@ -35,9 +35,12 @@ public:
 		obinstream um;
 		m << id;
 		cc_.Send(MASTER_RANK, m);
+		cout << "Client posts a request" << endl;
+
 		cc_.Recv(MASTER_RANK, um);
 		um >> id;
 		um >> handler;
+		cout << "Client " << id << " recvs a response: Handler=> " << handler << endl;
 	}
 
 	//use Message as a Query, if necessary, we can change
@@ -48,10 +51,13 @@ public:
 		obinstream um;
 		m << msg;
 		cc_.Send(handler, m);
+		cout << "Client posts the query to " << handler << endl;
+
 		cc_.Recv(handler, um);
 
-		SArray<V> result;
+		SArray<int> result;
 		um >> result;
+		cout << "Client recvs the result in form SArray: Size = " << result.size() << " First Elem = " << result[0] << endl;
 		return result;
 	}
 
@@ -71,8 +77,10 @@ int main(int argc, char* argv[])
 	string cfg_fname = argv[1];
 	CHECK(!cfg_fname.empty());
 
+
 	Client client(cfg_fname);
 	client.Init();
+	cout  << "DONE -> Client->Init()" << endl;
 
 	client.Request();
 	Message m;
