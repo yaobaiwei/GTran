@@ -84,20 +84,19 @@ public:
 		return rand() % node_.get_local_size() + 1;
 	}
 
-	void GetRequest(){
+	void ProcessREQ(){
 		while(1)
 		{
 			zmq::message_t request;
 			socket_->recv(&request);
 
-			obinstream um;
 			char* buf = new char[request.size()];
-			strncpy(buf, (char *)request.data(), request.size());
-			um.assign(buf, request.size(), 0);
+			memcpy(buf, request.data(), request.size());
+			obinstream um(buf, request.size());
 
 			int client_id;
 			um >> client_id;
-			if(client_id == -1){
+			if(client_id == -1){ //first connection, obtain the global client ID
 				client_id = ++client_num;
 			}
 
@@ -109,7 +108,6 @@ public:
 			m << client_id;
 			m << target_engine_id;
 
-			cout << "##### Total MSG Size = " << m.size() << endl;
 			zmq::message_t msg(m.size());
 			memcpy((void *)msg.data(), m.get_buf(), m.size());
 			socket_->send(msg);
@@ -118,7 +116,7 @@ public:
 
 	void Start(){
 		thread listen(&Master::ProgListener,this);
-		thread response(&Master::GetRequest, this);
+		thread process(&Master::ProcessREQ, this);
 
 		int end_tag = 0;
 		while(end_tag < node_.get_local_size())
@@ -131,7 +129,7 @@ public:
 		}
 
 		listen.join();
-		response.join();
+		process.join();
 	}
 
 private:

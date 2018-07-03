@@ -81,7 +81,7 @@ void EKVStore::insert_single_edge_property(EProperty* ep) {
 	keys[slot_id].ptr = ptr;
 
 	// insert value
-	strncpy(&values[off], str.c_str(), length);
+	memcpy(&values[off], str.c_str(), length);
 
 	// Every <vpid_t, value_t>
     for (int i = 0; i < ep->plist.size(); i++) {
@@ -103,7 +103,7 @@ void EKVStore::insert_single_edge_property(EProperty* ep) {
         values[off++] = (char)e_kv.value.type;
 
         // insert value
-        strncpy(&values[off], &e_kv.value.content[0], length);
+        memcpy(&values[off], &e_kv.value.content[0], length);
     }
 }
 

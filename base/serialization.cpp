@@ -2,6 +2,7 @@
 //Authors: Hongzhi Chen, Miao Liu
 
 #include "base/serialization.hpp"
+#include <iostream>
 
 char* ibinstream::get_buf()
 {

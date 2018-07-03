@@ -25,6 +25,7 @@ public:
 private:
 	zmq::context_t context_;
 	vector<zmq::socket_t *> senders_;
+	vector<zmq::socket_t *> receivers_;
 };
 
 #endif /* ZMQ_COMMUN_HPP_ */

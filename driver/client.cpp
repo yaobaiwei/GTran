@@ -16,6 +16,8 @@
 
 #include "glog/logging.h"
 
+#include <unistd.h>
+#include <limits.h>
 
 class Client{
 public:
@@ -30,17 +32,18 @@ public:
 		cc_.Init(nodes_);
 	}
 
-	void Request(){
+	void RequestWorker(){
 		ibinstream m;
 		obinstream um;
 		m << id;
 		cc_.Send(MASTER_RANK, m);
-		cout << "Client posts a request" << endl;
+		cout << "Client just posted a REQ" << endl;
 
+		//get the available worker ID
 		cc_.Recv(MASTER_RANK, um);
 		um >> id;
 		um >> handler;
-		cout << "Client " << id << " recvs a response: Handler=> " << handler << endl;
+		cout << "Client " << id << " recvs the response: get available worker" << handler << endl;
 	}
 
 	//use Message as a Query, if necessary, we can change
@@ -49,15 +52,19 @@ public:
 	SArray<V> PostQuery(Message & msg){
 		ibinstream m;
 		obinstream um;
+
+		char hostname[HOST_NAME_MAX];
+		gethostname(hostname, HOST_NAME_MAX);
+		string host_str(hostname);
+		m << host_str;
 		m << msg;
 		cc_.Send(handler, m);
-		cout << "Client posts the query to " << handler << endl;
+		cout << "Client posts the query to worker" << handler << endl;
 
 		cc_.Recv(handler, um);
 
-		SArray<int> result;
+		SArray<V> result;
 		um >> result;
-		cout << "Client recvs the result in form SArray: Size = " << result.size() << " First Elem = " << result[0] << endl;
 		return result;
 	}
 
@@ -77,21 +84,20 @@ int main(int argc, char* argv[])
 	string cfg_fname = argv[1];
 	CHECK(!cfg_fname.empty());
 
-
 	Client client(cfg_fname);
 	client.Init();
 	cout  << "DONE -> Client->Init()" << endl;
 
-	client.Request();
+	client.RequestWorker();
 	Message m;
 	m.meta.msg_type = MSG_T::REPLY;
 	m.meta.qid = 1;
-	SArray<int> data;
-	data.push_back(1);
-	data.push_back(2);
+	SArray<char> data;
+	data.push_back('a');
+	data.push_back('b');
 	m.AddData(data);
 
-	SArray<int> re = client.PostQuery<int>(m);
-
+	SArray<int> result = client.PostQuery<int>(m);
+	cout << "Client recvs the result => SArray: size = " << result.size() << " first elem = " << result[0] << endl;
 	return 0;
 }

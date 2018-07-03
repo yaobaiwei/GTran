@@ -26,17 +26,17 @@
 
 class Worker{
 public:
-	Worker(Node & node, Config * config, vector<Node> & nodes): node_(node), config_(config), nodes_(nodes){}
+	Worker(Node & my_node, Config * config, vector<Node> & workers): my_node_(my_node), config_(config), workers_(workers){}
 
 	~Worker(){
-		delete socket_;
+		delete receiver_;
 	}
 
 	void Init(){
-		socket_ = new zmq::socket_t(context_, ZMQ_REP);
+		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
 		char addr[64];
-		sprintf(addr, "tcp://*:%d", node_.tcp_port);
-		socket_->bind(addr);
+		sprintf(addr, "tcp://*:%d", my_node_.tcp_port);
+		receiver_->bind(addr);
 	}
 
 	//TODO : fake now
@@ -44,53 +44,68 @@ public:
 		while(1)
 		{
 			zmq::message_t request;
-			socket_->recv(&request);
+			receiver_->recv(&request);
 
-			obinstream um;
 			char* buf = new char[request.size()];
-			strncpy(buf, (char *)request.data(), request.size());
-			um.assign(buf, request.size(), 0);
+			memcpy(buf, (char *)request.data(), request.size());
+			obinstream um(buf, request.size());
 
+			//fake now
+			//Once received a query, we should parse it first and process
+			//TODO
+			//The result will be inserted into a Queue
+			//one thread fetches the queue and return it to the corresponding client based on its hostname
+
+			string client_host;
 			Message query;
-			um >> query;
-			cout << "$$$$$ Worker-" << node_.get_local_rank() << " : QID = " << query.meta.qid << " | Data={ " << query.data[0][0] << ", " <<  query.data[0][1] << "}" << endl;
 
+			um >> client_host; //get the client hostname for returning results.
+			um >> query;
+			cout << "Worker" << my_node_.get_world_rank() << " : QID = " << query.meta.qid << " | Data={" << (char)query.data[0][0] << ", " <<  (char)query.data[0][1] << "}" << endl;
+
+			sleep(1); //simulate processing time
 			SArray<int> re;
-			re.push_back(-1);
-			re.push_back(-2);
+			re.push_back(-5);
+			re.push_back(-6);
 
 			ibinstream m;
 			m << re;
 			zmq::message_t msg(m.size());
 			memcpy((void *)msg.data(), m.get_buf(), m.size());
-			socket_->send(msg);
+
+			zmq::socket_t sender(context_, ZMQ_PUSH);
+			char addr[64];
+			//port calculation is based on our self-defined protocol
+			sprintf(addr, "tcp://%s:%d", client_host.c_str(), workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
+			sender.connect(addr);
+			sender.send(msg);
 		}
 	}
 
 	void Start(){
-		NaiveIdMapper * id_mapper = new NaiveIdMapper(node_, config_);
+		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_, config_);
 		id_mapper->Init();
 
 		cout <<  "DONE -> NaiveIdMapper->Init()" << endl;
 
 		//set the in-memory layout for RDMA buf
-		Buffer * buf = new Buffer(node_, config_);
+		Buffer * buf = new Buffer(my_node_, config_);
 		buf->Init();
 		cout <<  "DONE -> Buff->Init()" << endl;
 
 		//init the rdma mailbox
-		RdmaMailbox * mailbox = new RdmaMailbox(node_, config_, id_mapper, buf);
-		mailbox->Init(nodes_);
+		RdmaMailbox * mailbox = new RdmaMailbox(my_node_, config_, id_mapper, buf);
+		mailbox->Init(workers_);
 
 		cout << "DONE -> RdmaMailbox->Init()" << endl;
 
-		DataStore * datastore = new DataStore(node_, config_, id_mapper, buf);
+		DataStore * datastore = new DataStore(my_node_, config_, id_mapper, buf);
 		datastore->Init();
 
 		cout << "DONE -> DataStore->Init()" << endl;
 
 		datastore->LoadDataFromHDFS();
-		worker_barrier(node_);
+		worker_barrier(my_node_);
 
 		//cout << "DONE -> DataStore->LoadDataFromHDFS()" << endl;
 		//=======data shuffle==========
@@ -99,14 +114,14 @@ public:
 		//=======data shuffle==========
 
 		datastore->DataConverter();
-		worker_barrier(node_);
+		worker_barrier(my_node_);
 		cout << "DONE -> Datastore->DataConverter()" << endl;
 
 //		//TEST
 //		vid_t vid(3);
 //		if(id_mapper->IsVertexLocal(vid)){
 //			Vertex* v = datastore->GetVertex(vid);
-//			cout << "RANK: " << node_.get_local_rank() << " GET VTX.IN_NBS => ";
+//			cout << "RANK: " << my_node_.get_local_rank() << " GET VTX.IN_NBS => ";
 //			for(auto & nb : v->in_nbs){
 //				cout << nb.vid << ", ";
 //			}
@@ -116,7 +131,7 @@ public:
 //		eid_t eid(6,3);
 //		if(id_mapper->IsEdgeLocal(eid)){
 //			Edge* e = datastore->GetEdge(eid);
-//			cout << "RANK: " << node_.get_local_rank() << " GET EDGE.PPT_LIST => ";
+//			cout << "RANK: " << my_node_.get_local_rank() << " GET EDGE.PPT_LIST => ";
 //			for(auto & label : e->ep_list){
 //				cout <<  label << ", ";
 //			}
@@ -126,7 +141,7 @@ public:
 //		vpid_t vpid(6,2);
 //		value_t val;
 //		datastore->GetPropertyForVertex(0, vpid, val);
-//		cout << "RANK " << node_.get_local_rank() << " GET VP.VALUE => ";
+//		cout << "RANK " << my_node_.get_local_rank() << " GET VP.VALUE => ";
 //		switch(val.type){
 //			case 1:
 //				cout << Tool::value_t2int(val) << endl;
@@ -145,7 +160,7 @@ public:
 //		epid_t epid(1,3,1);
 //		value_t val2;
 //		datastore->GetPropertyForEdge(0, epid, val2);
-//		cout << "RANK " << node_.get_local_rank() << " GET EP.VALUE => ";
+//		cout << "RANK " << my_node_.get_local_rank() << " GET EP.VALUE => ";
 //		switch(val2.type){
 //			case 1:
 //				cout << to_string(Tool::value_t2int(val2)) << endl;
@@ -163,25 +178,25 @@ public:
 //
 //		label_t vl;
 //		datastore->GetLabelForVertex(0, vid, vl);
-//		cout << "RANK " << node_.get_local_rank() << " GET VTX LABEL => " << (char)vl << endl;
+//		cout << "RANK " << my_node_.get_local_rank() << " GET VTX LABEL => " << (char)vl << endl;
 //
 //		label_t el;
 //		datastore->GetLabelForEdge(0, eid, el);
-//		cout << "RANK " << node_.get_local_rank() << " GET EDGE LABEL => " << (char)el << endl;
+//		cout << "RANK " << my_node_.get_local_rank() << " GET EDGE LABEL => " << (char)el << endl;
 
 
 //TEST the commun function within each worker by rdma
 
-//		for(int i = 0 ; i < node_.get_local_size(); i++){
+//		for(int i = 0 ; i < my_node_.get_local_size(); i++){
 //			MSG_T type = MSG_T::FEED;
 //			int qid = i;
 //			int step = 0;
-//			int sender = node_.get_local_rank();
+//			int sender = my_node_.get_local_rank();
 //			int recver = i;
 //			vector<ACTOR_T> chains;
 //			chains.push_back(ACTOR_T::HW);
 //			SArray<char> data;
-//			data.push_back(48+node_.get_local_rank());
+//			data.push_back(48+my_node_.get_local_rank());
 //			data.push_back(48+i);
 //			Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
 //			mailbox->Send(0,msg);
@@ -189,11 +204,11 @@ public:
 
 
 		thread recv(&Worker::RecvRequest, this);
-		Monitor * monitor = new Monitor(node_);
+		Monitor * monitor = new Monitor(my_node_);
 		monitor->Start();
 
 		//actor driver starts
-		ActorAdapter * actor_adapter = new ActorAdapter(config_, node_, mailbox);
+		ActorAdapter * actor_adapter = new ActorAdapter(config_, my_node_, mailbox);
 		actor_adapter->Start();
 
 		actor_adapter->Stop();
@@ -202,12 +217,12 @@ public:
 	}
 
 private:
-	Node & node_;
+	Node & my_node_;
 	Config * config_;
-	vector<Node> & nodes_;
+	vector<Node> & workers_;
 
 	zmq::context_t context_;
-	zmq::socket_t * socket_;
+	zmq::socket_t * receiver_;
 };
 
 

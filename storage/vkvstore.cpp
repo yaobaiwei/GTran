@@ -81,7 +81,7 @@ void VKVStore::insert_single_vertex_property(VProperty* vp) {
 	keys[slot_id].ptr = ptr;
 
 	// insert value
-	strncpy(&values[off], str.c_str(), length);
+	memcpy(&values[off], str.c_str(), length);
 
     // Every <vpid_t, value_t>
     for (int i = 0; i < vp->plist.size(); i++) {
@@ -103,7 +103,7 @@ void VKVStore::insert_single_vertex_property(VProperty* vp) {
         values[off++] = (char)v_kv.value.type;
 
         // insert value
-        strncpy(&values[off], &v_kv.value.content[0], length);
+        memcpy(&values[off], &v_kv.value.content[0], length);
     }
 }
 
