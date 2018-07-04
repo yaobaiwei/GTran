@@ -14,7 +14,7 @@ public:
 	Predicate_T type;
 	vector<value_t>	values;
 
-	bool compare(value_t *value = NULL);
+	Relation compare(value_t *value = NULL);
 
 	Predicate(Predicate_T p_type, vector<value_t> vec) : type(p_type), values(vec){}
 
@@ -23,7 +23,7 @@ public:
 	}
 };
 
-bool Predicate::compare(value_t *value)
+Relation Predicate::compare(value_t *value)
 {
 	assert(values.size() > 0);
 

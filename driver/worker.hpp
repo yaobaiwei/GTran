@@ -22,6 +22,7 @@
 #include "core/rdma_mailbox.hpp"
 #include "core/actors_adapter.hpp"
 #include "core/progress_monitor.hpp"
+#include "core/parser.hpp"
 #include "storage/data_store.hpp"
 
 class Worker{
@@ -63,10 +64,17 @@ public:
 			um >> query;
 			cout << "Worker" << my_node_.get_world_rank() << " : QID = " << query.meta.qid << " | Data={" << (char)query.data[0][0] << ", " <<  (char)query.data[0][1] << "}" << endl;
 
+			string s = query.data[0].data();
+			vector<Actor_Object> vec;
+			Element_T elem;
+			parser.parse(s, vec, elem);
+			
 			sleep(1); //simulate processing time
-			SArray<int> re;
-			re.push_back(-5);
-			re.push_back(-6);
+			SArray<char> re;
+			for(auto obj : vec){
+				string str = obj.DebugString();
+				re.append_bytes(str.c_str(), str.size());
+			}
 
 			ibinstream m;
 			m << re;
@@ -220,6 +228,7 @@ private:
 	Node & my_node_;
 	Config * config_;
 	vector<Node> & workers_;
+	Parser parser;
 
 	zmq::context_t context_;
 	zmq::socket_t * receiver_;
