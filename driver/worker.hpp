@@ -31,9 +31,11 @@ public:
 
 	~Worker(){
 		delete receiver_;
+		delete parser_;
 	}
 
 	void Init(){
+		parser_ = new Parser(config_);
 		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
 		char addr[64];
 		sprintf(addr, "tcp://*:%d", my_node_.tcp_port);
@@ -65,9 +67,10 @@ public:
 			cout << "Worker" << my_node_.get_world_rank() << " : QID = " << query.meta.qid << " | Data={" << (char)query.data[0][0] << ", " <<  (char)query.data[0][1] << "}" << endl;
 
 			string s = query.data[0].data();
+
 			vector<Actor_Object> vec;
 			Element_T elem;
-			parser.parse(s, vec, elem);
+			parser_->Parse(s, vec, elem);
 			
 			sleep(1); //simulate processing time
 			SArray<char> re;
@@ -228,7 +231,7 @@ private:
 	Node & my_node_;
 	Config * config_;
 	vector<Node> & workers_;
-	Parser parser;
+	Parser* parser_;
 
 	zmq::context_t context_;
 	zmq::socket_t * receiver_;

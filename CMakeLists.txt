@@ -37,6 +37,7 @@ include(cmake/modules/zmq.cmake)
 set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR} ${RDMA_INCLUDE_DIR} ${ZMQ_INCLUDE_DIR})
 set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${RDMA_LIBRARIES} ${ZMQ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS})
 
+add_subdirectory(actor)
 add_subdirectory(base)
 add_subdirectory(core)
 add_subdirectory(storage)

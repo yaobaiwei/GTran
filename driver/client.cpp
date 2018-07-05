@@ -92,12 +92,14 @@ int main(int argc, char* argv[])
 	Message m;
 	m.meta.msg_type = MSG_T::REPLY;
 	m.meta.qid = 1;
-	string query = "g.E().hasLabel(\"created\").outV()"
+	string query = "g.V().out()";
 	SArray<char> data;
-	data.copyFrom(query.c_str());
+	data.CopyFrom(query.c_str(), query.size() + 1);
+	cout<<data.data()<<endl;
 	m.AddData(data);
 
 	SArray<char> result = client.PostQuery<char>(m);
+	cout<< result.size() << endl;
 	cout << result.data() << endl;
 	return 0;
 }

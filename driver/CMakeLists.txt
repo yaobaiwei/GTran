@@ -6,6 +6,7 @@ add_library(all-deps STATIC
   $<TARGET_OBJECTS:core-objs>
   $<TARGET_OBJECTS:utils-objs>
   $<TARGET_OBJECTS:base-objs>
+  $<TARGET_OBJECTS:actor-objs>
   )
   
 add_executable(client client.cpp)

@@ -1,11 +1,11 @@
-#include "parser/parser.hpp"
+#include "core/parser.hpp"
 #include <iostream>
 
-void Parser::LoadMapping(){
+void Parser::LoadMapping(Config* config){
 	hdfsFS fs = get_hdfs_fs();
 
 	// load vertex label
-	string vl_path = config_->HDFS_INDEX_PATH + "./vtx_label";
+	string vl_path = config->HDFS_INDEX_PATH + "./vtx_label";
 	hdfsFile vl_file = get_r_handle(vl_path.c_str(), fs);
 	LineReader vl_reader(fs, vl_file);
 	while (true)
@@ -28,7 +28,7 @@ void Parser::LoadMapping(){
 	hdfsCloseFile(fs, vl_file);
 
 	// load vertex property key and type
-	string vp_path = config_->HDFS_INDEX_PATH + "./vtx_type_table";
+	string vp_path = config->HDFS_PTY_TYPE_PATH + "./vtx_type_table";
 	hdfsFile vp_file = get_r_handle(vp_path.c_str(), fs);
 	LineReader vp_reader(fs, vp_file);
 	while (true)
@@ -54,7 +54,7 @@ void Parser::LoadMapping(){
 	hdfsCloseFile(fs, vp_file);
 
 	// load edge label
-	string el_path = config_->HDFS_INDEX_PATH + "./edge_label";
+	string el_path = config->HDFS_INDEX_PATH + "./edge_label";
 	hdfsFile el_file = get_r_handle(el_path.c_str(), fs);
 	LineReader el_reader(fs, el_file);
 	while (true)
@@ -77,7 +77,7 @@ void Parser::LoadMapping(){
 	hdfsCloseFile(fs, el_file);
 
 	// load edge property key and type
-	string ep_path = config_->HDFS_INDEX_PATH + "./edge_type_table";
+	string ep_path = config->HDFS_PTY_TYPE_PATH + "./edge_type_table";
 	hdfsFile ep_file = get_r_handle(ep_path.c_str(), fs);
 	LineReader ep_reader(fs, ep_file);
 	while (true)
@@ -110,7 +110,7 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, Element_T& st
 		startType = Element_T::VERTEX;
 		io_type_ = IO_T::VERTEX;
 	}
-	else if (query.find("g.E()." == 0)){
+	else if (query.find("g.E().") == 0){
 		startType = Element_T::EDGE;
 		io_type_ = IO_T::EDGE;
 	}
@@ -120,9 +120,9 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, Element_T& st
 	}
 
 	// trim blanks and remove prefix
-	string q = Tool::trim(query.substr(6), " ");
+	string q = query.substr(6);
+	q = Tool::trim(q, " ");
 	
-
 	Clear();
 	try{
 		DoParse(q);
@@ -779,7 +779,8 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 	//@ HasActor params: (Element_T type, [int pid, Predicate_T  p_type, vector values]...)
 	//  i_type = o_type = VERTX/EDGE
 	if (!CheckLastActor(ACTOR_T::HAS)){
-		AppendActor(Actor_Object(ACTOR_T::HAS));
+		Actor_Object tmp(ACTOR_T::HAS);
+		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
 	if (params.size() < 1){
@@ -849,7 +850,8 @@ void Parser::ParseHasLabel(const vector<string>& params)
 	//@ HasLabelActor params: (Element_T type, int lid...)
 	//  i_type = o_type = VERTX/EDGE
 	if (!CheckLastActor(ACTOR_T::HASLABEL)){
-		AppendActor(Actor_Object(ACTOR_T::HASLABEL));
+		Actor_Object tmp(ACTOR_T::HASLABEL);
+		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
 	if (params.size() < 1){
@@ -875,7 +877,8 @@ void Parser::ParseIs(const vector<string>& params)
 	//@ IsActor params: ((Predicate_T  p_type, vector values)...)
 	//  i_type = o_type = int/double/char/string
 	if (!CheckLastActor(ACTOR_T::IS)){
-		AppendActor(Actor_Object(ACTOR_T::IS));
+		Actor_Object tmp(ACTOR_T::IS);
+		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
 	
@@ -1310,7 +1313,8 @@ void Parser::ParseWhere(const vector<string>& params)
 	//  first label_step_key == -1 indicating 
 	//  i_type = o_type = any
 	if (!CheckLastActor(ACTOR_T::WHERE)){
-		AppendActor(Actor_Object(ACTOR_T::WHERE));
+		Actor_Object tmp(ACTOR_T::WHERE);
+		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
 
@@ -1353,3 +1357,71 @@ void Parser::ParseWhere(const vector<string>& params)
 	}
 	
 }
+
+
+const map<string, Parser::Step_T> Parser::str2step = {
+	{ "in", IN },
+	{ "out", OUT }, 
+	{ "both", BOTH }, 
+	{ "inE", INE }, 
+	{ "outE", OUTE }, 
+	{ "bothE", BOTHE },
+	{ "inV", INV }, 
+	{ "outV", OUTV }, 
+	{ "bothV", BOTHV }, 
+	{ "and", AND }, 
+	{ "aggregate", AGGREGATE },
+	{ "as", AS }, 
+	{ "cap", CAP },
+	{ "choose", CHOOSE }, 
+	{ "coalesce", COALESCE }, 
+	{ "coin", COIN }, 
+	{ "count", COUNT }, 
+	{ "dedup", DEDUP }, 
+	{ "emit", EMIT },
+	{ "group", GROUP},
+	{ "groupCount", GROUPCOUNT},
+	{ "has", HAS }, 
+	{ "hasLabel", HASLABEL }, 
+	{ "hasKey", HASKEY }, 
+	{ "hasValue", HASVALUE }, 
+	{ "hasNot", HASNOT }, 
+	{ "is", IS },
+	{ "key", KEY }, 
+	{ "label", LABEL }, 
+	{ "limit", LIMIT }, 
+	{ "loops", LOOPS }, 
+	{ "max", MAX }, 
+	{ "mean", MEAN },
+	{ "min", MIN }, 
+	{ "not", NOT }, 
+	{ "or", OR }, 
+	{ "order", ORDER }, 
+	{ "properties", PROPERTIES }, 
+	{ "range", RANGE },
+	{ "repeat", REPEAT }, 
+	{ "select", SELECT }, 
+	{ "skip", SKIP }, 
+	{ "store", STORE }, 
+	{ "sum", SUM }, 
+	{ "tail", TAIL },
+	{ "times", TIMES }, 
+	{ "union", UNION }, 
+	{ "until", UNTIL }, 
+	{ "values", VALUES }, 
+	{ "where", WHERE }
+};
+
+const map<string, Predicate_T> Parser::str2pred = {
+	{ "eq", Predicate_T::EQ },
+	{ "neq", Predicate_T::NEQ },
+	{ "lt", Predicate_T::LT },
+	{ "lte", Predicate_T::LTE },
+	{ "gt", Predicate_T::GT },
+	{ "gte", Predicate_T::GTE },
+	{ "inside", Predicate_T::INSDIE },
+	{ "outside", Predicate_T::OUTSIDE },
+	{ "between", Predicate_T::BETWEEN },
+	{ "within", Predicate_T::WITHIN },
+	{ "without", Predicate_T::WITHOUT }
+};
