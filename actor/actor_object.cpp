@@ -50,7 +50,7 @@ string Actor_Object::DebugString()
 	{
 		s += value_t2string(v) + " ";
 	}
-	s += ", NextActor: " + to_string(next_actor);
+	s += ", NextActor: " + to_string(next_actor) + "\n";
 	return s;
 }
 
