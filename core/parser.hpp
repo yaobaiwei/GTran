@@ -13,6 +13,7 @@
 #include "base/type.hpp"
 #include "utils/hdfs_core.hpp"
 #include "actor/actor_object.hpp"
+#include "utils/config.hpp"
 using namespace std;
 
 class Parser
@@ -59,7 +60,7 @@ private:
 	map<uint32_t, uint8_t> epk2eptype;
 
 	// load property and label mapping
-	void LoadMapping();
+	void LoadMapping(Config* config);
 
 	// IO type checking
 	bool IsNumber();
@@ -128,8 +129,8 @@ public:
 	// Parse query string
 	bool Parse(const string& query, vector<Actor_Object>& vec, Element_T& startType);
 
-	Parser(){
-		LoadMapping();
+	Parser(Config *config){
+		LoadMapping(config);
 	}
 
 	//parsing exception
@@ -140,71 +141,4 @@ public:
 		ParserException(const char *message) : message(message){}
 	};
 
-};
-
-const map<string, Parser::Step_T> Parser::str2step = {
-	{ "in", IN },
-	{ "out", OUT }, 
-	{ "both", BOTH }, 
-	{ "inE", INE }, 
-	{ "outE", OUTE }, 
-	{ "bothE", BOTHE },
-	{ "inV", INV }, 
-	{ "outV", OUTV }, 
-	{ "bothV", BOTHV }, 
-	{ "and", AND }, 
-	{ "aggregate", AGGREGATE },
-	{ "as", AS }, 
-	{ "cap", CAP },
-	{ "choose", CHOOSE }, 
-	{ "coalesce", COALESCE }, 
-	{ "coin", COIN }, 
-	{ "count", COUNT }, 
-	{ "dedup", DEDUP }, 
-	{ "emit", EMIT },
-	{ "group", GROUP},
-	{ "groupCount", GROUPCOUNT},
-	{ "has", HAS }, 
-	{ "hasLabel", HASLABEL }, 
-	{ "hasKey", HASKEY }, 
-	{ "hasValue", HASVALUE }, 
-	{ "hasNot", HASNOT }, 
-	{ "is", IS },
-	{ "key", KEY }, 
-	{ "label", LABEL }, 
-	{ "limit", LIMIT }, 
-	{ "loops", LOOPS }, 
-	{ "max", MAX }, 
-	{ "mean", MEAN },
-	{ "min", MIN }, 
-	{ "not", NOT }, 
-	{ "or", OR }, 
-	{ "order", ORDER }, 
-	{ "properties", PROPERTIES }, 
-	{ "range", RANGE },
-	{ "repeat", REPEAT }, 
-	{ "select", SELECT }, 
-	{ "skip", SKIP }, 
-	{ "store", STORE }, 
-	{ "sum", SUM }, 
-	{ "tail", TAIL },
-	{ "times", TIMES }, 
-	{ "union", UNION }, 
-	{ "until", UNTIL }, 
-	{ "values", VALUES }, 
-	{ "where", WHERE }
-};
-
-const map<string, Predicate_T> Parser::str2pred = {
-	{ "eq", Predicate_T::EQ },
-	{ "neq", Predicate_T::NEQ },
-	{ "lt", Predicate_T::LT },
-	{ "lte", Predicate_T::LTE },
-	{ "gt", Predicate_T::GT },
-	{ "gte", Predicate_T::GTE },
-	{ "inside", Predicate_T::INSDIE },
-	{ "outside", Predicate_T::OUTSIDE },
-	{ "between", Predicate_T::BETWEEN },
-	{ "within", Predicate_T::WITHIN },
-	{ "without", Predicate_T::WITHOUT }
 };

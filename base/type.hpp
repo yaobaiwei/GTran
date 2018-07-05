@@ -383,19 +383,6 @@ ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
 obinstream& operator>>(obinstream& m, ACTOR_T& type);
 
-enum Relation{ TRUE, FALSE, UNDEFINED };
-
-Relation operator==(value_t& lhs, value_t& rhs);
-
-Relation operator!=(value_t& lhs, value_t& rhs);
-Relation operator>(value_t& lhs, value_t& rhs);
-
-Relation operator<(value_t& lhs, value_t& rhs);
-
-Relation operator>=(value_t& lhs, value_t& rhs);
-
-Relation operator<=(value_t& lhs, value_t& rhs);
-
 // Enums for actors
 enum Branch_T { UNION, COALESCE, CHOOSE };
 enum Filter_T{ AND, OR, NOT };
