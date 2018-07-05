@@ -17,6 +17,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <regex>
 
 #include "base/type.hpp"
 
@@ -124,7 +125,7 @@ public:
 			return 3;//char
 		if(s.find(dot) != string::npos)
 			return 2;//double
-		if(s.find_first_not_of("0123456789") == string::npos)
+		if (std::regex_match(s, std::regex("[(-|+)]?[0-9]+")))
 			return 1;//int
 		return -1;
 	}
@@ -159,6 +160,72 @@ public:
 		for(int k = 0 ; k < sz; k++)
 			v.content.push_back(f[k]);
 		v.type = 1;
+	}
+	
+	static bool str2value_t(string s, value_t & v){
+		int type = Tool::checktype(s);
+		switch (type){
+		case 4: //string
+			s = Tool::trim(s, "\"");
+			Tool::str2str(s, v);
+			break;
+		case 3: //char
+			s = Tool::trim(s, "\'");
+			Tool::str2char(s, v);
+			break;
+		case 2: //double
+			Tool::str2double(s, v);
+			break;
+		case 1: //int
+			Tool::str2int(s, v);
+			break;
+		default:
+			return false;
+		}
+		return true;
+	}
+	
+	static bool vec2value_t(const vector<string>& vec, value_t & v, int type)
+	{
+		if (vec.size() == 0)
+		{
+			return false;
+		}
+		for (string s : vec){
+			string s_value = trim(s, " ");
+			if (checktype(s_value) != type){
+				return false;
+			}
+			str2value_t(s_value, v);
+			v.content.push_back('\t');
+		}
+
+		// remove last '\t'
+		v.content.pop_back();
+		v.type = 16 | type;
+		return true;
+	}
+	
+	static vector<value_t> value_t2vec(value_t & v)
+	{
+		string value = value_t2string(v);
+		vector<string> values = split(value, "\t");
+		vector<value_t> vec;
+		int type = v.type & 0xE;
+
+		// scalar
+		if (v.type < 0xE){
+			vec.push_back(v);
+		}
+		else{
+			for (string s : values){
+				value_t v;
+				str2str(s, v);
+				v.type = type;
+				vec.push_back(v);
+			}
+		}
+		return vec;
 	}
 
 	static void elem_t2value_t(elem_t & e, value_t & v){

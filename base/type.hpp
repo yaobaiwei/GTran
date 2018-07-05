@@ -372,11 +372,23 @@ ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 
 obinstream& operator>>(obinstream& m, MSG_T& type);
 
-enum class ACTOR_T : char { ADD, PROXY, HW, OUT };
-static const char *ActorType[] = {"add", "proxy", "hello world", ""};
+enum class ACTOR_T : char {
+	ADD, PROXY, HW, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COIN, COUNT, DEDUP, GROUP, HAS,
+	HASLABEL, IS, KEY, LABEL, LOOPS, MATH, ORDER, PROJECTION, PROPERTY, RANGE, REPEAT, SELECT, TRAVERSAL, VALUES, WHERE
+};
+static const char *ActorType[] = { "ADD", "PROXY", "HW", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COIN", "COUNT", "DEDUP", "GROUP", "HAS",
+"HASLABEL", "IS", "KEY", "LABEL", "LOOPS", "MATH", "ORDER", "PROJECTION", "PROPERTY", "RANGE", "REPEAT", "SELECT", "TRAVERSAL", "VALUES", "WHERE" };
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
 obinstream& operator>>(obinstream& m, ACTOR_T& type);
+
+// Enums for actors
+enum Branch_T { UNION, COALESCE, CHOOSE };
+enum Filter_T{ AND, OR, NOT };
+enum Math_T { SUM, MAX, MIN, MEAN };
+enum Element_T{ VERTEX, EDGE };
+enum Direction_T{ IN, OUT, BOTH };
+enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSDIE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
 #endif /* TYPE_HPP_ */
