@@ -80,6 +80,10 @@ private:
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
 {
+	if(argc != 3){
+		cout << "2 params required" <<endl;
+		return 0;
+	}
 	google::InitGoogleLogging(argv[0]);
 	string cfg_fname = argv[1];
 	CHECK(!cfg_fname.empty());
@@ -92,7 +96,7 @@ int main(int argc, char* argv[])
 	Message m;
 	m.meta.msg_type = MSG_T::REPLY;
 	m.meta.qid = 1;
-	string query = "g.V().out()";
+	string query = argv[2];
 	SArray<char> data;
 	data.CopyFrom(query.c_str(), query.size() + 1);
 	cout<<data.data()<<endl;
