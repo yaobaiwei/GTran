@@ -42,7 +42,7 @@ public:
 		receiver_->bind(addr);
 	}
 
-	//TODO : fake now
+
 	void RecvRequest(){
 		while(1)
 		{
@@ -53,34 +53,31 @@ public:
 			memcpy(buf, (char *)request.data(), request.size());
 			obinstream um(buf, request.size());
 
-			//fake now
+
 			//Once received a query, we should parse it first and process
 			//TODO
 			//The result will be inserted into a Queue
 			//one thread fetches the queue and return it to the corresponding client based on its hostname
 
 			string client_host;
-			Message query;
+			string query;
 
 			um >> client_host; //get the client hostname for returning results.
 			um >> query;
-			cout << "Worker" << my_node_.get_world_rank() << " : QID = " << query.meta.qid << " | Data={" << (char)query.data[0][0] << ", " <<  (char)query.data[0][1] << "}" << endl;
-
-			string s = query.data[0].data();
+			cout << "Worker" << my_node_.get_world_rank() << " gets one QUERY: " << query << endl;
 
 			vector<Actor_Object> vec;
 			Element_T elem;
-			parser_->Parse(s, vec, elem);
+			parser_->Parse(query, vec, elem);
 			
 			sleep(1); //simulate processing time
-			SArray<char> re;
+			string result;
 			for(auto obj : vec){
-				string str = obj.DebugString();
-				re.append_bytes(str.c_str(), str.size());
+				result.append(obj.DebugString());
 			}
 
 			ibinstream m;
-			m << re;
+			m << result;
 			zmq::message_t msg(m.size());
 			memcpy((void *)msg.data(), m.get_buf(), m.size());
 
@@ -89,6 +86,7 @@ public:
 			//port calculation is based on our self-defined protocol
 			sprintf(addr, "tcp://%s:%d", client_host.c_str(), workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
 			sender.connect(addr);
+			cout << "Worker" << my_node_.get_world_rank() << " sends the results to Client " << client_host << endl;
 			sender.send(msg);
 		}
 	}

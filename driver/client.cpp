@@ -43,13 +43,11 @@ public:
 		cc_.Recv(MASTER_RANK, um);
 		um >> id;
 		um >> handler;
-		cout << "Client " << id << " recvs the response: get available worker" << handler << endl;
+		cout << "Client " << id << " recvs a REP: get available worker" << handler << endl;
 	}
 
-	//use Message as a Query, if necessary, we can change
-	//the same as result
-	template <typename V>
-	SArray<V> PostQuery(Message & msg){
+
+	string CommitQuery(string query){
 		ibinstream m;
 		obinstream um;
 
@@ -57,13 +55,13 @@ public:
 		gethostname(hostname, HOST_NAME_MAX);
 		string host_str(hostname);
 		m << host_str;
-		m << msg;
+		m << query;
 		cc_.Send(handler, m);
 		cout << "Client posts the query to worker" << handler << endl;
 
 		cc_.Recv(handler, um);
 
-		SArray<V> result;
+		string result;
 		um >> result;
 		return result;
 	}
@@ -93,17 +91,8 @@ int main(int argc, char* argv[])
 	cout  << "DONE -> Client->Init()" << endl;
 
 	client.RequestWorker();
-	Message m;
-	m.meta.msg_type = MSG_T::REPLY;
-	m.meta.qid = 1;
 	string query = argv[2];
-	SArray<char> data;
-	data.CopyFrom(query.c_str(), query.size() + 1);
-	cout<<data.data()<<endl;
-	m.AddData(data);
-
-	SArray<char> result = client.PostQuery<char>(m);
-	cout<< result.size() << endl;
-	cout << result.data() << endl;
+	string result = client.CommitQuery(query);
+	cout << result << endl;
 	return 0;
 }
