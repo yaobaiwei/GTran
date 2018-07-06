@@ -43,12 +43,12 @@ public:
 		thread.join();
 	}
 
-	void ThreadExecutor(int t_id) {
+	void ThreadExecutor(int tid) {
 	    while (true) {
-	        Message recv_msg = mailbox_->Recv();
+	        Message recv_msg = mailbox_->Recv(tid);
 	        Meta & m = recv_msg.meta;
 	        ACTOR_T next_actor = m.chains[m.step++];
-	        actors_[next_actor]->process(t_id, recv_msg);
+	        actors_[next_actor]->process(tid, recv_msg);
 	    }
 	};
 

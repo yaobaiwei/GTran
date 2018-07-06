@@ -11,8 +11,10 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta)
 {
 	m << meta.qid;
 	m << meta.step;
-	m << meta.sender;
-	m << meta.recver;
+	m << meta.sender_nid;
+	m << meta.sender_tid;
+	m << meta.recver_nid;
+	m << meta.recver_tid;
 	m << meta.msg_type;
 	m << meta.chains;
 	return m;
@@ -22,8 +24,10 @@ obinstream& operator>>(obinstream& m, Meta& meta)
 {
 	m >> meta.qid;
 	m >> meta.step;
-	m >> meta.sender;
-	m >> meta.recver;
+	m >> meta.sender_nid;
+	m >> meta.sender_tid;
+	m >> meta.recver_nid;
+	m >> meta.recver_tid;
 	m >> meta.msg_type;
 	m >> meta.chains;
 	return m;
@@ -34,8 +38,8 @@ std::string Meta::DebugString() const {
 	ss << "Meta: {";
 	ss << "  qid: " << qid;
 	ss << ", step: " << step;
-	ss << ", sender node: " << sender;
-	ss << ", recver node: " << recver;
+	ss << ", sender node: " << sender_nid << ":" << sender_tid;
+	ss << ", recver node: " << recver_nid << ":" << recver_tid;
 	ss << ", msg type: " << MsgType[static_cast<int>(msg_type)];
 	ss << ", query chains: [";
 	for(auto c : chains){
@@ -70,14 +74,16 @@ std::string Message::DebugString() const {
 	return ss.str();
 }
 
-Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender, int _recver,
+Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender_nid, int _sender_tid, int _recver_nid, int _recver_tid,
 		vector<ACTOR_T> _chains, SArray<char> data) {
 	Message m;
 	m.meta.msg_type = _type;
 	m.meta.qid = _qid;
 	m.meta.step = _step;
-	m.meta.sender = _sender;
-	m.meta.recver = _recver;
+	m.meta.sender_nid = _sender_nid;
+	m.meta.sender_tid = _sender_tid;
+	m.meta.recver_nid = _recver_nid;
+	m.meta.recver_tid = _recver_tid;
 
 	if (_chains.size() != 0)
 		m.meta.chains.insert(m.meta.chains.end(), _chains.begin(), _chains.end());

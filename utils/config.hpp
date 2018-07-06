@@ -273,7 +273,7 @@ struct Config{
     	send_buffer_sz = global_num_threads * MiB2B(global_per_send_buffer_sz_mb);
     	send_buffer_offset = kvstore_offset + kvstore_sz;
 
-    	recv_buffer_sz = global_num_machines * MiB2B(global_per_recv_buffer_sz_mb);
+    	recv_buffer_sz = global_num_machines * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
     	recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
     	buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz;

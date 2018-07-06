@@ -27,9 +27,10 @@ public:
 
     virtual ~HwActor(){}
 
-    void process(int t_id, Message & msg){
+    void process(int tid, Message & msg){
     	//TEST
-    	cout << "RANK:" << node_.get_local_rank() << " => MSG FROM " << msg.meta.sender << " DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
+    	cout << "RANK:" << node_.get_local_rank() << "tid:" << tid << " => MSG FROM " << msg.meta.sender_nid << ":" << msg.meta.sender_tid
+    			<< " to "  << msg.meta.recver_nid << ":" << msg.meta.recver_tid << " => DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
     }
 
 private:

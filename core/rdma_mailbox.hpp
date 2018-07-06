@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <emmintrin.h>
 
 #include "core/buffer.hpp"
 #include "core/message.hpp"
@@ -23,11 +24,12 @@
 
 #include "glog/logging.h"
 
+#define CLINE 64
+
 class RdmaMailbox : public AbstractMailbox {
 public:
-    RdmaMailbox(Node & node, Config* config, AbstractIdMapper* id_mapper, Buffer * buffer) :
-        node_(node), config_(config), id_mapper_(id_mapper), buffer_(buffer) {
-    	scheduler_ = 0;
+    RdmaMailbox(Node & node, Config* config, Buffer * buffer) :
+        node_(node), config_(config), buffer_(buffer) {
     }
 
     virtual ~RdmaMailbox() {}
@@ -36,22 +38,37 @@ public:
 
     // When sent to the same recv buffer, the consistency relies on
     // the lock in the id_mapper
-    int Send(const int t_id, const Message & msg) override;
+    int Send(int tid, const Message & msg) override;
 
-    Message Recv() override ;
+    Message Recv(int tid) override ;
 
-    bool TryRecv(Message & msg) override;
+    bool TryRecv(int tid, Message & msg) override;
 
 private:
-    Node & node_;
-    Config* config_;
-    AbstractIdMapper* id_mapper_;
-    Buffer * buffer_;
+    struct rbf_rmeta_t {
+         uint64_t tail; // write from here
+         pthread_spinlock_t lock;
+     } __attribute__ ((aligned (CLINE)));
 
-    // round-robin scheduler
-    uint64_t scheduler_;
+     struct rbf_lmeta_t {
+         uint64_t head; // read from here
+         pthread_spinlock_t lock;
+     } __attribute__ ((aligned (CLINE)));
 
-    // lock for recv 
-    std::mutex recv_mu_;
+     // each thread uses a round-robin strategy to check its physical-queues
+     struct scheduler_t {
+         uint64_t rr_cnt; // round-robin
+     } __attribute__ ((aligned (CLINE)));
+
+     bool CheckRecvBuf(int tid, int nid);
+     void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
+
+     Node & node_;
+     Config* config_;
+     Buffer * buffer_;
+
+     rbf_rmeta_t *rmetas = NULL;
+     rbf_lmeta_t *lmetas = NULL;
+     scheduler_t *schedulers;
 };
   

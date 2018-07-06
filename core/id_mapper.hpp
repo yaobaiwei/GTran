@@ -9,7 +9,6 @@
 #define IDMAPPER_HPP_
 
 #include <vector>
-#include <mutex>
 
 #include "core/abstract_id_mapper.hpp"
 #include "utils/config.hpp"
@@ -24,10 +23,6 @@
 class NaiveIdMapper : public AbstractIdMapper {
 public:
 	NaiveIdMapper(Node & node, Config * config) : my_node_(node), config_(config) {}
-
-	virtual void Init(){
-		node_offset_.resize(config_->global_num_machines, 0);
-	}
 
 	bool IsVertex(uint64_t v_id) {
 		bool has_v = v_id & 0x3FFFFFF;
@@ -98,23 +93,9 @@ public:
 //		return (ep_id.in_vid + ep_id.out_vid) % config_->global_num_machines;
 	}
 
-	// TODO: every entry of node_offset_ need a mutex, but the mutex need to be wrapped
-	// hzchen 2018.5.29
-	int GetAndIncrementRdmaRingBufferOffset(const int nid, const int msg_sz) {
-		  CHECK_LT(nid, config_->global_num_machines);
-		  std::lock_guard<std::mutex> lk(node_offset_mu_);
-		  int return_offset = node_offset_[nid];
-		  node_offset_[nid] = (node_offset_[nid] + msg_sz) % MiB2B(config_->global_per_recv_buffer_sz_mb);
-		  return return_offset;
-	}
-
 private:
 	Config * config_;
 	Node my_node_;
-
-	// Node Id -> RDMA ring buffer offest
-	std::mutex node_offset_mu_;
-	std::vector<int> node_offset_;
 };
 
 #endif /* IDMAPPER_HPP_ */

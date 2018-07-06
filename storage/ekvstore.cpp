@@ -154,7 +154,7 @@ void EKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
         uint64_t sz = ASSOCIATIVITY * sizeof(ikey_t);
 
         RDMA &rdma = RDMA::get_rdma();
-        rdma.dev->RdmaRead(dst_nid, buffer, sz, off);
+        rdma.dev->RdmaRead(tid, dst_nid, buffer, sz, off);
 
         ikey_t *keys = (ikey_t *)buffer;
         for (int i = 0; i < ASSOCIATIVITY; i++) {
@@ -258,7 +258,7 @@ void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t &
     uint64_t r_sz = key.ptr.size;
 
     RDMA &rdma = RDMA::get_rdma();
-    rdma.dev->RdmaRead(dst_nid, buffer, r_sz, r_off);
+    rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
 
     // type : char to uint8_t
     val.type = buffer[0];
@@ -297,7 +297,7 @@ void EKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & la
 	uint64_t r_sz = key.ptr.size;
 
 	RDMA &rdma = RDMA::get_rdma();
-	rdma.dev->RdmaRead(dst_nid, buffer, r_sz, r_off);
+	rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
 
 	label = *reinterpret_cast<label_t *>(buffer);
 }

@@ -20,8 +20,10 @@ struct Meta {
   int step;
 
   // route
-  int sender;
-  int recver;
+  int sender_nid;
+  int sender_tid;
+  int recver_nid;
+  int recver_tid;
 
   // type
   MSG_T msg_type;
@@ -53,5 +55,5 @@ ibinstream& operator<<(ibinstream& m, const Message& msg);
 
 obinstream& operator>>(obinstream& m, Message& msg);
 
-Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender, int _recver,
+Message CreateMessage(MSG_T _type, int _qid, int _step, int _sender_nid, int _sender_tid, int _recver_nid, int _recver_tid,
 		vector<ACTOR_T> _chains, SArray<char> data);

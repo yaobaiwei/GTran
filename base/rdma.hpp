@@ -24,8 +24,6 @@
 
 #pragma GCC diagnostic warning "-fpermissive"
 
-#define DEFAULT_THREAD_CHL 0
-
 #include <vector>
 #include <string>
 #include <iostream>     // std::cout
@@ -46,7 +44,7 @@ class RDMA {
     public:
         RdmaCtrl* ctrl = NULL;
 
-        RDMA_Device(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
+        RDMA_Device(int num_nodes, int num_threads, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
 
             // record IPs of ndoes
             vector<string> ipset;
@@ -61,23 +59,27 @@ class RDMA {
             ctrl->set_connect_mr(mem, mem_sz);
             ctrl->register_connect_mr();//single
             ctrl->start_server();
-            for (uint i = 0; i < num_nodes; ++i) {
-				Qp *qp = ctrl->create_rc_qp(DEFAULT_THREAD_CHL, i, 0, 1);
-				assert(qp != NULL);
+            for (uint j = 0; j < num_threads; ++j) {
+				for (uint i = 0; i < num_nodes; ++i) {
+					Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
+					assert(qp != NULL);
+				}
             }
 
             while (1) {
             	int connected = 0;
-            	for (uint i = 0; i < num_nodes; ++i) {
-					Qp *qp = ctrl->create_rc_qp(DEFAULT_THREAD_CHL, i, 0, 1);
-					if (qp->inited_) connected += 1;
-					else {
-						if (qp->connect_rc()) {
-							connected += 1;
+            	for (uint j = 0; j < num_threads; ++j) {
+					for (uint i = 0; i < num_nodes; ++i) {
+						Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
+						if (qp->inited_) connected += 1;
+						else {
+							if (qp->connect_rc()) {
+								connected += 1;
+							}
 						}
 					}
-				}
-                if (connected == num_nodes)
+            	}
+                if (connected == num_nodes * num_threads)
                     break;
                 else
                     sleep(1);
@@ -85,8 +87,8 @@ class RDMA {
         }
 
         // 0 on success, -1 otherwise
-        int RdmaRead(int dst_nid, char *local, uint64_t size, uint64_t off) {
-            Qp* qp = ctrl->get_rc_qp(DEFAULT_THREAD_CHL, dst_nid);
+        int RdmaRead(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t off) {
+            Qp* qp = ctrl->get_rc_qp(dst_tid, dst_nid);
             qp->rc_post_send(IBV_WR_RDMA_READ, local, size, off, IBV_SEND_SIGNALED);
             if (!qp->first_send())
                 qp->poll_completion();
@@ -96,8 +98,8 @@ class RDMA {
             // return rdmaOp(dst_tid, dst_nid, local, size, off, IBV_WR_RDMA_READ);
         }
 
-        int RdmaWrite(int dst_nid, char *local, uint64_t size, uint64_t off) {
-            Qp* qp = ctrl->get_rc_qp(DEFAULT_THREAD_CHL, dst_nid);
+        int RdmaWrite(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t off) {
+            Qp* qp = ctrl->get_rc_qp(dst_tid, dst_nid);
 
             // int flags = (qp->first_send() ? IBV_SEND_SIGNALED : 0);
             int flags = IBV_SEND_SIGNALED;
@@ -110,8 +112,8 @@ class RDMA {
             // return rdmaOp(dst_tid, dst_nid, local, size, off, IBV_WR_RDMA_WRITE);
         }
 
-        int RdmaWriteSelective(int dst_nid, char *local, uint64_t size, uint64_t off) {
-            Qp* qp = ctrl->get_rc_qp(DEFAULT_THREAD_CHL, dst_nid);
+        int RdmaWriteSelective(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t off) {
+            Qp* qp = ctrl->get_rc_qp(dst_tid, dst_nid);
             int flags = (qp->first_send() ? IBV_SEND_SIGNALED : 0);
             // int flags = IBV_SEND_SIGNALED;
 
@@ -122,8 +124,8 @@ class RDMA {
             // return rdmaOp(dst_tid, dst_nid, local, size, off, IBV_WR_RDMA_WRITE);
         }
 
-        int RdmaWriteNonSignal(int dst_nid, char *local, uint64_t size, uint64_t off) {
-            Qp* qp = ctrl->get_rc_qp(DEFAULT_THREAD_CHL, dst_nid);
+        int RdmaWriteNonSignal(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t off) {
+            Qp* qp = ctrl->get_rc_qp(dst_tid, dst_nid);
             int flags = 0;
             qp->rc_post_send(IBV_WR_RDMA_WRITE, local, size, off, flags);
             return 0;
@@ -137,8 +139,8 @@ public:
 
     ~RDMA() { if (dev != NULL) delete dev; }
 
-    void init_dev(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
-        dev = new RDMA_Device(num_nodes, nid, mem, mem_sz, nodes);
+    void init_dev(int num_nodes, int num_threads, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
+        dev = new RDMA_Device(num_nodes, num_threads, nid, mem, mem_sz, nodes);
     }
 
     inline static bool has_rdma() { return true; }
@@ -149,37 +151,37 @@ public:
     }
 };
 
-void RDMA_init(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes);
+void RDMA_init(int num_nodes, int num_threads, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes);
 
 #else
 
 class RDMA {
     class RDMA_Device {
     public:
-        RDMA_Device(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
+        RDMA_Device(int num_nodes, int num_threads, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
             cout << "This system is compiled without RDMA support." << endl;
             assert(false);
         }
 
-        int RdmaRead(int dst_nid, char *local, uint64_t size, uint64_t remote_offset) {
-            cout << "This system is compiled without RDMA support." << endl;
-            assert(false);
-            return 0;
-        }
-
-        int RdmaWrite(int dst_nid, char *local, uint64_t size, uint64_t remote_offset) {
+        int RdmaRead(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t remote_offset) {
             cout << "This system is compiled without RDMA support." << endl;
             assert(false);
             return 0;
         }
 
-        int RdmaWriteSelective(int dst_nid, char *local, uint64_t size, uint64_t remote_offset) {
+        int RdmaWrite(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t remote_offset) {
             cout << "This system is compiled without RDMA support." << endl;
             assert(false);
             return 0;
         }
 
-        int RdmaWriteNonSignal(int dst_nid, char *local, uint64_t size, uint64_t off) {
+        int RdmaWriteSelective(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t remote_offset) {
+            cout << "This system is compiled without RDMA support." << endl;
+            assert(false);
+            return 0;
+        }
+
+        int RdmaWriteNonSignal(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t off) {
             cout << "This system is compiled without RDMA support." << endl;
             assert(false);
             return 0;
@@ -193,8 +195,8 @@ public:
 
     ~RDMA() { }
 
-    void init_dev(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
-        dev = new RDMA_Device(num_nodes, nid, mem, mem_sz, nodes);
+    void init_dev(int num_nodes, int num_threads, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes) {
+        dev = new RDMA_Device(num_nodes, num_threads, nid, mem, mem_sz, nodes);
     }
 
     inline static bool has_rdma() { return false; }
@@ -205,6 +207,6 @@ public:
     }
 };
 
-void RDMA_init(int num_nodes, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes);
+void RDMA_init(int num_nodes, int num_threads, int nid, char *mem, uint64_t mem_sz, vector<Node> & nodes);
 
 #endif

@@ -14,7 +14,6 @@
 class AbstractIdMapper {
 public:
   virtual ~AbstractIdMapper() {}
-  virtual void Init() = 0;
 
   virtual bool IsVertex(uint64_t v_id) = 0;
   virtual bool IsEdge(uint64_t e_id) = 0;
@@ -31,9 +30,6 @@ public:
   virtual int GetMachineIdForEdge(eid_t e_id) = 0;
   virtual int GetMachineIdForVProperty(vpid_t p_id) = 0;
   virtual int GetMachineIdForEProperty(epid_t p_id) = 0;
-
-  // Node Id -> RDMA ring buffer offset
-  virtual int GetAndIncrementRdmaRingBufferOffset(const int n_id, const int msg_sz) = 0;
 };
 
 #endif /* ABSTRACT_IDMAPPER_HPP_ */

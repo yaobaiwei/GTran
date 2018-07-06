@@ -12,7 +12,6 @@
 
 #include "utils/config.hpp"
 #include "utils/unit.hpp"
-#include "core/ring_buffer.hpp"
 
 #include "glog/logging.h"
 
@@ -29,16 +28,6 @@ public:
 
     ~Buffer() {
         delete[] buffer_;
-    }
-
-    void Init() {
-        for (int i = 0; i < config_->global_num_threads; i ++)
-            rdma_send_buffer_.push_back(buffer_ + GetSendBufOffset(i));
-
-        for (int i = 0; i < config_->global_num_machines; i ++)
-            rdma_recv_buffer_.emplace_back(
-            		std::move(new RingBuffer(buffer_ + GetRecvBufOffset(i), MiB2B(config_->global_per_recv_buffer_sz_mb)))
-            );
     }
 
     inline char* GetBuf() {
@@ -67,7 +56,7 @@ public:
 
     inline char* GetSendBuf(int index) {
         CHECK_LT(index, config_->global_num_threads);
-        return rdma_send_buffer_[index];
+        return buffer_ + config_->send_buffer_offset + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 
     inline uint64_t GetSendBufSize(){
@@ -79,27 +68,20 @@ public:
     	return config_->send_buffer_offset + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 
-    char* GetRecvBuf(int index){
-        CHECK_LT(index, config_->global_num_machines);
-        return buffer_ + config_->recv_buffer_offset + index * MiB2B(config_->global_per_recv_buffer_sz_mb);
+    inline char* GetRecvBuf(int tid, int nid){
+        CHECK_LT(tid, config_->global_num_threads);
+        CHECK_LT(nid, config_->global_num_machines);
+        return buffer_ + config_->recv_buffer_offset + (tid * config_->global_num_machines + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
     inline uint64_t GetRecvBufSize(){
     	return MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
-    inline uint64_t GetRecvBufOffset(int index) {
-        CHECK_LT(index, config_->global_num_machines);
-        return config_->recv_buffer_offset + index * MiB2B(config_->global_per_recv_buffer_sz_mb);
-    }
-
-    // Check corresponding buffer 
-    bool CheckRecvBuf(int id) {
-    	return rdma_recv_buffer_[id]->Check();
-    }
-
-    void FetchMsgFromRecvBuf(int id, obinstream & um) {
-        rdma_recv_buffer_[id]->Pop(um);
+    inline uint64_t GetRecvBufOffset(int tid, int nid) {
+        CHECK_LT(tid, config_->global_num_threads);
+        CHECK_LT(nid, config_->global_num_machines);
+        return config_->recv_buffer_offset + (tid * config_->global_num_machines + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
 private:
@@ -107,9 +89,5 @@ private:
     char* buffer_;
     Config* config_;
     Node & node_;
-
-    // TODO: check overflow for rdma_send_buffer
-    std::vector<char*> rdma_send_buffer_;
-    std::vector<std::unique_ptr<RingBuffer>> rdma_recv_buffer_;
 };
 

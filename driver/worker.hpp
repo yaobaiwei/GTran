@@ -93,17 +93,12 @@ public:
 
 	void Start(){
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_, config_);
-		id_mapper->Init();
-
-		cout <<  "DONE -> NaiveIdMapper->Init()" << endl;
 
 		//set the in-memory layout for RDMA buf
 		Buffer * buf = new Buffer(my_node_, config_);
-		buf->Init();
-		cout <<  "DONE -> Buff->Init()" << endl;
 
 		//init the rdma mailbox
-		RdmaMailbox * mailbox = new RdmaMailbox(my_node_, config_, id_mapper, buf);
+		RdmaMailbox * mailbox = new RdmaMailbox(my_node_, config_, buf);
 		mailbox->Init(workers_);
 
 		cout << "DONE -> RdmaMailbox->Init()" << endl;
@@ -196,20 +191,22 @@ public:
 
 //TEST the commun function within each worker by rdma
 
-//		for(int i = 0 ; i < my_node_.get_local_size(); i++){
-//			MSG_T type = MSG_T::FEED;
-//			int qid = i;
-//			int step = 0;
-//			int sender = my_node_.get_local_rank();
-//			int recver = i;
-//			vector<ACTOR_T> chains;
-//			chains.push_back(ACTOR_T::HW);
-//			SArray<char> data;
-//			data.push_back(48+my_node_.get_local_rank());
-//			data.push_back(48+i);
-//			Message msg = CreateMessage(type, qid, step, sender, recver,chains, data);
-//			mailbox->Send(0,msg);
-//		}
+		for(int i = 0 ; i < my_node_.get_local_size(); i++){
+			MSG_T type = MSG_T::FEED;
+			int qid = i;
+			int step = 0;
+			int sender_nid = my_node_.get_local_rank();
+			int sender_tid = 0;
+			int recver_nid = i;
+			int recver_tid = 2;
+			vector<ACTOR_T> chains;
+			chains.push_back(ACTOR_T::HW);
+			SArray<char> data;
+			data.push_back(48+my_node_.get_local_rank());
+			data.push_back(48+i);
+			Message msg = CreateMessage(type, qid, step, sender_nid, sender_tid, recver_nid, recver_tid, chains, data);
+			mailbox->Send(0,msg);
+		}
 
 
 		thread recv(&Worker::RecvRequest, this);

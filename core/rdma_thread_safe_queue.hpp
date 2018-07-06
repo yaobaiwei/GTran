@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/abstract_thread_safe_queue.hpp"
-#include "core/ring_buffer.hpp"
 
 template <typename T>
 class RdmaThreadSafeQueue : public AbstractThreadSafeQueue<T> {
