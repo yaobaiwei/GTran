@@ -365,8 +365,8 @@ struct string_index{
 // Spawn: spawn a new actor
 // Feed: "proxy" feed actor a input
 // Reply: actor returns the intermidiate result to actor
-enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, EXIT };
-static const char *MsgType[] = {"spawn", "feed", "reply", "barrier", "exit"};
+enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, BRANCH, EXIT };
+static const char *MsgType[] = {"spawn", "feed", "reply", "barrier", "branch", "exit"};
 
 ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 

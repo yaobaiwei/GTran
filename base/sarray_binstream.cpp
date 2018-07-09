@@ -21,18 +21,6 @@ void* SArrayBinStream::PopBin(size_t sz) {
 	return ret;
 }
 
-Message SArrayBinStream::ToMsg() const {
-	Message msg;
-	msg.AddData(buffer_);
-	return msg;
-}
-
-void SArrayBinStream::FromMsg(const Message& msg) {
-	CHECK_EQ(msg.data.size(), 1);
-	buffer_ = msg.data[0];
-	front_ = 0;
-}
-
 export template <typename T>
 SArrayBinStream& operator<<(SArrayBinStream& bin, const T& t) {
 	bin.AddBin((char*)&t, sizeof(T));
@@ -111,5 +99,3 @@ SArrayBinStream& operator>>(SArrayBinStream& stream, std::vector<OutputT>& v) {
         stream >> v[i];
     return stream;
 }
-
-

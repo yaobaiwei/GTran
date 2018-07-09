@@ -69,7 +69,7 @@ public:
 			vector<Actor_Object> vec;
 			Element_T elem;
 			parser_->Parse(query, vec, elem);
-			
+
 			sleep(1); //simulate processing time
 			string result;
 			for(auto obj : vec){
@@ -190,22 +190,11 @@ public:
 
 
 //TEST the commun function within each worker by rdma
-
+		vector<Actor_Object> actors;
+		actors.push_back(Actor_Object(ACTOR_T::HW));
+		vector<Message> vec = Message::CreatInitMsg(100,my_node_.get_local_rank(), 0, 2, my_node_.get_local_size(), actors, 1048576);
 		for(int i = 0 ; i < my_node_.get_local_size(); i++){
-			MSG_T type = MSG_T::FEED;
-			int qid = i;
-			int step = 0;
-			int sender_nid = my_node_.get_local_rank();
-			int sender_tid = 0;
-			int recver_nid = i;
-			int recver_tid = 2;
-			vector<ACTOR_T> chains;
-			chains.push_back(ACTOR_T::HW);
-			SArray<char> data;
-			data.push_back(48+my_node_.get_local_rank());
-			data.push_back(48+i);
-			Message msg = CreateMessage(type, qid, step, sender_nid, sender_tid, recver_nid, recver_tid, chains, data);
-			mailbox->Send(0,msg);
+			mailbox->Send(0, vec[i]);
 		}
 
 

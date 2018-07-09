@@ -30,7 +30,7 @@ public:
     void process(int tid, Message & msg){
     	//TEST
     	cout << "RANK:" << node_.get_local_rank() << "tid:" << tid << " => MSG FROM " << msg.meta.sender_nid << ":" << msg.meta.sender_tid
-    			<< " to "  << msg.meta.recver_nid << ":" << msg.meta.recver_tid << " => DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
+    			<< " to "  << msg.meta.recver_nid << ":" << msg.meta.recver_tid << " => DATA-:" << msg.data[0].first.size() << "|" << msg.data[0].second.size() << endl;
     }
 
 private:

@@ -47,7 +47,7 @@ public:
 	    while (true) {
 	        Message recv_msg = mailbox_->Recv(tid);
 	        Meta & m = recv_msg.meta;
-	        ACTOR_T next_actor = m.chains[m.step++];
+	        ACTOR_T next_actor = m.actors[m.step++].actor_type;
 	        actors_[next_actor]->process(tid, recv_msg);
 	    }
 	};

@@ -29,10 +29,6 @@ public:
 
 	void* PopBin(size_t sz);
 
-	Message ToMsg() const;
-
-	void FromMsg(const Message& msg);
-
 private:
 	SArray<char> buffer_;
 	size_t front_ = 0;
