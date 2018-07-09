@@ -37,8 +37,11 @@ struct Meta {
   string msg_path;
 
   // branch info
-  vector<pair<int, int>> branch_route;
-  vector<int> branch_mid;
+  // extended in CreatBranchedMsg
+  // removed in MsgServer
+  vector<pair<int, int>> branch_route;  // route to collect branch
+  vector<int> branch_mid;               // id_ of derived message
+  vector<string> branch_path;           // msg_path of derived message
 
   // actors chain
   vector<Actor_Object> actors;
@@ -63,44 +66,48 @@ public:
   // maximum size of data
   size_t max_data_size;
 
-  Message() : data_size(0), max_data_size(1048576){}
+  Message() : data_size(sizeof(size_t)), max_data_size(1048576){}
   Message(const Meta& m) : Message()
   {
     meta = m;
   }
 
-  // data in
+  // Feed in data, remove from source
   void FeedData(pair<history_t, vector<value_t>>& pair);
   void FeedData(vector<pair<history_t, vector<value_t>>>& vec);
-
+  // Copy data from source
   void CopyData(vector<pair<history_t, vector<value_t>>>& vec);
 
   // create init msg
-  static vector<Message> CreatInitMsg(int qid, int sender, int send_tid, int recver_tid, int nodes_num, vector<Actor_Object>& actors, int max_data_size);
+  // currently
+  static void CreatInitMsg(int qid, int sender, int send_tid, int nodes_num, int threads_num, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec);
 
-  // clone meta of current msg, update step, receiver, msg_type, msg_path for next
-  // actors[step], actors[actors[step].next_actor]?
-  vector<Message> CreatNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data);
+  // actors:  actors chain for current message
+  // data:    new data processed by actor_type
+  // vec:     messages to be send
+  // mapper:  function that maps value_t to particular machine, default NULL
+  void CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, vector<Message>& vec, int (*mapper)(value_t&) = NULL);
 
-  // For branch actor, clone msg into multiple pieces
-  // num = steps.size()
-  // insert current node and thread id into bp_ids
-  vector<Message> CreatBranchedMsg(const vector<Actor_Object>& actors);
+  // actors:  actors chain for current message
+  // stpes:   branching steps
+  // msg_id:  assigned by actor to indicate parent msg
+  // vec:     messages to be send
+  void CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int msg_id, vector<Message>& vec);
+
+  // Move acotrs chain from message
+  void GetActors(vector<Actor_Object>& vec);
 
 	std::string DebugString() const;
-
-private:
-  int id_;
-  friend class MsgServer;
 };
 
 ibinstream& operator<<(ibinstream& m, const Message& msg);
 
 obinstream& operator>>(obinstream& m, Message& msg);
 
+// Move to Branch and Barrier Actor
 class MsgServer{
 public:
-  MsgServer() : msg_counter(0){}
+  MsgServer();
 
   // Collect msg and determine msg completed or NOT
   // if msg_type != BARRIER, BRANCH
@@ -109,10 +116,14 @@ public:
   //    run path_counter_ to check and merge data to msg_map_
   bool ConsumeMsg(Message& msg);
 
+  // get msg info for collecting sub msg
+  void GetMsgInfo(Message& msg, size_t &id, string &end_path);
+
+  // Check if all sub msg are collected
+  bool IsReady(uint64_t id, string end_path, string msg_path);
 private:
   map<uint64_t, map<string, int>> path_counter_;
   map<uint64_t, Message> msg_map_;
-  int msg_counter;
 };
 
 size_t MemSize(int i);

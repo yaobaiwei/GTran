@@ -21,6 +21,7 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta)
 	m << meta.parent_tid;
 	m << meta.branch_route;
 	m << meta.branch_mid;
+	m << meta.branch_path;
 	m << meta.actors;
 	return m;
 }
@@ -39,6 +40,7 @@ obinstream& operator>>(obinstream& m, Meta& meta)
 	m >> meta.parent_tid;
 	m >> meta.branch_route;
 	m >> meta.branch_mid;
+	m >> meta.branch_path;
 	m >> meta.actors;
 	return m;
 }
@@ -70,6 +72,7 @@ ibinstream& operator<<(ibinstream& m, const Message& msg)
 	m << msg.meta;
 	m << msg.data;
 	m << msg.max_data_size;
+	m << msg.data_size;
 	return m;
 }
 
@@ -78,18 +81,21 @@ obinstream& operator>>(obinstream& m, Message& msg)
 	m >> msg.meta;
 	m >> msg.data;
 	m >> msg.max_data_size;
+	m >> msg.data_size;
 	return m;
 }
 
-vector<Message> Message::CreatInitMsg(int qid, int sender, int send_tid, int recver_tid, int nodes_num, vector<Actor_Object>& actors, int _max_data_size)
+void Message::CreatInitMsg(int qid, int sender, int send_tid, int nodes_num, int threads_num, vector<Actor_Object>& actors, int _max_data_size, vector<Message>& vec)
 {
-	vector<Message> vec;
+	// assign receiver thread id
+	int recver_tid = qid % threads_num;
+
 	Meta m;
 	m.qid = qid;
 	m.step = 0;
 	m.sender_nid = sender;
 	m.sender_tid = send_tid;
-	m.recver_nid = -1;
+	m.recver_nid = -1;					// assigned in for loop
 	m.recver_tid = recver_tid;
 	m.parent_nid = sender;
 	m.parent_tid = recver_tid;
@@ -104,43 +110,138 @@ vector<Message> Message::CreatInitMsg(int qid, int sender, int send_tid, int rec
 		msg.max_data_size = _max_data_size;
 		vec.push_back(msg);
 	}
-	return vec;
 }
 
-vector<Message> Message::CreatNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data)
+void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, vector<Message>& vec, int (*mapper)(value_t&))
 {
-	Actor_Object current = actors[meta.step];
-	Actor_Object next = actors[current.next_actor];
+	// get next step
+	int step = actors[this->meta.step].next_actor;
 
-	Message m(meta);
-	// Normal actor will send message to current node & thread;
-	m.meta.sender_nid = m.meta.recver_nid;
-	m.meta.sender_tid = m.meta.recver_tid;
-	m.meta.step = current.next_actor;
+	Meta m = this->meta;
+	// update sender route and step
+	m.sender_nid = m.recver_nid;
+	m.sender_tid = m.recver_tid;
 
-	if(next.IsBarrier()){
-		int branch_index = m.meta.branch_route.size();
-		if(branch_index != 0){
-			// barrier in branch
-			m.meta.recver_nid = m.meta.branch_route[branch_index - 1].first;
-			m.meta.recver_tid = m.meta.branch_route[branch_index - 1].second;
+	// no data, send msg_path to next barrier or branch
+	if(data.size() == 0){
+		while(step < actors.size()){
+			if(actors[step].IsBarrier()){
+				// found next barrier
+				break;
+			}
+			else if(step < this->meta.step){
+				// found parent branch
+				break;
+			}
+			step = actors[step].next_actor;
+		}
+	}
+	m.step = step;
+
+	// disable node mapping when next actor is barrier or branch
+	bool disableMapping = false;
+
+	// update recver route & msg_type
+	if(actors[step].IsBarrier() || step == actors.size()){
+		int branch_index = m.branch_route.size();
+		if(branch_index > 0){
+			// barrier actor in branch
+			m.recver_nid = m.branch_route[branch_index - 1].first;
+			m.recver_tid = m.branch_route[branch_index - 1].second;
 		}
 		else{
-			// barrier in main query
+			// barrier actor in main query
+			m.recver_nid = m.parent_nid;
+			m.recver_tid = m.parent_tid;
+		}
+		m.msg_type = MSG_T::BARRIER;
+		disableMapping = true;
+	}
+	else if(m.step < this->meta.step){
+		// branch actor
+		int branch_index = m.branch_route.size();
+		assert(branch_index > 0);
+		m.recver_nid = m.branch_route[branch_index - 1].first;
+		m.recver_tid = m.branch_route[branch_index - 1].second;
+		m.msg_type = MSG_T::BRANCH;
+		disableMapping = true;
+	}
+	else{
+		// normal actor, recver = sender
+		m.msg_type = MSG_T::SPAWN;
+	}
+
+	// node id to data
+	map<int, vector<pair<history_t, vector<value_t>>>> id2data;
+
+	// enable mapping
+	if(mapper != NULL && ! disableMapping){
+		for(auto& pair: data){
+			map<int, vector<value_t>> id2value_t;
+			// get node id
+			for(auto& v : pair.second){
+				int node = (*mapper)(v);
+				id2value_t[node].push_back(v);
+			}
+			// insert his/value pair to corresponding node
+			for(auto& item : id2value_t){
+				id2data[item.first].push_back(make_pair(pair.first, item.second));
+			}
 		}
 	}
-	else if(current.next_actor < meta.step){
-		// send to branch parent
+	else{
+		// no mapping, send to recver_nid only
+		map[m.recver_nid] = std::move(data);
 	}
 
-	if(next.actor_type == ACTOR_T::TRAVERSAL){
-		// send according to data
+	for(auto& item : id2data){
+		// feed data to msg
+		do{
+			Message msg(m);
+			msg.max_data_size = this->max_data_size;
+			msg.meta.recver_nid = item.first;
+			msg.FeedData(item.second);
+			vec.push_back(msg);
+		}
+		while((item.second.size() != 0));	// Data no consumed
 	}
 
+	// set disptching path
+	string num = "\t" + to_string(vec.size());
+	for(auto &msg : vec){
+		msg.meta.msg_path += num;
+	}
 }
 
-vector<Message> Message::CreatBranchedMsg(const vector<Actor_Object>& actors){
+void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int msg_id, vector<Message>& vec){
+	Meta m = this->meta;
 
+	// update route info
+	m.sender_nid = m.recver_nid;
+	m.sender_tid = m.recver_tid;
+	m.msg_type = MSG_T::SPAWN;
+
+	// update branch info
+	m.branch_path.push_back(m.msg_path);
+	m.branch_route.push_back(make_pair(m.sender_nid, m.sender_tid));
+	m.branch_mid.push_back(msg_id);
+
+	// update msg_path
+	m.msg_path += "\t" + to_string(steps.size());
+
+	for(int step : steps){
+		Message msg(m);
+		if(actors[step].IsBarrier()){
+			msg.meta.msg_type = MSG_T::BARRIER;
+		}
+		else{
+			msg.meta.msg_type = MSG_T::SPAWN;
+		}
+		msg.meta.step = step;
+		msg.max_data_size = this->max_data_size;
+		msg.CopyData(this->data);
+		vec.push_back(msg);
+	}
 }
 
 void Message::FeedData(pair<history_t, vector<value_t>>& pair)
@@ -215,6 +316,13 @@ void Message::CopyData(vector<pair<history_t, vector<value_t>>>& vec)
 	data_size = size;
 }
 
+void Message::GetActors(vector<Actor_Object>& vec)
+{
+	if(meta.msg_type == MSG_T::FEED){
+		vec = std::move(meta.actors);
+	}
+}
+
 std::string Message::DebugString() const {
 	std::stringstream ss;
 	ss << meta.DebugString();
@@ -228,8 +336,66 @@ std::string Message::DebugString() const {
 
 bool MsgServer::ConsumeMsg(Message& msg)
 {
+	uint64_t id;
+	string end_path;
+	GetMsgInfo(msg, id, end_path);
 
-	return false;
+	switch (msg.meta.msg_type) {
+		case MSG_T::BRANCH:
+			msg.meta.branch_mid.pop_back();
+			msg.meta.branch_route.pop_back();
+			msg.meta.branch_path.pop_back();
+		case MSG_T::BARRIER:
+			if(! IsReady(id, end_path, msg.meta.msg_path))
+			{
+				return false;
+			}
+			msg.meta.msg_path = end_path;
+			break;
+	}
+	return true;
+}
+
+// get msg info for collecting sub msg
+void MsgServer::GetMsgInfo(Message& msg, size_t &id, string &end_path)
+{
+
+}
+
+bool MsgServer::IsReady(uint64_t id, string end_path, string msg_path)
+{
+	if(path_counter_.count(id) != 1){
+		path_counter_[id] = map<string, int>();
+	}
+	map<string, int> &counter =  path_counter_[id];
+	while (msg_path != end_path){
+		int i = msg_path.find_last_of("\t");
+		// "\t" should not the the last char
+		assert(i + 1 < msg_path.size());
+		// get last number
+		int num = atoi(msg_path.substr(i + 1).c_str());
+
+		// check key
+		if (counter.count(msg_path) != 1){
+			counter[msg_path] = 0;
+		}
+
+		// current branch is ready
+		if ((++counter[msg_path]) == num){
+			// reset count to 0
+			counter[msg_path] = 0;
+			// remove last number
+			msg_path = msg_path.substr(0, i == string::npos ? 0 : i);
+		}
+		else{
+			return false;
+		}
+	}
+
+	// remove map
+	auto itr = path_counter_.find(id);
+	path_counter_.erase(id);
+	return true;
 }
 
 size_t MemSize(int i)

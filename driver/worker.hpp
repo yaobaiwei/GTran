@@ -192,8 +192,10 @@ public:
 //TEST the commun function within each worker by rdma
 		vector<Actor_Object> actors;
 		actors.push_back(Actor_Object(ACTOR_T::HW));
-		vector<Message> vec = Message::CreatInitMsg(100,my_node_.get_local_rank(), 0, 2, my_node_.get_local_size(), actors, 1048576);
+		vector<Message> vec;
+		Message::CreatInitMsg(100,my_node_.get_local_rank(), 0, my_node_.get_local_size(), config_->global_num_threads,actors, 1048576, vec);
 		for(int i = 0 ; i < my_node_.get_local_size(); i++){
+			vec[i].data.push_back(make_pair(history_t(), vector<value_t>()));
 			mailbox->Send(0, vec[i]);
 		}
 
