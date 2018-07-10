@@ -34,10 +34,7 @@ public:
 	Client(string cfg_fname);
 
 	void Init();
-	void RequestWorker();
-	string CommitQuery(string query);
 
-    void print_help(void);
     void run_console();
 
 private:
@@ -47,6 +44,14 @@ private:
 	Node master_;
 	ClientConnection cc_;
 	int handler;
+
+	void RequestWorker();
+	string CommitQuery(string query);
+
+    void run_query(string query, string& result, bool isBatch);
+
+    static void print_help();
+    static bool trim_str(string& str);
 };
 
 #endif /* CLIENT_HPP_ */

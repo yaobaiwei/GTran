@@ -23,13 +23,13 @@ void Client::RequestWorker(){
     obinstream um;
     m << id;
     cc_.Send(MASTER_RANK, m);
-    cout << "Client just posted a REQ" << endl;
+    cout << "[Client] Client just posted a REQ" << endl;
 
     //get the available worker ID
     cc_.Recv(MASTER_RANK, um);
     um >> id;
     um >> handler;
-    cout << "Client " << id << " recvs a REP: get available worker" << handler << endl;
+    cout << "[Client] Client " << id << " recvs a REP: get available worker" << handler << endl << endl;
 }
 
 string Client::CommitQuery(string query){
@@ -42,7 +42,7 @@ string Client::CommitQuery(string query){
     m << host_str;
     m << query;
     cc_.Send(handler, m);
-    cout << "Client posts the query to worker" << handler << endl;
+    cout << "[Client] Client posts the query to worker" << handler << endl << endl;
 
     cc_.Recv(handler, um);
 
@@ -51,7 +51,26 @@ string Client::CommitQuery(string query){
     return result;
 }
 
-void Client::print_help(void)
+void Client::run_query(string query, string& result, bool isBatch) {
+    cout << endl;
+    cout << "[Client] Processing query : " << query << endl;
+
+    RequestWorker();
+
+    uint64_t touchWorker_t = timer::get_usec();
+    if (isBatch) {
+        result += CommitQuery(query) + ";";
+    } else {
+        result = CommitQuery(query);
+    }
+    uint64_t endWorker_t = timer::get_usec();
+    if (endWorker_t - touchWorker_t / 1000 == 0)
+        cout << "[Timer] " << (endWorker_t - touchWorker_t) << " us for CommitQuery" << endl;
+    else
+        cout << "[Timer] " << (endWorker_t - touchWorker_t) / 1000 << " ms for CommitQuery" << endl;
+}
+
+void Client::print_help()
 {
     cout << "GQuery commands: " << endl;
     cout << "    help                display help infomation" << endl;
@@ -61,7 +80,8 @@ void Client::print_help(void)
     // cout << "        -l <file>           load config items from <file>" << endl;
     // cout << "        -s <string>         set config items by <str> (format: item1=val1&item2=...)" << endl;
     cout << "    gquery <args>       run Gremlin-Like queries" << endl;
-    cout << "        -q [QUERY]          a single query input by user" << endl;
+    cout << "        -q <query> [<args>] a single query input by user" << endl;
+    cout << "           -o <file>           output results into <file>" << endl;
     cout << "        -f <file> [<args>]  a single query from <file>" << endl;
     // cout << "           -n <num>            run <num> times" << endl;
     // cout << "           -v <num>            print at most <num> lines of results" << endl;
@@ -70,12 +90,22 @@ void Client::print_help(void)
     cout << "           -o <file>           output results into <file>" << endl;
 }
 
+bool Client::trim_str(string& str) {
+    size_t pos = str.find_first_not_of(" \t"); // trim blanks from head
+    if (pos == string::npos) return false;
+    str.erase(0, pos);
+
+    pos = str.find_last_not_of(" \t");  // trim blanks from tail
+    str.erase(pos + 1, str.length() - (pos + 1));
+
+    return true;
+}
+
 void Client::run_console() {
     
   // Timer:
   // 1. Whole time for user
-  // 2. Touch Master to end
-  // 3. Touch Worker to end
+  // 2. Touch Worker to Get result 
   while (true) {
 next:
     string cmd;
@@ -85,7 +115,10 @@ next:
     // Timer
     uint64_t enter_t = timer::get_usec();
 
-    // trim input
+    // trim input and check input is empty
+    if (!trim_str(cmd)) {
+        goto next;
+    }
 
     // Usage
     if (cmd == "help" || cmd == "h") {
@@ -104,18 +137,18 @@ next:
       if (token == "gquery") {
         string query, result;
         string fname, bname, ofname;
-        bool f_enable = false, b_enable = false, o_enable = false;
+        bool s_enable = false, f_enable = false, b_enable = false, o_enable = false;
 
         // get parameters
         while (cmd_ss >> token) {
           if (token == "-q") {
             // single query by command
             std::getline(cmd_ss, query);
-            cout << "Query : " << query << endl;
-            // touch_t = timer::get_usec();
-            // client.RequestWorker();
-            // string result = client.CommitQuery(query);
-            goto next;
+            if (!trim_str(query)) {
+                cout << "[Client][Error]: Empty Query" << endl << endl;
+                goto next;
+            }
+            s_enable = true;
           } else if (token == "-f") {
             // single query in file
             cmd_ss >> fname;
@@ -133,75 +166,85 @@ next:
           }
         } // gquery_while
 
-        if (!f_enable && !b_enable) goto failed; // meaningless
+        if (!s_enable && !f_enable && !b_enable) goto failed; // meaningless
+
+        if (s_enable) { // -s <query>
+            run_query(query, result, false);
+
+            if (o_enable) {
+              std::ofstream ofs(ofname, std::ofstream::out);
+              ofs << result;
+            } else {
+              cout << "[Client] result: " << result << endl << endl;
+            }
+        }
 
         if (f_enable) { // -f <file>
-          cout << "f_enable" << endl;
+          cout << "[Client] Single query in file" << endl;
 
           ifstream file(fname.c_str());
           if (!file) {
-              cout << "ERROR: " << fname << " does not exist." << endl;
+              cout << "[Client][ERROR]: " << fname << " does not exist." << endl << endl;
               goto next;
           }
 
           // read only one line
           std::getline(file, query);
-          
-          // timer
-          // touch_t = timer::get_usec();
+          if (!trim_str(query)) {
+              cout << "[Client][Error]: Empty Query" << endl << endl;
+              goto next;
+          }
 
-          // client.RequestWorker();
-          // result = client.CommitQuery(query);
-          cout << query << endl;
-          result = "test";
+          run_query(query, result, false);
+
           if (o_enable) {
             std::ofstream ofs(ofname, std::ofstream::out);
             ofs << result;
           } else {
-            cout << result << endl;
+            cout << "[Client] result: " << result << endl << endl;
           }
         }
 
         if (b_enable) { // -b <file>
-          cout << "b_enable" << endl;
+          cout << "[Client] b_enable" << endl;
 
           ifstream file(bname.c_str());
           if (!file) {
-              cout << "ERROR: " << fname << " does not exist." << endl;
+              cout << "[Client][ERROR]: " << fname << " does not exist." << endl << endl;
               goto next;
           }
 
-          string line;
-          while (std::getline(file, line))
-              query += line + " ";
-          
-          // timer
-          // touch_t = timer::get_usec();
-          // client.RequestWorker();
-          cout << query << endl;
-          result = "test";
+          while (std::getline(file, query)) {
+              if (!trim_str(query)) {
+                  cout << "[Client][Error]: Empty Query" << endl << endl;
+                  goto next;
+              }
+
+              run_query(query, result, true);
+
+              query.clear();
+          }
+
           if (o_enable) {
             std::ofstream ofs(ofname, std::ofstream::out);
             ofs << result;
           } else {
-            cout << result << endl;
+            cout << "[Client] result: " << result << endl << endl;
           }
         }
 
       } else {
 failed:
-        cout << "Failed to run the command: " << cmd << endl;
+        cout << "[Client][ERROR]: Failed to run the command: " << cmd << endl << endl;
         print_help();
       }
 
-    } // run cmd
+    }
 
     uint64_t end_t = timer::get_usec();
-    cout << (end_t - enter_t) / 100 << " ms for whole process." << endl;
-    // cout << (end_t - touch_t) / 100 << " ms for whole process." << endl;
-  } // outside while
-
-} // run_console
+    cout << "[Timer] " << (end_t - enter_t) / 1000 << " ms for whole process." << endl;
+  }
+}
 
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
