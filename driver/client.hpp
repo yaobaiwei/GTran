@@ -31,22 +31,22 @@
 
 class Client{
 public:
-	Client(string cfg_fname);
+    Client(string cfg_fname);
 
-	void Init();
+    void Init();
 
     void run_console();
 
 private:
-	int id;
-	string fname_;
-	vector<Node> nodes_;
-	Node master_;
-	ClientConnection cc_;
-	int handler;
+    int id;
+    string fname_;
+    vector<Node> nodes_;
+    Node master_;
+    ClientConnection cc_;
+    int handler;
 
-	void RequestWorker();
-	string CommitQuery(string query);
+    void RequestWorker();
+    string CommitQuery(string query);
 
     void run_query(string query, string& result, bool isBatch);
 
