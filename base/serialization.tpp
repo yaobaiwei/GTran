@@ -37,6 +37,14 @@ ibinstream& operator<<(ibinstream& m, const set<T>& v)
 	return m;
 }
 
+template <class T1, class T2>
+ibinstream& operator<<(ibinstream& m, const pair<T1, T2>& v)
+{
+	m << v.first;
+	m << v.second;
+	return m;
+}
+
 template <class KeyT, class ValT>
 ibinstream& operator<<(ibinstream& m, const map<KeyT, ValT>& v)
 {
@@ -128,6 +136,14 @@ obinstream& operator>>(obinstream& m, set<T>& v)
 		m >> tmp;
 		v.insert(v.end(), tmp);
 	}
+	return m;
+}
+
+template <class T1, class T2>
+obinstream& operator>>(obinstream& m, pair<T1, T2>& v)
+{
+	m >> v.first;
+	m >> v.second;
 	return m;
 }
 

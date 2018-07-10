@@ -98,6 +98,7 @@ private:
 	void ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
 
 	// Parse actors
+	void ParseInit(Element_T type);
 	void ParseAggregate(const vector<string>& params, Step_T type);
 	void ParseAs(const vector<string>& params);
 	void ParseBranch(const vector<string>& params, Step_T type);
@@ -127,7 +128,7 @@ private:
 
 public:
 	// Parse query string
-	bool Parse(const string& query, vector<Actor_Object>& vec, Element_T& startType);
+	bool Parse(const string& query, vector<Actor_Object>& vec);
 
 	Parser(Config *config){
 		LoadMapping(config);
