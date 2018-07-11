@@ -132,6 +132,7 @@ void VKVStore::get_key_local(uint64_t pid, ikey_t & key) {
                 if (keys[slot_id].pid == pid) {
                     //we found it
                     key = keys[slot_id];
+                    return;
                 }
             } else {
                 if (keys[slot_id].is_empty())
@@ -161,6 +162,7 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
             if (i < ASSOCIATIVITY - 1) {
                 if (keys[i].pid == pid) {
                     key = keys[i];
+                    return;
                 }
             } else {
                 if (keys[i].is_empty())
