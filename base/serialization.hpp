@@ -72,6 +72,9 @@ ibinstream& operator<<(ibinstream& m, const set<T>& v);
 
 ibinstream& operator<<(ibinstream& m, const string& str);
 
+template <class T1, class T2>
+ibinstream& operator<<(ibinstream& m, const pair<T1, T2>& v);
+
 template <class KeyT, class ValT>
 ibinstream& operator<<(ibinstream& m, const map<KeyT, ValT>& v);
 
@@ -143,6 +146,9 @@ template <class T>
 obinstream& operator>>(obinstream& m, set<T>& v);
 
 obinstream& operator>>(obinstream& m, string& str);
+
+template <class T1, class T2>
+obinstream& operator>>(obinstream& m, pair<T1, T2>& v);
 
 template <class KeyT, class ValT>
 obinstream& operator>>(obinstream& m, map<KeyT, ValT>& v);
