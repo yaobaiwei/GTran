@@ -64,6 +64,7 @@ struct Config{
 	bool global_enable_caching;
 	bool global_enable_workstealing;
 
+	int max_data_size;
 
 	//================================================================
 	//mutable_config
@@ -261,6 +262,14 @@ struct Config{
 		else
 		{
 			fprintf(stderr, "must enter the ENABLE_STEALING. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getint(ini, "SYSTEM:MAX_MSG_SIZE", val_not_found);
+		if(val!=val_not_found) max_data_size=val;
+		else
+		{
+			fprintf(stderr, "must enter the MAX_MSG_SIZE. exits.\n");
 			exit(-1);
 		}
 

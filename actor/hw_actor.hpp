@@ -15,6 +15,7 @@
 #include "actor/abstract_actor.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
+#include "core/result_collector.hpp"
 #include "base/node.hpp"
 #include "base/type.hpp"
 
@@ -22,15 +23,14 @@ using namespace std;
 
 class HwActor : public AbstractActor {
 public:
-    HwActor(int id, Node node, AbstractMailbox * mailbox) : AbstractActor(id),
-    	node_(node), mailbox_(mailbox) { type_ = ACTOR_T::HW; }
+    HwActor(int id, Node node, Result_Collector * rc, AbstractMailbox * mailbox) : AbstractActor(id),
+    	node_(node), rc_(rc), mailbox_(mailbox) { type_ = ACTOR_T::HW; }
 
     virtual ~HwActor(){}
 
-    void process(int tid, Message & msg){
+    void process(int tid, vector<Actor_Object> & actors, Message & msg){
     	//TEST
-    	cout << "RANK:" << node_.get_local_rank() << "tid:" << tid << " => MSG FROM " << msg.meta.sender_nid << ":" << msg.meta.sender_tid
-    			<< " to "  << msg.meta.recver_nid << ":" << msg.meta.recver_tid << " => DATA-:" << msg.data[0][0] << "|" << msg.data[0][1] << endl;
+    	cout << "RANK:" << node_.get_local_rank() << "tid:" << tid << " => MSG To "  << msg.meta.recver_nid << ":" << msg.meta.recver_tid << endl;
     }
 
 private:
@@ -40,7 +40,10 @@ private:
     // Node
     Node node_;
 
-    // Handler of mailbox
+    // Pointer of Result_Collector
+    Result_Collector * rc_;
+
+    // Pointer of mailbox
     AbstractMailbox * mailbox_;
 
     // Ensure only one thread ever runs the actor

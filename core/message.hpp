@@ -117,7 +117,7 @@ public:
   bool ConsumeMsg(Message& msg);
 
   // get msg info for collecting sub msg
-  void GetMsgInfo(Message& msg, size_t &id, string &end_path);
+  void GetMsgInfo(Message& msg, uint64_t &id, string &end_path);
 
   // Check if all sub msg are collected
   bool IsReady(uint64_t id, string end_path, string msg_path);

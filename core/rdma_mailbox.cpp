@@ -36,9 +36,6 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 
 	int dst_nid = msg.meta.recver_nid;
 	int dst_tid = msg.meta.recver_tid;
-	int src_tid = msg.meta.sender_tid;
-
-	CHECK_EQ(tid, src_tid);
 
 	ibinstream im;
 	im << msg;
@@ -94,21 +91,20 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 	}
 }
 
-Message RdmaMailbox::Recv(int tid) {
+void RdmaMailbox::Recv(int tid, Message & msg) {
 	while (true) {
-		Message msg_to_recv;
 		int machine_id = (schedulers[tid].rr_cnt++) % node_.get_local_size();
 		if(CheckRecvBuf(tid, machine_id)){
 			obinstream um;
 			FetchMsgFromRecvBuf(tid, machine_id, um);
-			um >> msg_to_recv;
-			return msg_to_recv;
+			um >> msg;
 		}
 	}
 }
 
 
 bool RdmaMailbox::TryRecv(int tid, Message & msg) {
+	lock_guard<mutex> lck(mu_);
 	for (int machine_id = 0; machine_id < node_.get_local_size(); machine_id++) {
 		if (CheckRecvBuf(tid, machine_id)){
 			obinstream um;

@@ -40,7 +40,7 @@ public:
     // the lock in the id_mapper
     int Send(int tid, const Message & msg) override;
 
-    Message Recv(int tid) override ;
+    void Recv(int tid, Message & msg) override ;
 
     bool TryRecv(int tid, Message & msg) override;
 
@@ -63,6 +63,7 @@ private:
      bool CheckRecvBuf(int tid, int nid);
      void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
 
+     mutex mu_;
      Node & node_;
      Config* config_;
      Buffer * buffer_;

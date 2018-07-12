@@ -312,6 +312,7 @@ typedef uint16_t label_t;
 struct value_t {
 	uint8_t type;
 	vector<char> content;
+	string DebugString() const ;
 };
 
 ibinstream& operator<<(ibinstream& m, const value_t& v);
@@ -365,8 +366,8 @@ struct string_index{
 // Spawn: spawn a new actor
 // Feed: "proxy" feed actor a input
 // Reply: actor returns the intermidiate result to actor
-enum class MSG_T : char { SPAWN, FEED, REPLY, BARRIER, BRANCH,EXIT };
-static const char *MsgType[] = {"spawn", "feed", "reply", "barrier", "branch", "exit"};
+enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH,EXIT };
+static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit"};
 
 ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 
@@ -376,6 +377,7 @@ enum class ACTOR_T : char {
 	ADD, PROXY, HW, INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COIN, COUNT, DEDUP, GROUP, HAS,
 	HASLABEL, IS, KEY, LABEL, LOOPS, MATH, ORDER, PROJECTION, PROPERTY, RANGE, REPEAT, SELECT, TRAVERSAL, VALUES, WHERE
 };
+
 static const char *ActorType[] = { "ADD", "PROXY", "HW", "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COIN", "COUNT", "DEDUP", "GROUP", "HAS",
 "HASLABEL", "IS", "KEY", "LABEL", "LOOPS", "MATH", "ORDER", "PROJECTION", "PROPERTY", "RANGE", "REPEAT", "SELECT", "TRAVERSAL", "VALUES", "WHERE" };
 
@@ -391,4 +393,26 @@ enum Element_T{ VERTEX, EDGE };
 enum Direction_T{ IN, OUT, BOTH };
 enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSDIE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
+struct qid_t{
+	uint32_t nid;
+	uint32_t qr;
+
+	qid_t(): nid(0), qr(0) {}
+
+	qid_t(uint32_t _nid, uint32_t _qr): nid(_nid), qr(_qr){}
+
+	bool operator == (const qid_t & qid) {
+		if ((nid == qid.nid) && (qr == qid.qr))
+			return true;
+		return false;
+	}
+
+	uint64_t value(){
+		uint64_t r = 0;
+		r += qr;
+		r <<= 32;
+		r += nid;
+		return r;
+	}
+};
 #endif /* TYPE_HPP_ */

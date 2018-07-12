@@ -51,7 +51,7 @@ std::string Meta::DebugString() const {
 	ss << ", msg path: " << msg_path;
 	ss << ", parent node: " << parent_nid;
 	ss << ", paraent thread: " << parent_tid;
-	if(msg_type == MSG_T::FEED){
+	if(msg_type == MSG_T::INIT){
 		ss << ", actors [";
 		for(auto &actor : actors){
 			ss  << ActorType[static_cast<int>(actor.actor_type)];
@@ -90,7 +90,7 @@ void Message::CreatInitMsg(uint64_t qid, int parent_node, int nodes_num, int rec
 	m.recver_tid = recv_tid;
 	m.parent_nid = parent_node;
 	m.parent_tid = recv_tid;
-	m.msg_type = MSG_T::FEED;
+	m.msg_type = MSG_T::INIT;
 	m.msg_path = to_string(nodes_num);
 	m.actors = actors;
 
@@ -102,6 +102,7 @@ void Message::CreatInitMsg(uint64_t qid, int parent_node, int nodes_num, int rec
 		vec.push_back(msg);
 	}
 }
+
 
 void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, vector<Message>& vec, int (*mapper)(value_t&))
 {
@@ -302,7 +303,7 @@ void Message::CopyData(vector<pair<history_t, vector<value_t>>>& vec)
 
 void Message::GetActors(vector<Actor_Object>& vec)
 {
-	if(meta.msg_type == MSG_T::FEED){
+	if(meta.msg_type == MSG_T::INIT){
 		vec = std::move(meta.actors);
 	}
 }
@@ -313,7 +314,7 @@ std::string Message::DebugString() const {
 	if (data.size()) {
 	  ss << " Body:";
 	  for (const auto& d : data)
-		ss << " data_size=" << d.second.size();
+		  ss << " data_size=" << d.second.size();
 	}
 	return ss.str();
 }
@@ -341,7 +342,7 @@ bool MsgServer::ConsumeMsg(Message& msg)
 }
 
 // get msg info for collecting sub msg
-void MsgServer::GetMsgInfo(Message& msg, size_t &id, string &end_path)
+void MsgServer::GetMsgInfo(Message& msg, uint64_t &id, string &end_path)
 {
 
 }
@@ -398,6 +399,7 @@ size_t MemSize(value_t data)
 	s += MemSize(data.content);
 	return s;
 }
+
 template<class T1, class T2>
 size_t MemSize(pair<T1, T2> p)
 {

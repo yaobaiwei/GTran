@@ -114,6 +114,7 @@ obinstream& operator>>(obinstream& m, vector<T>& v)
 template <class T>
 obinstream& operator>>(obinstream& m, list<T>& v)
 {
+	v.clear();
 	size_t size;
 	m >> size;
 	for (size_t i = 0; i < size; i++)
@@ -128,6 +129,7 @@ obinstream& operator>>(obinstream& m, list<T>& v)
 template <class T>
 obinstream& operator>>(obinstream& m, set<T>& v)
 {
+	v.clear();
 	size_t size;
 	m >> size;
 	for (size_t i = 0; i < size; i++)
@@ -150,6 +152,7 @@ obinstream& operator>>(obinstream& m, pair<T1, T2>& v)
 template <class KeyT, class ValT>
 obinstream& operator>>(obinstream& m, map<KeyT, ValT>& v)
 {
+	v.clear();
 	size_t size;
 	m >> size;
 	for (int i = 0; i < size; i++)
@@ -164,6 +167,7 @@ obinstream& operator>>(obinstream& m, map<KeyT, ValT>& v)
 template <class KeyT, class ValT>
 obinstream& operator>>(obinstream& m, hash_map<KeyT, ValT>& v)
 {
+	v.clear();
 	size_t size;
 	m >> size;
 	for (int i = 0; i < size; i++)
@@ -178,6 +182,7 @@ obinstream& operator>>(obinstream& m, hash_map<KeyT, ValT>& v)
 template <class T>
 obinstream& operator>>(obinstream& m, hash_set<T>& v)
 {
+	v.clear();
 	size_t size;
 	m >> size;
 	for (int i = 0; i < size; i++)
@@ -192,6 +197,7 @@ obinstream& operator>>(obinstream& m, hash_set<T>& v)
 template <class T, class _HashFcn,  class _EqualKey >
 obinstream& operator>>(obinstream& m, hash_set<T, _HashFcn, _EqualKey>& v)
 {
+	v.clear();
 	size_t size;
 	m >> size;
 	for (int i = 0; i < size; i++)

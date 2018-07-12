@@ -4,9 +4,9 @@
 #include <queue>
 #include <condition_variable>
 
-#include "core/abstract_thread_safe_queue.hpp"
+#include "base/abstract_thread_safe_queue.hpp"
 
-template <typename T> 
+template <typename T>
 class ThreadSafeQueue : public AbstractThreadSafeQueue<T> {
 public:
   ThreadSafeQueue() = default;
@@ -23,10 +23,10 @@ public:
     cond_.notify_all();
   }
 
-  void WaitAndPop(T *elem) override {
+  void WaitAndPop(T & elem) override {
     std::unique_lock<std::mutex> lk(mu_);
     cond_.wait(lk, [this] { return !queue_.empty(); });
-    *elem = std::move(queue_.front());
+    elem = std::move(queue_.front());
     queue_.pop();
   }
 

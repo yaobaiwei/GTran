@@ -122,7 +122,7 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec)
 	// trim blanks and remove prefix
 	string q = query.substr(6);
 	q = Tool::trim(q, " ");
-
+	
 	Clear();
 	try{
 		DoParse(q);
@@ -164,7 +164,6 @@ vector<string> Parser::SplitParam(string& param)
 			p = "";
 		}
 	}
-
 	return params;
 }
 
@@ -216,6 +215,7 @@ bool Parser::IsValue(uint8_t& type){
 	}
 	return true;
 }
+
 bool Parser::IsElement(Element_T& type){
 	switch (io_type_)
 	{
@@ -408,7 +408,7 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		case GROUP:case GROUPCOUNT:
 			ParseGroup(params, type); break;
 		//Has Actors
-		case HAS:case HASKEY:case HASVALUE:case HASNOT:
+		case HAS:case HASKEY:case HASVALUE:case HASNOT:	
 			ParseHas(params, type); break;
 		//HasLabel Actors
 		case HASLABEL:
@@ -445,7 +445,7 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		case SELECT:
 			ParseSelect(params); break;
 		//Traversal Actors
-		case IN:case OUT:case BOTH:case INE:case OUTE:case BOTHE:case INV:case OUTV:case BOTHV:
+		case IN:case OUT:case BOTH:case INE:case OUTE:case BOTHE:case INV:case OUTV:case BOTHV:	
 			ParseTraversal(params, type); break;
 		//Values Actor
 		case VALUES:
@@ -486,7 +486,7 @@ void Parser::ParseSub(const vector<string>& params, int current, bool filterBran
 		// update sub_step of branch actor
 		actors_[current].AddParam(sub_step);
 
-		sub_step = actors_.size() - 1;
+		sub_step = actors_.size() - 1; 
 
 		// update the last actor of sub query
 		int last_of_branch = sub_step;
@@ -496,12 +496,12 @@ void Parser::ParseSub(const vector<string>& params, int current, bool filterBran
 			last_of_branch = actors_[last_of_branch].next_actor;
 		}
 		actors_[last_of_branch].next_actor = current;
-
+		
 	}
 	// update next step of branch actor
 	actors_[current].next_actor = sub_step;
 	if (filterBranch){
-		io_type_ = current_type;		// restore type for filtering actor
+		io_type_ = current_type;		// restore type for filtering actor 
 	}
 	first_in_sub_ = m_first_in_sub;
 }
@@ -539,7 +539,7 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 		}
 		Tool::str2value_t(pred_params[0], pred_param);
 		break;
-
+			
 		// collection predicate
 		// where (inside, outside, between) only accept 2 numbers
 	case Predicate_T::INSDIE:	case Predicate_T::OUTSIDE:	case Predicate_T::BETWEEN:
@@ -552,7 +552,7 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 		}
 		break;
 	}
-
+	
 	actor.AddParam(pred_type);
 	actor.params.push_back(pred_param);
 }
@@ -636,7 +636,7 @@ void Parser::ParseBranch(const vector<string>& params, Step_T type)
 	switch(type){
 	case Step_T::UNION:		branchType = Branch_T::UNION; break;
 	case Step_T::COALESCE:	branchType = Branch_T::COALESCE; break;
-	case Step_T::CHOOSE:
+	case Step_T::CHOOSE:	
 		branchType = Branch_T::CHOOSE;
 		if (params.size() < 2 || params.size() > 3){
 			throw ParserException("expect two or three parameters for choose");
@@ -673,7 +673,7 @@ void Parser::ParseBranchFilter(const vector<string>& params, Step_T type)
 
 	int current = actors_.size();
 	AppendActor(actor);
-
+	
 	// Parse sub query
 	ParseSub(params, current, true);
 }
@@ -890,7 +890,7 @@ void Parser::ParseIs(const vector<string>& params)
 		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
-
+	
 	if (params.size() != 1){
 		throw ParserException("expect one param for is");
 	}
@@ -1033,7 +1033,7 @@ void Parser::ParseProjection(const string& param, int& key_id)
 	}
 	actor.AddParam(isLabel);
 	actor.AddParam(pid);
-
+	
 	AppendActor(actor);
 }
 
@@ -1139,13 +1139,13 @@ void Parser::ParseRepeat(const vector<string>& params)
 }
 
 void Parser::ParseRepeatModulator(const vector<string>& params, Step_T type)
-{
+{	
 	//@ RepeatActor params: (int times, int emit_step, int until_step, int repeat_step)
 	//  i_type = o_type = any
 	if (params.size() != 1){
 		throw ParserException("expect only one param for modulators");
 	}
-
+	
 	// find repeat actor
 	int repeat = 0;
 	if (!CheckLastActor(ACTOR_T::REPEAT, &repeat)){
@@ -1177,7 +1177,7 @@ void Parser::ParseRepeatModulator(const vector<string>& params, Step_T type)
 	is_in_repeat_ = m_is_in_repeat_;
 
 	Actor_Object &actor = actors_[repeat];
-	swap(actor.params[pos], actor.params[4]);	// update param in specified pos
+	swap(actor.params[pos], actor.params[4]);	// update param in specified pos 
 	actor.params.pop_back();
 }
 
@@ -1319,7 +1319,7 @@ void Parser::ParseValues(const vector<string>& params)
 void Parser::ParseWhere(const vector<string>& params)
 {
 	//@ WhereActor params: ((int label_step_key, predicate Type, vector label/side-effect_id)...)
-	//  first label_step_key == -1 indicating
+	//  first label_step_key == -1 indicating 
 	//  i_type = o_type = any
 	if (!CheckLastActor(ACTOR_T::WHERE)){
 		Actor_Object tmp(ACTOR_T::WHERE);
@@ -1331,7 +1331,7 @@ void Parser::ParseWhere(const vector<string>& params)
 		throw ParserException("expect one or two params for where");
 	}
 
-
+	
 	bool is_query = false;
 	// check param type -> subquery/predicate
 	if (params.size() == 1){
@@ -1364,60 +1364,60 @@ void Parser::ParseWhere(const vector<string>& params)
 		actor.AddParam(label_step_key);
 		ParsePredicate(param, 1, actor, true);
 	}
-
+	
 }
 
 
 const map<string, Parser::Step_T> Parser::str2step = {
 	{ "in", IN },
-	{ "out", OUT },
-	{ "both", BOTH },
-	{ "inE", INE },
-	{ "outE", OUTE },
+	{ "out", OUT }, 
+	{ "both", BOTH }, 
+	{ "inE", INE }, 
+	{ "outE", OUTE }, 
 	{ "bothE", BOTHE },
-	{ "inV", INV },
-	{ "outV", OUTV },
-	{ "bothV", BOTHV },
-	{ "and", AND },
+	{ "inV", INV }, 
+	{ "outV", OUTV }, 
+	{ "bothV", BOTHV }, 
+	{ "and", AND }, 
 	{ "aggregate", AGGREGATE },
-	{ "as", AS },
+	{ "as", AS }, 
 	{ "cap", CAP },
-	{ "choose", CHOOSE },
-	{ "coalesce", COALESCE },
-	{ "coin", COIN },
-	{ "count", COUNT },
-	{ "dedup", DEDUP },
+	{ "choose", CHOOSE }, 
+	{ "coalesce", COALESCE }, 
+	{ "coin", COIN }, 
+	{ "count", COUNT }, 
+	{ "dedup", DEDUP }, 
 	{ "emit", EMIT },
 	{ "group", GROUP},
 	{ "groupCount", GROUPCOUNT},
-	{ "has", HAS },
-	{ "hasLabel", HASLABEL },
-	{ "hasKey", HASKEY },
-	{ "hasValue", HASVALUE },
-	{ "hasNot", HASNOT },
+	{ "has", HAS }, 
+	{ "hasLabel", HASLABEL }, 
+	{ "hasKey", HASKEY }, 
+	{ "hasValue", HASVALUE }, 
+	{ "hasNot", HASNOT }, 
 	{ "is", IS },
-	{ "key", KEY },
-	{ "label", LABEL },
-	{ "limit", LIMIT },
-	{ "loops", LOOPS },
-	{ "max", MAX },
+	{ "key", KEY }, 
+	{ "label", LABEL }, 
+	{ "limit", LIMIT }, 
+	{ "loops", LOOPS }, 
+	{ "max", MAX }, 
 	{ "mean", MEAN },
-	{ "min", MIN },
-	{ "not", NOT },
-	{ "or", OR },
-	{ "order", ORDER },
-	{ "properties", PROPERTIES },
+	{ "min", MIN }, 
+	{ "not", NOT }, 
+	{ "or", OR }, 
+	{ "order", ORDER }, 
+	{ "properties", PROPERTIES }, 
 	{ "range", RANGE },
-	{ "repeat", REPEAT },
-	{ "select", SELECT },
-	{ "skip", SKIP },
-	{ "store", STORE },
-	{ "sum", SUM },
+	{ "repeat", REPEAT }, 
+	{ "select", SELECT }, 
+	{ "skip", SKIP }, 
+	{ "store", STORE }, 
+	{ "sum", SUM }, 
 	{ "tail", TAIL },
-	{ "times", TIMES },
-	{ "union", UNION },
-	{ "until", UNTIL },
-	{ "values", VALUES },
+	{ "times", TIMES }, 
+	{ "union", UNION }, 
+	{ "until", UNTIL }, 
+	{ "values", VALUES }, 
 	{ "where", WHERE }
 };
 
