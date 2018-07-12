@@ -7,6 +7,24 @@
 
 #include "core/message.hpp"
 
+ibinstream& operator<<(ibinstream& m, const Branch_Info& info)
+{
+	m << info.node_id;
+	m << info.thread_id;
+	m << info.index;
+	m << info.msg_path;
+	return m;
+}
+
+obinstream& operator>>(obinstream& m, Branch_Info& info)
+{
+	m >> info.node_id;
+	m >> info.thread_id;
+	m >> info.index;
+	m >> info.msg_path;
+	return m;
+}
+
 ibinstream& operator<<(ibinstream& m, const Meta& meta)
 {
 	m << meta.qid;
@@ -17,9 +35,7 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta)
 	m << meta.msg_path;
 	m << meta.parent_nid;
 	m << meta.parent_tid;
-	m << meta.branch_route;
-	m << meta.branch_mid;
-	m << meta.branch_path;
+	m << meta.branch_infos;
 	m << meta.actors;
 	return m;
 }
@@ -34,9 +50,7 @@ obinstream& operator>>(obinstream& m, Meta& meta)
 	m >> meta.msg_path;
 	m >> meta.parent_nid;
 	m >> meta.parent_tid;
-	m >> meta.branch_route;
-	m >> meta.branch_mid;
-	m >> meta.branch_path;
+	m >> meta.branch_infos;
 	m >> meta.actors;
 	return m;
 }
@@ -132,11 +146,11 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 
 	// update recver route & msg_type
 	if(step == actors.size() || actors[step].IsBarrier()){
-		int branch_index = m.branch_route.size();
-		if(branch_index > 0){
+		int branch_depth = m.branch_infos.size() - 1;
+		if(branch_depth >= 0){
 			// barrier actor in branch
-			m.recver_nid = m.branch_route[branch_index - 1].first;
-			m.recver_tid = m.branch_route[branch_index - 1].second;
+			m.recver_nid = m.branch_infos[branch_depth].node_id;
+			m.recver_tid = m.branch_infos[branch_depth].thread_id;
 		}
 		else{
 			// barrier actor in main query
@@ -148,10 +162,10 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 	}
 	else if(m.step < this->meta.step){
 		// branch actor
-		int branch_index = m.branch_route.size();
-		assert(branch_index > 0);
-		m.recver_nid = m.branch_route[branch_index - 1].first;
-		m.recver_tid = m.branch_route[branch_index - 1].second;
+		int branch_depth = m.branch_infos.size() - 1;
+		assert(branch_depth >= 0);
+		m.recver_nid = m.branch_infos[branch_depth].node_id;
+		m.recver_tid = m.branch_infos[branch_depth].thread_id;
 		m.msg_type = MSG_T::BRANCH;
 		disableMapping = true;
 	}
@@ -205,14 +219,16 @@ void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps,
 	Meta m = this->meta;
 
 	// update branch info
-	m.branch_path.push_back(m.msg_path);
-	m.branch_route.push_back(make_pair(m.recver_nid, m.recver_tid));
-	m.branch_mid.push_back(msg_id);
+	Branch_Info info;
+	info.node_id = m.recver_nid;
+	info.thread_id = m.recver_tid;
+	info.msg_path = m.msg_path;
 
 	// update msg_path
 	m.msg_path += "\t" + to_string(steps.size());
 
-	for(int step : steps){
+	for(int i = 0; i < steps.size(); i ++){
+		int step = steps[i];
 		Message msg(m);
 		if(actors[step].IsBarrier()){
 			msg.meta.msg_type = MSG_T::BARRIER;
@@ -220,6 +236,8 @@ void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps,
 		else{
 			msg.meta.msg_type = MSG_T::SPAWN;
 		}
+		info.index = i;
+		msg.meta.branch_infos.push_back(info);
 		msg.meta.step = step;
 		msg.max_data_size = this->max_data_size;
 		msg.CopyData(this->data);
@@ -301,13 +319,6 @@ void Message::CopyData(vector<pair<history_t, vector<value_t>>>& vec)
 	data_size = size;
 }
 
-void Message::GetActors(vector<Actor_Object>& vec)
-{
-	if(meta.msg_type == MSG_T::INIT){
-		vec = std::move(meta.actors);
-	}
-}
-
 std::string Message::DebugString() const {
 	std::stringstream ss;
 	ss << meta.DebugString();
@@ -317,70 +328,6 @@ std::string Message::DebugString() const {
 		  ss << " data_size=" << d.second.size();
 	}
 	return ss.str();
-}
-
-bool MsgServer::ConsumeMsg(Message& msg)
-{
-	uint64_t id;
-	string end_path;
-	GetMsgInfo(msg, id, end_path);
-
-	switch (msg.meta.msg_type) {
-		case MSG_T::BRANCH:
-			msg.meta.branch_mid.pop_back();
-			msg.meta.branch_route.pop_back();
-			msg.meta.branch_path.pop_back();
-		case MSG_T::BARRIER:
-			if(! IsReady(id, end_path, msg.meta.msg_path))
-			{
-				return false;
-			}
-			msg.meta.msg_path = end_path;
-			break;
-	}
-	return true;
-}
-
-// get msg info for collecting sub msg
-void MsgServer::GetMsgInfo(Message& msg, uint64_t &id, string &end_path)
-{
-
-}
-
-bool MsgServer::IsReady(uint64_t id, string end_path, string msg_path)
-{
-	if(path_counter_.count(id) != 1){
-		path_counter_[id] = map<string, int>();
-	}
-	map<string, int> &counter =  path_counter_[id];
-	while (msg_path != end_path){
-		int i = msg_path.find_last_of("\t");
-		// "\t" should not the the last char
-		assert(i + 1 < msg_path.size());
-		// get last number
-		int num = atoi(msg_path.substr(i + 1).c_str());
-
-		// check key
-		if (counter.count(msg_path) != 1){
-			counter[msg_path] = 0;
-		}
-
-		// current branch is ready
-		if ((++counter[msg_path]) == num){
-			// reset count to 0
-			counter[msg_path] = 0;
-			// remove last number
-			msg_path = msg_path.substr(0, i == string::npos ? 0 : i);
-		}
-		else{
-			return false;
-		}
-	}
-
-	// remove map
-	auto itr = path_counter_.find(id);
-	path_counter_.erase(id);
-	return true;
 }
 
 size_t MemSize(int i)

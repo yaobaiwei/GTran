@@ -136,6 +136,8 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec)
 		vec.push_back(actor);
 	}
 
+	vec.push_back(Actor_Object(ACTOR_T::END));
+
 	return true;
 }
 
