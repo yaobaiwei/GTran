@@ -15,6 +15,20 @@
 #include "base/type.hpp"
 #include "actor/actor_object.hpp"
 
+struct Branch_Info{
+	// parent route
+	int node_id;
+	int thread_id;
+	// indicate the branch order
+	int index;
+	// msg path
+	string msg_path;
+};
+
+ibinstream& operator<<(ibinstream& m, const Branch_Info& info);
+
+obinstream& operator>>(obinstream& m, Branch_Info& info);
+
 struct Meta {
   // query
   uint64_t qid;
@@ -35,11 +49,7 @@ struct Meta {
   string msg_path;
 
   // branch info
-  // extended in CreatBranchedMsg
-  // removed in MsgServer
-  vector<pair<int, int>> branch_route;  // route to collect branch
-  vector<int> branch_mid;               // id_ of derived message
-  vector<string> branch_path;           // msg_path of derived message
+  vector<Branch_Info> branch_infos;
 
   // actors chain
   vector<Actor_Object> actors;
@@ -103,28 +113,6 @@ public:
 ibinstream& operator<<(ibinstream& m, const Message& msg);
 
 obinstream& operator>>(obinstream& m, Message& msg);
-
-// Move to Branch and Barrier Actor
-class MsgServer{
-public:
-  MsgServer();
-
-  // Collect msg and determine msg completed or NOT
-  // if msg_type != BARRIER, BRANCH
-  //    return true
-  // else
-  //    run path_counter_ to check and merge data to msg_map_
-  bool ConsumeMsg(Message& msg);
-
-  // get msg info for collecting sub msg
-  void GetMsgInfo(Message& msg, uint64_t &id, string &end_path);
-
-  // Check if all sub msg are collected
-  bool IsReady(uint64_t id, string end_path, string msg_path);
-private:
-  map<uint64_t, map<string, int>> path_counter_;
-  map<uint64_t, Message> msg_map_;
-};
 
 size_t MemSize(int i);
 size_t MemSize(char c);

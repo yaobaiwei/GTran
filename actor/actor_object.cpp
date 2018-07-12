@@ -36,6 +36,7 @@ bool Actor_Object::IsBarrier()
 	case ACTOR_T::MATH:
 	case ACTOR_T::ORDER:
 	case ACTOR_T::RANGE:
+	case ACTOR_T::END:
 		return true;
 	default:
 		return false;
@@ -89,4 +90,3 @@ obinstream& operator>>(obinstream& m, Actor_Object& obj)
 	m >> obj.params;
 	return m;
 }
-
