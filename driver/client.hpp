@@ -19,7 +19,6 @@
 
 #include "base/node.hpp"
 #include "base/node_util.hpp"
-#include "base/sarray.hpp"
 #include "base/type.hpp"
 #include "base/serialization.hpp"
 #include "base/client_connection.hpp"

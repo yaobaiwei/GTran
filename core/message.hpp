@@ -10,10 +10,11 @@
 #include <vector>
 #include <sstream>
 
-#include "base/sarray.hpp"
 #include "base/serialization.hpp"
 #include "base/type.hpp"
 #include "actor/actor_object.hpp"
+
+#define TEN_MB 1048576
 
 struct Branch_Info{
 	// parent route
@@ -74,7 +75,7 @@ public:
   // maximum size of data
   size_t max_data_size;
 
-  Message() : data_size(sizeof(size_t)), max_data_size(1048576){}
+  Message() : data_size(sizeof(size_t)), max_data_size(TEN_MB){}
   Message(const Meta& m) : Message()
   {
     meta = m;
