@@ -203,6 +203,21 @@ Edge* DataStore::GetEdge(eid_t e_id){
 	return NULL;
 }
 
+void DataStore::GetAllVertices(vector<vid_t> & vid_list) {
+    hash_map<vid_t, Vertex*>::iterator vt_itr;
+
+    for (vt_itr = v_table.begin(); vt_itr != v_table.end(); vt_itr++) {
+       vid_list.push_back(vt_itr->first); 
+    }
+}
+
+void DataStore::GetAllEdges(vector<eid_t> & eid_list) {
+    hash_map<eid_t, Edge*>::iterator et_itr;
+
+    for (et_itr = e_table.begin(); et_itr != e_table.end(); et_itr++) {
+       eid_list.push_back(et_itr->first); 
+    }
+}
 
 bool DataStore::GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
 	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally

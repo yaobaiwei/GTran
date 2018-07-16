@@ -19,6 +19,7 @@
 #include "core/abstract_mailbox.hpp"
 #include "actor/abstract_actor.hpp"
 #include "actor/hw_actor.hpp"
+#include "actor/init_actor.hpp"
 #include "actor/barrier_actor.hpp"
 #include "core/result_collector.hpp"
 #include "utils/timer.hpp"
@@ -35,7 +36,8 @@ public:
 
 	void Init(){
 		actors_[ACTOR_T::HW] = unique_ptr<AbstractActor>(new HwActor(0, node_, rc_, mailbox_));
-		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(1, rc_));
+		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(1, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(2, rc_));
 		//TODO add more
 	}
 

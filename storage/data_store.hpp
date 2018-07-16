@@ -61,6 +61,9 @@ public:
 
 	Edge* GetEdge(eid_t e_id);
 
+	void GetAllVertices(vector<vid_t> & vid_list);
+
+	void GetAllEdges(vector<eid_t> & eid_list);
 
 	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
 
