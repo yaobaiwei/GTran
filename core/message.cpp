@@ -12,6 +12,7 @@ ibinstream& operator<<(ibinstream& m, const Branch_Info& info)
 	m << info.node_id;
 	m << info.thread_id;
 	m << info.index;
+	m << info.msg_id;
 	m << info.msg_path;
 	return m;
 }
@@ -21,6 +22,7 @@ obinstream& operator>>(obinstream& m, Branch_Info& info)
 	m >> info.node_id;
 	m >> info.thread_id;
 	m >> info.index;
+	m >> info.msg_id;
 	m >> info.msg_path;
 	return m;
 }
@@ -215,7 +217,7 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 	}
 }
 
-void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int msg_id, vector<Message>& vec){
+void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, vector<Message>& vec){
 	Meta m = this->meta;
 
 	// update branch info
@@ -223,6 +225,7 @@ void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps,
 	info.node_id = m.recver_nid;
 	info.thread_id = m.recver_tid;
 	info.msg_path = m.msg_path;
+	info.msg_id = msg_id;
 
 	// update msg_path
 	m.msg_path += "\t" + to_string(steps.size());
