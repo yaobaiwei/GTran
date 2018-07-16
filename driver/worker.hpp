@@ -199,7 +199,7 @@ public:
 		monitor->Start();
 
 		//actor driver starts
-		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_->global_num_threads, rc_, mailbox);
+		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_->global_num_threads, rc_, mailbox, datastore);
 		actor_adapter->Start();
 
 		//fake, should find a way to stop

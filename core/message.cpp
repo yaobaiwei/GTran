@@ -12,6 +12,7 @@ ibinstream& operator<<(ibinstream& m, const Branch_Info& info)
 	m << info.node_id;
 	m << info.thread_id;
 	m << info.index;
+	m << info.key;
 	m << info.msg_id;
 	m << info.msg_path;
 	return m;
@@ -22,6 +23,7 @@ obinstream& operator>>(obinstream& m, Branch_Info& info)
 	m >> info.node_id;
 	m >> info.thread_id;
 	m >> info.index;
+	m >> info.key;
 	m >> info.msg_id;
 	m >> info.msg_path;
 	return m;
@@ -120,7 +122,7 @@ void Message::CreatInitMsg(uint64_t qid, int parent_node, int nodes_num, int rec
 }
 
 
-void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, vector<Message>& vec, int (*mapper)(value_t&))
+void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&))
 {
 	// get next step
 	int step = actors[this->meta.step].next_actor;
@@ -143,8 +145,8 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 	}
 	m.step = step;
 
-	// disable node mapping when next actor is barrier or branch
-	bool disableMapping = false;
+	// specify if recver route should not be changed 
+	bool routeAssigned = false;
 
 	// update recver route & msg_type
 	if(step == actors.size() || actors[step].IsBarrier()){
@@ -160,7 +162,7 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 			m.recver_tid = m.parent_tid;
 		}
 		m.msg_type = MSG_T::BARRIER;
-		disableMapping = true;
+		routeAssigned = true;
 	}
 	else if(m.step < this->meta.step){
 		// branch actor
@@ -169,7 +171,7 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 		m.recver_nid = m.branch_infos[branch_depth].node_id;
 		m.recver_tid = m.branch_infos[branch_depth].thread_id;
 		m.msg_type = MSG_T::BRANCH;
-		disableMapping = true;
+		routeAssigned = true;
 	}
 	else{
 		// normal actor, recver = sender
@@ -179,8 +181,8 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 	// node id to data
 	map<int, vector<pair<history_t, vector<value_t>>>> id2data;
 
-	// enable mapping
-	if(mapper != NULL && ! disableMapping){
+	// enable route mapping
+	if(mapper != NULL && ! routeAssigned){
 		for(auto& pair: data){
 			map<int, vector<value_t>> id2value_t;
 			// get node id
@@ -205,6 +207,9 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 			Message msg(m);
 			msg.max_data_size = this->max_data_size;
 			msg.meta.recver_nid = item.first;
+			if(! routeAssigned){
+				msg.meta.recver_tid = (m.recver_tid ++) % num_thread;
+			}
 			msg.FeedData(item.second);
 			vec.push_back(msg);
 		}
@@ -217,34 +222,60 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 	}
 }
 
-void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, vector<Message>& vec){
+void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec){
 	Meta m = this->meta;
 
 	// update branch info
 	Branch_Info info;
 	info.node_id = m.recver_nid;
 	info.thread_id = m.recver_tid;
+	info.key = m.step;
 	info.msg_path = m.msg_path;
 	info.msg_id = msg_id;
+	
+	// label each data with unique id
+	vector<pair<history_t, vector<value_t>>> labeled_data;
+	int count = 0;
+	for (auto& pair : data){
+		for(auto& value : pair.second){
+			value_t v;
+			Tool::str2int(to_string(count ++), v);
+			history_t his = pair.first;
+			his.push_back(make_pair(m.step, v));
+			labeled_data.push_back(make_pair(his, vector<value_t>{value}));	
+		}
+	}
 
-	// update msg_path
-	m.msg_path += "\t" + to_string(steps.size());
-
+	// copy labeled data to each step
 	for(int i = 0; i < steps.size(); i ++){
 		int step = steps[i];
-		Message msg(m);
+		Meta step_meta = m;
 		if(actors[step].IsBarrier()){
-			msg.meta.msg_type = MSG_T::BARRIER;
+			step_meta.msg_type = MSG_T::BARRIER;
 		}
 		else{
-			msg.meta.msg_type = MSG_T::SPAWN;
+			step_meta.msg_type = MSG_T::SPAWN;
 		}
 		info.index = i;
-		msg.meta.branch_infos.push_back(info);
-		msg.meta.step = step;
-		msg.max_data_size = this->max_data_size;
-		msg.CopyData(this->data);
-		vec.push_back(msg);
+		step_meta.branch_infos.push_back(info);
+		step_meta.step = step;
+		
+		vector<pair<history_t, vector<value_t>>> temp = labeled_data;
+		// feed data to msg
+		do{
+			Message msg(step_meta);
+			msg.max_data_size = this->max_data_size;
+			if(step_meta.msg_type != MSG_T::BARRIER){
+				msg.meta.recver_tid = (m.recver_tid ++) % num_thread;
+			}
+			msg.FeedData(temp);
+			vec.push_back(msg);
+		}
+		while((temp.size() != 0));	// Data no consumed
+	}
+	
+	for(auto& msg : vec){
+		msg.meta.msg_path += "\t" + to_string(vec.size());
 	}
 }
 

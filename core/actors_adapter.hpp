@@ -21,13 +21,14 @@
 #include "actor/hw_actor.hpp"
 #include "core/result_collector.hpp"
 #include "utils/timer.hpp"
+#include "storage/data_store.hpp"
 
 using namespace std;
 
 
 class ActorAdapter {
 public:
-	ActorAdapter(Node & node, int num_thread, Result_Collector * rc, AbstractMailbox * mailbox) : node_(node), num_thread_(num_thread), rc_(rc), mailbox_(mailbox) {
+	ActorAdapter(Node & node, int num_thread, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store) : node_(node), num_thread_(num_thread), rc_(rc), mailbox_(mailbox), data_store_(data_store) {
 		times_.resize(num_thread, 0);
 	}
 
@@ -89,6 +90,7 @@ public:
 private:
   AbstractMailbox * mailbox_;
   Result_Collector * rc_;
+  DataStore* data_store_;
   Node node_;
 
   // Actors pool <actor_type, [actors]>

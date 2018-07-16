@@ -22,9 +22,11 @@ struct Branch_Info{
 	int thread_id;
 	// indicate the branch order
 	int index;
-	// parent msg id, unique on each node
+	// history key of parent
+	int key;
+	// msg id of parent, unique on each node
 	uint64_t msg_id;
-	// msg path
+	// msg path of parent
 	string msg_path;
 };
 
@@ -99,13 +101,13 @@ public:
   // data:    new data processed by actor_type
   // vec:     messages to be send
   // mapper:  function that maps value_t to particular machine, default NULL
-  void CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, vector<Message>& vec, int (*mapper)(value_t&) = NULL);
+  void CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&) = NULL);
 
   // actors:  actors chain for current message
   // stpes:   branching steps
   // msg_id:  assigned by actor to indicate parent msg
   // vec:     messages to be send
-  void CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, vector<Message>& vec);
+  void CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec);
 
   // Move acotrs chain from message
   void GetActors(vector<Actor_Object>& vec);
