@@ -74,13 +74,21 @@ public:
 			rc_->Register(qid.value(), client_host);
 
 			vector<Actor_Object> actors;
-			parser_->Parse(query, actors);
+			string error_msg;
+			bool success = parser_->Parse(query, actors, error_msg);
 			
-			Pack pkg;
-			pkg.id = qid;
-			pkg.actors = move(actors);
+			if(success){
+				Pack pkg;
+				pkg.id = qid;
+				pkg.actors = move(actors);
 
-			queue_.Push(pkg);
+				queue_.Push(pkg);
+			}else{
+				value_t v;
+				Tool::str2str(error_msg, v);
+				vector<value_t> vec = {v};
+				rc_->InsertResult(qid.value(), vec);
+			}
 		}
 	}
 
@@ -90,7 +98,7 @@ public:
 			queue_.WaitAndPop(pkg);
 
 			vector<Message> msgs;
-			Message::CreatInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(), pkg.id.value() % config_->global_num_threads, pkg.actors, config_->max_data_size, msgs);
+			Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(), pkg.id.value() % config_->global_num_threads, pkg.actors, config_->max_data_size, msgs);
 			for(int i = 0 ; i < my_node_.get_local_size(); i++){
 				mailbox->Send(i, msgs[i]);
 			}

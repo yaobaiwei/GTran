@@ -98,7 +98,7 @@ obinstream& operator>>(obinstream& m, Message& msg)
 	return m;
 }
 
-void Message::CreatInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec)
+void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec)
 {
 	// assign receiver thread id
 	Meta m;
@@ -122,7 +122,7 @@ void Message::CreatInitMsg(uint64_t qid, int parent_node, int nodes_num, int rec
 }
 
 
-void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&))
+void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&))
 {
 	// get next step
 	int step = actors[this->meta.step].next_actor;
@@ -222,7 +222,7 @@ void Message::CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, 
 	}
 }
 
-void Message::CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec){
+void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec){
 	Meta m = this->meta;
 
 	// update branch info

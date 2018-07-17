@@ -35,31 +35,31 @@ ibinstream& operator<<(ibinstream& m, const Branch_Info& info);
 obinstream& operator>>(obinstream& m, Branch_Info& info);
 
 struct Meta {
-  // query
-  uint64_t qid;
-  int step;
+	// query
+	uint64_t qid;
+	int step;
 
-  // route
-  int recver_nid;
-  int recver_tid;
+	// route
+	int recver_nid;
+	int recver_tid;
 
-  // parent route
-  int parent_nid;
-  int parent_tid;
+	// parent route
+	int parent_nid;
+	int parent_tid;
 
-  // type
-  MSG_T msg_type;
+	// type
+	MSG_T msg_type;
 
-  // Msg disptching path
-  string msg_path;
+	// Msg disptching path
+	string msg_path;
 
-  // branch info
-  vector<Branch_Info> branch_infos;
+	// branch info
+	vector<Branch_Info> branch_infos;
 
-  // actors chain
-  vector<Actor_Object> actors;
+	// actors chain
+	vector<Actor_Object> actors;
 
-  std::string DebugString() const ;
+	std::string DebugString() const ;
 };
 
 ibinstream& operator<<(ibinstream& m, const Meta& meta);
@@ -74,43 +74,40 @@ public:
 
 	std::vector<pair<history_t, vector<value_t>>> data;
 
-  // size of data
-  size_t data_size;
-  // maximum size of data
-  size_t max_data_size;
+	// size of data
+	size_t data_size;
+	// maximum size of data
+	size_t max_data_size;
 
-  Message() : data_size(sizeof(size_t)), max_data_size(TEN_MB){}
-  Message(const Meta& m) : Message()
-  {
-    meta = m;
-  }
+	Message() : data_size(sizeof(size_t)), max_data_size(TEN_MB){}
+	Message(const Meta& m) : Message()
+	{
+		meta = m;
+	}
 
-  // Feed in data, remove from source
-  void FeedData(pair<history_t, vector<value_t>>& pair);
-  void FeedData(vector<pair<history_t, vector<value_t>>>& vec);
-  // Copy data from source
-  void CopyData(vector<pair<history_t, vector<value_t>>>& vec);
+	// Feed in data, remove from source
+	void FeedData(pair<history_t, vector<value_t>>& pair);
+	void FeedData(vector<pair<history_t, vector<value_t>>>& vec);
+	// Copy data from source
+	void CopyData(vector<pair<history_t, vector<value_t>>>& vec);
 
-  // create init msg
-  // currently
-  // recv_tid = qid % thread_pool.size()
-  // parent_node = _my_node.get_local_rank()
-  static void CreatInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec);
+	// create init msg
+	// currently
+	// recv_tid = qid % thread_pool.size()
+	// parent_node = _my_node.get_local_rank()
+	static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec);
 
-  // actors:  actors chain for current message
-  // data:    new data processed by actor_type
-  // vec:     messages to be send
-  // mapper:  function that maps value_t to particular machine, default NULL
-  void CreatNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&) = NULL);
+	// actors:  actors chain for current message
+	// data:    new data processed by actor_type
+	// vec:     messages to be send
+	// mapper:  function that maps value_t to particular machine, default NULL
+	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&) = NULL);
 
-  // actors:  actors chain for current message
-  // stpes:   branching steps
-  // msg_id:  assigned by actor to indicate parent msg
-  // vec:     messages to be send
-  void CreatBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec);
-
-  // Move acotrs chain from message
-  void GetActors(vector<Actor_Object>& vec);
+	// actors:  actors chain for current message
+	// stpes:   branching steps
+	// msg_id:  assigned by actor to indicate parent msg
+	// vec:     messages to be send
+	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec);
 
 	std::string DebugString() const;
 };

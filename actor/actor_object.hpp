@@ -32,12 +32,8 @@ public:
 	bool IsBarrier();
 
 	string DebugString();
-
-	// parsing value_t for display
-	static string value_t2string(value_t & v);
 };
 
 ibinstream& operator<<(ibinstream& m, const Actor_Object& msg);
 
 obinstream& operator>>(obinstream& m, Actor_Object& msg);
-

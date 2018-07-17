@@ -47,7 +47,15 @@ string Client::CommitQuery(string query){
     cc_.Recv(handler, um);
 
     string result;
+    vector<value_t> values;
     um >> result;
+    um >> values;
+
+    result = "";
+    for(auto& v : values){
+        result += Tool::DebugString(v) + "\t";
+    }
+
     return result;
 }
 
@@ -249,18 +257,18 @@ failed:
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
 {
-	if(argc != 2){
-		cout << "1 params required" <<endl;
-		return 0;
-	}
-	google::InitGoogleLogging(argv[0]);
-	string cfg_fname = argv[1];
-	CHECK(!cfg_fname.empty());
+    if(argc != 2){
+        cout << "1 params required" <<endl;
+        return 0;
+    }
+    google::InitGoogleLogging(argv[0]);
+    string cfg_fname = argv[1];
+    CHECK(!cfg_fname.empty());
 
-	Client client(cfg_fname);
-	client.Init();
-	cout << "DONE -> Client->Init()" << endl;
+    Client client(cfg_fname);
+    client.Init();
+    cout << "DONE -> Client->Init()" << endl;
 
     client.run_console();
-	return 0;
+    return 0;
 }

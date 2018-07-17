@@ -128,7 +128,7 @@ private:
 
 public:
 	// Parse query string
-	bool Parse(const string& query, vector<Actor_Object>& vec);
+	bool Parse(const string& query, vector<Actor_Object>& vec, string& error_msg);
 
 	Parser(Config *config){
 		LoadMapping(config);

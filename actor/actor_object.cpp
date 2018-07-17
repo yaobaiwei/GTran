@@ -49,30 +49,10 @@ string Actor_Object::DebugString()
 	s += ", params: ";
 	for (auto v : params)
 	{
-		s += value_t2string(v) + " ";
+		s += Tool::DebugString(v) + " ";
 	}
 	s += ", NextActor: " + to_string(next_actor) + "\n";
 	return s;
-}
-
-// parsing value_t for display
-string Actor_Object::value_t2string(value_t & v){
-	double d;
-	int i;
-	switch (v.type)
-	{
-	case 4:
-	case 3:return string(v.content.begin(), v.content.end());
-	case 2:
-		d = Tool::value_t2double(v);
-		return to_string(d);
-	case 1:
-		i = Tool::value_t2int(v);
-		return to_string(i);
-	case -1:
-		return "";
-	default:return "(" + string(v.content.begin(), v.content.end()) + ")";
-	}
 }
 
 ibinstream& operator<<(ibinstream& m, const Actor_Object& obj)

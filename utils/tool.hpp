@@ -84,6 +84,25 @@ public:
 		return string(v.content.begin(), v.content.end());
 	}
 
+	static string DebugString(value_t & v){
+		double d;
+		int i;
+		switch (v.type)
+		{
+		case 4:
+		case 3:return string(v.content.begin(), v.content.end());
+		case 2:
+			d = Tool::value_t2double(v);
+			return to_string(d);
+		case 1:
+			i = Tool::value_t2int(v);
+			return to_string(i);
+		case -1:
+			return "";
+		default:return "(" + string(v.content.begin(), v.content.end()) + ")";
+		}
+	}
+
 	static void get_kvpair(string str, kv_pair & kvpair){
 		vector<string> words = split(str,":");
 

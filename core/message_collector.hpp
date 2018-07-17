@@ -18,7 +18,7 @@ struct mkey_t {
 		mid = 0;
 
 		int branch_depth = m.branch_infos.size() - 1;
-		if(branch_depth != 0){
+		if(branch_depth >= 0){
 			mid = m.branch_infos[branch_depth].msg_id;
 		}
 	}
@@ -66,7 +66,7 @@ public:
 		end_path = "";
 
 		int branch_depth = msg.meta.branch_infos.size() - 1;
-		if(branch_depth != 0){
+		if(branch_depth >= 0){
 			msg_id = msg.meta.branch_infos[branch_depth].msg_id;
 			end_path = msg.meta.branch_infos[branch_depth].msg_path;
 		}

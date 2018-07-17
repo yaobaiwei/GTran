@@ -103,8 +103,9 @@ void Parser::LoadMapping(Config* config){
 	hdfsCloseFile(fs, ep_file);
 }
 
-bool Parser::Parse(const string& query, vector<Actor_Object>& vec)
+bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error_msg)
 {
+	Clear();
 	// check prefix
 	if (query.find("g.V().") == 0){
 		ParseInit(Element_T::VERTEX);
@@ -115,7 +116,7 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec)
 		io_type_ = IO_T::EDGE;
 	}
 	else{
-		cout << "'g.V().' or 'g.E().' expected" << endl;
+		error_msg = "'g.V().' or 'g.E().' expected";
 		return false;
 	}
 
@@ -123,12 +124,11 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec)
 	string q = query.substr(6);
 	q = Tool::trim(q, " ");
 	
-	Clear();
 	try{
 		DoParse(q);
 	}
 	catch (ParserException e){
-		cout << "Parsing Error: " << e.message << endl;
+		error_msg = "Parsing Error: " + e.message;
 		return false;
 	}
 
