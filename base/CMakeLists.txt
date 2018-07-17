@@ -7,6 +7,7 @@ file(GLOB base-src-files
 	serialization.cpp
 	communication.cpp
 	client_connection.cpp
+	predicate.cpp
     )
 
 add_library(base-objs OBJECT ${base-src-files})

@@ -308,7 +308,7 @@ bool operator == (const epid_t &p1, const epid_t &p2);
 typedef uint16_t label_t;
 
 //type
-//1->int, 2->double, 3->char, 4->string
+//1->int, 2->double, 3->char, 4->string, 5->uint64_t
 struct value_t {
 	uint8_t type;
 	vector<char> content;

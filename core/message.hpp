@@ -12,6 +12,7 @@
 
 #include "base/serialization.hpp"
 #include "base/type.hpp"
+#include "base/predicate.hpp"
 #include "actor/actor_object.hpp"
 
 #define TEN_MB 1048576
@@ -67,6 +68,8 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta);
 obinstream& operator>>(obinstream& m, Meta& meta);
 
 typedef vector<pair<int, value_t>> history_t;
+
+bool operator==(const history_t& l, const history_t& r);
 
 class Message {
 public:

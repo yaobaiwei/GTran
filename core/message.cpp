@@ -364,6 +364,20 @@ std::string Message::DebugString() const {
 	return ss.str();
 }
 
+bool operator == (const history_t& l, const history_t& r){
+	if(l.size() != r.size()){
+		return false;
+	}
+	// history keys are in ascending order
+	// so simply match kv pair one by one
+	for(int i = 0; i < l.size(); i++){
+		if(l[i] != r[i]){
+			return false;
+		}
+	}
+	return true;
+}
+
 size_t MemSize(int i)
 {
 	return sizeof(int);

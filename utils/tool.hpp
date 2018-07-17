@@ -68,29 +68,38 @@ public:
 	    return s;
 	}
 
-	static int value_t2int(value_t & v){
-		return *reinterpret_cast<int *>(&(v.content[0]));
+	static int value_t2int(const value_t & v){
+		return *reinterpret_cast<const int *>(&(v.content[0]));
 	}
 
-	static double value_t2double(value_t & v){
-		return *reinterpret_cast<double *>(&(v.content[0]));
+	static double value_t2double(const value_t & v){
+		return *reinterpret_cast<const double *>(&(v.content[0]));
 	}
 
-	static char value_t2char(value_t & v){
+	static char value_t2char(const value_t & v){
 		return v.content[0];
 	}
 
-	static string value_t2string(value_t & v){
+	static string value_t2string(const value_t & v){
 		return string(v.content.begin(), v.content.end());
+	}
+
+	static uint64_t value_t2uint64_t(const value_t & v){
+		return *reinterpret_cast<const uint64_t *>(&(v.content[0]));
 	}
 
 	static string DebugString(value_t & v){
 		double d;
 		int i;
+		uint64_t u;
 		switch (v.type)
 		{
+		case 5:
+			u = Tool::value_t2uint64_t(v);
+			return to_string(u);
 		case 4:
-		case 3:return string(v.content.begin(), v.content.end());
+		case 3:
+			return string(v.content.begin(), v.content.end());
 		case 2:
 			d = Tool::value_t2double(v);
 			return to_string(d);
@@ -99,7 +108,8 @@ public:
 			return to_string(i);
 		case -1:
 			return "";
-		default:return "(" + string(v.content.begin(), v.content.end()) + ")";
+		default:
+			return "(" + string(v.content.begin(), v.content.end()) + ")";
 		}
 	}
 
@@ -144,9 +154,26 @@ public:
 			return 3;//char
 		if(s.find(dot) != string::npos)
 			return 2;//double
-		if (std::regex_match(s, std::regex("[(-|+)]?[0-9]+")))
-			return 1;//int
+		if (std::regex_match(s, std::regex("[(-|+)]?[0-9]+"))){
+			uint64_t num = stoull(s);
+			if(num >> 32 == 0){
+				return 1; // int
+			}else{
+				return 5; // uint64_t;
+			}
+		}
 		return -1;
+	}
+
+	static void str2uint64_t(string s, value_t & v){
+		uint64_t u = stoull(s);
+		size_t sz = sizeof(uint64_t);
+		char f[sz];
+		memcpy(f,(const char*)&u, sz);
+
+		for(int k = 0 ; k < sz; k++)
+			v.content.push_back(f[k]);
+		v.type = 5;
 	}
 
 	static void str2str(string s, value_t & v){
@@ -184,6 +211,9 @@ public:
 	static bool str2value_t(string s, value_t & v){
 		int type = Tool::checktype(s);
 		switch (type){
+		case 5:
+			Tool::str2uint64_t(s, v);
+			break;
 		case 4: //string
 			s = Tool::trim(s, "\"");
 			Tool::str2str(s, v);
