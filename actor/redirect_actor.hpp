@@ -15,7 +15,6 @@
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
-#include "base/node.hpp"
 #include "base/type.hpp"
 #include "storage/layout.hpp"
 #include "storage/data_store.hpp"
@@ -28,20 +27,20 @@ using namespace std::placeholders;
 // the machine holding the data;
 class RedirectActor : public AbstractActor {
 public:
-    RedirectActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::REDIRECT)  {
+	RedirectActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::REDIRECT)  {
 		fp = [&](value_t & v) { return get_node_id(v); } ;
 	}
 
-    void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
 		// Create Messages
-        vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec, &fp);
+		vector<Message> msg_vec;
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec, &fp);
 
-        // Send Message
-        for (auto& msg : msg_vec) {
-            mailbox_->Send(tid, msg);
-        }
-    }
+		// Send Message
+		for (auto& msg : msg_vec) {
+			mailbox_->Send(tid, msg);
+		}
+	}
 
 	int get_node_id(value_t & v) {
 		int type = v.type;
@@ -62,20 +61,20 @@ public:
 	}
 
 private:
-    // Number of threads
-    int num_thread_;
+	// Number of threads
+	int num_thread_;
 
-    // Actor type
-    ACTOR_T type_;
+	// Actor type
+	ACTOR_T type_;
 
-    // Pointer of mailbox
-    AbstractMailbox * mailbox_;
+	// Pointer of mailbox
+	AbstractMailbox * mailbox_;
 
-    // Ensure only one thread ever runs the actor
-    std::mutex thread_mutex_;
+	// Ensure only one thread ever runs the actor
+	std::mutex thread_mutex_;
 
-    // Data Store
-    DataStore * datastore_;
+	// Data Store
+	DataStore * datastore_;
 
 	// Function pointer to assign dst 
 	function<int(value_t &)> fp;

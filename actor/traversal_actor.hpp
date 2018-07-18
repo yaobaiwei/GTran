@@ -1,3 +1,9 @@
+/*
+ * traversal_actor.hpp
+ *
+ *  Created on: July 16, 2018
+ *      Author: Aaron LI 
+ */
 #ifndef TRAVERSAL_ACTOR_HPP_
 #define TRAVERSAL_ACTOR_HPP_
 
@@ -15,34 +21,33 @@
 #include "utils/tool.hpp"
 
 // IN-OUT-BOTH
-// TODO: Cache
 
 using namespace std::placeholders;
 
 class TraversalActor : public AbstractActor {
 public:
-    TraversalActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::TRAVERSAL) {
+	TraversalActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::TRAVERSAL) {
 		fp = [&](value_t & v) { return get_node_id(v); } ;
 	}
 
-    // TraversalActorObject->Params;
-    //  inType--outType--dir--lid
-    //  dir: Direcntion:
-    //           Vertex: IN/OUT/BOTH
-    //                   INE/OUTE/BOTHE
-    //             Edge: INV/OUTV/BOTHV
-    //  lid: label_id (e.g. g.V().out("created"))
+	// TraversalActorObject->Params;
+	//  inType--outType--dir--lid
+	//  dir: Direcntion:
+	//           Vertex: IN/OUT/BOTH
+	//                   INE/OUTE/BOTHE
+	//             Edge: INV/OUTV/BOTHV
+	//  lid: label_id (e.g. g.V().out("created"))
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
-        // Get Actor_Object
-        Meta & m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
+		// Get Actor_Object
+		Meta & m = msg.meta;
+		Actor_Object actor_obj = actor_objs[m.step];
 
 		// Get params
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 		Element_T outType = (Element_T) Tool::value_t2int(actor_obj.params.at(1));
 		Direction_T dir = (Direction_T) Tool::value_t2int(actor_obj.params.at(2));
 		int lid = Tool::value_t2int(actor_obj.params.at(3));
-		
+
 		// Get Result
 		if (inType == Element_T::VERTEX) {
 			if (outType == Element_T::VERTEX) {
@@ -65,15 +70,15 @@ public:
 			return;
 		}
 
-        // Create Message
+		// Create Message
 		vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec, &fp);
-		
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec, &fp);
+
 		// Send Message
 		for (auto& msg : msg_vec) {
 			mailbox_->Send(tid, msg);
 		}
-    }
+	}
 
 	int get_node_id(value_t & v) {
 		int type = v.type;
@@ -94,41 +99,41 @@ public:
 	}
 
 private:
-    // Number of Threads
-    int num_thread_;
+	// Number of Threads
+	int num_thread_;
 
-    // Actor type
-    ACTOR_T type_;
+	// Actor type
+	ACTOR_T type_;
 
-    // Node
-    Node node_;
+	// Node
+	Node node_;
 
-    // Pointer of Result_Collector
-    Result_Collector * rc_;
+	// Pointer of Result_Collector
+	Result_Collector * rc_;
 
-    // Pointer of mailbox
-    AbstractMailbox * mailbox_;
+	// Pointer of mailbox
+	AbstractMailbox * mailbox_;
 
-    // Ensure only one thread ever runs the actor
-    std::mutex thread_mutex_;
+	// Ensure only one thread ever runs the actor
+	std::mutex thread_mutex_;
 
-    // DataStore
-    DataStore * datastore_;
-		
+	// DataStore
+	DataStore * datastore_;
+
 	// Function pointer to assign dst 
 	function<int(value_t &)> fp;
 
 
-    //============Vertex===============
-    // Get IN/OUT/BOTH of Vertex
-    void GetNeighborOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
-        for (auto & pair : data) {
-            vector<value_t> newData;
+	//============Vertex===============
+	// Get IN/OUT/BOTH of Vertex
+	void GetNeighborOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+		for (auto & pair : data) {
+			vector<value_t> newData;
 
-            for (auto & value : pair.second) {
+			for (auto & value : pair.second) {
 				// Get the current vertex id and use it to get vertex instance
-                vid_t cur_vtx_id(Tool::value_t2int(value));
-                Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
+				vid_t cur_vtx_id(Tool::value_t2int(value));
+				Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
 
 				// for each neighbor, create a new value_t and store into newData
 				// IN & BOTH
@@ -166,23 +171,22 @@ private:
 						newData.push_back(new_value);
 					}
 				}
-            }
+			}
 
 			// Replace pair.second with new data 
 			pair.second.swap(newData);
-        }
-	
+		}
 	}
 
     // Get IN/OUT/BOTH-E of Vertex
-    void GetEdgeOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
-        for (auto & pair : data) {
-            vector<value_t> newData;
+	void GetEdgeOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+		for (auto & pair : data) {
+			vector<value_t> newData;
 
-            for (auto & value : pair.second) {
+			for (auto & value : pair.second) {
 				// Get the current vertex id and use it to get vertex instance
-                vid_t cur_vtx_id(Tool::value_t2int(value));
-                Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
+				vid_t cur_vtx_id(Tool::value_t2int(value));
+				Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
 
 				if (dir != Direction_T::OUT) {
 					for (auto & in_nb : vtx->in_nbs) { // in_nb : vid_t
@@ -222,7 +226,7 @@ private:
 
 			// Replace pair.second with new data 
 			pair.second.swap(newData);
-        }
+		}
 	}
     //=============Edge================
     void GetVertexOfEdge(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
