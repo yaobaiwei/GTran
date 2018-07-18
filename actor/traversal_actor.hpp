@@ -127,10 +127,10 @@ private:
 	//============Vertex===============
 	// Get IN/OUT/BOTH of Vertex
 	void GetNeighborOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
-		for (auto & pair : data) {
+		for (auto itr = data.begin(); itr != data.end();) {		
 			vector<value_t> newData;
 
-			for (auto & value : pair.second) {
+			for (auto & value : (*itr).second) {
 				// Get the current vertex id and use it to get vertex instance
 				vid_t cur_vtx_id(Tool::value_t2int(value));
 				Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
@@ -173,17 +173,22 @@ private:
 				}
 			}
 
-			// Replace pair.second with new data 
-			pair.second.swap(newData);
+			if (newData.empty()) {
+				data.erase(itr);
+			} else {
+				// Replace pair.second with new data 
+				(*itr).second.swap(newData);
+				itr++;
+			}
 		}
 	}
 
     // Get IN/OUT/BOTH-E of Vertex
 	void GetEdgeOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
-		for (auto & pair : data) {
+		for (auto itr = data.begin(); itr != data.end();) {		
 			vector<value_t> newData;
 
-			for (auto & value : pair.second) {
+			for (auto & value : (*itr).second) {
 				// Get the current vertex id and use it to get vertex instance
 				vid_t cur_vtx_id(Tool::value_t2int(value));
 				Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
@@ -224,19 +229,26 @@ private:
 				}
             }
 
-			// Replace pair.second with new data 
-			pair.second.swap(newData);
+			if (newData.empty()) {
+				data.erase(itr);
+			} else {
+				// Replace pair.second with new data 
+				(*itr).second.swap(newData);
+				itr++;
+			}
 		}
 	}
     //=============Edge================
     void GetVertexOfEdge(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
-        for (auto & pair : data) {
+		for (auto itr = data.begin(); itr != data.end();) {		
             vector<value_t> newData;
 
-            for (auto & value : pair.second) {
+            for (auto & value : (*itr).second) {
             	uint64_t eid_value = Tool::value_t2uint64_t(value);
 				uint64_t in_v = eid_value >> VID_BITS;
 				uint64_t out_v = eid_value - (in_v << VID_BITS);
+
+				cout << eid_value << " & " << in_v << " & " << out_v;
 
 				if (dir == Direction_T::IN) {
 					value_t new_value;
@@ -261,7 +273,13 @@ private:
 				}
             }
 
-			pair.second.swap(newData);
+			if (newData.empty()) {
+				data.erase(itr);
+			} else {
+				// Replace pair.second with new data 
+				(*itr).second.swap(newData);
+				itr++;
+			}
         }
 	}
 
