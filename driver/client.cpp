@@ -72,7 +72,7 @@ void Client::run_query(string query, string& result, bool isBatch) {
         result = CommitQuery(query);
     }
     uint64_t endWorker_t = timer::get_usec();
-    if (endWorker_t - touchWorker_t / 1000 == 0)
+    if ((endWorker_t - touchWorker_t) / 1000 == 0)
         cout << "[Timer] " << (endWorker_t - touchWorker_t) << " us for CommitQuery" << endl;
     else
         cout << "[Timer] " << (endWorker_t - touchWorker_t) / 1000 << " ms for CommitQuery" << endl;
