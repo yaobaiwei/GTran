@@ -70,7 +70,11 @@ done:
 // Insert all properties for one vertex
 void EKVStore::insert_single_edge_property(EProperty* ep) {
 	epid_t key(ep->id, 0);
-	string str = to_string(ep->label);
+
+	size_t sz = sizeof(label_t);
+	char f[sz];
+	memcpy(f,(const char*)&(ep->label), sz);
+	string str(f);
 
 	int slot_id = insert_id(key.hash());
 	uint64_t length = sizeof(label_t);

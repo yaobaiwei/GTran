@@ -73,6 +73,10 @@ public:
 
 	bool GetLabelForEdge(int tid, eid_t eid, label_t & label);
 
+	int GetMachineIdForVertex(vid_t v_id);
+
+	int GetMachineIdForEdge(eid_t e_id);
+
 private:
 
 	Buffer * buffer_;

@@ -40,12 +40,10 @@ public:
             InitData(msg.data, eid_list);
         }
 
-        for (auto& vid : vid_list) {
-            cout << vid.value() << endl; 
-        }
-
         vector<Message> msg_vec;
         msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
+
+		sleep(1);
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -73,7 +71,7 @@ private:
         vector<value_t> newData;
         for (auto& vid : vid_list) {
             value_t v;
-            Tool::str2value_t(to_string(vid.value()), v);
+            Tool::str2int(to_string(vid.value()), v);
             newData.push_back(v);
         }
 
@@ -84,7 +82,7 @@ private:
         vector<value_t> newData;
         for (auto& eid : eid_list) {
             value_t v;
-            Tool::str2value_t(to_string(eid.value()), v);
+            Tool::str2uint64_t(to_string(eid.value()), v);
             newData.push_back(v);
         }
 

@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <sstream>
+#include <functional>
 
 #include "base/serialization.hpp"
 #include "base/type.hpp"
@@ -104,7 +105,7 @@ public:
 	// data:    new data processed by actor_type
 	// vec:     messages to be send
 	// mapper:  function that maps value_t to particular machine, default NULL
-	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&) = NULL);
+	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, function<int(value_t &)>(*mapper) = NULL);
 
 	// actors:  actors chain for current message
 	// stpes:   branching steps

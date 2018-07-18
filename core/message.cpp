@@ -122,7 +122,7 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
 }
 
 
-void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, int (*mapper)(value_t&))
+void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, function<int(value_t &)>(*mapper))
 {
 	// get next step
 	int step = actors[this->meta.step].next_actor;

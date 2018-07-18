@@ -7,6 +7,7 @@
 #pragma once
 
 #include "actor/abstract_actor.hpp"
+#include "core/result_collector.hpp"
 #include "utils/tool.hpp"
 
 class EndActor : public ActorWithCollector

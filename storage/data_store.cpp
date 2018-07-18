@@ -265,6 +265,14 @@ bool DataStore::GetLabelForEdge(int tid, eid_t eid, label_t & label){
 	return label;
 }
 
+int DataStore::GetMachineIdForVertex(vid_t v_id) {
+	return id_mapper_->GetMachineIdForVertex(v_id);
+}
+
+int DataStore::GetMachineIdForEdge(eid_t e_id) {
+	return id_mapper_->GetMachineIdForEdge(e_id);
+}
+
 void DataStore::get_string_indexes()
 {
 	hdfsFS fs = get_hdfs_fs();

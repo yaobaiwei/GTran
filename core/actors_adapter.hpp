@@ -13,20 +13,22 @@
 #include <atomic>
 #include <thread>
 
-#include "utils/config.hpp"
-#include "base/type.hpp"
-#include "base/node.hpp"
-#include "core/abstract_mailbox.hpp"
 #include "actor/abstract_actor.hpp"
+#include "actor/barrier_actor.hpp"
 #include "actor/hw_actor.hpp"
 #include "actor/init_actor.hpp"
-#include "actor/barrier_actor.hpp"
+#include "actor/redirect_actor.hpp"
+#include "actor/traversal_actor.hpp"
+
+#include "base/node.hpp"
+#include "base/type.hpp"
+#include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
-#include "utils/timer.hpp"
 #include "storage/data_store.hpp"
+#include "utils/config.hpp"
+#include "utils/timer.hpp"
 
 using namespace std;
-
 
 class ActorAdapter {
 public:
@@ -37,7 +39,9 @@ public:
 	void Init(){
 		actors_[ACTOR_T::HW] = unique_ptr<AbstractActor>(new HwActor(0, node_, rc_, mailbox_));
 		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(1, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(2, rc_));
+		actors_[ACTOR_T::REDIRECT] = unique_ptr<AbstractActor>(new RedirectActor(2, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, rc_));
 		//TODO add more
 	}
 
@@ -54,6 +58,7 @@ public:
 
 	void execute(int tid, Message & msg){
 		Meta & m = msg.meta;
+		cout << "QID: " << m.qid << endl;
 		if(m.msg_type == MSG_T::INIT){
 			msg_logic_table_[m.qid] = move(m.actors);
 		}

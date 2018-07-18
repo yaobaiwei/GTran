@@ -67,7 +67,7 @@ void Client::run_query(string query, string& result, bool isBatch) {
 
     uint64_t touchWorker_t = timer::get_usec();
     if (isBatch) {
-        result += CommitQuery(query) + ";";
+        result += CommitQuery(query) + "\n";
     } else {
         result = CommitQuery(query);
     }

@@ -70,7 +70,11 @@ done:
 // Insert all properties for one vertex
 void VKVStore::insert_single_vertex_property(VProperty* vp) {
 	vpid_t key(vp->id, 0);
-	string str = to_string(vp->label);
+
+	size_t sz = sizeof(label_t);
+	char f[sz];
+	memcpy(f,(const char*)&(vp->label), sz);
+	string str(f);
 
 	int slot_id = insert_id(key.hash());
 	uint64_t length = sizeof(label_t);
