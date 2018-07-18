@@ -58,15 +58,28 @@ public:
 
 	void execute(int tid, Message & msg){
 		Meta & m = msg.meta;
-		cout << "QID: " << m.qid << endl;
 		if(m.msg_type == MSG_T::INIT){
+			lock_guard<mutex> lk(cv_mutex);
 			msg_logic_table_[m.qid] = move(m.actors);
+			cv_msg_table.notify_all();
 		}
 
 		msg_logic_table_iter = msg_logic_table_.find(m.qid);
+
+		// wait for init actor if qid not found
 		if(msg_logic_table_iter == msg_logic_table_.end()){
-			cout << "ERROR: CANNOT FIND QID IN MSG_LOGIC_TABLE!" << endl;
-			exit(-1);
+			unique_lock<mutex> lk(cv_mutex);
+			cv_msg_table.wait_for(lk, chrono::microseconds(TIMEOUT), [&](){
+				msg_logic_table_iter = msg_logic_table_.find(m.qid);
+				// continue when qid found
+				return msg_logic_table_iter != msg_logic_table_.end();
+			});
+
+			// make sure qid was inserted before time out
+			if(msg_logic_table_iter == msg_logic_table_.end()){
+				cout << "ERROR: CANNOT FIND QID IN MSG_LOGIC_TABLE!" << endl;
+				exit(-1);
+			}
 		}
 
 		ACTOR_T next_actor = msg_logic_table_iter->second[m.step].actor_type;
@@ -110,6 +123,9 @@ private:
   hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
   hash_map<uint64_t, vector<Actor_Object>>::iterator msg_logic_table_iter;
 
+  // condition lock to make sure Init actor for one qid executes first
+  condition_variable cv_msg_table;
+  mutex cv_mutex;
 
   // Thread pool
   vector<thread> thread_pool_;

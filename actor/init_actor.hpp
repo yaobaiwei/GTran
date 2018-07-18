@@ -43,8 +43,6 @@ public:
         vector<Message> msg_vec;
         msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
 
-		sleep(1);
-
         // Send Message
         for (auto& msg : msg_vec) {
             mailbox_->Send(tid, msg);
