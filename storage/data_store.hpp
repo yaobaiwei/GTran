@@ -65,6 +65,10 @@ public:
 
 	void GetAllEdges(vector<eid_t> & eid_list);
 
+	bool VPKeyIsExist(int tid, vpid_t vp_id);
+
+	bool EPKeyIsExist(int tid, epid_t ep_id);
+
 	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
 
 	bool GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);

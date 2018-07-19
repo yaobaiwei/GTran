@@ -49,6 +49,13 @@ public:
     // Get label by key remotely
     void get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label);
 
+	// Get key locally
+    void get_key_local(uint64_t pid, ikey_t & key);
+
+	// Get key remotely
+    //TODO: tid --> SEND_BUF MAY NOT BE thread-safe
+    void get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key);
+
     // analysis
     void print_mem_usage();
 
@@ -103,11 +110,6 @@ private:
     void insert_single_edge_property(EProperty* ep);
 
     uint64_t sync_fetch_and_alloc_values(uint64_t n);
-
-    void get_key_local(uint64_t pid, ikey_t & key);
-
-    //TODO: tid --> SEND_BUF MAY NOT BE thread-safe
-    void get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key);
 };
 
 
