@@ -15,6 +15,7 @@
 
 #include "actor/abstract_actor.hpp"
 #include "actor/barrier_actor.hpp"
+#include "actor/branch_actor.hpp"
 #include "actor/hw_actor.hpp"
 #include "actor/init_actor.hpp"
 #include "actor/redirect_actor.hpp"
@@ -43,6 +44,8 @@ public:
 		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, rc_));
 		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(5, num_thread_, mailbox_));
+		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, num_thread_, mailbox_, &id_allocator_));
+		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(7, num_thread_, mailbox_, &id_allocator_));
 		//TODO add more
 	}
 
@@ -112,31 +115,32 @@ public:
 	};
 
 private:
-  AbstractMailbox * mailbox_;
-  Result_Collector * rc_;
-  DataStore* data_store_;
-  Node node_;
+	AbstractMailbox * mailbox_;
+	Result_Collector * rc_;
+	DataStore* data_store_;
+	msg_id_alloc id_allocator_;
+	Node node_;
 
-  // Actors pool <actor_type, [actors]>
-  map<ACTOR_T, unique_ptr<AbstractActor>> actors_;
+	// Actors pool <actor_type, [actors]>
+	map<ACTOR_T, unique_ptr<AbstractActor>> actors_;
 
-  //global map to record the vec<actor_obj> of query
-  //avoid repeatedly transfer vec<actor_obj> for message
-  hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
-  // hash_map<uint64_t, vector<Actor_Object>>::iterator msg_logic_table_iter;
+	//global map to record the vec<actor_obj> of query
+	//avoid repeatedly transfer vec<actor_obj> for message
+	hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
+	// hash_map<uint64_t, vector<Actor_Object>>::iterator msg_logic_table_iter;
 
-  // condition lock to make sure Init actor for one qid executes first
-  condition_variable cv_msg_table;
-  mutex cv_mutex;
+	// condition lock to make sure Init actor for one qid executes first
+	condition_variable cv_msg_table;
+	mutex cv_mutex;
 
-  // Thread pool
-  vector<thread> thread_pool_;
+	// Thread pool
+	vector<thread> thread_pool_;
 
-  //clocks
-  vector<uint64_t> times_;
-  int num_thread_;
-  const static uint64_t STEALTIMEOUT = 100000;
-  const static uint64_t INITTIMEOUT = 1000000;
+	//clocks
+	vector<uint64_t> times_;
+	int num_thread_;
+	const static uint64_t STEALTIMEOUT = 100000;
+	const static uint64_t INITTIMEOUT = 1000000;
 };
 
 

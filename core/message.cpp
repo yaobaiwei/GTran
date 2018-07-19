@@ -145,7 +145,7 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	}
 	m.step = step;
 
-	// specify if recver route should not be changed 
+	// specify if recver route should not be changed
 	bool routeAssigned = false;
 
 	// update recver route & msg_type
@@ -232,7 +232,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 	info.key = m.step;
 	info.msg_path = m.msg_path;
 	info.msg_id = msg_id;
-	
+
 	// label each data with unique id
 	vector<pair<history_t, vector<value_t>>> labeled_data;
 	int count = 0;
@@ -242,7 +242,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 			Tool::str2int(to_string(count ++), v);
 			history_t his = pair.first;
 			his.push_back(make_pair(m.step, v));
-			labeled_data.push_back(make_pair(his, vector<value_t>{value}));	
+			labeled_data.push_back(make_pair(his, vector<value_t>{value}));
 		}
 	}
 
@@ -256,12 +256,13 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		else{
 			step_meta.msg_type = MSG_T::SPAWN;
 		}
-		info.index = i;
+		info.index = i + 1;
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
-		
+
 		vector<pair<history_t, vector<value_t>>> temp = labeled_data;
 		// feed data to msg
+		int count = vec.size();
 		do{
 			Message msg(step_meta);
 			msg.max_data_size = this->max_data_size;
@@ -270,12 +271,14 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 			}
 			msg.FeedData(temp);
 			vec.push_back(msg);
+			count ++;
 		}
 		while((temp.size() != 0));	// Data no consumed
-	}
-	
-	for(auto& msg : vec){
-		msg.meta.msg_path += "\t" + to_string(vec.size());
+
+		// set msg_path for each branch
+		for(int j = count; j < vec.size(); j++){
+			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
+		}
 	}
 }
 
