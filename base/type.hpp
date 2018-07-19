@@ -415,4 +415,38 @@ struct qid_t{
 		return r;
 	}
 };
+
+// msg key for branch and barrier actors
+struct mkey_t {
+	uint64_t qid;	// qid
+	uint64_t mid;	// msg id of branch parent
+	int index;		// index of branch
+	mkey_t() : qid(0), index(0), mid(0){}
+	mkey_t(uint64_t qid_, uint64_t mid_, int index_) : qid(qid_), index(index_), mid(mid_){}
+
+	bool operator==(const mkey_t& key) const
+	{
+		if((qid == key.qid) && (mid == key.mid) && (index == key.index)){
+			return true;
+		}
+		return false;
+	}
+
+	bool operator<(const mkey_t& key) const
+	{
+		if(qid < key.qid){
+			return true;
+		}else if(qid == key.qid){
+			if(mid < key.mid){
+				return true;
+			}else if(mid == key.mid){
+				return index < key.index;
+			}else{
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}
+};
 #endif /* TYPE_HPP_ */

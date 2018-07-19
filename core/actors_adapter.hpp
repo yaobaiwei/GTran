@@ -42,6 +42,7 @@ public:
 		actors_[ACTOR_T::REDIRECT] = unique_ptr<AbstractActor>(new RedirectActor(2, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, rc_));
+		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(5, num_thread_, mailbox_));
 		//TODO add more
 	}
 
