@@ -86,11 +86,7 @@ public:
 			vid_t v_id(Tool::value_t2int(v));
 			return datastore_->GetMachineIdForVertex(v_id);
 		} else if (type == 5) {
-			uint64_t eid_value = Tool::value_t2uint64_t(v);
-			uint64_t in_v = eid_value >> VID_BITS;
-			uint64_t out_v = eid_value - (in_v << VID_BITS);
-
-			eid_t e_id(in_v, out_v);
+			eid_t e_id = Tool::value_t2eid_t(v);
 			return datastore_->GetMachineIdForEdge(e_id);
 		} else {
 			cout << "Wrong Type when getting node id" << type << endl;

@@ -64,12 +64,12 @@ public:
 			cv_msg_table.notify_all();
 		}
 
-		msg_logic_table_iter = msg_logic_table_.find(m.qid);
+		auto msg_logic_table_iter = msg_logic_table_.find(m.qid);
 
 		// wait for init actor if qid not found
 		if(msg_logic_table_iter == msg_logic_table_.end()){
 			unique_lock<mutex> lk(cv_mutex);
-			cv_msg_table.wait_for(lk, chrono::microseconds(TIMEOUT), [&](){
+			cv_msg_table.wait_for(lk, chrono::microseconds(INITTIMEOUT), [&](){
 				msg_logic_table_iter = msg_logic_table_.find(m.qid);
 				// continue when qid found
 				return msg_logic_table_iter != msg_logic_table_.end();
@@ -77,6 +77,7 @@ public:
 
 			// make sure qid was inserted before time out
 			if(msg_logic_table_iter == msg_logic_table_.end()){
+				cout << "QID IS : " << m.qid << endl;
 				cout << "ERROR: CANNOT FIND QID IN MSG_LOGIC_TABLE!" << endl;
 				exit(-1);
 			}
@@ -98,7 +99,7 @@ public:
 
 	        //TODO work stealing
 	        int steal_tid = (tid + 1) % num_thread_; //next thread
-	        if(times_[tid] < times_[steal_tid] + TIMEOUT)
+	        if(times_[tid] < times_[steal_tid] + STEALTIMEOUT)
 	        	continue;
 
 	        success = mailbox_->TryRecv(steal_tid, recv_msg);
@@ -121,7 +122,7 @@ private:
   //global map to record the vec<actor_obj> of query
   //avoid repeatedly transfer vec<actor_obj> for message
   hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
-  hash_map<uint64_t, vector<Actor_Object>>::iterator msg_logic_table_iter;
+  // hash_map<uint64_t, vector<Actor_Object>>::iterator msg_logic_table_iter;
 
   // condition lock to make sure Init actor for one qid executes first
   condition_variable cv_msg_table;
@@ -133,8 +134,8 @@ private:
   //clocks
   vector<uint64_t> times_;
   int num_thread_;
-  const static uint64_t TIMEOUT = 100000;
-
+  const static uint64_t STEALTIMEOUT = 100000;
+  const static uint64_t INITTIMEOUT = 1000000;
 };
 
 
