@@ -264,14 +264,6 @@ public:
 		v.type = e.type;
 	}
 
-	static eid_t value_t2eid_t(value_t & v) {
-		uint64_t eid_value = value_t2uint64_t(v);
-		uint64_t in_v = eid_value >> VID_BITS;
-		uint64_t out_v = eid_value - (in_v << VID_BITS);
-
-		return eid_t(in_v, out_v);
-	}
-
 	static string DebugString(value_t & v){
 		double d;
 		int i;

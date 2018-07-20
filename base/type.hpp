@@ -363,6 +363,8 @@ struct string_index{
 	unordered_map<label_t, string> vpk2str;
 };
 
+enum Index_T { E_LABEL, E_PROPERTY, V_LABEL, V_PROPERTY };
+
 // Spawn: spawn a new actor
 // Feed: "proxy" feed actor a input
 // Reply: actor returns the intermidiate result to actor

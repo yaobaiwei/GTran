@@ -188,7 +188,8 @@ private:
 		for (auto & data_pair : data) {
 			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
 
-				eid_t e_id = Tool::value_t2eid_t(*value_itr);
+				eid_t e_id;
+				uint2eid_t(Tool::value_t2uint64_t(*value_itr), e_id);
 
 				bool isEarsed = false;
 				for (auto & pred_pair : pred_chain) {

@@ -81,6 +81,8 @@ public:
 
 	int GetMachineIdForEdge(eid_t e_id);
 
+	void GetNameFromIndex(Index_T type, label_t label, string & str);
+
 private:
 
 	Buffer * buffer_;

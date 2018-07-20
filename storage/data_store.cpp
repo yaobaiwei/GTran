@@ -299,6 +299,44 @@ int DataStore::GetMachineIdForEdge(eid_t e_id) {
 	return id_mapper_->GetMachineIdForEdge(e_id);
 }
 
+void DataStore::GetNameFromIndex(Index_T type, label_t id, string & str) {
+	unordered_map<label_t, string>::const_iterator itr;
+
+	switch(type) {
+		case Index_T::E_LABEL:
+			itr = indexes.el2str.find(id);
+			if ( itr == indexes.el2str.end() )
+				return;
+			else
+				str = itr->second;
+			break;
+		case Index_T::E_PROPERTY:
+			itr = indexes.epk2str.find(id);
+			if ( itr == indexes.epk2str.end() )
+				return;
+			else
+				str = itr->second;
+			break;
+		case Index_T::V_LABEL:
+			itr = indexes.vl2str.find(id);
+			if ( itr == indexes.vl2str.end() )
+				return;
+			else
+				str = itr->second;
+			break;
+		case Index_T::V_PROPERTY:
+			itr = indexes.vpk2str.find(id);
+			if ( itr == indexes.vpk2str.end() )
+				return;
+			else
+				str = itr->second;
+			break;
+		default:
+			return;
+	}
+		
+}
+
 void DataStore::get_string_indexes()
 {
 	hdfsFS fs = get_hdfs_fs();
