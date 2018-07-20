@@ -72,6 +72,7 @@ typedef vector<pair<int, value_t>> history_t;
 
 bool operator==(const history_t& l, const history_t& r);
 
+// remove histroy after branch_key and find parent history in vector
 template<class T>
 typename vector<pair<history_t, T>>::iterator merge_hisotry(vector<pair<history_t, T>>& vec, history_t& his, int branch_key);
 
