@@ -116,7 +116,6 @@ private:
 	void ParseLoops(const vector<string>& params);
 	void ParseMath(const vector<string>& params, Step_T type);
 	void ParseOrder(const vector<string>& params);
-	void ParseProjection(const string& param, int& key);
 	void ParseProperties(const vector<string>& params);
 	void ParseRange(const vector<string>& params, Step_T type);
 	void ParseRepeat(const vector<string>& params);

@@ -32,6 +32,6 @@ public:
 	Predicate(Predicate_T p_type, vector<value_t> vec) : predicate_type(p_type), values(vec){}
 
 	Predicate(Predicate_T p_type, value_t& value) : predicate_type(p_type){
-		values = Tool::value_t2vec(value);
+		Tool::value_t2vec(value, values);
 	}
 };

@@ -752,7 +752,7 @@ void Parser::ParseDedup(const vector<string>& params)
 
 void Parser::ParseGroup(const vector<string>& params, Step_T type)
 {
-	//@ GroupActor params: (bool isCount, int keyProjection, int valueProjection) where -1 indicating no projection
+	//@ GroupActor params: (bool isCount, Element_T type, int keyProjection, int valueProjection) where -1 indicating no projection
 	//  i_type = any, o_type = collection
 	Actor_Object actor(ACTOR_T::GROUP);
 	if (params.size() > 2){
@@ -762,16 +762,30 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type)
 	int isCount = type == GROUPCOUNT;
 	actor.AddParam(isCount);
 
+	Element_T element_type;
+	if(params.size() > 0){
+		if (!IsElement(element_type)){
+			throw ParserException("expect vertex/edge input for group by key");
+		}
+	}
+	actor.AddParam(element_type);
+
 	// add projection actor
 	for (string param : params)
 	{
-		int key;
-		ParseProjection(param, key);
+		int key = 0;
+		if (param != "label")
+		{
+			if (!ParseKeyId(param, false, key))
+			{
+				throw ParserException("no such property key:" + param);
+			}
+		}
 		actor.AddParam(key);
 	}
 
 	// add default
-	while (actor.params.size() != 3){
+	while (actor.params.size() != 4){
 		actor.AddParam(-1);
 	}
 
@@ -872,11 +886,12 @@ void Parser::ParseHasLabel(const vector<string>& params)
 	Actor_Object &actor = actors_[actors_.size() - 1];
 
 	int lid;
-	if (!ParseKeyId(params[0], true, lid)){
-		throw ParserException("unexpected label in hasLabel : " + params[0]);
+	for(auto& param : params){
+		if (!ParseKeyId(param, true, lid)){
+			throw ParserException("unexpected label in hasLabel : " + param);
+		}
+		actor.AddParam(lid);
 	}
-
-	actor.AddParam(lid);
 }
 
 void Parser::ParseIs(const vector<string>& params)
@@ -986,7 +1001,7 @@ void Parser::ParseMath(const vector<string>& params, Step_T type)
 
 void Parser::ParseOrder(const vector<string>& params)
 {
-	//@ OrderActor params: (int projectionKey) where -1 indicating no projection
+	//@ OrderActor params: (Element_T element_type, int projectionKey) where -1 indicating no projection
 	//  i_type = o_type = any
 
 	Actor_Object actor(ACTOR_T::ORDER);
@@ -994,45 +1009,35 @@ void Parser::ParseOrder(const vector<string>& params)
 		throw ParserException("expect at most one param in order");
 	}
 
-	int key = -1;
-	if (params.size() == 1){
-		ParseProjection(params[0], key);
-	}
-	actor.AddParam(key);
-
-	AppendActor(actor);
-}
-
-void Parser::ParseProjection(const string& param, int& key_id)
-{
-	//@ ProjectionActor params: (Element_T type, int label_step_key, bool isLabel, int pid)
-	//  i_type = o_type = any
-	Actor_Object actor(ACTOR_T::PROJECTION);
-	key_id = -1;
-
 	Element_T element_type;
-	if (!IsElement(element_type)){
-		throw ParserException("expect vertex/edge input for hasLabel");
-	}
-	actor.AddParam(element_type);
+	int key = -1;
+	Order_T order = Order_T::INCR;
 
-	key_id = actors_.size();
-	actor.AddParam(key_id);
-
-	// Parse param to label or pid
-	bool isLabel = true;
-	int pid = -1;
-	if (param != "label")
+	for (string param : params)
 	{
-		isLabel = false;
-		if (!ParseKeyId(param, false, pid))
-		{
-			throw ParserException("no such property key:" + param);
+		if(param == "incr" || param == "decr"){
+			// input param is order type
+			order = param == "incr" ? Order_T::INCR : Order_T::DECR;
+		}else{
+			// input param is projection key
+			if (!IsElement(element_type)){
+				throw ParserException("expect vertex/edge input for order by key");
+			}
+			if (param != "label")
+			{
+				if (!ParseKeyId(param, false, key))
+				{
+					throw ParserException("no such property key:" + param);
+				}
+			}else{
+				key = 0;
+			}
 		}
 	}
-	actor.AddParam(isLabel);
-	actor.AddParam(pid);
 
+	actor.AddParam(element_type);
+	actor.AddParam(key);
+	actor.AddParam(order);
 	AppendActor(actor);
 }
 

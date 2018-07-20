@@ -88,31 +88,6 @@ public:
 		return *reinterpret_cast<const uint64_t *>(&(v.content[0]));
 	}
 
-	static string DebugString(value_t & v){
-		double d;
-		int i;
-		uint64_t u;
-		switch (v.type)
-		{
-		case 5:
-			u = Tool::value_t2uint64_t(v);
-			return to_string(u);
-		case 4:
-		case 3:
-			return string(v.content.begin(), v.content.end());
-		case 2:
-			d = Tool::value_t2double(v);
-			return to_string(d);
-		case 1:
-			i = Tool::value_t2int(v);
-			return to_string(i);
-		case -1:
-			return "";
-		default:
-			return "(" + string(v.content.begin(), v.content.end()) + ")";
-		}
-	}
-
 	static void get_kvpair(string str, kv_pair & kvpair){
 		vector<string> words = split(str,":");
 
@@ -207,7 +182,7 @@ public:
 			v.content.push_back(f[k]);
 		v.type = 1;
 	}
-	
+
 	static bool str2value_t(string s, value_t & v){
 		int type = Tool::checktype(s);
 		switch (type){
@@ -233,7 +208,7 @@ public:
 		}
 		return true;
 	}
-	
+
 	static bool vec2value_t(const vector<string>& vec, value_t & v, int type)
 	{
 		if (vec.size() == 0)
@@ -254,12 +229,21 @@ public:
 		v.type = 16 | type;
 		return true;
 	}
-	
-	static vector<value_t> value_t2vec(value_t & v)
+
+	static void kvmap2value_t(const map<string, string>& m, value_t & v){
+		v.type = 20; // vector of string
+
+		for(auto& item : m){
+			str2value_t(item.first + ":" + item.second ,v);
+			v.content.push_back('\t');
+		}
+		v.content.pop_back();
+	}
+
+	static void value_t2vec(value_t & v, vector<value_t>& vec)
 	{
 		string value = value_t2string(v);
 		vector<string> values = split(value, "\t");
-		vector<value_t> vec;
 		int type = v.type & 0xF;
 
 		// scalar
@@ -274,7 +258,6 @@ public:
 				vec.push_back(v);
 			}
 		}
-		return vec;
 	}
 
 	static void elem_t2value_t(elem_t & e, value_t & v){
@@ -289,6 +272,40 @@ public:
 		uint64_t out_v = eid_value - (in_v << VID_BITS);
 
 		return eid_t(in_v, out_v);
+	}
+
+	static string DebugString(value_t & v){
+		double d;
+		int i;
+		uint64_t u;
+		vector<value_t> vec;
+		string temp;
+		switch (v.type)
+		{
+		case 5:
+			u = Tool::value_t2uint64_t(v);
+			return to_string(u);
+		case 4:
+		case 3:
+			return string(v.content.begin(), v.content.end());
+		case 2:
+			d = Tool::value_t2double(v);
+			return to_string(d);
+		case 1:
+			i = Tool::value_t2int(v);
+			return to_string(i);
+		case -1:
+			return "";
+		default:
+			value_t2vec(v, vec);
+			temp = "[";
+			for(auto& val : vec){
+				temp += DebugString(val) + ", ";
+			}
+			temp = trim(temp, ", ");
+			temp += "]";
+			return temp;
+		}
 	}
 };
 

@@ -375,11 +375,11 @@ obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
 	HW, INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COIN, COUNT, DEDUP, GROUP, HAS,
-	HASLABEL, IS, KEY, LABEL, LOOPS, MATH, ORDER, PROJECTION, PROPERTY, RANGE, REDIRECT, REPEAT, SELECT, TRAVERSAL, VALUES, WHERE, END
+	HASLABEL, IS, KEY, LABEL, LOOPS, MATH, ORDER, PROPERTY, RANGE, REDIRECT, REPEAT, SELECT, TRAVERSAL, VALUES, WHERE, END
 };
 
 static const char *ActorType[] = { "HW", "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COIN", "COUNT", "DEDUP", "GROUP", "HAS",
-"HASLABEL", "IS", "KEY", "LABEL", "LOOPS", "MATH", "ORDER", "PROJECTION", "PROPERTY", "RANGE", "REDIRECT", "REPEAT", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
+"HASLABEL", "IS", "KEY", "LABEL", "LOOPS", "MATH", "ORDER", "PROPERTY", "RANGE", "REDIRECT", "REPEAT", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
@@ -391,6 +391,7 @@ enum Filter_T{ AND, OR, NOT };
 enum Math_T { SUM, MAX, MIN, MEAN };
 enum Element_T{ VERTEX, EDGE };
 enum Direction_T{ IN, OUT, BOTH };
+enum Order_T {INCR, DECR};
 enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSDIE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
 struct qid_t{

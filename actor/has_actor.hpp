@@ -2,7 +2,7 @@
  * has_actor.hpp
  *
  *  Created on: July 16, 2018
- *      Author: Aaron LI 
+ *      Author: Aaron LI
  */
 #ifndef HAS_ACTOR_HPP_
 #define HAS_ACTOR_HPP_
@@ -31,8 +31,8 @@ public:
 	// 		pred: Predicate_T
 	// 		pred_param: value_t]
 	// Has(params) :
-	// 	-> key = pid; pred = ANY; pred_params = value_t(one) : has(key) 
-	// 	-> key = pid; pred = EQ; pred_params = value_t(one) : has(key, value) 
+	// 	-> key = pid; pred = ANY; pred_params = value_t(one) : has(key)
+	// 	-> key = pid; pred = EQ; pred_params = value_t(one) : has(key, value)
 	// 	-> key = pid; pred = <others>; pred_params = value_t(one/two) : has(key, predicate)
 	// HasValue(params) : values -> [key = -1; pred = EQ; pred_params = string(value)]
 	// HasNot(params) : key -> [key = pid; pred = NONE; pred_params = -1]
@@ -48,7 +48,7 @@ public:
 		// Get Params
 		assert(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 3 == 0); // make sure input format
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-		int numParamsGroup = (actor_obj.params.size() - 1) / 3; // number of groups of params 
+		int numParamsGroup = (actor_obj.params.size() - 1) / 3; // number of groups of params
 
 		// Create predicate chain for this query
 		for (int i = 0; i < numParamsGroup; i++) {
@@ -56,7 +56,8 @@ public:
 			// Get predicate params
 			int pid = Tool::value_t2int(actor_obj.params.at(pos));
 			Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 1));
-			vector<value_t> pred_params = Tool::value_t2vec(actor_obj.params.at(pos + 2));
+			vector<value_t> pred_params;
+			Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
 
 			pred_chain.push_back(pair<int, Predicate>(pid, Predicate(pred_type, pred_params)));
 		}
@@ -141,7 +142,7 @@ private:
 
 						if (pred.predicate_type == Predicate_T::ANY) {
 							if(!datastore_->VPKeyIsExist(tid, vp_id)) {
-								// erase this data and break 
+								// erase this data and break
 								data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
@@ -149,7 +150,7 @@ private:
 						} else if (pred.predicate_type == Predicate_T::NONE) {
 							// hasNot(key)
 							if(datastore_->VPKeyIsExist(tid, vp_id)) {
-								// erase this data and break 
+								// erase this data and break
 								data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
@@ -243,7 +244,7 @@ private:
 								isEarsed = true;
 								break;
 							}
- 
+
 							// Erase when doesnt match
 							if(!pred.Evaluate(&val)) {
 								data_pair.second.erase(value_itr);
