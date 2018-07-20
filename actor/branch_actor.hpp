@@ -245,8 +245,8 @@ private:
 			auto his_itr = std::find_if( his.begin(), his.end(),
 				[&his_key](const pair<int, value_t>& element){ return element.first == his_key;} );
 			if (his_itr != his.end()){
-				// remove appended key from history
-				his.erase(his_itr);
+				// remove history started from branch_key
+				his.erase(his_itr, his.end());
 			}
 
 			// check if his already in dst
@@ -323,6 +323,10 @@ private:
 		int branch_index = msg.meta.branch_infos[info_size - 1].index;
 		int his_key = msg.meta.branch_infos[info_size - 1].key;
 		for(auto& p : msg.data){
+			// empty data, not suceess
+			if(p.second.size() == 0){
+				continue;
+			}
 			// find history with given key
 			auto his_itr = std::find_if( p.first.begin(), p.first.end(),
 				[&his_key](const pair<int, value_t>& element){ return element.first == his_key;} );
@@ -357,8 +361,8 @@ private:
 			int i = 0;
 
 			// filter
-			for(auto itr_pair = data.begin(); itr_pair != data.end();){
-				auto& value_vec = itr_pair->second;
+			for(auto& pair : data){
+				auto& value_vec = pair.second;
 				for(auto itr_val = value_vec.begin(); itr_val != value_vec.end();){
 					// remove data if not passed
 					if(! pass(counter[i], num_of_branch)){
@@ -367,12 +371,6 @@ private:
 						itr_val ++;
 					}
 					i ++;
-				}
-
-				if(value_vec.size() == 0){
-					itr_pair = data.erase(itr_pair);
-				}else{
-					itr_pair ++;
 				}
 			}
 
@@ -408,7 +406,7 @@ private:
 	// each bit of counter indicates one branch index
 	static inline void update_counter(uint32_t & counter, int branch_index){
 		// set corresponding bit to 1
-		counter |= ( 1 << branch_index);
+		counter |= ( 1 << (branch_index - 1));
 	}
 
 	static bool all_success(uint32_t counter, int num_of_branch){

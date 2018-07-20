@@ -193,19 +193,8 @@ private:
 
 		for(auto& p : msg.data){
 			int count = p.second.size();
-
-			// remove history after branch_key
-			if(branch_key != -1){
-				auto pair_itr = find_if( p.first.begin(), p.first.end(),
-					[&branch_key](const pair<int, value_t>& element){ return element.first == branch_key;} );
-				if(pair_itr != p.first.end()){
-					p.first.erase(pair_itr + 1, p.first.end());
-				}
-			}
-
 			// find history in data
-			auto data_itr = find_if( data.begin(), data.end(),
-				[&p](const pair<history_t, int>& element){ return element.first == p.first;});
+			auto data_itr = merge_hisotry(data, p.first, branch_key);
 
 			if(data_itr == data.end()){
 				data.push_back(make_pair(move(p.first), count));

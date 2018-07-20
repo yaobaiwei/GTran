@@ -124,81 +124,56 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
 
 void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, function<int(value_t &)>(*mapper))
 {
-	// get next step
-	int step = actors[this->meta.step].next_actor;
-
 	Meta m = this->meta;
+	m.step = actors[this->meta.step].next_actor;
 
-	// no data, send msg_path to next barrier or branch
-	if(data.size() == 0){
-		while(step < actors.size()){
-			if(actors[step].IsBarrier()){
-				// found next barrier
-				break;
-			}
-			else if(step < this->meta.step){
-				// found parent branch
-				break;
-			}
-			step = actors[step].next_actor;
-		}
+	int branch_depth = m.branch_infos.size() - 1;
+	int his_key = -1;
+	if(branch_depth >= 0){
+		his_key = m.branch_infos[branch_depth].key;
 	}
-	m.step = step;
-
+	// update recver
 	// specify if recver route should not be changed
-	bool routeAssigned = false;
-
-	// update recver route & msg_type
-	if(step == actors.size() || actors[step].IsBarrier()){
-		int branch_depth = m.branch_infos.size() - 1;
-		if(branch_depth >= 0){
-			// barrier actor in branch
-			m.recver_nid = m.branch_infos[branch_depth].node_id;
-			m.recver_tid = m.branch_infos[branch_depth].thread_id;
-		}
-		else{
-			// barrier actor in main query
-			m.recver_nid = m.parent_nid;
-			m.recver_tid = m.parent_tid;
-		}
-		m.msg_type = MSG_T::BARRIER;
-		routeAssigned = true;
-	}
-	else if(m.step < this->meta.step){
-		// branch actor
-		int branch_depth = m.branch_infos.size() - 1;
-		assert(branch_depth >= 0);
-		m.recver_nid = m.branch_infos[branch_depth].node_id;
-		m.recver_tid = m.branch_infos[branch_depth].thread_id;
-		m.msg_type = MSG_T::BRANCH;
-		routeAssigned = true;
-	}
-	else{
-		// normal actor, recver = sender
-		m.msg_type = MSG_T::SPAWN;
-	}
+	bool routeAssigned = update_route(actors, m, branch_depth);
 
 	// node id to data
 	map<int, vector<pair<history_t, vector<value_t>>>> id2data;
+	vector<pair<history_t, vector<value_t>>> empty_his;
 
 	// enable route mapping
 	if(mapper != NULL && ! routeAssigned){
-		for(auto& pair: data){
+		for(auto& p: data){
 			map<int, vector<value_t>> id2value_t;
-			// get node id
-			for(auto& v : pair.second){
-				int node = (*mapper)(v);
-				id2value_t[node].push_back(v);
-			}
-			// insert his/value pair to corresponding node
-			for(auto& item : id2value_t){
-				id2data[item.first].push_back(make_pair(pair.first, item.second));
+			if(p.second.size() == 0){
+				auto itr = merge_hisotry(empty_his, p.first, his_key);
+				if(itr == empty_his.end()){
+					empty_his.push_back(p);
+				}
+			}else{
+				// get node id
+				for(auto& v : p.second){
+					int node = (*mapper)(v);
+					id2value_t[node].push_back(v);
+				}
+
+				// insert his/value pair to corresponding node
+				for(auto& item : id2value_t){
+					id2data[item.first].push_back(make_pair(p.first, item.second));
+				}
 			}
 		}
 	}
 	else{
-		// no mapping, send to recver_nid only
-		id2data[m.recver_nid] = std::move(data);
+		for(auto& p: data){
+			if(p.second.size() == 0){
+				auto itr = merge_hisotry(empty_his, p.first, his_key);
+				if(itr == empty_his.end()){
+					empty_his.push_back(p);
+				}
+			}else{
+				id2data[m.recver_nid].push_back(move(p));
+			}
+		}
 	}
 
 	for(auto& item : id2data){
@@ -215,8 +190,36 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 		}
 		while((item.second.size() != 0));	// Data no consumed
 	}
+
+	// send history with empty data
+	if(empty_his.size() != 0){
+		while(m.step < actors.size()){
+			if(actors[m.step].IsBarrier()){
+				break;
+			}
+			else if(m.step < this->meta.step){
+				break;
+			}
+			m.step = actors[m.step].next_actor;
+		}
+		update_route(actors, m, branch_depth);
+		// feed history to msg
+		do{
+			Message msg(m);
+			msg.max_data_size = this->max_data_size;
+			msg.meta.recver_tid = (m.recver_tid ++) % num_thread;
+			msg.FeedData(empty_his);
+			vec.push_back(msg);
+		}
+		while((empty_his.size() != 0));	// Data no consumed
+	}
+
 	// set disptching path
-	string num = "\t" + to_string(vec.size());
+	string num = to_string(vec.size());
+	if(meta.msg_path != ""){
+		num = "\t" + num;
+	}
+
 	for(auto &msg : vec){
 		msg.meta.msg_path += num;
 	}
@@ -236,7 +239,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 	// label each data with unique id
 	vector<pair<history_t, vector<value_t>>> labeled_data;
 	int count = 0;
-	for (auto& pair : data){
+	for (auto pair : data){
 		for(auto& value : pair.second){
 			value_t v;
 			Tool::str2int(to_string(count ++), v);
@@ -282,12 +285,40 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 	}
 }
 
-void Message::FeedData(pair<history_t, vector<value_t>>& pair)
-{
-	if (pair.second.size() == 0){
-		return;
+bool Message::update_route(vector<Actor_Object>& actors, Meta& m, int branch_depth){
+	// update recver route & msg_type
+	if(actors[m.step].IsBarrier()){
+		if(branch_depth >= 0){
+			// barrier actor in branch
+			m.recver_nid = m.branch_infos[branch_depth].node_id;
+			m.recver_tid = m.branch_infos[branch_depth].thread_id;
+		}
+		else{
+			// barrier actor in main query
+			m.recver_nid = m.parent_nid;
+			m.recver_tid = m.parent_tid;
+		}
+		m.msg_type = MSG_T::BARRIER;
+		return true;
 	}
+	else if(m.step < this->meta.step){
+		// branch actor
+		int branch_depth = m.branch_infos.size() - 1;
+		assert(branch_depth >= 0);
+		m.recver_nid = m.branch_infos[branch_depth].node_id;
+		m.recver_tid = m.branch_infos[branch_depth].thread_id;
+		m.msg_type = MSG_T::BRANCH;
+		return true;
+	}
+	else{
+		// normal actor, recver = sender
+		m.msg_type = MSG_T::SPAWN;
+		return false;
+	}
+}
 
+bool Message::FeedData(pair<history_t, vector<value_t>>& pair)
+{
 	size_t in_size = MemSize(pair);
 	size_t space = max_data_size - data_size;
 
@@ -296,14 +327,14 @@ void Message::FeedData(pair<history_t, vector<value_t>>& pair)
 		data.push_back(pair);
 		data_size += in_size;
 		pair.second.clear();
-		return;
+		return true;
 	}
 
 	// check if able to add history
 	size_t his_size = MemSize(pair.first) + sizeof(size_t);
 	// no space for history
 	if (his_size >= space){
-		return;
+		return false;
 	}
 
 	in_size = his_size;
@@ -323,21 +354,19 @@ void Message::FeedData(pair<history_t, vector<value_t>>& pair)
 		data.push_back(make_pair(pair.first, vector<value_t>()));
 		int i = data.size() - 1;
 		std::move(pair.second.begin(), itr, std::back_inserter(data[i].second));
-		pair.second.erase(pair.second.begin(), itr);
+		itr = pair.second.erase(pair.second.begin(), itr);
 		data_size += in_size;
 	}
-	if(MemSize(data)  != data_size){
-		cout << MemSize(data) << "  " << data_size <<endl;
-	}
 	assert(MemSize(data) == data_size);
+
+	return pair.second.size() == 0;
 }
 
 void Message::FeedData(vector<pair<history_t, vector<value_t>>>& vec)
 {
 	for (auto itr = vec.begin(); itr != vec.end();){
 		FeedData(*itr);
-		// no enough space
-		if((*itr).second.size() != 0){
+		if(! FeedData(*itr)){
 			break;
 		}
 		itr = vec.erase(itr);
@@ -395,23 +424,5 @@ size_t MemSize(value_t data)
 {
 	size_t s = sizeof(uint8_t);
 	s += MemSize(data.content);
-	return s;
-}
-
-template<class T1, class T2>
-size_t MemSize(pair<T1, T2> p)
-{
-	size_t s = MemSize(p.first);
-	s += MemSize(p.second);
-	return s;
-}
-
-template<class T>
-size_t MemSize(vector<T> data)
-{
-	size_t s = sizeof(size_t);
-	for (auto t : data){
-		s += MemSize(t);
-	}
 	return s;
 }

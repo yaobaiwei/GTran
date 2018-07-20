@@ -628,12 +628,6 @@ void Parser::ParseBranch(const vector<string>& params, Step_T type)
 		throw ParserException("expect at least one parameter for branch");
 	}
 
-	// branch_actor with only one branch, append branch to main
-	if (params.size() == 1 && type != Step_T::CHOOSE){
-		DoParse(params[0]);
-		return;
-	}
-
 	int branchType;
 	switch(type){
 	case Step_T::UNION:		branchType = Branch_T::UNION; break;
