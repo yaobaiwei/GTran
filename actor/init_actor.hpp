@@ -88,4 +88,4 @@ private:
     }
 };
 
-#endif /* HW_ACTOR_HPP_ */
+#endif /* INIT_ACTOR_HPP_ */
