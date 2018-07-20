@@ -238,6 +238,14 @@ public:
 		}
 	}
 
+	static void vec_pair2value_t(const vector<pair<string, string>> & v_p, vector<value_t> & vec){
+		for(auto& pair : v_p){
+			value_t v;
+			str2str("{" + pair.first + ":" + pair.second + "}",v);
+			vec.push_back(v);
+		}
+	}
+
 	static void value_t2vec(value_t & v, vector<value_t>& vec)
 	{
 		string value = value_t2string(v);
