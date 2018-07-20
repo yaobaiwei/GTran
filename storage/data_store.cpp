@@ -222,9 +222,9 @@ void DataStore::GetAllEdges(vector<eid_t> & eid_list) {
 bool DataStore::VPKeyIsExist(int tid, vpid_t vp_id) {
 	ikey_t key;
 	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
-		vpstore_->get_key_local(vp_id.value(), key);
+		vpstore_->get_key_local(vp_id.hash(), key);
 	}else{										//remotely
-		vpstore_->get_key_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), key);
+		vpstore_->get_key_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.hash(), key);
 	}
 
 	if (key.is_empty())
@@ -235,9 +235,9 @@ bool DataStore::VPKeyIsExist(int tid, vpid_t vp_id) {
 bool DataStore::EPKeyIsExist(int tid, epid_t ep_id) {
 	ikey_t key;
 	if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
-		epstore_->get_key_local(ep_id.value(), key);
+		epstore_->get_key_local(ep_id.hash(), key);
 	}else{										//remotely
-		epstore_->get_key_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), key);
+		epstore_->get_key_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.hash(), key);
 	}
 
 	if (key.is_empty())

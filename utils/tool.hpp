@@ -260,10 +260,10 @@ public:
 		string value = value_t2string(v);
 		vector<string> values = split(value, "\t");
 		vector<value_t> vec;
-		int type = v.type & 0xE;
+		int type = v.type & 0xF;
 
 		// scalar
-		if (v.type < 0xE){
+		if (v.type < 0xF){
 			vec.push_back(v);
 		}
 		else{

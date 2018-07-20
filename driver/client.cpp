@@ -218,7 +218,7 @@ next:
 
           ifstream file(bname.c_str());
           if (!file) {
-              cout << "[Client][ERROR]: " << fname << " does not exist." << endl << endl;
+              cout << "[Client][ERROR]: " << bname << " does not exist." << endl << endl;
               goto next;
           }
 
