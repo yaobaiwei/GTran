@@ -50,8 +50,11 @@ public:
 		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, num_thread_, mailbox_, &id_allocator_));
 		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(7, num_thread_, mailbox_, &id_allocator_));
 		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(8, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(9, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(10, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(9, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(10, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(11, num_thread_, mailbox_));
+		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(12, num_thread_, mailbox_));
+		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(13, num_thread_, mailbox_, data_store_));
 		//TODO add more
 	}
 

@@ -1103,6 +1103,7 @@ void Parser::ParseRange(const vector<string>& params, Step_T type)
 		start = vec[0];
 		break;
 	case Step_T::TAIL:
+		throw ParserException("tail is not supported");
 		if (params.size() != 1){
 			throw ParserException("expect one parameter for skip");
 		}
