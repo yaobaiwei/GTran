@@ -230,14 +230,12 @@ public:
 		return true;
 	}
 
-	static void kvmap2value_t(const map<string, string>& m, value_t & v){
-		v.type = 20; // vector of string
-
+	static void kvmap2value_t(const map<string, string>& m, vector<value_t> & vec){
 		for(auto& item : m){
-			str2value_t(item.first + ":" + item.second ,v);
-			v.content.push_back('\t');
+			value_t v;
+			str2str("{" + item.first + ":" + item.second + "}",v);
+			vec.push_back(v);
 		}
-		v.content.pop_back();
 	}
 
 	static void value_t2vec(value_t & v, vector<value_t>& vec)
