@@ -52,6 +52,7 @@ public:
 		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(9, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(10, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(11, num_thread_, mailbox_));
+		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(12, num_thread_, mailbox_));
 		//TODO add more
 	}
 

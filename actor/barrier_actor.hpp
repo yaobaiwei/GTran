@@ -292,6 +292,102 @@ private:
 	}
 };
 
+class DedupActor : public BarrierActorBase
+{
+public:
+	DedupActor(int id, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id), num_thread_(num_thread), mailbox_(mailbox){}
+private:
+	int num_thread_;
+	AbstractMailbox * mailbox_;
+
+	// data table
+	map<mkey_t, vector<pair<history_t, vector<value_t>>>> data_table_;
+	map<mkey_t, vector<pair<history_t, set<history_t>>>> dedup_table_;
+	mutex thread_mutex_;
+
+	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady){
+		auto itr_data = data_table_.find(key);
+		auto itr_dedup = dedup_table_.find(key);
+		if(itr_data == data_table_.end()){
+			thread_mutex_.lock();
+			itr_data = data_table_.insert(itr_data, make_pair(key, vector<pair<history_t, vector<value_t>>>()));
+			itr_dedup = dedup_table_.insert(itr_dedup,  make_pair(key, vector<pair<history_t, set<history_t>>>()));
+			thread_mutex_.unlock();
+		}
+		auto& data = itr_data->second;
+		auto& dedup_set = itr_dedup->second;
+
+		int branch_key;
+		get_branch_key(msg.meta, branch_key);
+
+		// get actor params
+		Actor_Object& actor = actors[msg.meta.step];
+		set<int> key_set;
+		for(auto& param : actor.params){
+			key_set.insert(Tool::value_t2int(param));
+		}
+
+		for(auto& p : msg.data){
+			// find branch history
+			history_t temp = p.first;
+			auto itr_sp = merge_hisotry(dedup_set, temp, branch_key);
+
+			if(itr_sp == dedup_set.end()){
+				itr_sp = dedup_set.insert(itr_sp, make_pair(move(temp), set<history_t>()));
+			}
+
+			// find if current history already added
+			auto itr_dp = find_if( data.begin(), data.end(),
+				[&p](const pair<history_t, vector<value_t>>& element){ return element.first == p.first;});
+			if(itr_dp == data.end()){
+				itr_dp = data.insert(itr_dp, make_pair(p.first, vector<value_t>()));
+			}
+
+			history_t his;
+			if(key_set.size() > 0){
+				// dedup history
+				// construct history with given key
+				for(auto& val : p.first){
+					if(key_set.count(val.first) == 0){
+						his.push_back(move(val));
+					}
+				}
+				// if histroy not in set, add one data
+				if(itr_sp->second.count(his) == 0 && p.second.size() > 0){
+					itr_dp->second.push_back(move(p.second[0]));
+					itr_sp->second.insert(move(his));
+				}
+			}else{
+				// dedup value, should check on all values
+				for(auto& val : p.second){
+					// construct history with current value
+					his.push_back(make_pair(0, val));
+					if(itr_sp->second.count(his) == 0){
+						itr_dp->second.push_back(move(val));
+						itr_sp->second.insert(move(his));
+					}
+					his.clear();
+				}
+			}
+		}
+
+		// all msg are collected
+		if(isReady){
+			vector<Message> v;
+			msg.CreateNextMsg(actors, data, num_thread_, v);
+			for(auto& m : v){
+				mailbox_->Send(t_id, m);
+			}
+
+			// remove data
+			thread_mutex_.lock();
+			data_table_.erase(data_table_.find(key));
+			dedup_table_.erase(dedup_table_.find(key));
+			thread_mutex_.unlock();
+		}
+	}
+};
+
 class GroupActor : public BarrierActorBase
 {
 public:
