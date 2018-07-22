@@ -47,14 +47,21 @@ string Client::CommitQuery(string query){
     cc_.Recv(handler, um);
 
     string result;
+	string hname;
     vector<value_t> values;
-    um >> result;
+    um >> hname;
     um >> values;
 
-    result = "";
-    for(auto& v : values){
-        result += Tool::DebugString(v) + "\t";
-    }
+	result = "";
+	if (values.size() == 0) {
+    	result = "Query '" + query + "' result: \n";
+		result += "=>Empty\n";
+	} else {
+		result = "Query '" + query + "' result: \n";
+		for(auto& v : values){
+			result += "=>" + Tool::DebugString(v) + "\n";
+		}
+	}
 
     return result;
 }
