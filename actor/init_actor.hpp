@@ -19,7 +19,10 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore) { type_ = ACTOR_T::INIT; }
+    InitActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::INIT) {
+		datastore_->GetAllEdges(eid_list);
+		datastore_->GetAllVertices(vid_list);
+	}
 
     virtual ~InitActor(){}
 
@@ -29,14 +32,9 @@ public:
 
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
 
-        vector<vid_t> vid_list;
-        vector<eid_t> eid_list;
-
         if (inType == Element_T::VERTEX) {
-            datastore_->GetAllVertices(vid_list);
             InitData(msg.data, vid_list);
         } else if (inType == Element_T::EDGE) {
-            datastore_->GetAllEdges(eid_list);
             InitData(msg.data, eid_list);
         }
 
@@ -50,20 +48,24 @@ public:
     }
 
 private:
-    // Number of threads
-    int num_thread_;
+	// Number of threads
+	int num_thread_;
 
-    // Actor type
-    ACTOR_T type_;
+	// Actor type
+	ACTOR_T type_;
 
-    // Pointer of mailbox
-    AbstractMailbox * mailbox_;
+	// Pointer of mailbox
+	AbstractMailbox * mailbox_;
 
-    // Ensure only one thread ever runs the actor
-    std::mutex thread_mutex_;
+	// Ensure only one thread ever runs the actor
+	std::mutex thread_mutex_;
 
-    // Data Store
-    DataStore * datastore_;
+	// Data Store
+	DataStore * datastore_;
+
+	// v&eid_list
+	vector<vid_t> vid_list;
+	vector<eid_t> eid_list;
 
     void InitData(vector<pair<history_t, vector<value_t>>>& data, vector<vid_t> vid_list) {
         vector<value_t> newData;
