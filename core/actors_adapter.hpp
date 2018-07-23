@@ -74,28 +74,15 @@ public:
 	void execute(int tid, Message & msg){
 		Meta & m = msg.meta;
 		if(m.msg_type == MSG_T::INIT){
-			lock_guard<mutex> lk(cv_mutex);
 			msg_logic_table_[m.qid] = move(m.actors);
-			cv_msg_table.notify_all();
 		}
 
 		auto msg_logic_table_iter = msg_logic_table_.find(m.qid);
 
 		// wait for init actor if qid not found
 		if(msg_logic_table_iter == msg_logic_table_.end()){
-			unique_lock<mutex> lk(cv_mutex);
-			cv_msg_table.wait_for(lk, chrono::microseconds(INITTIMEOUT), [&](){
-				msg_logic_table_iter = msg_logic_table_.find(m.qid);
-				// continue when qid found
-				return msg_logic_table_iter != msg_logic_table_.end();
-			});
-
-			// make sure qid was inserted before time out
-			if(msg_logic_table_iter == msg_logic_table_.end()){
-				cout << "QID IS : " << m.qid << endl;
-				cout << "ERROR: CANNOT FIND QID IN MSG_LOGIC_TABLE!" << endl;
-				exit(-1);
-			}
+			mailbox_->Send(tid, msg);
+			return;
 		}
 
 		ACTOR_T next_actor = msg_logic_table_iter->second[m.step].actor_type;
@@ -138,11 +125,6 @@ private:
 	//global map to record the vec<actor_obj> of query
 	//avoid repeatedly transfer vec<actor_obj> for message
 	hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
-	// hash_map<uint64_t, vector<Actor_Object>>::iterator msg_logic_table_iter;
-
-	// condition lock to make sure Init actor for one qid executes first
-	condition_variable cv_msg_table;
-	mutex cv_mutex;
 
 	// Thread pool
 	vector<thread> thread_pool_;
@@ -151,7 +133,6 @@ private:
 	vector<uint64_t> times_;
 	int num_thread_;
 	const static uint64_t STEALTIMEOUT = 100000;
-	const static uint64_t INITTIMEOUT = 1000000;
 };
 
 
