@@ -137,7 +137,7 @@ private:
 						}
 
 						if (counter == 0) {
-							data_pair.second.erase(value_itr);
+							value_itr = data_pair.second.erase(value_itr);
 							isEarsed = true;
 							break;
 						}
@@ -148,7 +148,7 @@ private:
 						if (pred.predicate_type == Predicate_T::ANY) {
 							if(!datastore_->VPKeyIsExist(tid, vp_id)) {
 								// erase this data and break
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
@@ -156,7 +156,7 @@ private:
 							// hasNot(key)
 							if(datastore_->VPKeyIsExist(tid, vp_id)) {
 								// erase this data and break
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
@@ -170,14 +170,14 @@ private:
 
 							if (val.content.size() == 0) {
 								// No such value or key, erase directly
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
 
 							// Erase when doesnt match
 							if(!pred.Evaluate(&val)) {
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
@@ -222,7 +222,7 @@ private:
 						}
 
 						if (counter == 0) {
-							data_pair.second.erase(value_itr);
+							value_itr = data_pair.second.erase(value_itr);
 							isEarsed = true;
 							break;
 						}
@@ -233,7 +233,7 @@ private:
 						if (pred.predicate_type == Predicate_T::ANY) {
 							if(!datastore_->EPKeyIsExist(tid, ep_id)) {
 								// erase this data when NOT exist
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
@@ -241,7 +241,7 @@ private:
 							// hasNot(key)
 							if(datastore_->EPKeyIsExist(tid, ep_id)) {
 								// erase this data when exist
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
@@ -255,14 +255,14 @@ private:
 
 							if (val.content.size() == 0) {
 								// No such value or key, erase directly
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
 
 							// Erase when doesnt match
 							if(!pred.Evaluate(&val)) {
-								data_pair.second.erase(value_itr);
+								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}

@@ -112,7 +112,7 @@ private:
 
 				if (!isPass) {
 					// if not pass, erase this item
-					data_pair.second.erase(value_itr);
+					value_itr = data_pair.second.erase(value_itr);
 				} else {
 					value_itr++;
 				}
@@ -144,7 +144,7 @@ private:
 
 				if (!isPass) {
 					// if not pass, erase this item
-					data_pair.second.erase(value_itr);
+					value_itr = data_pair.second.erase(value_itr);
 				} else {
 					value_itr++;
 				}
