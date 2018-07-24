@@ -24,7 +24,7 @@ struct msg_id_alloc{
 // Base class for branch actors
 class BranchActorBase :  public AbstractActor{
 public:
-	BranchActorBase(int id, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
+	BranchActorBase(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
 protected:
 	// main logic of branch actors
 	virtual void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady) = 0;
@@ -41,7 +41,7 @@ protected:
 		get_steps(actors[msg.meta.step], step_vec);
 
 		vector<Message> msg_vec;
-		msg.CreateBranchedMsg(actors, step_vec, msg_id, num_thread_, msg_vec);
+		msg.CreateBranchedMsg(actors, step_vec, msg_id, num_thread_, data_store_, msg_vec);
 		for (auto& msg : msg_vec){
 			mailbox_->Send(t_id, msg);
 		}
@@ -176,7 +176,7 @@ private:
 
 class BranchActor : public BranchActorBase{
 public:
-	BranchActor(int id, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): BranchActorBase(id, num_thread, mailbox, allocator){}
+	BranchActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): BranchActorBase(id, data_store, num_thread, mailbox, allocator){}
 	void process(int t_id, vector<Actor_Object> & actors,  Message & msg){
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			send_branch_msg(t_id, actors, msg);
@@ -226,7 +226,7 @@ private:
 		if(isReady){
 			msg.meta.branch_infos.pop_back();
 			vector<Message> v;
-			msg.CreateNextMsg(actors, branch_data, num_thread_, v);
+			msg.CreateNextMsg(actors, branch_data, num_thread_, data_store_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -284,7 +284,7 @@ private:
 
 class BranchFilterActor : public BranchActorBase{
 public:
-	BranchFilterActor(int id, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): BranchActorBase(id, num_thread, mailbox, allocator){}
+	BranchFilterActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): BranchActorBase(id, data_store, num_thread, mailbox, allocator){}
 	void process(int t_id, vector<Actor_Object> & actors,  Message & msg){
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			uint64_t msg_id = send_branch_msg(t_id, actors, msg);
@@ -377,7 +377,7 @@ private:
 			// remove last branch info
 			msg.meta.branch_infos.pop_back();
 			vector<Message> v;
-			msg.CreateNextMsg(actors, data, num_thread_, v);
+			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}

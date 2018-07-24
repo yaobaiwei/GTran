@@ -22,7 +22,6 @@
 #include "actor/key_actor.hpp"
 #include "actor/label_actor.hpp"
 #include "actor/properties_actor.hpp"
-#include "actor/redirect_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
 
@@ -43,22 +42,21 @@ public:
 	}
 
 	void Init(){
-		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(1, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::REDIRECT] = unique_ptr<AbstractActor>(new RedirectActor(2, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, rc_));
-		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(5, num_thread_, mailbox_));
-		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, num_thread_, mailbox_, &id_allocator_));
-		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(7, num_thread_, mailbox_, &id_allocator_));
-		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(8, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(9, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(10, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(11, num_thread_, mailbox_));
-		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(12, num_thread_, mailbox_));
-		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(13, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(14, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, num_thread_, mailbox_, data_store_));
-		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(16, num_thread_, mailbox_, data_store_));
+		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(1, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(2, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, data_store_, rc_));
+		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(5, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, data_store_, num_thread_, mailbox_, &id_allocator_));
+		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(7, data_store_, num_thread_, mailbox_, &id_allocator_));
+		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(8, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(9, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(10, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(11, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(12, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(13, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(14, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
 

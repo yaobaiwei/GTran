@@ -12,10 +12,11 @@
 #include <vector>
 
 #include "core/message.hpp"
+#include "storage/data_store.hpp"
 
 class AbstractActor {
 public:
-	AbstractActor(int id):id_(id){}
+	AbstractActor(int id, DataStore* data_store):id_(id), data_store_(data_store){}
 
 	virtual ~AbstractActor() {}
 
@@ -25,9 +26,13 @@ public:
 
 	virtual void process(int t_id, vector<Actor_Object> & actors, Message & msg) = 0;
 
+protected:
+	// Data Store
+    DataStore* data_store_;
+
 private:
-  // Actor ID
-  int id_;
+	// Actor ID
+	int id_;
 };
 
 #endif /* ABSTRACT_ACTOR_HPP_ */

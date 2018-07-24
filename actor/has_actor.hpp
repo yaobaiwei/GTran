@@ -22,7 +22,7 @@
 
 class HasActor : public AbstractActor {
 public:
-	HasActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::HAS) {}
+	HasActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::HAS) {}
 
 	// Has:
 	// inType
@@ -74,7 +74,7 @@ public:
 
 		// Create Message
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {
@@ -102,7 +102,7 @@ private:
 	std::mutex thread_mutex_;
 
 	// DataStore
-	DataStore * datastore_;
+	DataStore * data_store_;
 
 	// Cache
 	ActorCache cache;
@@ -120,14 +120,14 @@ private:
 					Predicate pred = pred_pair.second;
 
 					if (pid == -1) {
-						Vertex* vtx = datastore_->GetVertex(v_id);
+						Vertex* vtx = data_store_->GetVertex(v_id);
 						int counter = vtx->vp_list.size();
 						for (auto & pkey : vtx->vp_list) {
 							vpid_t vp_id(v_id, pkey);
 
 							value_t val;
 							if (!cache.get_property_from_cache(vp_id.value(), val)) {
-								datastore_->GetPropertyForVertex(tid, vp_id, val);
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
 								cache.insert_properties(vp_id.value(), val);
 							}
 
@@ -146,7 +146,7 @@ private:
 						vpid_t vp_id(v_id, pid);
 
 						if (pred.predicate_type == Predicate_T::ANY) {
-							if(!datastore_->VPKeyIsExist(tid, vp_id)) {
+							if(!data_store_->VPKeyIsExist(tid, vp_id)) {
 								// erase this data and break
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
@@ -154,7 +154,7 @@ private:
 							}
 						} else if (pred.predicate_type == Predicate_T::NONE) {
 							// hasNot(key)
-							if(datastore_->VPKeyIsExist(tid, vp_id)) {
+							if(data_store_->VPKeyIsExist(tid, vp_id)) {
 								// erase this data and break
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
@@ -164,7 +164,7 @@ private:
 							// Get Properties
 							value_t val;
 							if (!cache.get_property_from_cache(vp_id.value(), val)) {
-								datastore_->GetPropertyForVertex(tid, vp_id, val);
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
 								cache.insert_properties(vp_id.value(), val);
 							}
 
@@ -205,14 +205,14 @@ private:
 					Predicate pred = pred_pair.second;
 
 					if (pid == -1) {
-						Edge* edge = datastore_->GetEdge(e_id);
+						Edge* edge = data_store_->GetEdge(e_id);
 						int counter = edge->ep_list.size();
 						for (auto & pkey : edge->ep_list) {
 							epid_t ep_id(e_id, pkey);
 
 							value_t val;
 							if (!cache.get_property_from_cache(ep_id.value(), val)) {
-								datastore_->GetPropertyForEdge(tid, ep_id, val);
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
 								cache.insert_properties(ep_id.value(), val);
 							}
 
@@ -231,7 +231,7 @@ private:
 						epid_t ep_id(e_id, pid);
 
 						if (pred.predicate_type == Predicate_T::ANY) {
-							if(!datastore_->EPKeyIsExist(tid, ep_id)) {
+							if(!data_store_->EPKeyIsExist(tid, ep_id)) {
 								// erase this data when NOT exist
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
@@ -239,7 +239,7 @@ private:
 							}
 						} else if (pred.predicate_type == Predicate_T::NONE) {
 							// hasNot(key)
-							if(datastore_->EPKeyIsExist(tid, ep_id)) {
+							if(data_store_->EPKeyIsExist(tid, ep_id)) {
 								// erase this data when exist
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
@@ -249,7 +249,7 @@ private:
 							// Get Properties
 							value_t val;
 							if (!cache.get_property_from_cache(ep_id.value(), val)) {
-								datastore_->GetPropertyForEdge(tid, ep_id, val);
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
 								cache.insert_properties(ep_id.value(), val);
 							}
 

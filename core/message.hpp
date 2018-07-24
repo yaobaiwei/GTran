@@ -15,6 +15,7 @@
 #include "base/type.hpp"
 #include "base/predicate.hpp"
 #include "actor/actor_object.hpp"
+#include "storage/data_store.hpp"
 
 #define TEN_MB 1048576
 
@@ -109,18 +110,21 @@ public:
 	// data:    new data processed by actor_type
 	// vec:     messages to be send
 	// mapper:  function that maps value_t to particular machine, default NULL
-	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, vector<Message>& vec, function<int(value_t &)>(*mapper) = NULL);
+	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec);
 
 	// actors:  actors chain for current message
 	// stpes:   branching steps
 	// msg_id:  assigned by actor to indicate parent msg
 	// vec:     messages to be send
-	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, vector<Message>& vec);
+	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec);
 
 	std::string DebugString() const;
 
 private:
-	bool update_route(vector<Actor_Object>& actors, Meta& m, int branch_depth);
+	// dispatch input data to different node
+	void dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, bool route_assigned, vector<Message>& vec);
+	bool update_route(Meta& m, vector<Actor_Object>& actors);
+	static int get_node_id(value_t & v, DataStore* data_store);
 };
 
 ibinstream& operator<<(ibinstream& m, const Message& msg);

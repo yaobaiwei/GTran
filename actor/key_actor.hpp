@@ -21,7 +21,7 @@
 
 class KeyActor : public AbstractActor {
 public:
-	KeyActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::KEY) {}
+	KeyActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::KEY) {}
 
 	// Key:
 	// 		Output all keys of properties of input
@@ -43,12 +43,12 @@ public:
 				EdgeKeys(tid, msg.data);
 				break;
 			default:
-				cout << "Wrong in type"  << endl; 
+				cout << "Wrong in type"  << endl;
 		}
 
 		// Create Message
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {
@@ -75,9 +75,6 @@ private:
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
 
-	// DataStore
-	DataStore * datastore_;
-
 	void VertexKeys(int tid, vector<pair<history_t, vector<value_t>>> & data) {
 		for (auto & data_pair : data) {
 			vector<value_t> newData;
@@ -85,10 +82,10 @@ private:
 
 				vid_t v_id(Tool::value_t2int(elem));
 
-				Vertex* vtx = datastore_->GetVertex(v_id);
+				Vertex* vtx = data_store_->GetVertex(v_id);
 				for (auto & pkey : vtx->vp_list) {
 					string keyStr;
-					datastore_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
+					data_store_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
 
 					value_t val;
 					Tool::str2str(keyStr, val);
@@ -107,10 +104,10 @@ private:
 				eid_t e_id;
 				uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
-				Edge* edge = datastore_->GetEdge(e_id);
+				Edge* edge = data_store_->GetEdge(e_id);
 				for (auto & pkey : edge->ep_list) {
 					string keyStr;
-					datastore_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
+					data_store_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
 
 					value_t val;
 					Tool::str2str(keyStr, val);

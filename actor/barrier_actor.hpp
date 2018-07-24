@@ -16,7 +16,7 @@
 // Base class for barrier actors
 class BarrierActorBase :  public AbstractActor{
 public:
-	BarrierActorBase(int id) : AbstractActor(id){}
+	BarrierActorBase(int id, DataStore* data_store) : AbstractActor(id, data_store){}
 	void process(int t_id, vector<Actor_Object> & actors, Message & msg){
 		// get msg info
 		mkey_t key;
@@ -199,7 +199,7 @@ private:
 class EndActor : public BarrierActorBase
 {
 public:
-	EndActor(int id, Result_Collector * rc) : BarrierActorBase(id), rc_(rc){}
+	EndActor(int id, DataStore* data_store, Result_Collector * rc) : BarrierActorBase(id, data_store), rc_(rc){}
 
 private:
 	Result_Collector * rc_;
@@ -236,7 +236,7 @@ private:
 class CountActor : public BarrierActorBase
 {
 public:
-	CountActor(int id, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id), num_thread_(num_thread), mailbox_(mailbox){}
+	CountActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
 private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
@@ -279,7 +279,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -295,7 +295,7 @@ private:
 class DedupActor : public BarrierActorBase
 {
 public:
-	DedupActor(int id, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id), num_thread_(num_thread), mailbox_(mailbox){}
+	DedupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
 private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
@@ -374,7 +374,7 @@ private:
 		// all msg are collected
 		if(isReady){
 			vector<Message> v;
-			msg.CreateNextMsg(actors, data, num_thread_, v);
+			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -391,12 +391,10 @@ private:
 class GroupActor : public BarrierActorBase
 {
 public:
-	GroupActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : BarrierActorBase(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore){}
+	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
 private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
-	// DataStore
-	DataStore * datastore_;
 
 	// data table
 	map<mkey_t, vector<pair<history_t, map<string, vector<value_t>>>>> data_table_;
@@ -446,10 +444,10 @@ private:
 			for(auto& val : p.second){
 				value_t k = val;
 				value_t v = val;
-				if(! kp(t_id, k, keyProjection, datastore_)){
+				if(! kp(t_id, k, keyProjection, data_store_)){
 					continue;
 				}
-				if(! vp(t_id, v, valueProjection, datastore_)){
+				if(! vp(t_id, v, valueProjection, data_store_)){
 					continue;
 				}
 				string key = Tool::DebugString(k);
@@ -484,7 +482,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -500,7 +498,7 @@ private:
 class RangeActor : public BarrierActorBase
 {
 public:
-	RangeActor(int id, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id), num_thread_(num_thread), mailbox_(mailbox){}
+	RangeActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
 private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
@@ -572,7 +570,7 @@ private:
 		// all msg are collected
 		if(isReady){
 			vector<Message> v;
-			msg.CreateNextMsg(actors, data, num_thread_, v);
+			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}

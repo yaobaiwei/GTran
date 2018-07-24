@@ -26,9 +26,7 @@ using namespace std::placeholders;
 
 class TraversalActor : public AbstractActor {
 public:
-	TraversalActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::TRAVERSAL) {
-		fp = [&](value_t & v) { return get_node_id(v); } ;
-	}
+	TraversalActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::TRAVERSAL) {}
 
 	// TraversalActorObject->Params;
 	//  inType--outType--dir--lid
@@ -72,26 +70,11 @@ public:
 
 		// Create Message
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec, &fp);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {
 			mailbox_->Send(tid, msg);
-		}
-	}
-
-	int get_node_id(value_t & v) {
-		int type = v.type;
-		if (type == 1) {
-			vid_t v_id(Tool::value_t2int(v));
-			return datastore_->GetMachineIdForVertex(v_id);
-		} else if (type == 5) {
-			eid_t e_id;
-			uint2eid_t(Tool::value_t2uint64_t(v), e_id);
-			return datastore_->GetMachineIdForEdge(e_id);
-		} else {
-			cout << "Wrong Type when getting node id" << type << endl;
-			return -1;
 		}
 	}
 
@@ -114,13 +97,6 @@ private:
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
 
-	// DataStore
-	DataStore * datastore_;
-
-	// Function pointer to assign dst
-	function<int(value_t &)> fp;
-
-
 	//============Vertex===============
 	// Get IN/OUT/BOTH of Vertex
 	void GetNeighborOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
@@ -130,7 +106,7 @@ private:
 			for (auto & value : pair.second) {
 				// Get the current vertex id and use it to get vertex instance
 				vid_t cur_vtx_id(Tool::value_t2int(value));
-				Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
+				Vertex* vtx = data_store_->GetVertex(cur_vtx_id);
 
 				// for each neighbor, create a new value_t and store into newData
 				// IN & BOTH
@@ -140,7 +116,7 @@ private:
 						if (lid > 0) {
 							eid_t e_id(in_nb.value(), cur_vtx_id.value());
 							label_t label;
-							datastore_->GetLabelForEdge(tid, e_id, label);
+							data_store_->GetLabelForEdge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -157,7 +133,7 @@ private:
 						if (lid > 0) {
 							eid_t e_id(cur_vtx_id.value(), out_nb.value());
 							label_t label;
-							datastore_->GetLabelForEdge(tid, e_id, label);
+							data_store_->GetLabelForEdge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -184,7 +160,7 @@ private:
 			for (auto & value : pair.second) {
 				// Get the current vertex id and use it to get vertex instance
 				vid_t cur_vtx_id(Tool::value_t2int(value));
-				Vertex* vtx = datastore_->GetVertex(cur_vtx_id);
+				Vertex* vtx = data_store_->GetVertex(cur_vtx_id);
 
 				if (dir != Direction_T::OUT) {
 					for (auto & in_nb : vtx->in_nbs) { // in_nb : vid_t
@@ -192,7 +168,7 @@ private:
 						eid_t e_id(in_nb.value(), cur_vtx_id.value());
 						if (lid > 0) {
 							label_t label;
-							datastore_->GetLabelForEdge(tid, e_id, label);
+							data_store_->GetLabelForEdge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -209,7 +185,7 @@ private:
 						eid_t e_id(cur_vtx_id.value(), out_nb.value());
 						if (lid > 0) {
 							label_t label;
-							datastore_->GetLabelForEdge(tid, e_id, label);
+							data_store_->GetLabelForEdge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;

@@ -1222,7 +1222,6 @@ void Parser::ParseTraversal(const vector<string>& params, Step_T type)
 	//@ RedirectActor params: (Element_T inType)
 	//  i_type = E/V, o_type = E/V
 	Actor_Object actor(ACTOR_T::TRAVERSAL);
-	Actor_Object redirect_actor(ACTOR_T::REDIRECT);
 	int traversal_type = type;
 	Element_T inType;
 	Element_T outType;
@@ -1280,9 +1279,6 @@ void Parser::ParseTraversal(const vector<string>& params, Step_T type)
 			throw ParserException("unexpected label: " + params[0]);
 		}
 	}
-
-	redirect_actor.AddParam(inType);
-	AppendActor(redirect_actor);
 
 	actor.AddParam(inType);
 	actor.AddParam(outType);

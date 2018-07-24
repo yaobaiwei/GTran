@@ -22,7 +22,7 @@
 
 class LabelActor : public AbstractActor {
 public:
-	LabelActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::LABEL) {}
+	LabelActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::LABEL) {}
 
 	// Label:
 	// 		Output all labels of input
@@ -44,12 +44,12 @@ public:
 				EdgeLabel(tid, msg.data);
 				break;
 			default:
-				cout << "Wrong in type"  << endl; 
+				cout << "Wrong in type"  << endl;
 		}
 
 		// Create Message
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {
@@ -76,9 +76,6 @@ private:
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
 
-	// DataStore
-	DataStore * datastore_;
-
 	// Cache
 	ActorCache cache;
 
@@ -91,12 +88,12 @@ private:
 
 				label_t label;
 				if (!cache.get_label_from_cache(v_id.value(), label)) {
-					datastore_->GetLabelForVertex(tid, v_id, label);
+					data_store_->GetLabelForVertex(tid, v_id, label);
 					cache.insert_label(v_id.value(), label);
 				}
 
 				string keyStr;
-				datastore_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
+				data_store_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
 
 				value_t val;
 				Tool::str2str(keyStr, val);
@@ -117,12 +114,12 @@ private:
 
 				label_t label;
 				if (!cache.get_label_from_cache(e_id.value(), label)) {
-					datastore_->GetLabelForEdge(tid, e_id, label);
+					data_store_->GetLabelForEdge(tid, e_id, label);
 					cache.insert_label(e_id.value(), label);
 				}
 
 				string keyStr;
-				datastore_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);
+				data_store_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);
 
 				value_t val;
 				Tool::str2str(keyStr, val);

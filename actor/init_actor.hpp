@@ -19,9 +19,9 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::INIT) {
-		datastore_->GetAllEdges(eid_list);
-		datastore_->GetAllVertices(vid_list);
+    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::INIT) {
+		data_store_->GetAllEdges(eid_list);
+		data_store_->GetAllVertices(vid_list);
 	}
 
     virtual ~InitActor(){}
@@ -39,7 +39,7 @@ public:
         }
 
         vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
+        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -59,9 +59,6 @@ private:
 
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
-
-	// Data Store
-	DataStore * datastore_;
 
 	// v&eid_list
 	vector<vid_t> vid_list;

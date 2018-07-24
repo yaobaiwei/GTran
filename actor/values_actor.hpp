@@ -21,7 +21,7 @@
 
 class ValuesActor : public AbstractActor {
 public:
-	ValuesActor(int id, int num_thread, AbstractMailbox * mailbox, DataStore * datastore) : AbstractActor(id), num_thread_(num_thread), mailbox_(mailbox), datastore_(datastore), type_(ACTOR_T::VALUES) {}
+	ValuesActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::VALUES) {}
 
 	// inType, [key]+
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
@@ -46,7 +46,7 @@ public:
 		}
 
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, msg_vec);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {
@@ -67,9 +67,6 @@ private:
     // Ensure only one thread ever runs the actor
     std::mutex thread_mutex_;
 
-    // Data Store
-    DataStore * datastore_;
-
 	// Cache
 	ActorCache cache;
 
@@ -81,7 +78,7 @@ private:
 				vid_t v_id(Tool::value_t2int(value));
 
 				if (key_list.empty()) {
-					Vertex* vtx = datastore_->GetVertex(v_id);
+					Vertex* vtx = data_store_->GetVertex(v_id);
 					for (auto & pkey : vtx->vp_list) {
 						vpid_t vp_id(v_id, pkey);
 
@@ -90,7 +87,7 @@ private:
 						if (!cache.get_property_from_cache(vp_id.value(), val)) {
 							// not found in cache
 							cout << "not found in cache" << endl;
-							datastore_->GetPropertyForVertex(tid, vp_id, val);
+							data_store_->GetPropertyForVertex(tid, vp_id, val);
 							cache.insert_properties(vp_id.value(), val);
 						}
 
@@ -100,14 +97,14 @@ private:
 					for (auto key : key_list) {
 						vpid_t vp_id(v_id, key);
 
-						if(! datastore_->VPKeyIsExist(tid, vp_id)) {
+						if(! data_store_->VPKeyIsExist(tid, vp_id)) {
 							continue;
 						}
 
 						value_t val;
 						if (!cache.get_property_from_cache(vp_id.value(), val)) {
 							cout << "not found in cache" << endl;
-							datastore_->GetPropertyForVertex(tid, vp_id, val);
+							data_store_->GetPropertyForVertex(tid, vp_id, val);
 							cache.insert_properties(vp_id.value(), val);
 						}
 
@@ -130,7 +127,7 @@ private:
 				uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
 				if (key_list.empty()) {
-					Edge* edge = datastore_->GetEdge(e_id);
+					Edge* edge = data_store_->GetEdge(e_id);
 					for (auto & pkey : edge->ep_list) {
 						epid_t ep_id(e_id, pkey);
 
@@ -138,7 +135,7 @@ private:
 						if (!cache.get_property_from_cache(ep_id.value(), val)) {
 							// not found in cache
 							cout << "not found in cache" << endl;
-							datastore_->GetPropertyForEdge(tid, ep_id, val);
+							data_store_->GetPropertyForEdge(tid, ep_id, val);
 							cache.insert_properties(ep_id.value(), val);
 						}
 
@@ -148,7 +145,7 @@ private:
 					for (auto key : key_list) {
 						epid_t ep_id(e_id, key);
 
-						if(! datastore_->EPKeyIsExist(tid, ep_id)) {
+						if(! data_store_->EPKeyIsExist(tid, ep_id)) {
 							continue;
 						}
 
@@ -156,7 +153,7 @@ private:
 						if (!cache.get_property_from_cache(ep_id.value(), val)) {
 							// not found in cache
 							cout << "not found in cache" << endl;
-							datastore_->GetPropertyForEdge(tid, ep_id, val);
+							data_store_->GetPropertyForEdge(tid, ep_id, val);
 							cache.insert_properties(ep_id.value(), val);
 						}
 
