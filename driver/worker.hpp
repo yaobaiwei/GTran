@@ -106,6 +106,8 @@ public:
 	}
 
 	void Start(){
+
+		//===================prepare stage=================
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_, config_);
 
 		//set the in-memory layout for RDMA buf
@@ -131,74 +133,8 @@ public:
 
 		datastore->DataConverter();
 		worker_barrier(my_node_);
-		cout << "DONE -> Datastore->DataConverter()" << endl;
 
-		//TEST
-		vid_t vid(3);
-		if(id_mapper->IsVertexLocal(vid)){
-			Vertex* v = datastore->GetVertex(vid);
-			cout << "RANK: " << my_node_.get_local_rank() << " GET VTX.IN_NBS => ";
-			for(auto & nb : v->in_nbs){
-				cout << nb.vid << ", ";
-			}
-			cout << endl;
-		}
-
-		eid_t eid(6,3);
-		if(id_mapper->IsEdgeLocal(eid)){
-			Edge* e = datastore->GetEdge(eid);
-			cout << "RANK: " << my_node_.get_local_rank() << " GET EDGE.PPT_LIST => ";
-			for(auto & label : e->ep_list){
-				cout <<  label << ", ";
-			}
-			cout << endl;
-		}
-
-		vpid_t vpid(6,2);
-		value_t val;
-		datastore->GetPropertyForVertex(0, vpid, val);
-		cout << "RANK " << my_node_.get_local_rank() << " GET VP.VALUE => ";
-		switch(val.type){
-			case 1:
-				cout << Tool::value_t2int(val) << endl;
-				break;
-			case 2:
-				cout << Tool::value_t2double(val) << endl;
-				break;
-			case 3:
-				cout << Tool::value_t2char(val) << endl;
-				break;
-			case 4:
-				cout << Tool::value_t2string(val) << endl;
-				break;
-		}
-
-		epid_t epid(1,3,1);
-		value_t val2;
-		datastore->GetPropertyForEdge(0, epid, val2);
-		cout << "RANK " << my_node_.get_local_rank() << " GET EP.VALUE => ";
-		switch(val2.type){
-			case 1:
-				cout << to_string(Tool::value_t2int(val2)) << endl;
-				break;
-			case 2:
-				cout << to_string(Tool::value_t2double(val2)) << endl;
-				break;
-			case 3:
-				cout << to_string(Tool::value_t2char(val2)) << endl;
-				break;
-			case 4:
-				cout << Tool::value_t2string(val2) << endl;
-				break;
-		}
-
-		label_t vl;
-		datastore->GetLabelForVertex(0, vid, vl);
-		cout << "RANK " << my_node_.get_local_rank() << " GET VTX LABEL => " << (char)vl << endl;
-
-		label_t el;
-		datastore->GetLabelForEdge(0, eid, el);
-		cout << "RANK " << my_node_.get_local_rank() << " GET EDGE LABEL => " << (char)el << endl;
+		cout << "DONE -> Datastore->LoadData()" << endl;
 
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox);
@@ -210,6 +146,8 @@ public:
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_->global_num_threads, rc_, mailbox, datastore);
 		actor_adapter->Start();
 
+
+		//pop out the query result from collector, automatically block when it's empty and wait
 		//fake, should find a way to stop
 		while(1){
 			reply re;

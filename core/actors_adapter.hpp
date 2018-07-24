@@ -16,7 +16,6 @@
 #include "actor/abstract_actor.hpp"
 #include "actor/barrier_actor.hpp"
 #include "actor/branch_actor.hpp"
-#include "actor/hw_actor.hpp"
 #include "actor/has_actor.hpp"
 #include "actor/has_label_actor.hpp"
 #include "actor/init_actor.hpp"
@@ -44,7 +43,6 @@ public:
 	}
 
 	void Init(){
-		actors_[ACTOR_T::HW] = unique_ptr<AbstractActor>(new HwActor(0, node_, rc_, mailbox_));
 		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(1, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::REDIRECT] = unique_ptr<AbstractActor>(new RedirectActor(2, num_thread_, mailbox_, data_store_));
 		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, num_thread_, mailbox_, data_store_));
