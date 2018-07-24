@@ -83,9 +83,6 @@ private:
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
 
-	// DataStore
-	DataStore * data_store_;
-
 	// Cache
 	ActorCache cache;
 
