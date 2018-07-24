@@ -11,15 +11,13 @@
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
+#include "actor/actor_cache.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
 #include "storage/layout.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
-
-// TODO : Cache
-// 		  Combine PropertyActor and ValuesActor
 
 class ValuesActor : public AbstractActor {
 public:
@@ -72,6 +70,9 @@ private:
     // Data Store
     DataStore * datastore_;
 
+	// Cache
+	ActorCache cache;
+
 	void get_properties_for_vertex(int tid, vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
 		for (auto & pair : data) {
 			vector<value_t> newData;
@@ -85,7 +86,13 @@ private:
 						vpid_t vp_id(v_id, pkey);
 
 						value_t val;
-						datastore_->GetPropertyForVertex(tid, vp_id, val);
+						// Try cache
+						if (!cache.get_property_from_cache(vp_id.value(), val)) {
+							// not found in cache
+							cout << "not found in cache" << endl;
+							datastore_->GetPropertyForVertex(tid, vp_id, val);
+							cache.insert_properties(vp_id.value(), val);
+						}
 
 						newData.push_back(val);
 					}
@@ -98,7 +105,11 @@ private:
 						}
 
 						value_t val;
-						datastore_->GetPropertyForVertex(tid, vp_id, val);
+						if (!cache.get_property_from_cache(vp_id.value(), val)) {
+							cout << "not found in cache" << endl;
+							datastore_->GetPropertyForVertex(tid, vp_id, val);
+							cache.insert_properties(vp_id.value(), val);
+						}
 
 						newData.push_back(val);
 					}
@@ -124,7 +135,12 @@ private:
 						epid_t ep_id(e_id, pkey);
 
 						value_t val;
-						datastore_->GetPropertyForEdge(tid, ep_id, val);
+						if (!cache.get_property_from_cache(ep_id.value(), val)) {
+							// not found in cache
+							cout << "not found in cache" << endl;
+							datastore_->GetPropertyForEdge(tid, ep_id, val);
+							cache.insert_properties(ep_id.value(), val);
+						}
 
 						newData.push_back(val);
 					}
@@ -137,7 +153,12 @@ private:
 						}
 
 						value_t val;
-						datastore_->GetPropertyForEdge(tid, ep_id, val);
+						if (!cache.get_property_from_cache(ep_id.value(), val)) {
+							// not found in cache
+							cout << "not found in cache" << endl;
+							datastore_->GetPropertyForEdge(tid, ep_id, val);
+							cache.insert_properties(ep_id.value(), val);
+						}
 
 						newData.push_back(val);
 					}

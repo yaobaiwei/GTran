@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
+#include "actor/actor_cache.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
@@ -18,8 +19,6 @@
 #include "storage/layout.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
-
-// TODO : Cache
 
 class HasActor : public AbstractActor {
 public:
@@ -105,6 +104,9 @@ private:
 	// DataStore
 	DataStore * datastore_;
 
+	// Cache
+	ActorCache cache;
+
 	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, Predicate>> & pred_chain)
 	{
 		for (auto & data_pair : data) {
@@ -124,7 +126,10 @@ private:
 							vpid_t vp_id(v_id, pkey);
 
 							value_t val;
-							datastore_->GetPropertyForVertex(tid, vp_id, val);
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								datastore_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 
 							if(!pred.Evaluate(&val)) {
 								counter--;
@@ -158,7 +163,10 @@ private:
 						} else {
 							// Get Properties
 							value_t val;
-							datastore_->GetPropertyForVertex(tid, vp_id, val);
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								datastore_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 
 							if (val.content.size() == 0) {
 								// No such value or key, erase directly
@@ -203,7 +211,10 @@ private:
 							epid_t ep_id(e_id, pkey);
 
 							value_t val;
-							datastore_->GetPropertyForEdge(tid, ep_id, val);
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								datastore_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 
 							if(!pred.Evaluate(&val)) {
 								counter--;
@@ -237,7 +248,10 @@ private:
 						} else {
 							// Get Properties
 							value_t val;
-							datastore_->GetPropertyForEdge(tid, ep_id, val);
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								datastore_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 
 							if (val.content.size() == 0) {
 								// No such value or key, erase directly
