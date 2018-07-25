@@ -62,6 +62,7 @@ public:
 		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(16, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(17, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(18, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
 

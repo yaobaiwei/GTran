@@ -583,3 +583,133 @@ private:
 		}
 	}
 };
+
+class MathActor : public BarrierActorBase
+{
+public:
+	MathActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+private:
+	int num_thread_;
+	AbstractMailbox * mailbox_;
+
+	// data table
+	map<mkey_t, vector<pair<history_t, pair<value_t, int>>>> data_table_;
+	mutex thread_mutex_;
+
+	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady){
+		auto itr_data = data_table_.find(key);
+		if(itr_data == data_table_.end()){
+			thread_mutex_.lock();
+			itr_data = data_table_.insert(itr_data, make_pair(key, vector<pair<history_t, pair<value_t, int>>>()));
+			thread_mutex_.unlock();
+		}
+		auto& data = itr_data->second;
+
+		int branch_key;
+		get_branch_key(msg.meta, branch_key);
+
+		// get actor params
+		Actor_Object& actor = actors[msg.meta.step];
+		assert(actor.params.size() == 1);
+		Math_T math_type = (Math_T)Tool::value_t2int(actor.params[0]);
+		void (*op)(pair<value_t, int>&, value_t&);
+		switch(math_type){
+		case Math_T::SUM:
+		case Math_T::MEAN:	op = sum;break;
+		case Math_T::MAX:	op = max;break;
+		case Math_T::MIN:	op = min;break;
+		default: 			cout << "Unexpected math type in MathActor" << endl;
+		}
+
+		for(auto& p : msg.data){
+			// find history in data
+			auto data_itr = merge_hisotry(data, p.first, branch_key);
+
+			if(data_itr == data.end()){
+				// insert empty value_t with count = 0
+				data_itr = data.insert(data_itr, make_pair(move(p.first), make_pair(value_t(), 0)));
+			}
+
+			for(auto& val : p.second){
+				op(data_itr->second, val);	// operate on new value
+			}
+		}
+
+		// all msg are collected
+		if(isReady){
+			bool isMean = math_type == Math_T::MEAN;
+			vector<pair<history_t, vector<value_t>>> msg_data;
+			for(auto& p : data){
+				pair<value_t, int>& val = p.second;
+				vector<value_t> val_vec;
+				// count > 0
+				if(val.second > 0){
+					// convert value to double
+					to_double(val, isMean);
+					val_vec.push_back(move(val.first));
+				}
+				msg_data.push_back(make_pair(move(p.first), move(val_vec)));
+			}
+
+			vector<Message> v;
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			for(auto& m : v){
+				mailbox_->Send(t_id, m);
+			}
+
+			// remove data
+			thread_mutex_.lock();
+			data_table_.erase(data_table_.find(key));
+			thread_mutex_.unlock();
+		}
+	}
+
+	static void sum(pair<value_t, int>& p, value_t& v){
+		if(p.second == 0){
+			p.first = move(v);
+			p.second ++;
+			return;
+		}
+		value_t temp = p.first;
+		p.first.content.clear();
+		switch(v.type){
+		case 1:
+			Tool::str2int(to_string(Tool::value_t2int(temp) + Tool::value_t2int(v)), p.first);
+			break;
+		case 2:
+			Tool::str2double(to_string(Tool::value_t2double(temp) + Tool::value_t2double(v)), p.first);
+			break;
+		}
+		p.second ++;
+	}
+	static void max(pair<value_t, int>& p, value_t& v){
+		if(p.second == 0 || p.first < v){
+			p.first = move(v);
+		}
+		p.second ++;
+	}
+
+	static void min(pair<value_t, int>& p, value_t& v){
+		if(p.second == 0 || p.first > v){
+			p.first = move(v);
+		}
+		p.second ++;
+	}
+
+	static void to_double(pair<value_t, int>& p, bool isMean){
+		value_t temp = p.first;
+
+		// divide value by count if isMean
+		int count = isMean ? p.second : 1;
+
+		p.first.content.clear();
+		switch(p.first.type){
+		case 1:
+			Tool::str2double(to_string((double)Tool::value_t2int(temp) / count), p.first);
+			break;
+		case 2:
+			Tool::str2double(to_string(Tool::value_t2double(temp) / count), p.first);
+			break;
+		}
+	}
+};
