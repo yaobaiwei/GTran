@@ -14,6 +14,7 @@
 #include <thread>
 
 #include "actor/abstract_actor.hpp"
+#include "actor/as_actor.hpp"
 #include "actor/barrier_actor.hpp"
 #include "actor/branch_actor.hpp"
 #include "actor/has_actor.hpp"
@@ -23,6 +24,7 @@
 #include "actor/label_actor.hpp"
 #include "actor/labelled_branch_actor.hpp"
 #include "actor/properties_actor.hpp"
+#include "actor/select_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
 
@@ -58,6 +60,8 @@ public:
 		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(13, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(14, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(16, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(17, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
 
