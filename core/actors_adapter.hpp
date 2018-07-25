@@ -21,6 +21,7 @@
 #include "actor/init_actor.hpp"
 #include "actor/key_actor.hpp"
 #include "actor/label_actor.hpp"
+#include "actor/labelled_branch_actor.hpp"
 #include "actor/properties_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
@@ -47,7 +48,7 @@ public:
 		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, data_store_, rc_));
 		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(5, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, data_store_, num_thread_, mailbox_, &id_allocator_));
+		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(7, data_store_, num_thread_, mailbox_, &id_allocator_));
 		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(8, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(9, data_store_, num_thread_, mailbox_));
