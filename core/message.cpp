@@ -170,11 +170,20 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		info.msg_path = to_string(step_count);
 		info.msg_id = 0;
 	}
+
+	string tail = m.msg_path.substr(parent_path.size());
+	// append "\t" to tail when first char is not "\t"
+	if(tail != "" && tail.find("\t") != 0){
+		tail = "\t" + tail;
+	}
+
 	//	insert step_count into current msg path
 	// 	e.g.:
-	// "3\t2\t4" with parent path "3\t2", steps num 5 => "3\t2\t5\t4"
-	m.msg_path = info.msg_path + "\t" + m.msg_path.substr(parent_path.size());
-	m.msg_path = Tool::trim(m.msg_path, "\t");
+	// "3\t2\t4" with parent path "3\t2", steps num 5
+	//  info.msg_path => "3\t2\t5"
+	//  tail = "4"
+	//  msg_path = "3\t2\t5\t4"
+	m.msg_path = info.msg_path + tail;
 
 	// copy labeled data to each step
 	for(int i = 0; i < steps.size(); i ++){
@@ -322,17 +331,27 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 
 	// send history with empty data
 	if(empty_his.size() != 0){
+		// empty data should be send to:
+		// 1. barrier actor, msg_type = BARRIER
+		// 2. branch actor: which will broadcast empty data to barriers inside each branches for msg collection, msg_type = SPAWN
+		// 3. labelled branch parent: which will collect branched msg with label, msg_type = BRANCH
 		while(m.step < actors.size()){
 			if(actors[m.step].IsBarrier()){
 				// to barrier
 				break;
 			}
 			else if(actors[m.step].actor_type == ACTOR_T::BRANCH){
-				// to branch actor, broadcast empty data to each branches
-				break;
+				if(m.step <= this->meta.step){
+					// to branch parent, pop back one branch info
+					// as barrier actor is not founded in sub branch, continue to search
+					m.branch_infos.pop_back();
+				}else{
+					// to branch actor for the first time, should broadcast empty data to each branches
+					break;
+				}
 			}
 			else if(m.step < this->meta.step){
-				// to branch parent
+				// to labelled branch parent
 				break;
 			}
 
