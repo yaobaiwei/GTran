@@ -225,7 +225,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 
 				// insert his/value pair to corresponding node
 				for(auto& item : id2value_t){
-					id2data[item.first].push_back(make_pair(move(p.first), move(item.second)));
+					id2data[item.first].push_back(make_pair(p.first, move(item.second)));
 				}
 			}
 		}
