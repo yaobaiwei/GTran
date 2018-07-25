@@ -114,9 +114,14 @@ public:
 
 	// actors:  actors chain for current message
 	// stpes:   branching steps
+	// vec:     messages to be send
+	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, vector<Message>& vec);
+
+	// actors:  actors chain for current message
+	// stpes:   branching steps
 	// msg_id:  assigned by actor to indicate parent msg
 	// vec:     messages to be send
-	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec);
+	void CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec);
 
 	std::string DebugString() const;
 

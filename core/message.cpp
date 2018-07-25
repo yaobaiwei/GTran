@@ -143,7 +143,69 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	}
 }
 
-void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec){
+void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, vector<Message>& vec){
+	Meta m = this->meta;
+
+	// append steps num into msg path
+	int step_count = steps.size();
+
+	// update branch info
+	Branch_Info info;
+
+	// parent msg end path
+	string parent_path = "";
+
+	int branch_depth = m.branch_infos.size() - 1;
+	if(branch_depth >= 0){
+		// use parent branch's route
+		info = m.branch_infos[branch_depth];
+		parent_path = info.msg_path;
+
+		// update current branch's end path with steps num
+		info.msg_path += "\t" + to_string(step_count);
+	}else{
+		info.node_id = m.parent_nid;
+		info.thread_id = m.parent_tid;
+		info.key = -1;
+		info.msg_path = to_string(step_count);
+		info.msg_id = 0;
+	}
+	//	insert step_count into current msg path
+	// 	e.g.:
+	// "3\t2\t4" with parent path "3\t2", steps num 5 => "3\t2\t5\t4"
+	m.msg_path = info.msg_path + "\t" + m.msg_path.substr(parent_path.size());
+	m.msg_path = Tool::trim(m.msg_path, "\t");
+
+	// copy labeled data to each step
+	for(int i = 0; i < steps.size(); i ++){
+		Meta step_meta = m;
+
+		int step = steps[i];
+		bool routeAssigned = false;
+		if(actors[step].IsBarrier()){
+			step_meta.msg_type = MSG_T::BARRIER;
+			routeAssigned = true;
+		}
+		else{
+			step_meta.msg_type = MSG_T::SPAWN;
+		}
+		info.index = i + 1;
+		step_meta.branch_infos.push_back(info);
+		step_meta.step = step;
+
+		auto temp = data;
+		// feed data to msg
+		int count = vec.size();
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, routeAssigned, vec);
+
+		// set msg_path for each branch
+		for(int j = count; j < vec.size(); j++){
+			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
+		}
+	}
+}
+
+void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec){
 	Meta m = this->meta;
 
 	// update branch info
@@ -183,7 +245,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
 
-		vector<pair<history_t, vector<value_t>>> temp = labeled_data;
+		auto temp = labeled_data;
 		// feed data to msg
 		int count = vec.size();
 		dispatch_data(step_meta, actors, temp, num_thread, data_store, routeAssigned, vec);
@@ -208,7 +270,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 	}
 
 	// enable route mapping
-	if(actors[m.step].actor_type == ACTOR_T::TRAVERSAL && ! route_assigned){
+	if(actors[m.step].actor_type == ACTOR_T::TRAVERSAL){
 		for(auto& p: data){
 			map<int, vector<value_t>> id2value_t;
 			if(p.second.size() == 0){
@@ -262,13 +324,21 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 	if(empty_his.size() != 0){
 		while(m.step < actors.size()){
 			if(actors[m.step].IsBarrier()){
+				// to barrier
+				break;
+			}
+			else if(actors[m.step].actor_type == ACTOR_T::BRANCH){
+				// to branch actor, broadcast empty data to each branches
 				break;
 			}
 			else if(m.step < this->meta.step){
+				// to branch parent
 				break;
 			}
+
 			m.step = actors[m.step].next_actor;
 		}
+
 		update_route(m, actors);
 		// feed history to msg
 		do{
@@ -298,14 +368,24 @@ bool Message::update_route(Meta& m, vector<Actor_Object>& actors){
 		m.msg_type = MSG_T::BARRIER;
 		return true;
 	}
-	else if(m.step < this->meta.step){
-		// branch actor
-		int branch_depth = m.branch_infos.size() - 1;
+	else if(m.step <= this->meta.step){
+		// to branch parent
 		assert(branch_depth >= 0);
-		m.recver_nid = m.branch_infos[branch_depth].node_id;
-		m.recver_tid = m.branch_infos[branch_depth].thread_id;
-		m.msg_type = MSG_T::BRANCH;
-		return true;
+
+		if(actors[m.step].actor_type == ACTOR_T::BRANCH){
+			// don't need to send msg back to parent branch step
+			// go to next actor of parent
+			m.step = actors[m.step].next_actor;
+			m.branch_infos.pop_back();
+
+			return update_route(m, actors);
+		}else{
+			// aggregate labelled branch actors to parent machine
+			m.recver_nid = m.branch_infos[branch_depth].node_id;
+			m.recver_tid = m.branch_infos[branch_depth].thread_id;
+			m.msg_type = MSG_T::BRANCH;
+			return true;
+		}
 	}
 	else{
 		// normal actor, recver = sender
