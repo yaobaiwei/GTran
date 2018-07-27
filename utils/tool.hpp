@@ -288,7 +288,11 @@ public:
 			return string(v.content.begin(), v.content.end());
 		case 2:
 			d = Tool::value_t2double(v);
-			return to_string(d);
+			temp = to_string(d);
+			if(abs(d) >= 1){
+				temp = trim(temp, ".0");
+			}
+			return temp;
 		case 1:
 			i = Tool::value_t2int(v);
 			return to_string(i);

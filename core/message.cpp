@@ -127,11 +127,8 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
 
-	// update recver
-	// specify if recver route should not be changed
-	bool routeAssigned = update_route(m, actors);
+	dispatch_data(m, actors, data, num_thread, data_store,vec);
 
-	dispatch_data(m, actors, data, num_thread, data_store, routeAssigned,vec);
 	// set disptching path
 	string num = to_string(vec.size());
 	if(meta.msg_path != ""){
@@ -170,25 +167,26 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		info.msg_path = to_string(step_count);
 		info.msg_id = 0;
 	}
+
+	string tail = m.msg_path.substr(parent_path.size());
+	// append "\t" to tail when first char is not "\t"
+	if(tail != "" && tail.find("\t") != 0){
+		tail = "\t" + tail;
+	}
+
 	//	insert step_count into current msg path
 	// 	e.g.:
-	// "3\t2\t4" with parent path "3\t2", steps num 5 => "3\t2\t5\t4"
-	m.msg_path = info.msg_path + "\t" + m.msg_path.substr(parent_path.size());
-	m.msg_path = Tool::trim(m.msg_path, "\t");
+	// "3\t2\t4" with parent path "3\t2", steps num 5
+	//  info.msg_path => "3\t2\t5"
+	//  tail = "4"
+	//  msg_path = "3\t2\t5\t4"
+	m.msg_path = info.msg_path + tail;
 
 	// copy labeled data to each step
 	for(int i = 0; i < steps.size(); i ++){
 		Meta step_meta = m;
 
 		int step = steps[i];
-		bool routeAssigned = false;
-		if(actors[step].IsBarrier()){
-			step_meta.msg_type = MSG_T::BARRIER;
-			routeAssigned = true;
-		}
-		else{
-			step_meta.msg_type = MSG_T::SPAWN;
-		}
 		info.index = i + 1;
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
@@ -196,7 +194,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		auto temp = data;
 		// feed data to msg
 		int count = vec.size();
-		dispatch_data(step_meta, actors, temp, num_thread, data_store, routeAssigned, vec);
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
 
 		// set msg_path for each branch
 		for(int j = count; j < vec.size(); j++){
@@ -233,14 +231,6 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 	for(int i = 0; i < steps.size(); i ++){
 		int step = steps[i];
 		Meta step_meta = m;
-		bool routeAssigned = false;
-		if(actors[step].IsBarrier()){
-			step_meta.msg_type = MSG_T::BARRIER;
-			routeAssigned = true;
-		}
-		else{
-			step_meta.msg_type = MSG_T::SPAWN;
-		}
 		info.index = i + 1;
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
@@ -248,7 +238,7 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 		auto temp = labeled_data;
 		// feed data to msg
 		int count = vec.size();
-		dispatch_data(step_meta, actors, temp, num_thread, data_store, routeAssigned, vec);
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
 
 		// set msg_path for each branch
 		for(int j = count; j < vec.size(); j++){
@@ -257,8 +247,9 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 	}
 }
 
-void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, bool route_assigned, vector<Message>& vec)
+void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
 {
+	bool route_assigned = update_route(m, actors);
 	// node id to data
 	map<int, vector<pair<history_t, vector<value_t>>>> id2data;
 	vector<pair<history_t, vector<value_t>>> empty_his;
@@ -322,17 +313,27 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 
 	// send history with empty data
 	if(empty_his.size() != 0){
+		// empty data should be send to:
+		// 1. barrier actor, msg_type = BARRIER
+		// 2. branch actor: which will broadcast empty data to barriers inside each branches for msg collection, msg_type = SPAWN
+		// 3. labelled branch parent: which will collect branched msg with label, msg_type = BRANCH
 		while(m.step < actors.size()){
 			if(actors[m.step].IsBarrier()){
 				// to barrier
 				break;
 			}
 			else if(actors[m.step].actor_type == ACTOR_T::BRANCH){
-				// to branch actor, broadcast empty data to each branches
-				break;
+				if(m.step <= this->meta.step){
+					// to branch parent, pop back one branch info
+					// as barrier actor is not founded in sub branch, continue to search
+					m.branch_infos.pop_back();
+				}else{
+					// to branch actor for the first time, should broadcast empty data to each branches
+					break;
+				}
 			}
 			else if(m.step < this->meta.step){
-				// to branch parent
+				// to labelled branch parent
 				break;
 			}
 

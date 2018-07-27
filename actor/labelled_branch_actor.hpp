@@ -112,13 +112,14 @@ private:
 	bool IsReady(mkey_t key, string end_path, string msg_path, int branch_num)
 	{
 		// get counter for key
+		counters_mutex_.lock();
 		auto itr = path_counters_.find(key);
 		if(itr == path_counters_.end()){
-			counters_mutex_.lock();
 			itr = path_counters_.insert(itr, make_pair(key, map<string, int>()));
 			branch_num_counters_[key] = 0;
-			counters_mutex_.unlock();
 		}
+		counters_mutex_.unlock();
+
 		map<string, int> &counter =  itr->second;
 
 		// check if all msg are collected
@@ -210,12 +211,13 @@ public:
 private:
 	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady)
 	{
+		data_mutex_.lock();
 		auto itr = counter_table_.find(key);
 		if(itr == counter_table_.end()){
-			data_mutex_.lock();
 			itr = counter_table_.insert(itr, make_pair(key, map<int, uint32_t>()));
-			data_mutex_.unlock();
 		}
+		data_mutex_.unlock();
+
 		map<int, uint32_t> &counter =  itr->second;
 
 		int info_size = msg.meta.branch_infos.size();

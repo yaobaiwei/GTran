@@ -127,7 +127,7 @@ public:
 
 private:
 	// dispatch input data to different node
-	void dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, bool route_assigned, vector<Message>& vec);
+	void dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec);
 	bool update_route(Meta& m, vector<Actor_Object>& actors);
 	static int get_node_id(value_t & v, DataStore* data_store);
 };

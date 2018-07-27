@@ -64,8 +64,10 @@ public:
 		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(16, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(17, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(18, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(19, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(18, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(19, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(20, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(21, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
 

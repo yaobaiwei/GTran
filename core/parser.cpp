@@ -975,7 +975,7 @@ void Parser::ParseLoops(const vector<string>& params)
 void Parser::ParseMath(const vector<string>& params, Step_T type)
 {
 	//@ LabelActor params: (Math_T mathType)
-	//  i_type = o_type = NUMBER
+	//  i_type = NUMBER, o_type = DOUBLE
 	Actor_Object actor(ACTOR_T::MATH);
 	if (params.size() != 0){
 		throw ParserException("expect no parameter for math");
@@ -997,6 +997,7 @@ void Parser::ParseMath(const vector<string>& params, Step_T type)
 	actor.AddParam(mathType);
 
 	AppendActor(actor);
+	io_type_ = IO_T::DOUBLE;
 }
 
 void Parser::ParseOrder(const vector<string>& params)
@@ -1005,8 +1006,8 @@ void Parser::ParseOrder(const vector<string>& params)
 	//  i_type = o_type = any
 
 	Actor_Object actor(ACTOR_T::ORDER);
-	if (params.size() > 1){
-		throw ParserException("expect at most one param in order");
+	if (params.size() > 2){
+		throw ParserException("expect at most two params in order");
 	}
 
 	Element_T element_type;
