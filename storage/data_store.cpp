@@ -42,7 +42,7 @@ void DataStore::LoadDataFromHDFS(){
 	get_vertices();
 	get_vplist();
 	get_eplist();
-	// upload_pty_types();
+	upload_pty_types();
 }
 
 void DataStore::Shuffle()
