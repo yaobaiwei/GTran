@@ -42,7 +42,7 @@ void DataStore::LoadDataFromHDFS(){
 	get_vertices();
 	get_vplist();
 	get_eplist();
-	upload_pty_types();
+	// upload_pty_types();
 }
 
 void DataStore::Shuffle()
@@ -335,6 +335,36 @@ void DataStore::GetNameFromIndex(Index_T type, label_t id, string & str) {
 			return;
 	}
 		
+}
+
+void DataStore::InsertAggData(agg_t key, vector<value_t> & data) {
+	lock_guard<mutex> lock(agg_mutex);
+
+	unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
+	if (itr == agg_data_table.end()) {
+		// Not Found, insert
+		agg_data_table.insert(pair<agg_t, vector<value_t>>(key, data));
+	} else {
+		agg_data_table.at(key).insert(agg_data_table.at(key).end(), data.begin(), data.end());
+	}
+}
+
+void DataStore::GetAggData(agg_t key, vector<value_t> & data) {
+	lock_guard<mutex> lock(agg_mutex);
+
+	unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
+	if (itr != agg_data_table.end()) {
+		data = itr->second;
+	}
+}
+
+void DataStore::DeleteAggData(agg_t key) {
+	lock_guard<mutex> lock(agg_mutex);
+
+	unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
+	if (itr != agg_data_table.end()) {
+		agg_data_table.erase(itr);
+	}
 }
 
 void DataStore::get_string_indexes()

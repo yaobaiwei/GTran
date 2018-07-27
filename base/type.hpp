@@ -28,6 +28,7 @@ using namespace std;
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
 
+static uint64_t _32LFLAG = 0xFFFFFFFF;
 static uint64_t _28LFLAG = 0xFFFFFFF;
 static uint64_t _12LFLAG = 0xFFF;
 
@@ -419,6 +420,8 @@ struct qid_t{
 	}
 };
 
+void uint2qid_t(uint64_t v, qid_t & qid);
+
 // msg key for branch and barrier actors
 struct mkey_t {
 	uint64_t qid;	// qid
@@ -452,4 +455,68 @@ struct mkey_t {
 		}
 	}
 };
+
+// Aggregate data Key
+// qid | nid | label_key 
+//  32 |  24 |         8
+enum { NBITS_NID = 24 };
+enum { NBITS_LABEL = 8 };
+struct agg_t {
+	uint32_t qr;
+	uint32_t nid;
+	uint8_t label_key;
+
+	agg_t() : qr(0), nid(0), label_key(0){}
+	agg_t(qid_t _qid, int _label_key) : label_key(_label_key) {
+		qr = _qid.qr;
+		nid = _qid.nid;
+	}
+
+	agg_t(uint64_t qid_value, int _label_key) : label_key(_label_key) {
+		qid_t _qid;
+		uint2qid_t(qid_value, _qid);
+
+		qr = _qid.qr;
+		nid = _qid.nid;
+	}
+
+	bool operator==(const agg_t & key) const {
+		if ((qr == key.qr) && (nid == key.nid) && (label_key == key.label_key)) {
+			return true;
+		}
+		return false;
+	}
+
+	uint64_t value(){
+		uint64_t r = 0;
+		r += qr;
+		r <<= 32;
+		r += nid;
+		r <<= NBITS_NID;
+		r += label_key;
+		return r;
+	}
+
+    uint64_t hash() {
+        return mymath::hash_u64(value());
+    }
+};
+
+namespace std {
+	template <>
+	struct hash<agg_t> {
+		size_t operator()(const agg_t& key) const {
+			//TODO
+			int k1 = (int)key.qr;
+			int k2 = (int)key.nid;
+			int k3 = (int)key.label_key;
+			size_t seed = 0;
+			mymath::hash_combine(seed, k1);
+			mymath::hash_combine(seed, k2);
+			mymath::hash_combine(seed, k3);
+			return seed;
+		}
+	};
+}
+
 #endif /* TYPE_HPP_ */

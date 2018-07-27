@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <stdlib.h>
 #include <ext/hash_map>
@@ -83,6 +84,12 @@ public:
 
 	void GetNameFromIndex(Index_T type, label_t label, string & str);
 
+	void InsertAggData(agg_t key, vector<value_t> & data);
+
+	void GetAggData(agg_t key, vector<value_t> & data);
+
+	void DeleteAggData(agg_t key);
+
 private:
 
 	Buffer * buffer_;
@@ -94,6 +101,9 @@ private:
 	string_index indexes; //index is global, no need to shuffle
 	hash_map<vid_t, Vertex*> v_table;
 	hash_map<eid_t, Edge*> e_table;
+
+	unordered_map<agg_t, vector<value_t>> agg_data_table;
+	mutex agg_mutex;
 
     VKVStore * vpstore_;
     EKVStore * epstore_;
