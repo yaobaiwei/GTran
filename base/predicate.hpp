@@ -22,16 +22,24 @@ bool operator <=(const value_t& v1, const value_t& v2);
 
 bool operator >=(const value_t& v1, const value_t& v2);
 
-class Predicate{
-public:
-	Predicate_T predicate_type;
-	vector<value_t>	values;
+struct PredicateValue {
+	Predicate_T pred_type;
+	vector<value_t> values;
 
-	bool Evaluate(value_t *value = NULL);
+	PredicateValue(Predicate_T _pred_type, vector<value_t> _values) : pred_type(_pred_type), values(_values) {} 
 
-	Predicate(Predicate_T p_type, vector<value_t> vec) : predicate_type(p_type), values(vec){}
-
-	Predicate(Predicate_T p_type, value_t& value) : predicate_type(p_type){
+	PredicateValue(Predicate_T _pred_type, value_t value) : pred_type(_pred_type) {
 		Tool::value_t2vec(value, values);
 	}
 };
+
+struct PredicateHistory {
+	Predicate_T pred_type;
+	vector<int> history_step_labels;
+
+	PredicateHistory(Predicate_T _pred_type, vector<int> _step_labels) : pred_type(_pred_type), history_step_labels(_step_labels) {}
+};
+
+bool Evaluate (PredicateValue & pv, value_t *value = NULL);
+
+bool Evaluate (Predicate_T pred_type, value_t & val1, value_t & val2);

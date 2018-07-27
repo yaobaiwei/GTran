@@ -42,7 +42,7 @@ public:
 		Actor_Object actor_obj = actor_objs[m.step];
 
 		// store all predicate
-		vector<pair<int, Predicate>> pred_chain;
+		vector<pair<int, PredicateValue>> pred_chain;
 
 		// Get Params
 		assert(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 3 == 0); // make sure input format
@@ -58,7 +58,7 @@ public:
 			vector<value_t> pred_params;
 			Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
 
-			pred_chain.push_back(pair<int, Predicate>(pid, Predicate(pred_type, pred_params)));
+			pred_chain.push_back(pair<int, PredicateValue>(pid, PredicateValue(pred_type, pred_params)));
 		}
 
 		switch(inType) {
@@ -104,7 +104,7 @@ private:
 	// Cache
 	ActorCache cache;
 
-	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, Predicate>> & pred_chain)
+	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain)
 	{
 		for (auto & data_pair : data) {
 			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
@@ -114,7 +114,7 @@ private:
 				bool isEarsed = false;
 				for (auto & pred_pair : pred_chain) {
 					int pid = pred_pair.first;
-					Predicate pred = pred_pair.second;
+					PredicateValue pred = pred_pair.second;
 
 					if (pid == -1) {
 						Vertex* vtx = data_store_->GetVertex(v_id);
@@ -128,7 +128,7 @@ private:
 								cache.insert_properties(vp_id.value(), val);
 							}
 
-							if(!pred.Evaluate(&val)) {
+							if(!Evaluate(pred, &val)) {
 								counter--;
 							}
 						}
@@ -142,14 +142,14 @@ private:
 
 						vpid_t vp_id(v_id, pid);
 
-						if (pred.predicate_type == Predicate_T::ANY) {
+						if (pred.pred_type == Predicate_T::ANY) {
 							if(!data_store_->VPKeyIsExist(tid, vp_id)) {
 								// erase this data and break
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
-						} else if (pred.predicate_type == Predicate_T::NONE) {
+						} else if (pred.pred_type == Predicate_T::NONE) {
 							// hasNot(key)
 							if(data_store_->VPKeyIsExist(tid, vp_id)) {
 								// erase this data and break
@@ -173,7 +173,7 @@ private:
 							}
 
 							// Erase when doesnt match
-							if(!pred.Evaluate(&val)) {
+							if(!Evaluate(pred, &val)) {
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
@@ -189,7 +189,7 @@ private:
 		}
 	}
 
-	void EvaluateEdge(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, Predicate>> & pred_chain) {
+	void EvaluateEdge(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
 		for (auto & data_pair : data) {
 			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
 
@@ -199,7 +199,7 @@ private:
 				bool isEarsed = false;
 				for (auto & pred_pair : pred_chain) {
 					int pid = pred_pair.first;
-					Predicate pred = pred_pair.second;
+					PredicateValue pred = pred_pair.second;
 
 					if (pid == -1) {
 						Edge* edge = data_store_->GetEdge(e_id);
@@ -213,7 +213,7 @@ private:
 								cache.insert_properties(ep_id.value(), val);
 							}
 
-							if(!pred.Evaluate(&val)) {
+							if(!Evaluate(pred, &val)) {
 								counter--;
 							}
 						}
@@ -227,14 +227,14 @@ private:
 
 						epid_t ep_id(e_id, pid);
 
-						if (pred.predicate_type == Predicate_T::ANY) {
+						if (pred.pred_type == Predicate_T::ANY) {
 							if(!data_store_->EPKeyIsExist(tid, ep_id)) {
 								// erase this data when NOT exist
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;
 							}
-						} else if (pred.predicate_type == Predicate_T::NONE) {
+						} else if (pred.pred_type == Predicate_T::NONE) {
 							// hasNot(key)
 							if(data_store_->EPKeyIsExist(tid, ep_id)) {
 								// erase this data when exist
@@ -258,7 +258,7 @@ private:
 							}
 
 							// Erase when doesnt match
-							if(!pred.Evaluate(&val)) {
+							if(!Evaluate(pred, &val)) {
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;

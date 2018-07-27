@@ -20,6 +20,7 @@
 #include "actor/has_actor.hpp"
 #include "actor/has_label_actor.hpp"
 #include "actor/init_actor.hpp"
+#include "actor/is_actor.hpp"
 #include "actor/key_actor.hpp"
 #include "actor/label_actor.hpp"
 #include "actor/labelled_branch_actor.hpp"
@@ -27,6 +28,7 @@
 #include "actor/select_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
+#include "actor/where_actor.hpp"
 
 #include "base/node.hpp"
 #include "base/type.hpp"
@@ -62,6 +64,8 @@ public:
 		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(16, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(17, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(18, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(19, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
 
