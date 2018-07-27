@@ -457,13 +457,15 @@ struct mkey_t {
 };
 
 // Aggregate data Key
-// qid | nid | label_key 
+//  qr | nid | label_key 
 //  32 |  16 |        16 
+enum { NBITS_QR = 32 };
 enum { NBITS_NID = 16 };
+enum { NBITS_SEK = 16 };
 struct agg_t {
-	uint32_t qr;
-	uint32_t nid;
-	uint32_t label_key;
+	uint64_t qr : NBITS_QR;
+	uint64_t nid : NBITS_NID;
+	uint64_t label_key : NBITS_SEK;
 
 	agg_t() : qr(0), nid(0), label_key(0){}
 	agg_t(qid_t _qid, int _label_key) : label_key(_label_key) {
@@ -489,7 +491,7 @@ struct agg_t {
 	uint64_t value(){
 		uint64_t r = 0;
 		r += qr;
-		r <<= 32;
+		r <<= NBITS_QR;
 		r += nid;
 		r <<= NBITS_NID;
 		r += label_key;
