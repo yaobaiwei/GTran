@@ -127,11 +127,8 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
 
-	// update recver
-	// specify if recver route should not be changed
-	bool routeAssigned = update_route(m, actors);
+	dispatch_data(m, actors, data, num_thread, data_store,vec);
 
-	dispatch_data(m, actors, data, num_thread, data_store, routeAssigned,vec);
 	// set disptching path
 	string num = to_string(vec.size());
 	if(meta.msg_path != ""){
@@ -190,14 +187,6 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		Meta step_meta = m;
 
 		int step = steps[i];
-		bool routeAssigned = false;
-		if(actors[step].IsBarrier()){
-			step_meta.msg_type = MSG_T::BARRIER;
-			routeAssigned = true;
-		}
-		else{
-			step_meta.msg_type = MSG_T::SPAWN;
-		}
 		info.index = i + 1;
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
@@ -205,7 +194,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		auto temp = data;
 		// feed data to msg
 		int count = vec.size();
-		dispatch_data(step_meta, actors, temp, num_thread, data_store, routeAssigned, vec);
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
 
 		// set msg_path for each branch
 		for(int j = count; j < vec.size(); j++){
@@ -242,14 +231,6 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 	for(int i = 0; i < steps.size(); i ++){
 		int step = steps[i];
 		Meta step_meta = m;
-		bool routeAssigned = false;
-		if(actors[step].IsBarrier()){
-			step_meta.msg_type = MSG_T::BARRIER;
-			routeAssigned = true;
-		}
-		else{
-			step_meta.msg_type = MSG_T::SPAWN;
-		}
 		info.index = i + 1;
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
@@ -257,7 +238,7 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 		auto temp = labeled_data;
 		// feed data to msg
 		int count = vec.size();
-		dispatch_data(step_meta, actors, temp, num_thread, data_store, routeAssigned, vec);
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
 
 		// set msg_path for each branch
 		for(int j = count; j < vec.size(); j++){
@@ -266,8 +247,9 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 	}
 }
 
-void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, bool route_assigned, vector<Message>& vec)
+void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
 {
+	bool route_assigned = update_route(m, actors);
 	// node id to data
 	map<int, vector<pair<history_t, vector<value_t>>>> id2data;
 	vector<pair<history_t, vector<value_t>>> empty_his;
