@@ -19,8 +19,6 @@
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
-// TODO : Between in sequential
-
 class WhereActor : public AbstractActor {
 public:
 	WhereActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::WHERE) {}
@@ -122,9 +120,7 @@ private:
 			Predicate_T pred_type = pred.pred_type;
 			vector<int> step_labels = pred.history_step_labels;
 
-			// TODO : Between and outside
-
-			if (step_labels.at(0) == -1) { // only one history key
+			if (step_labels.at(0) == -1) {
 				// Find the value of history_label
 
 				for (auto & data_pair : data) {
