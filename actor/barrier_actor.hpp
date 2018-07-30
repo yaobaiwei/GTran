@@ -234,6 +234,134 @@ private:
 	}
 };
 
+class AggregateActor : public BarrierActorBase
+{
+public:
+	AggregateActor(int id, DataStore* data_store, int num_nodes, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_nodes_(num_nodes), num_thread_(num_thread), mailbox_(mailbox){}
+
+private:
+	map<mkey_t, vector<value_t>> data_table_;
+	map<mkey_t, vector<pair<history_t, vector<value_t>>>> msg_data_table_;
+	mutex thread_mutex_;
+
+	int num_nodes_;
+	int num_thread_;
+	AbstractMailbox * mailbox_;
+
+	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady){
+		thread_mutex_.lock();
+		auto itr_data = data_table_.find(key);
+		auto itr_msg_data = msg_data_table_.find(key);
+		if(itr_data == data_table_.end()){
+			itr_data = data_table_.insert(itr_data, make_pair(key, vector<value_t>()));
+			itr_msg_data = msg_data_table_.insert(itr_msg_data, make_pair(key, vector<pair<history_t, vector<value_t>>>()));
+		}
+		thread_mutex_.unlock();
+
+		auto& data = itr_data->second;
+		auto& msg_data = itr_msg_data->second;
+
+		// move msg data to data table
+		for(auto& p: msg.data){
+			auto itr = find_if( msg_data.begin(), msg_data.end(),
+				[&p](const pair<history_t, vector<value_t>>& element){ return element.first == p.first;});
+			if(itr == msg_data.end()){
+				itr = msg_data.insert(itr, make_pair(move(p.first), vector<value_t>()));
+			}
+
+			itr->second.insert(itr->second.end(), p.second.begin(), p.second.end());
+			data.insert(data.end(), std::make_move_iterator(p.second.begin()), std::make_move_iterator(p.second.end()));
+		}
+
+		// all msg are collected
+		if(isReady){
+			Actor_Object& actor = actors[msg.meta.step];
+			assert(actor.params.size() == 2);
+			int key = Tool::value_t2int(actor.params[1]);
+
+			// insert to current node's storage
+			data_store_->InsertAggData(agg_t(msg.meta.qid, key), data);
+
+			vector<Message> v;
+			// send aggregated data to other nodes
+			msg.CreateFeedMsg(key, num_nodes_, data, v);
+			// send input data and history to next actor
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+
+			for(auto& m : v){
+				mailbox_->Send(t_id, m);
+			}
+
+			// remove data
+			thread_mutex_.lock();
+			data_table_.erase(itr_data);
+			msg_data_table_.erase(itr_msg_data);
+			thread_mutex_.unlock();
+		}
+	}
+};
+
+class CapActor : public BarrierActorBase
+{
+public:
+	CapActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+
+private:
+	mutex thread_mutex_;
+
+	int num_thread_;
+	AbstractMailbox * mailbox_;
+
+	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady){
+		// all msg are collected
+		if(isReady){
+			Actor_Object& actor = actors[msg.meta.step];
+			vector<pair<history_t, vector<value_t>>> data;
+			data.push_back(make_pair(history_t(), vector<value_t>()));
+
+			// calculate max size of one value_t with empty history
+			// max msg size - sizeof(data with one empty pair) - sizeof(empty value_t)
+			size_t max_size = msg.max_data_size - MemSize(data) - MemSize(value_t());
+
+			// side-effect key list
+			for (int i = 0; i < actor.params.size(); i++) {
+				int se_key = Tool::value_t2int(actor.params.at(i));
+				vector<value_t> vec;
+				data_store_->GetAggData(agg_t(msg.meta.qid, se_key), vec);
+
+				string temp = se_key + ":[";
+				for(auto& val : vec){
+					temp += Tool::DebugString(val) + ", ";
+				}
+				// remove trailing ", "
+				if(vec.size() > 0){
+					temp.pop_back();
+					temp.pop_back();
+				}
+				temp += "]";
+
+				while(1){
+					value_t v;
+					// each value_t should have at most max_size
+					Tool::str2str(temp.substr(0, max_size), v);
+					data[0].second.push_back(v);
+					if(temp.size() > max_size){
+						temp = temp.substr(max_size);
+					}else{
+						break;
+					}
+				}
+			}
+
+			vector<Message> v;
+			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
+			for(auto& m : v){
+				mailbox_->Send(t_id, m);
+			}
+		}
+	}
+};
+
 class CountActor : public BarrierActorBase
 {
 public:

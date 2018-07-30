@@ -47,27 +47,30 @@ public:
 	}
 
 	void Init(){
-		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(1, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(2, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(3, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(4, data_store_, rc_));
-		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(5, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(6, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(7, data_store_, num_thread_, mailbox_, &id_allocator_));
-		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(8, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(9, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(10, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(11, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(12, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(13, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(14, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(15, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(16, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(17, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(18, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(19, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(20, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(21, data_store_, num_thread_, mailbox_));
+		int id = 0;
+		actors_[ACTOR_T::AGGREGATE] = unique_ptr<AbstractActor>(new AggregateActor(id ++, data_store_, node_.get_local_size() ,num_thread_, mailbox_));
+		actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, data_store_, num_thread_, mailbox_, &id_allocator_));
+		actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, data_store_ ,num_thread_, mailbox_));
+		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, rc_));
+		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
 
@@ -86,12 +89,19 @@ public:
 		Meta & m = msg.meta;
 		if(m.msg_type == MSG_T::INIT){
 			msg_logic_table_[m.qid] = move(m.actors);
+		}else if(m.msg_type == MSG_T::FEED){
+			assert(msg.data.size() == 1);
+			agg_t agg_key(m.qid, m.step);
+			data_store_->InsertAggData(agg_key, msg.data[0].second);
+			return ;
 		}
 
 		auto msg_logic_table_iter = msg_logic_table_.find(m.qid);
 
-		// wait for init actor if qid not found
+		// qid not found
 		if(msg_logic_table_iter == msg_logic_table_.end()){
+			// throw msg to the same thread as init msg
+			msg.meta.recver_tid = msg.meta.parent_tid;
 			mailbox_->Send(tid, msg);
 			return;
 		}
