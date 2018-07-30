@@ -127,16 +127,17 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
 
+	int count = vec.size();
 	dispatch_data(m, actors, data, num_thread, data_store,vec);
 
 	// set disptching path
-	string num = to_string(vec.size());
+	string num = to_string(vec.size() - count);
 	if(meta.msg_path != ""){
 		num = "\t" + num;
 	}
 
-	for(auto &msg : vec){
-		msg.meta.msg_path += num;
+	for(int i = count; i < vec.size(); i++){
+		vec[i].meta.msg_path += num;
 	}
 }
 
@@ -192,7 +193,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		step_meta.step = step;
 
 		auto temp = data;
-		// feed data to msg
+		// dispatch data to msg vec
 		int count = vec.size();
 		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
 
@@ -236,7 +237,7 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 		step_meta.step = step;
 
 		auto temp = labeled_data;
-		// feed data to msg
+		// dispatch data to msg vec
 		int count = vec.size();
 		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
 
@@ -244,6 +245,27 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 		for(int j = count; j < vec.size(); j++){
 			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
 		}
+	}
+}
+
+void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vector<Message>& vec){
+	Meta m;
+	m.qid = this->meta.qid;
+	m.recver_tid = this->meta.parent_tid;
+	m.step = key;
+	m.msg_type = MSG_T::FEED;
+
+	auto temp_data = make_pair(history_t(), data);
+
+	for(int i = 0; i < nodes_num; i++){
+		// skip parent node
+		if(i == meta.parent_nid){
+			continue;
+		}
+		Message msg(m);
+		msg.meta.recver_nid = i;
+		msg.data.push_back(temp_data);
+		vec.push_back(move(msg));
 	}
 }
 
@@ -297,7 +319,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 	}
 
 	for(auto& item : id2data){
-		// feed data to msg
+		// insert data to msg
 		do{
 			Message msg(m);
 			msg.max_data_size = this->max_data_size;
@@ -305,7 +327,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 			if(! route_assigned){
 				msg.meta.recver_tid = (m.recver_tid ++) % num_thread;
 			}
-			msg.FeedData(item.second);
+			msg.InsertData(item.second);
 			vec.push_back(move(msg));
 		}
 		while((item.second.size() != 0));	// Data no consumed
@@ -341,11 +363,11 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 		}
 
 		update_route(m, actors);
-		// feed history to msg
+		// insert history to msg
 		do{
 			Message msg(m);
 			msg.max_data_size = this->max_data_size;
-			msg.FeedData(empty_his);
+			msg.InsertData(empty_his);
 			vec.push_back(move(msg));
 		}
 		while((empty_his.size() != 0));	// Data no consumed
@@ -411,7 +433,7 @@ int Message::get_node_id(value_t & v, DataStore* data_store)
 	}
 }
 
-bool Message::FeedData(pair<history_t, vector<value_t>>& pair)
+bool Message::InsertData(pair<history_t, vector<value_t>>& pair)
 {
 	size_t in_size = MemSize(pair);
 	size_t space = max_data_size - data_size;
@@ -443,7 +465,7 @@ bool Message::FeedData(pair<history_t, vector<value_t>>& pair)
 		}
 	}
 
-	// feed in data
+	// move data
 	if (in_size != his_size){
 		data.push_back(make_pair(pair.first, vector<value_t>()));
 		int i = data.size() - 1;
@@ -456,26 +478,15 @@ bool Message::FeedData(pair<history_t, vector<value_t>>& pair)
 	return pair.second.size() == 0;
 }
 
-void Message::FeedData(vector<pair<history_t, vector<value_t>>>& vec)
+void Message::InsertData(vector<pair<history_t, vector<value_t>>>& vec)
 {
 	for (auto itr = vec.begin(); itr != vec.end();){
-		if(! FeedData(*itr)){
+		if(! InsertData(*itr)){
 			break;
 		}
 		itr = vec.erase(itr);
 	}
 	assert(MemSize(data) == data_size);
-}
-
-void Message::CopyData(vector<pair<history_t, vector<value_t>>>& vec)
-{
-	size_t size = MemSize(vec);
-	assert(size < max_data_size);
-
-	data.clear();
-	data.insert(data.begin(), vec.begin(), vec.end());
-
-	data_size = size;
 }
 
 std::string Message::DebugString() const {

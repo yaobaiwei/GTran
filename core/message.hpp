@@ -94,11 +94,9 @@ public:
 		meta = m;
 	}
 
-	// Feed in data, remove from source
-	bool FeedData(pair<history_t, vector<value_t>>& pair);
-	void FeedData(vector<pair<history_t, vector<value_t>>>& vec);
-	// Copy data from source
-	void CopyData(vector<pair<history_t, vector<value_t>>>& vec);
+	// move data from srouce into msg
+	bool InsertData(pair<history_t, vector<value_t>>& pair);
+	void InsertData(vector<pair<history_t, vector<value_t>>>& vec);
 
 	// create init msg
 	// currently
@@ -122,6 +120,10 @@ public:
 	// msg_id:  assigned by actor to indicate parent msg
 	// vec:     messages to be send
 	void CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec);
+
+	// create Feed msg
+	// Feed data to all node with tid = parent_tid
+	void CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vector<Message>& vec);
 
 	std::string DebugString() const;
 
