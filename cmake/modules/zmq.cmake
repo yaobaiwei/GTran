@@ -19,6 +19,7 @@ SET(ZMQ_NAME zmq)
 FIND_LIBRARY(ZMQ_LIBRARIES
     NAMES ${ZMQ_NAME}
     PATHS ${ZMQ_ROOT}/lib
+    NO_DEFAULT_PATH
 )
 
 include ("FindPackageHandleStandardArgs")

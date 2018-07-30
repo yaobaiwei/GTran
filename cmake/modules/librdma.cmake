@@ -19,6 +19,7 @@ SET(RDMA_NAME rdma)
 FIND_LIBRARY(RDMA_LIBRARIES
     NAMES ${RDMA_NAME}
     PATHS ${RDMA_ROOT}/lib
+    NO_DEFAULT_PATH
 )
 
 include ("FindPackageHandleStandardArgs")

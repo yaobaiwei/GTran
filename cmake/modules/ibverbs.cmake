@@ -18,6 +18,7 @@ SET(IBVERB_NAME ibverbs)
 FIND_LIBRARY(IBVERB_LIBRARIES
     NAMES ${IBVERB_NAME}
     PATHS ${IBVERB_ROOT}/lib
+    NO_DEFAULT_PATH
 )
 
 include ("FindPackageHandleStandardArgs")

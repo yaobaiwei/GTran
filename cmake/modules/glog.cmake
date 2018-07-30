@@ -18,6 +18,7 @@ SET(GLOG_NAME glog)
 FIND_LIBRARY(GLOG_LIBRARIES
     NAMES ${GLOG_NAME}
     PATHS ${GLOG_ROOT}/lib
+    NO_DEFAULT_PATH
 )
 
 include ("FindPackageHandleStandardArgs")

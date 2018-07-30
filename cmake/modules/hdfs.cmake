@@ -18,6 +18,7 @@ SET(HDFS2_NAME hdfs)
 FIND_LIBRARY(HDFS2_LIBRARIES
     NAMES ${HDFS2_NAME}
     PATHS ${HDFS2_ROOT}/lib ${HDFS2_ROOT}/lib/native
+    NO_DEFAULT_PATH
 )
 
 include ("FindPackageHandleStandardArgs")
