@@ -233,6 +233,10 @@ private:
 			auto his_itr = std::find_if( p.first.begin(), p.first.end(),
 				[&his_key](const pair<int, value_t>& element){ return element.first == his_key;} );
 
+			if(his_itr == p.first.end()){
+				continue;
+			}
+
 			// get index of data
 			int data_index = Tool::value_t2int((*his_itr).second);
 

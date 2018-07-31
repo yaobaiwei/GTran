@@ -28,20 +28,22 @@ public:
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];
 
+		assert(actor_obj.params.size() % 2 == 0);
 		// Get Params
-		vector<int> label_step_list;
-		for (int i = 0; i < actor_obj.params.size(); i++) {
-			label_step_list.push_back(Tool::value_t2int(actor_obj.params.at(i)));
+		vector<pair<int, string>> label_step_list;
+		for (int i = 0; i < actor_obj.params.size(); i+=2) {
+			label_step_list.push_back(make_pair(Tool::value_t2int(actor_obj.params.at(i)), Tool::value_t2string(actor_obj.params.at(i + 1))));
 		}
 
 		// sort label_step_list for quick search
-		sort(label_step_list.begin(), label_step_list.end());
+		sort(label_step_list.begin(), label_step_list.end(),
+			[](const pair<int, string>& l, const pair<int, string>& r){ return l.first < r.first;});
 
 		//  Grab history_t
 		if (label_step_list.size() != 1) {
 			GrabHistory(label_step_list, msg.data);
 		} else {
-			GrabHistory(label_step_list[0], msg.data);
+			GrabHistory(label_step_list[0].first, msg.data);
 		}
 
 		// Create Message
@@ -66,8 +68,8 @@ private:
 
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
-	
-	void GrabHistory(vector<int> label_step_list, vector<pair<history_t, vector<value_t>>> & data) {	
+
+	void GrabHistory(vector<pair<int, string>> label_step_list, vector<pair<history_t, vector<value_t>>> & data) {
 		vector<value_t> result;
 
 		for (auto & data_pair : data) {
@@ -75,23 +77,23 @@ private:
 			string res = "[";
 			bool isResultEmpty = true;
 
-			vector<int>::iterator l_itr = label_step_list.begin();
-			
+			auto l_itr = label_step_list.begin();
+
 			if (!data_pair.first.empty()) {
 				vector<pair<int, value_t>>::iterator p_itr = data_pair.first.begin();
 
-				// once there is one list ends, end search 
+				// once there is one list ends, end search
 				do {
 					// cout << "label_step_list_item & history_list_item : " << *l_itr << " & " << (*p_itr).first << endl;
-					if (*l_itr == (*p_itr).first) {
-						res += to_string(*l_itr) + ":" + Tool::DebugString((*p_itr).second) + ", ";
+					if (l_itr->first == p_itr->first) {
+						res += l_itr->second + ":" + Tool::DebugString(p_itr->second) + ", ";
 						isResultEmpty = false;
 
 						l_itr++;
 						p_itr++;
-					} else if (*l_itr < (*p_itr).first) {
+					} else if (l_itr->first < p_itr->first) {
 						l_itr++;
-					} else if (*l_itr > (*p_itr).first) {
+					} else if (l_itr->first > p_itr->first) {
 						p_itr++;
 					}
 				} while( l_itr != label_step_list.end() && p_itr != data_pair.first.end() );
@@ -117,7 +119,7 @@ private:
 		}
 	}
 
-	void GrabHistory(int label_step, vector<pair<history_t, vector<value_t>>> & data) {	
+	void GrabHistory(int label_step, vector<pair<history_t, vector<value_t>>> & data) {
 		for (auto & data_pair : data) {
 			vector<value_t> result;
 			if (!data_pair.first.empty()) {
@@ -133,7 +135,7 @@ private:
 				} while (p_itr != data_pair.first.end());
 			}
 
-			data_pair.second.swap(result);	
+			data_pair.second.swap(result);
 		}
 	}
 

@@ -323,13 +323,16 @@ private:
 			// max msg size - sizeof(data with one empty pair) - sizeof(empty value_t)
 			size_t max_size = msg.max_data_size - MemSize(data) - MemSize(value_t());
 
+			assert(actor.params.size() % 2 == 0);
+
 			// side-effect key list
-			for (int i = 0; i < actor.params.size(); i++) {
+			for (int i = 0; i < actor.params.size(); i+=2) {
 				int se_key = Tool::value_t2int(actor.params.at(i));
+				string se_string = Tool::value_t2string(actor.params.at(i+1));
 				vector<value_t> vec;
 				data_store_->GetAggData(agg_t(msg.meta.qid, se_key), vec);
 
-				string temp = se_key + ":[";
+				string temp = se_string + ":[";
 				for(auto& val : vec){
 					temp += Tool::DebugString(val) + ", ";
 				}
@@ -467,6 +470,11 @@ private:
 				itr_sp = dedup_set.insert(itr_sp, make_pair(move(temp), set<history_t>()));
 			}
 
+			// skip when data vec is empty
+			if(p.second.size() == 0){
+				continue;
+			}
+
 			// find if current history already added
 			auto itr_dp = find_if( data.begin(), data.end(),
 				[&p](const pair<history_t, vector<value_t>>& element){ return element.first == p.first;});
@@ -479,12 +487,13 @@ private:
 				// dedup history
 				// construct history with given key
 				for(auto& val : p.first){
-					if(key_set.count(val.first) == 0){
+					if(key_set.find(val.first) != key_set.end()){
 						his.push_back(move(val));
 					}
 				}
-				// if histroy not in set, add one data
-				if(itr_sp->second.count(his) == 0 && p.second.size() > 0){
+				// find constructed history in his set
+				auto itr_his = itr_sp->second.find(his);
+				if(itr_his == itr_sp->second.end()){
 					itr_dp->second.push_back(move(p.second[0]));
 					itr_sp->second.insert(move(his));
 				}
@@ -493,7 +502,8 @@ private:
 				for(auto& val : p.second){
 					// construct history with current value
 					his.push_back(make_pair(0, val));
-					if(itr_sp->second.count(his) == 0){
+					auto itr_his = itr_sp->second.find(his);
+					if(itr_his == itr_sp->second.end()){
 						itr_dp->second.push_back(move(val));
 						itr_sp->second.insert(move(his));
 					}
@@ -504,6 +514,13 @@ private:
 
 		// all msg are collected
 		if(isReady){
+			for(auto& p : dedup_set){
+				// branch history not added to data
+				if(p.second.size() == 0){
+					data.push_back(make_pair(move(p.first), vector<value_t>()));
+				}
+			}
+
 			vector<Message> v;
 			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
 			for(auto& m : v){
@@ -763,8 +780,8 @@ private:
 				itr_cp = counter.insert(itr_cp, make_pair(move(temp), 0));
 			}
 
-			// skip current his when exceed limits
-			if(itr_cp->second > end){
+			// skip when exceed limits or no data
+			if(itr_cp->second > end || p.second.size() == 0){
 				continue;
 			}
 
@@ -790,6 +807,13 @@ private:
 
 		// all msg are collected
 		if(isReady){
+			for(auto& p : counter){
+				// branch history not added to data
+				if(p.second == 0){
+					data.push_back(make_pair(move(p.first), vector<value_t>()));
+				}
+			}
+
 			vector<Message> v;
 			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
 			for(auto& m : v){

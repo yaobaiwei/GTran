@@ -621,7 +621,7 @@ void Parser::ParseAs(const vector<string>& params)
 
 void Parser::ParseBranch(const vector<string>& params, Step_T type)
 {
-	//@ BranchActor params: (Branch_T branchType, int sub_step, ..., int next_step)
+	//@ BranchActor params: (Branch_T branchType, int sub_steps, ...)
 	//  i_type = any, o_type = subquery->o_type
 	Actor_Object actor(ACTOR_T::BRANCH);
 	if (params.size() < 1){
@@ -651,7 +651,7 @@ void Parser::ParseBranch(const vector<string>& params, Step_T type)
 
 void Parser::ParseBranchFilter(const vector<string>& params, Step_T type)
 {
-	//@ BranchFilterActor params: (Filter_T filterType, int sub_step, ..., int next_step)
+	//@ BranchFilterActor params: (Filter_T filterType, int sub_steps, ...)
 	//  i_type = o_type
 	Actor_Object actor(ACTOR_T::BRANCHFILTER);
 	if (params.size() < 1){
@@ -676,7 +676,7 @@ void Parser::ParseBranchFilter(const vector<string>& params, Step_T type)
 
 void Parser::ParseCap(const vector<string>& params)
 {
-	//@ CapsActor params: (int side_effect_key, ...)
+	//@ CapsActor params: ([int side_effect_key, string side_effect_string]...)
 	//  i_type = any, o_type = collection
 	Actor_Object actor(ACTOR_T::CAP);
 	if (params.size() < 1){
@@ -690,6 +690,7 @@ void Parser::ParseCap(const vector<string>& params)
 			throw ParserException("unexpected key in cap: " + key);
 		}
 		actor.AddParam(str2se[key]);
+		actor.AddParam(key);
 	}
 
 	AppendActor(actor);
@@ -1002,7 +1003,7 @@ void Parser::ParseMath(const vector<string>& params, Step_T type)
 
 void Parser::ParseOrder(const vector<string>& params)
 {
-	//@ OrderActor params: (Element_T element_type, int projectionKey) where -1 indicating no projection
+	//@ OrderActor params: (Element_T element_type, int projectionKey, Order_T order) where -1 indicating no projection
 	//  i_type = o_type = any
 
 	Actor_Object actor(ACTOR_T::ORDER);
@@ -1189,7 +1190,7 @@ void Parser::ParseRepeatModulator(const vector<string>& params, Step_T type)
 
 void Parser::ParseSelect(const vector<string>& params)
 {
-	//@ SelectActor params: (int label_step_key, ...)
+	//@ SelectActor params: ([int label_step_key, string label_step_string]..)
 	//  i_type = any, o_type = COLLECTION / according step
 	Actor_Object actor(ACTOR_T::SELECT);
 
@@ -1206,6 +1207,7 @@ void Parser::ParseSelect(const vector<string>& params)
 		key = str2ls[param];
 		type = ls2type[key];
 		actor.AddParam(key);
+		actor.AddParam(param);
 	}
 
 	AppendActor(actor);
@@ -1220,7 +1222,6 @@ void Parser::ParseSelect(const vector<string>& params)
 void Parser::ParseTraversal(const vector<string>& params, Step_T type)
 {
 	//@ TraversalActor params: (Element_T inType, Element_T outType, Direction_T direction, int label_id)
-	//@ RedirectActor params: (Element_T inType)
 	//  i_type = E/V, o_type = E/V
 	Actor_Object actor(ACTOR_T::TRAVERSAL);
 	int traversal_type = type;
