@@ -76,10 +76,12 @@ private:
 					his = data_pair.first;
 
 					// push back current label key
-					his.push_back(pair<int, value_t>(label_step_key, elem));
+					// his.push_back(pair<int, value_t>(label_step_key, elem));
+					his.emplace_back(label_step_key, elem);
 
 					newValue.push_back(elem);
-					newData.push_back(pair<history_t, vector<value_t>>(his, newValue));
+					// newData.push_back(pair<history_t, vector<value_t>>(his, newValue));
+					newData.emplace_back(his, newValue);
 
 					// Insert into map
 					value_pos.insert(pair<value_t, int>(elem, cnt++));

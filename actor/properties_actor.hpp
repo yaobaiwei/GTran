@@ -98,7 +98,8 @@ private:
 						string keyStr;
 						data_store_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
 
-						result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						// result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						result.emplace_back( keyStr, Tool::DebugString(val) );
 					}
 				} else {
 					for (auto pkey : key_list) {
@@ -120,7 +121,8 @@ private:
 						string keyStr;
 						data_store_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
 
-						result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						// result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						result.emplace_back( keyStr, Tool::DebugString(val) );
 					}
 				}
 			}
@@ -155,7 +157,8 @@ private:
 						string keyStr;
 						data_store_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
 
-						result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						// result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						result.emplace_back( keyStr, Tool::DebugString(val) );
 					}
 				} else {
 					for (auto key : key_list) {
@@ -176,7 +179,8 @@ private:
 						string keyStr;
 						data_store_->GetNameFromIndex(Index_T::E_PROPERTY, key, keyStr);
 
-						result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						// result.push_back( std::pair<string, string>(keyStr, Tool::DebugString(val)) );
+						result.emplace_back( keyStr, Tool::DebugString(val) );
 					}
 				}
 			}

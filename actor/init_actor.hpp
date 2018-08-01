@@ -72,7 +72,8 @@ private:
             newData.push_back(v);
         }
 
-        data.push_back(pair<history_t, vector<value_t>>(history_t(), newData));
+        // data.push_back(pair<history_t, vector<value_t>>(history_t(), newData));
+		data.emplace_back(history_t(), newData);
     }
 
     void InitData(vector<pair<history_t, vector<value_t>>>& data, vector<eid_t> eid_list) {
@@ -83,7 +84,8 @@ private:
             newData.push_back(v);
         }
 
-        data.push_back(pair<history_t, vector<value_t>>(history_t(), newData));
+        // data.push_back(pair<history_t, vector<value_t>>(history_t(), newData));
+		data.emplace_back(history_t(), newData);
     }
 };
 

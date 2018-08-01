@@ -42,7 +42,8 @@ public:
 			vector<value_t> pred_params;
 			Tool::value_t2vec(actor_obj.params.at(pos + 1), pred_params);
 
-			pred_chain.push_back(PredicateValue(pred_type, pred_params));
+			// pred_chain.push_back(PredicateValue(pred_type, pred_params));
+			pred_chain.emplace_back(pred_type, pred_params);
 		}
 
 		// Evaluate

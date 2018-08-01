@@ -84,7 +84,8 @@ public:
 			for (auto & param : pred_params) {
 				his_labels.push_back(Tool::value_t2int(param));
 			}
-			pred_chain.push_back(PredicateHistory(pred_type, his_labels));
+			// pred_chain.push_back(PredicateHistory(pred_type, his_labels));
+			pred_chain.emplace_back(pred_type, his_labels);
 		}
 
 		// Evaluate
