@@ -59,10 +59,6 @@ public:
 			vector<value_t> pred_params;
 			Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
 
-			cout << "[OUTER]: pred params type : " << to_string(pred_params.at(0).type) << endl;
-			cout << "[OUTER]: pred params content size: " << pred_params.at(0).content.size() << endl;
-
-			// pred_chain.push_back(pair<int, PredicateValue>(pid, PredicateValue(pred_type, pred_params)));
 			pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
 		}
 
@@ -120,10 +116,6 @@ private:
 				for (auto & pred_pair : pred_chain) {
 					int pid = pred_pair.first;
 					PredicateValue pred = pred_pair.second;
-
-					cout << "Predicate value size : " << pred.values.size() << endl;
-					cout << "pred params type : " << to_string(pred.values.at(0).type) << endl;
-					cout << "pred params content size: " << pred.values.at(0).content.size() << endl;
 
 					if (pid == -1) {
 						Vertex* vtx = data_store_->GetVertex(v_id);
@@ -183,7 +175,6 @@ private:
 
 							// Erase when doesnt match
 							if(!Evaluate(pred, &val)) {
-								// cout << "Erase since cannot match" << endl;
 								value_itr = data_pair.second.erase(value_itr);
 								isEarsed = true;
 								break;

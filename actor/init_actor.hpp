@@ -72,7 +72,6 @@ private:
             newData.push_back(v);
         }
 
-        // data.push_back(pair<history_t, vector<value_t>>(history_t(), newData));
 		data.emplace_back(history_t(), newData);
     }
 
@@ -84,7 +83,6 @@ private:
             newData.push_back(v);
         }
 
-        // data.push_back(pair<history_t, vector<value_t>>(history_t(), newData));
 		data.emplace_back(history_t(), newData);
     }
 };

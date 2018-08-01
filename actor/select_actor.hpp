@@ -32,7 +32,6 @@ public:
 		// Get Params
 		vector<pair<int, string>> label_step_list;
 		for (int i = 0; i < actor_obj.params.size(); i+=2) {
-			// label_step_list.push_back(make_pair(Tool::value_t2int(actor_obj.params.at(i)), Tool::value_t2string(actor_obj.params.at(i + 1))));
 			label_step_list.emplace_back(Tool::value_t2int(actor_obj.params.at(i)), Tool::value_t2string(actor_obj.params.at(i + 1)));
 		}
 
