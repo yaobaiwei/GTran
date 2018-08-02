@@ -86,8 +86,6 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), _sz, rdma_off + (off % rbf_sz));
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid) + _sz, msg_sz - _sz, rdma_off);
 		}
-		// Reset the send buffer
-		memset(buffer_->GetSendBuf(tid), 0, msg_sz);
 	}
 }
 

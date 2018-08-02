@@ -7,9 +7,10 @@ add_library(all-deps STATIC
   $<TARGET_OBJECTS:utils-objs>
   $<TARGET_OBJECTS:base-objs>
   $<TARGET_OBJECTS:actor-objs>
+  $<TARGET_OBJECTS:rdma-objs>
   )
-  
-add_executable(client client.cpp)
+
+add_executable(client client.cpp )
 target_link_libraries(client all-deps)
 target_link_libraries(client ${GQUERY_EXTERNAL_LIBRARIES})
 
