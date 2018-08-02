@@ -10,6 +10,9 @@
 bool operator ==(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
+		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
+			return Tool::DebugString(const_cast<value_t&>(v1)) == Tool::DebugString(const_cast<value_t&>(v2));
+		}
 		return false;
 	}
 	return Tool::value_t2string(v1) == Tool::value_t2string(v2);
@@ -18,6 +21,9 @@ bool operator ==(const value_t& v1, const value_t& v2)
 bool operator !=(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
+		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
+			return Tool::DebugString(const_cast<value_t&>(v1)) != Tool::DebugString(const_cast<value_t&>(v2));
+		}
 		return true;
 	}
 	return Tool::value_t2string(v1) != Tool::value_t2string(v2);
@@ -26,6 +32,9 @@ bool operator !=(const value_t& v1, const value_t& v2)
 bool operator <(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
+		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
+			return Tool::DebugString(const_cast<value_t&>(v1)) < Tool::DebugString(const_cast<value_t&>(v2));
+		}
 		return Tool::value_t2string(v1) < Tool::value_t2string(v2);
 	}
 	switch (v1.type) {
@@ -38,6 +47,9 @@ bool operator <(const value_t& v1, const value_t& v2)
 bool operator >(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
+		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
+			return Tool::DebugString(const_cast<value_t&>(v1)) > Tool::DebugString(const_cast<value_t&>(v2));
+		}
 		return Tool::value_t2string(v1) > Tool::value_t2string(v2);
 	}
 	switch (v1.type) {
@@ -50,6 +62,9 @@ bool operator >(const value_t& v1, const value_t& v2)
 bool operator <=(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
+		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
+			return Tool::DebugString(const_cast<value_t&>(v1)) <= Tool::DebugString(const_cast<value_t&>(v2));
+		}
 		return Tool::value_t2string(v1) <= Tool::value_t2string(v2);
 	}
 	switch (v1.type) {
@@ -62,6 +77,9 @@ bool operator <=(const value_t& v1, const value_t& v2)
 bool operator >=(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
+		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
+			return Tool::DebugString(const_cast<value_t&>(v1)) >= Tool::DebugString(const_cast<value_t&>(v2));
+		}
 		return Tool::value_t2string(v1) >= Tool::value_t2string(v2);
 	}
 	switch (v1.type) {
@@ -74,6 +92,11 @@ bool operator >=(const value_t& v1, const value_t& v2)
 bool Evaluate(PredicateValue & pv, value_t *value)
 {
 	assert(pv.values.size() > 0);
+
+	cout << "Value : " << Tool::DebugString(*value) << endl;
+	cout << "pred_type : " << pv.pred_type << endl;
+	cout << "pred params type : " << to_string(pv.values.at(0).type) << endl;
+	cout << "pred params content size: " << pv.values.at(0).content.size() << endl;
 
 	// no value
 	if (value == NULL){

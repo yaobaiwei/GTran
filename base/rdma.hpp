@@ -35,7 +35,7 @@ using namespace std;
 #ifdef HAS_RDMA
 
 #include "utils/timer.hpp"
-#include "rdmaio.h"
+#include "rdmalib/rdmaio.hpp"
 
 using namespace rdmaio;
 
