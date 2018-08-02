@@ -317,7 +317,7 @@ private:
 		if(isReady){
 			Actor_Object& actor = actors[msg.meta.step];
 			vector<pair<history_t, vector<value_t>>> data;
-			data.push_back(make_pair(history_t(), vector<value_t>()));
+			data.emplace_back(history_t(), vector<value_t>());
 
 			// calculate max size of one value_t with empty history
 			// max msg size - sizeof(data with one empty pair) - sizeof(empty value_t)
@@ -347,7 +347,7 @@ private:
 					value_t v;
 					// each value_t should have at most max_size
 					Tool::str2str(temp.substr(0, max_size), v);
-					data[0].second.push_back(v);
+					data[0].second.push_back(move(v));
 					if(temp.size() > max_size){
 						temp = temp.substr(max_size);
 					}else{
@@ -396,7 +396,7 @@ private:
 			auto data_itr = merge_hisotry(data, p.first, branch_key);
 
 			if(data_itr == data.end()){
-				data.push_back(make_pair(move(p.first), count));
+				data.emplace_back(move(p.first), count);
 			}else{
 				(*data_itr).second += count;
 			}
@@ -408,7 +408,7 @@ private:
 			for(auto& p : data){
 				value_t v;
 				Tool::str2int(to_string(p.second), v);
-				msg_data.push_back(make_pair(move(p.first), vector<value_t>{v}));
+				msg_data.emplace_back(move(p.first), vector<value_t>{v});
 			}
 
 			vector<Message> v;
@@ -501,7 +501,7 @@ private:
 				// dedup value, should check on all values
 				for(auto& val : p.second){
 					// construct history with current value
-					his.push_back(make_pair(0, val));
+					his.emplace_back(0, val);
 					auto itr_his = itr_sp->second.find(his);
 					if(itr_his == itr_sp->second.end()){
 						itr_dp->second.push_back(move(val));
@@ -517,7 +517,7 @@ private:
 			for(auto& p : dedup_set){
 				// branch history not added to data
 				if(p.second.size() == 0){
-					data.push_back(make_pair(move(p.first), vector<value_t>()));
+					data.emplace_back(move(p.first), vector<value_t>());
 				}
 			}
 
@@ -627,7 +627,7 @@ private:
 				}
 
 				Tool::kvmap2value_t(kvmap, vec_val);
-				msg_data.push_back(make_pair(move(p.first), move(vec_val)));
+				msg_data.emplace_back(move(p.first), move(vec_val));
 			}
 
 			vector<Message> v;
@@ -714,7 +714,7 @@ private:
 						val_vec.insert(val_vec.end(), make_move_iterator(itr->second.rbegin()), make_move_iterator(itr->second.rend()));
 					}
 				}
-				msg_data.push_back(make_pair(move(p.first), move(val_vec)));
+				msg_data.emplace_back(move(p.first), move(val_vec));
 			}
 
 			vector<Message> v;
@@ -810,7 +810,7 @@ private:
 			for(auto& p : counter){
 				// branch history not added to data
 				if(p.second == 0){
-					data.push_back(make_pair(move(p.first), vector<value_t>()));
+					data.emplace_back(move(p.first), vector<value_t>());
 				}
 			}
 
@@ -894,7 +894,7 @@ private:
 					to_double(val, isMean);
 					val_vec.push_back(move(val.first));
 				}
-				msg_data.push_back(make_pair(move(p.first), move(val_vec)));
+				msg_data.emplace_back(move(p.first), move(val_vec));
 			}
 
 			vector<Message> v;

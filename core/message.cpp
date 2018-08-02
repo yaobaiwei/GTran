@@ -223,8 +223,8 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 			value_t v;
 			Tool::str2int(to_string(count ++), v);
 			history_t his = pair.first;
-			his.push_back(make_pair(m.step, move(v)));
-			labeled_data.push_back(make_pair(move(his), vector<value_t>{value}));
+			his.emplace_back(m.step, move(v));
+			labeled_data.emplace_back(move(his), vector<value_t>{value});
 		}
 	}
 
@@ -300,7 +300,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 
 				// insert his/value pair to corresponding node
 				for(auto& item : id2value_t){
-					id2data[item.first].push_back(make_pair(p.first, move(item.second)));
+					id2data[item.first].emplace_back(p.first, move(item.second));
 				}
 			}
 		}
@@ -467,7 +467,7 @@ bool Message::InsertData(pair<history_t, vector<value_t>>& pair)
 
 	// move data
 	if (in_size != his_size){
-		data.push_back(make_pair(pair.first, vector<value_t>()));
+		data.emplace_back(pair.first, vector<value_t>());
 		int i = data.size() - 1;
 		std::move(pair.second.begin(), itr, std::back_inserter(data[i].second));
 		itr = pair.second.erase(pair.second.begin(), itr);
