@@ -88,9 +88,9 @@ class RDMA {
         // 0 on success, -1 otherwise
         int RdmaRead(int dst_tid, int dst_nid, char *local, uint64_t size, uint64_t off) {
 			// virtual tid for read
-			dst_tid += num_threads_;
+			int vir_tid = dst_tid + num_threads_;
 
-            Qp* qp = ctrl->get_rc_qp(dst_tid, dst_nid);
+            Qp* qp = ctrl->get_rc_qp(vir_tid, dst_nid);
             qp->rc_post_send(IBV_WR_RDMA_READ, local, size, off, IBV_SEND_SIGNALED);
             if (!qp->first_send())
                 qp->poll_completion();

@@ -1,11 +1,11 @@
 #include "core/parser.hpp"
 #include <iostream>
 
-void Parser::LoadMapping(Config* config){
+void Parser::LoadMapping(){
 	hdfsFS fs = get_hdfs_fs();
 
 	// load vertex label
-	string vl_path = config->HDFS_INDEX_PATH + "./vtx_label";
+	string vl_path = config_->HDFS_INDEX_PATH + "./vtx_label";
 	hdfsFile vl_file = get_r_handle(vl_path.c_str(), fs);
 	LineReader vl_reader(fs, vl_file);
 	while (true)
@@ -28,7 +28,7 @@ void Parser::LoadMapping(Config* config){
 	hdfsCloseFile(fs, vl_file);
 
 	// load vertex property key and type
-	string vp_path = config->HDFS_PTY_TYPE_PATH + "./vtx_type_table";
+	string vp_path = config_->HDFS_PTY_TYPE_PATH + "./vtx_type_table";
 	hdfsFile vp_file = get_r_handle(vp_path.c_str(), fs);
 	LineReader vp_reader(fs, vp_file);
 	while (true)
@@ -54,7 +54,7 @@ void Parser::LoadMapping(Config* config){
 	hdfsCloseFile(fs, vp_file);
 
 	// load edge label
-	string el_path = config->HDFS_INDEX_PATH + "./edge_label";
+	string el_path = config_->HDFS_INDEX_PATH + "./edge_label";
 	hdfsFile el_file = get_r_handle(el_path.c_str(), fs);
 	LineReader el_reader(fs, el_file);
 	while (true)
@@ -77,7 +77,7 @@ void Parser::LoadMapping(Config* config){
 	hdfsCloseFile(fs, el_file);
 
 	// load edge property key and type
-	string ep_path = config->HDFS_PTY_TYPE_PATH + "./edge_type_table";
+	string ep_path = config_->HDFS_PTY_TYPE_PATH + "./edge_type_table";
 	hdfsFile ep_file = get_r_handle(ep_path.c_str(), fs);
 	LineReader ep_reader(fs, ep_file);
 	while (true)

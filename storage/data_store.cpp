@@ -531,7 +531,7 @@ void DataStore::load_vertices(const char* inpath)
 }
 
 //Format
-//vid [\t] #in_nbs [\t] nb1 [space] nb2 [space] ... #out_nbs nb1 [space] nb2 [space] ...
+//vid [\t] #in_nbs [\t] nb1 [space] nb2 [space] ... #out_nbs [\t] nb1 [space] nb2 [space] ...
 Vertex* DataStore::to_vertex(char* line)
 {
 	Vertex * v = new Vertex;

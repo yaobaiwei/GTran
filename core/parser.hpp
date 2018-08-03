@@ -59,8 +59,7 @@ private:
 	map<uint32_t, uint8_t> vpk2vptype;
 	map<uint32_t, uint8_t> epk2eptype;
 
-	// load property and label mapping
-	void LoadMapping(Config* config);
+	Config * config_;
 
 	// IO type checking
 	bool IsNumber();
@@ -129,9 +128,10 @@ public:
 	// Parse query string
 	bool Parse(const string& query, vector<Actor_Object>& vec, string& error_msg);
 
-	Parser(Config *config){
-		LoadMapping(config);
-	}
+	Parser(Config *config): config_(config){};
+
+	// load property and label mapping
+	void LoadMapping();
 
 	//parsing exception
 	struct ParserException {

@@ -112,6 +112,7 @@ public:
 
 		//set the in-memory layout for RDMA buf
 		Buffer * buf = new Buffer(my_node_, config_);
+		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
 
 		//init the rdma mailbox
 		RdmaMailbox * mailbox = new RdmaMailbox(my_node_, config_, buf);
@@ -129,12 +130,16 @@ public:
 
 		//=======data shuffle==========
 		datastore->Shuffle();
+		cout << "DONE -> DataStore->Shuffle()" << endl;
 		//=======data shuffle==========
 
 		datastore->DataConverter();
 		worker_barrier(my_node_);
 
 		cout << "DONE -> Datastore->LoadData()" << endl;
+
+		parser_->LoadMapping();
+		cout << "DONE -> Parser_->LoadMapping()" << endl;
 
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox);
