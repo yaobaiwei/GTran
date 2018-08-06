@@ -24,8 +24,7 @@
 using namespace std;
 class Tool{
 public:
-	static vector<string> split(const string &s, const string &seperator){
-		vector<string> result;
+	static void split(const string &s, const string &seperator, vector<string>& result){
 		typedef string::size_type string_size;
 		string_size i = 0;
 
@@ -56,7 +55,55 @@ public:
 				i = j;
 			}
 		}
-		return result;
+	}
+
+	// split string with seperator, escaping double quote
+	// Make sure no double quote in double quote before using this function
+	static void splitWithEscape(const string &s, const string &seperator, vector<string>& result){
+		// seperator should not contains "
+		// assert(seperator.find('"') == string::npos);
+		typedef string::size_type string_size;
+		string_size i = 0;
+		bool in_quote = false;
+		while(i != s.size()){
+			int flag = 0;
+			if(s[i] == '"'){
+				in_quote = !in_quote;
+			}
+
+			// skip seperator checking when in_quote
+			if(!in_quote){
+				while(i != s.size() && flag == 0){
+					flag = 1;
+					for(string_size x = 0; x < seperator.size(); ++x)
+						if(s[i] == seperator[x]){
+							++i;
+							flag = 0;
+							break;
+						}
+				}
+			}
+
+			flag = 0;
+			string_size j = i;
+			while(j != s.size() && flag == 0){
+				if(s[j] == '"'){
+					in_quote = !in_quote;
+				}
+				if(!in_quote){
+					for(string_size x = 0; x < seperator.size(); ++x)
+						if(s[j] == seperator[x]){
+							flag = 1;
+							break;
+						}
+				}
+				if(flag == 0) ++j;
+			}
+			if(i != j){
+				result.push_back(s.substr(i, j-i));
+				i = j;
+			}
+		}
 	}
 
 	static string& trim(string &s, string sub)
@@ -89,7 +136,8 @@ public:
 	}
 
 	static void get_kvpair(string str, kv_pair & kvpair){
-		vector<string> words = split(str,":");
+		vector<string> words;
+		splitWithEscape(str,":", words);
 
 		//only possible case is a kv-pair
 		assert(words.size() == 2);
@@ -249,7 +297,8 @@ public:
 	static void value_t2vec(value_t & v, vector<value_t>& vec)
 	{
 		string value = value_t2string(v);
-		vector<string> values = split(value, "\t");
+		vector<string> values;
+		splitWithEscape(value, "\t", values);
 		int type = v.type & 0xF;
 
 		// scalar
