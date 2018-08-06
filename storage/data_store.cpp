@@ -620,10 +620,11 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
 	label_t label = (label_t)atoi(pch);
 	vp->label = label;
 
-	pch = strtok(NULL, "\t");
+	pch = strtok(NULL, "");
 	string s(pch);
 
-	vector<string> kvpairs = Tool::split(s, "\[\],");
+	vector<string> kvpairs;
+	Tool::splitWithEscape(s, "[],", kvpairs);
 	for(int i = 0 ; i < kvpairs.size(); i++){
 		kv_pair p;
 		Tool::get_kvpair(kvpairs[i], p);
@@ -722,11 +723,12 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	label_t label = (label_t)atoi(pch);
 	ep->label = label;
 
-	pch = strtok(NULL, "\t");
+	pch = strtok(NULL, "");
 	string s(pch);
 	vector<label_t> pkeys;
 
-	vector<string> kvpairs = Tool::split(s, "\[\],");
+	vector<string> kvpairs;
+	Tool::splitWithEscape(s, "[],", kvpairs);
 	for(int i = 0 ; i < kvpairs.size(); i++){
 		kv_pair p;
 		Tool::get_kvpair(kvpairs[i], p);

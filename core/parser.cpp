@@ -148,7 +148,8 @@ vector<string> Parser::SplitParam(string& param)
 	if (len > 0 && param[len - 1] == ','){
 		throw ParserException("unexpected ',' at: " + param);
 	}
-	vector<string> tmp = Tool::split(param, ",");
+	vector<string> tmp;
+	Tool::splitWithEscape(param, ",", tmp);
 	vector<string> params;
 	string p = "";
 	int balance = 0;
@@ -173,7 +174,8 @@ vector<string> Parser::SplitPredicate(string& param, Predicate_T& pred_type)
 {
 	vector<string> pred_params;
 	param = Tool::trim(param, " ");
-	vector<string> pred = Tool::split(param, "()");
+	vector<string> pred;
+	Tool::splitWithEscape(param, "()", pred);
 	int len = pred.size();
 	if (len == 0){
 		pred_type = Predicate_T::ANY;
