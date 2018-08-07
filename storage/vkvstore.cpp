@@ -12,8 +12,7 @@ using namespace std;
 
 // ==================VKVStore=======================
 uint64_t VKVStore::insert_id(uint64_t _pid) {
-    // Original:pid is already hashed
-	// Now: pid is not hashed
+	// pid is not hashed
     uint64_t bucket_id = _pid % num_buckets;
     uint64_t slot_id = bucket_id * ASSOCIATIVITY;
     uint64_t lock_id = bucket_id % NUM_LOCKS;
@@ -26,10 +25,6 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
         for (int i = 0; i < ASSOCIATIVITY - 1; i++, slot_id++) {
             //assert(vertices[slot_id].key != key); // no duplicate key
             if (keys[slot_id].pid == _pid) {
-				cout << keys[slot_id].pid << " | " << _pid << endl;
-				vpid_t vp_id;
-				uint2vpid_t(_pid, vp_id);
-				cout << "vpid - vid : " << to_string(vp_id.vid) << " pid : " << to_string(vp_id.pid) << endl;
                 // Cannot get the original pid
                 cout << "VKVStore ERROR: conflict at slot["
                      << slot_id << "] of bucket["

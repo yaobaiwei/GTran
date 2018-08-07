@@ -47,7 +47,6 @@ void DataStore::LoadDataFromHDFS(){
 	cout << "Node " << node_.get_local_rank() << " Get_eplist() DONE !" << endl;
 	vtx_pty_key_to_type.clear();
 	edge_pty_key_to_type.clear();
-	//upload_pty_types();
 }
 
 void DataStore::Shuffle()
@@ -152,8 +151,6 @@ void DataStore::DataConverter(){
 	for(int i = 0 ; i < vp_buf.size(); i++){
 		hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);
 		if(vIter == v_table.end()){
-			cout << "Cannot find : " << to_string(vp_buf[i]->vid.value()) << " on node " << node_.get_local_rank() << endl;
-			cout << "Whose hash is : " << to_string(mymath::hash_mod(vp_buf[i]->vid.hash(), node_.get_local_size())) << endl;
 			cout << "ERROR: FAILED TO MATCH ONE ELEMENT in vp_buf" << endl;
 			exit(-1);
 		}
