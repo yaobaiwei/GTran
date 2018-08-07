@@ -20,6 +20,7 @@
 #include <regex>
 
 #include "base/type.hpp"
+#include "utils/timer.hpp"
 
 using namespace std;
 class Tool{
@@ -135,19 +136,12 @@ public:
 		return *reinterpret_cast<const uint64_t *>(&(v.content[0]));
 	}
 
-	static void get_kvpair(string str, kv_pair & kvpair){
-		vector<string> words;
-		splitWithEscape(str,":", words);
-
-		//only possible case is a kv-pair
-		assert(words.size() == 2);
-
-		string s_key = trim(words[0]," "); //delete all spaces
+	static void get_kvpair(string & key, string & value, int type_, kv_pair & kvpair){
+		string s_key = trim(key, " "); //delete all spaces
 		kvpair.key = atoi(s_key.c_str());
 
-		string s_value = trim(words[1]," "); //delete all spaces
-		int type = checktype(s_value);
-		switch(type){
+		string s_value = trim(value, " "); //delete all spaces
+		switch(type_){
 			case 4: //string
 				s_value = trim(s_value,"\"");
 				str2str(s_value, kvpair.value);

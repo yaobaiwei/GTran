@@ -12,7 +12,8 @@ using namespace std;
 
 // ==================VKVStore=======================
 uint64_t VKVStore::insert_id(uint64_t _pid) {
-    // pid is already hashed
+    // Original:pid is already hashed
+	// Now: pid is not hashed
     uint64_t bucket_id = _pid % num_buckets;
     uint64_t slot_id = bucket_id * ASSOCIATIVITY;
     uint64_t lock_id = bucket_id % NUM_LOCKS;
@@ -25,6 +26,10 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
         for (int i = 0; i < ASSOCIATIVITY - 1; i++, slot_id++) {
             //assert(vertices[slot_id].key != key); // no duplicate key
             if (keys[slot_id].pid == _pid) {
+				cout << keys[slot_id].pid << " | " << _pid << endl;
+				vpid_t vp_id;
+				uint2vpid_t(_pid, vp_id);
+				cout << "vpid - vid : " << to_string(vp_id.vid) << " pid : " << to_string(vp_id.pid) << endl;
                 // Cannot get the original pid
                 cout << "VKVStore ERROR: conflict at slot["
                      << slot_id << "] of bucket["
@@ -76,7 +81,8 @@ void VKVStore::insert_single_vertex_property(VProperty* vp) {
 	memcpy(f,(const char*)&(vp->label), sz);
 	string str(f);
 
-	int slot_id = insert_id(key.hash());
+	// key do not need to be hash
+	int slot_id = insert_id(key.value());
 	uint64_t length = sizeof(label_t);
 	uint64_t off = sync_fetch_and_alloc_values(length);
 
@@ -91,7 +97,8 @@ void VKVStore::insert_single_vertex_property(VProperty* vp) {
     for (int i = 0; i < vp->plist.size(); i++) {
         V_KVpair v_kv = vp->plist[i];
         // insert key and get slot_id
-        int slot_id = insert_id(v_kv.key.hash());
+		// key do not need to be hash
+        int slot_id = insert_id(v_kv.key.value());
 
         // get length of centent
         uint64_t length = v_kv.value.content.size();
@@ -232,7 +239,8 @@ void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
 // Get properties by key locally
 void VKVStore::get_property_local(uint64_t pid, value_t & val) {
     ikey_t key;
-    get_key_local(mymath::hash_u64(pid), key);
+	// no need to hash pid
+    get_key_local(pid, key);
 
     if (key.is_empty()) {
         val.content.resize(0);
@@ -253,7 +261,8 @@ void VKVStore::get_property_local(uint64_t pid, value_t & val) {
 // Get properties by key remotely
 void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t & val) {
 	ikey_t key;
-	get_key_remote(tid, dst_nid, mymath::hash_u64(pid), key);
+	// no need to hash pid
+	get_key_remote(tid, dst_nid, pid, key);
 	if (key.is_empty()) {
 		val.content.resize(0);
 		return;
@@ -276,7 +285,8 @@ void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t &
 
 void VKVStore::get_label_local(uint64_t pid, label_t & label){
     ikey_t key;
-    get_key_local(mymath::hash_u64(pid), key);
+	// no need to hash pid
+    get_key_local(pid, key);
 
 	if (key.is_empty()) return;
 
@@ -288,7 +298,8 @@ void VKVStore::get_label_local(uint64_t pid, label_t & label){
 
 void VKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label){
 	ikey_t key;
-	get_key_remote(tid, dst_nid, mymath::hash_u64(pid), key);
+	// no need to hash pid
+	get_key_remote(tid, dst_nid, pid, key);
 
 	if (key.is_empty()) return;
 

@@ -76,7 +76,7 @@ void EKVStore::insert_single_edge_property(EProperty* ep) {
 	memcpy(f,(const char*)&(ep->label), sz);
 	string str(f);
 
-	int slot_id = insert_id(key.hash());
+	int slot_id = insert_id(key.value());
 	uint64_t length = sizeof(label_t);
 	uint64_t off = sync_fetch_and_alloc_values(length);
 
@@ -91,7 +91,7 @@ void EKVStore::insert_single_edge_property(EProperty* ep) {
     for (int i = 0; i < ep->plist.size(); i++) {
         E_KVpair e_kv = ep->plist[i];
         // insert key and get slot_id
-        int slot_id = insert_id(e_kv.key.hash());
+        int slot_id = insert_id(e_kv.key.value());
 
         // get length of centent
         uint64_t length = e_kv.value.content.size();
@@ -232,7 +232,7 @@ void EKVStore::insert_edge_properties(vector<EProperty*> & eplist) {
 // Get property by key locally
 void EKVStore::get_property_local(uint64_t pid, value_t & val) {
     ikey_t key;
-    get_key_local(mymath::hash_u64(pid), key);
+    get_key_local(pid, key);
 
     if (key.is_empty()) {
         val.content.resize(0);
@@ -253,7 +253,7 @@ void EKVStore::get_property_local(uint64_t pid, value_t & val) {
 // Get properties by key remotely
 void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t & val) {
     ikey_t key;
-    get_key_remote(tid, dst_nid, mymath::hash_u64(pid), key);
+    get_key_remote(tid, dst_nid, pid, key);
     if (key.is_empty()) {
         val.content.resize(0);
         return;
@@ -276,7 +276,7 @@ void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t &
 
 void EKVStore::get_label_local(uint64_t pid, label_t & label){
     ikey_t key;
-    get_key_local(mymath::hash_u64(pid), key);
+    get_key_local(pid, key);
 
 	if (key.is_empty()) {
 		cout << "@@@@@@@@@@@@@" << endl;
@@ -291,7 +291,7 @@ void EKVStore::get_label_local(uint64_t pid, label_t & label){
 
 void EKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label){
 	ikey_t key;
-	get_key_remote(tid, dst_nid, mymath::hash_u64(pid), key);
+	get_key_remote(tid, dst_nid, pid, key);
 
 	if (key.is_empty()) {
 		cout << "@@@@@@@@@@@@@" << endl;

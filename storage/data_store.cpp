@@ -40,9 +40,14 @@ void DataStore::Init(){
 void DataStore::LoadDataFromHDFS(){
 	get_string_indexes();
 	get_vertices();
+	cout << "Node " << node_.get_local_rank() << " Get_vertices() DONE !" << endl;
 	get_vplist();
+	cout << "Node " << node_.get_local_rank() << " Get_vplist() DONE !" << endl;
 	get_eplist();
-	upload_pty_types();
+	cout << "Node " << node_.get_local_rank() << " Get_eplist() DONE !" << endl;
+	vtx_pty_key_to_type.clear();
+	edge_pty_key_to_type.clear();
+	//upload_pty_types();
 }
 
 void DataStore::Shuffle()
@@ -147,6 +152,8 @@ void DataStore::DataConverter(){
 	for(int i = 0 ; i < vp_buf.size(); i++){
 		hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);
 		if(vIter == v_table.end()){
+			cout << "Cannot find : " << to_string(vp_buf[i]->vid.value()) << " on node " << node_.get_local_rank() << endl;
+			cout << "Whose hash is : " << to_string(mymath::hash_mod(vp_buf[i]->vid.hash(), node_.get_local_size())) << endl;
 			cout << "ERROR: FAILED TO MATCH ONE ELEMENT in vp_buf" << endl;
 			exit(-1);
 		}
@@ -222,9 +229,9 @@ void DataStore::GetAllEdges(vector<eid_t> & eid_list) {
 bool DataStore::VPKeyIsExist(int tid, vpid_t vp_id) {
 	ikey_t key;
 	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
-		vpstore_->get_key_local(vp_id.hash(), key);
+		vpstore_->get_key_local(vp_id.value(), key);
 	}else{										//remotely
-		vpstore_->get_key_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.hash(), key);
+		vpstore_->get_key_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), key);
 	}
 
 	if (key.is_empty())
@@ -235,9 +242,9 @@ bool DataStore::VPKeyIsExist(int tid, vpid_t vp_id) {
 bool DataStore::EPKeyIsExist(int tid, epid_t ep_id) {
 	ikey_t key;
 	if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
-		epstore_->get_key_local(ep_id.hash(), key);
+		epstore_->get_key_local(ep_id.value(), key);
 	}else{										//remotely
-		epstore_->get_key_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.hash(), key);
+		epstore_->get_key_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), key);
 	}
 
 	if (key.is_empty())
@@ -412,6 +419,9 @@ void DataStore::get_string_indexes()
 			string key(pch);
 			pch = strtok(NULL, "\t");
 			label_t id = atoi(pch);
+			pch = strtok(NULL, "\t");
+			edge_pty_key_to_type[to_string(id)] = atoi(pch);
+
 
 			// both string and ID are unique
 			assert(indexes.str2epk.find(key) == indexes.str2epk.end());
@@ -466,6 +476,8 @@ void DataStore::get_string_indexes()
 			string key(pch);
 			pch = strtok(NULL, "\t");
 			label_t id = atoi(pch);
+			pch = strtok(NULL, "\t");
+			vtx_pty_key_to_type[to_string(id)] = atoi(pch);
 
 			// both string and ID are unique
 			assert(indexes.str2vpk.find(key) == indexes.str2vpk.end());
@@ -624,10 +636,11 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
 	string s(pch);
 
 	vector<string> kvpairs;
-	Tool::splitWithEscape(s, "[],", kvpairs);
-	for(int i = 0 ; i < kvpairs.size(); i++){
+	Tool::splitWithEscape(s, "[],:", kvpairs);
+	assert(kvpairs.size() % 2 == 0);
+	for(int i = 0 ; i < kvpairs.size(); i += 2){
 		kv_pair p;
-		Tool::get_kvpair(kvpairs[i], p);
+		Tool::get_kvpair(kvpairs[i], kvpairs[i+1], vtx_pty_key_to_type[kvpairs[i]], p);
 		V_KVpair v_pair;
 		v_pair.key = vpid_t(vid, p.key);
 		v_pair.value = p.value;
@@ -637,14 +650,6 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
 
 		//for property index on v
 		vpl->pkeys.push_back((label_t)p.key);
-
-		//get and check property's type
-		type_map_itr ptr = vtx_pty_key_to_type.find(p.key);
-		if(ptr == vtx_pty_key_to_type.end()){
-			vtx_pty_key_to_type[p.key] = p.value.type;
-		}else{
-			CHECK(ptr->second == p.value.type);
-		}
 	}
 
 	//sort p_list in vertex
@@ -709,6 +714,7 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	Edge * e = new Edge;
 	EProperty * ep = new EProperty;
 
+	uint64_t atoi_time = timer::get_usec();
 	char * pch;
 	pch = strtok(line, "\t");
 	int in_v = atoi(pch);
@@ -728,10 +734,12 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	vector<label_t> pkeys;
 
 	vector<string> kvpairs;
-	Tool::splitWithEscape(s, "[],", kvpairs);
-	for(int i = 0 ; i < kvpairs.size(); i++){
+	Tool::splitWithEscape(s, "[],:", kvpairs);
+	assert(kvpairs.size() % 2 == 0);
+
+	for(int i = 0 ; i < kvpairs.size(); i += 2){
 		kv_pair p;
-		Tool::get_kvpair(kvpairs[i], p);
+		Tool::get_kvpair(kvpairs[i], kvpairs[i+1], edge_pty_key_to_type[kvpairs[i]], p);
 
 		E_KVpair e_pair;
 		e_pair.key = epid_t(in_v, out_v, p.key);
@@ -740,13 +748,6 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 		ep->plist.push_back(e_pair);
 		pkeys.push_back((label_t)p.key);
 
-		//get and check property's type
-		type_map_itr ptr = edge_pty_key_to_type.find(p.key);
-		if(ptr == edge_pty_key_to_type.end()){
-			edge_pty_key_to_type[p.key] = p.value.type;
-		}else{
-			CHECK(ptr->second == p.value.type);
-		}
 	}
 
 	//sort p_list in vertex
@@ -756,131 +757,4 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	eplist.push_back(ep);
 
 //	cout << "####### " << ep->DebugString(); //DEBUG
-}
-
-void DataStore::upload_pty_types()
-{
-	if (node_.get_local_rank() == MASTER_RANK)
-	{
-		vector<type_map> vtx_key_parts;
-		vtx_key_parts.resize(node_.get_local_size());
-		master_gather(node_, false, vtx_key_parts);
-
-		for (int i = 0; i < node_.get_local_size(); i++)
-		{
-			if (i != MASTER_RANK)
-			{
-				type_map & part = vtx_key_parts[i];
-				for (type_map_itr it = part.begin(); it != part.end(); it++)
-				{
-					uint32_t key = it->first;
-					type_map_itr eit = vtx_pty_key_to_type.find(key);
-					if (eit == vtx_pty_key_to_type.end())
-						vtx_pty_key_to_type[key] = it->second;
-					else{
-						CHECK(eit->second == it->second);
-					}
-				}
-			}
-		}
-		worker_barrier(node_); //sync
-
-		vector<type_map> edge_key_parts;
-		edge_key_parts.resize(node_.get_local_size());
-		master_gather(node_, false, edge_key_parts);
-
-		for (int i = 0; i < node_.get_local_size(); i++)
-		{
-			if (i != MASTER_RANK)
-			{
-				type_map & part = edge_key_parts[i];
-				for (type_map_itr it = part.begin(); it != part.end(); it++)
-				{
-					uint32_t key = it->first;
-					type_map_itr eit = edge_pty_key_to_type.find(key);
-					if (eit == edge_pty_key_to_type.end())
-						edge_pty_key_to_type[key] = it->second;
-					else{
-						CHECK(eit->second == it->second);
-					}
-				}
-			}
-		}
-		worker_barrier(node_); //sync
-
-		hdfsFS fs = get_hdfs_fs();
-
-		const char * dir = config_->HDFS_PTY_TYPE_PATH.c_str();
-		if (hdfsExists(fs, dir) == 0) //exists
-		{
-			if(hdfs_delete(fs, dir) == -1){
-				fprintf(stderr, "%s has already existed, try to delete but failed!\n", dir);
-				exit(-1);
-			}
-		}
-		if(hdfsCreateDirectory(fs, dir) == -1){
-			fprintf(stderr, "Failed to create folder %s!\n", dir);
-			exit(-1);
-		}
-
-		string path_to_vtx_key_type = config_->HDFS_PTY_TYPE_PATH + "./vtx_type_table";
-		hdfsFile vtx_file = get_w_handle(path_to_vtx_key_type.c_str(), fs);
-
-		for(type_map_itr ptr = vtx_pty_key_to_type.begin(); ptr != vtx_pty_key_to_type.end(); ptr++){
-			string str = indexes.vpk2str[ptr->first] + "\t" + to_string(ptr->first) + "\t" + to_string(ptr->second) + "\n";
-			char * line = str.c_str();
-			if (hdfsWrite(fs, vtx_file, line, str.length()) == -1)
-			{
-				fprintf(stderr, "Failed to write file %s!\n", path_to_vtx_key_type);
-				exit(-1);
-			}
-		}
-
-		//flush
-		if (hdfsFlush(fs, vtx_file))
-		{
-			fprintf(stderr, "Failed to 'flush' %s!\n", path_to_vtx_key_type);
-			exit(-1);
-		}
-		hdfsCloseFile(fs, vtx_file);
-
-
-
-		string path_to_edge_key_type = config_->HDFS_PTY_TYPE_PATH + "./edge_type_table";
-		hdfsFile edge_file = get_w_handle(path_to_edge_key_type.c_str(), fs);
-
-		for(type_map_itr ptr = edge_pty_key_to_type.begin(); ptr != edge_pty_key_to_type.end(); ptr++){
-			string str = indexes.epk2str[ptr->first] + "\t" + to_string(ptr->first) + "\t" + to_string(ptr->second) + "\n";
-			char * line = str.c_str();
-			if (hdfsWrite(fs, edge_file, line, str.length()) == -1)
-			{
-				fprintf(stderr, "Failed to write file %s!\n", path_to_edge_key_type);
-				exit(-1);
-			}
-		}
-
-		//flush
-		if (hdfsFlush(fs, edge_file))
-		{
-			fprintf(stderr, "Failed to 'flush' %s!\n", path_to_edge_key_type);
-			exit(-1);
-		}
-		hdfsCloseFile(fs, edge_file);
-		hdfsDisconnect(fs);
-
-		//clear intermediate data
-		vtx_pty_key_to_type.clear();
-		edge_pty_key_to_type.clear();
-	}
-	else
-	{
-		slave_gather(node_, false, vtx_pty_key_to_type);
-		worker_barrier(node_);
-		slave_gather(node_, false, edge_pty_key_to_type);
-		worker_barrier(node_);
-
-		//clear intermediate data
-		vtx_pty_key_to_type.clear();
-		edge_pty_key_to_type.clear();
-	}
 }

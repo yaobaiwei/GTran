@@ -115,8 +115,8 @@ private:
 	vector<EProperty*> eplist; //x
 	vector<vp_list*> vp_buf; //x
 
-	typedef hash_map<uint32_t, uint8_t> type_map;
-	typedef hash_map<uint32_t, uint8_t>::iterator type_map_itr;
+	typedef map<string, uint8_t> type_map;
+	typedef map<string, uint8_t>::iterator type_map_itr;
 	type_map vtx_pty_key_to_type; //x
 	type_map edge_pty_key_to_type; //x
 
@@ -134,6 +134,4 @@ private:
 	void get_eplist();
 	void load_eplist(const char* inpath);
 	void to_ep(char* line, vector<EProperty*> & eplist);
-
-	void upload_pty_types();
 };
