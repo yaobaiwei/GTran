@@ -67,21 +67,15 @@ public:
 		bool in_quote = false;
 		while(i != s.size()){
 			int flag = 0;
-			if(s[i] == '"'){
-				in_quote = !in_quote;
-			}
 
-			// skip seperator checking when in_quote
-			if(!in_quote){
-				while(i != s.size() && flag == 0){
-					flag = 1;
-					for(string_size x = 0; x < seperator.size(); ++x)
-						if(s[i] == seperator[x]){
-							++i;
-							flag = 0;
-							break;
-						}
-				}
+			while(i != s.size() && flag == 0){
+				flag = 1;
+				for(string_size x = 0; x < seperator.size(); ++x)
+					if(s[i] == seperator[x]){
+						++i;
+						flag = 0;
+						break;
+					}
 			}
 
 			flag = 0;
