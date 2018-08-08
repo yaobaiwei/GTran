@@ -116,8 +116,31 @@ bool Client::trim_str(string& str) {
     return true;
 }
 
-void Client::run_console() {
-    
+void Client::run_console(string query_fname) {
+	if (query_fname != "") {
+		string query, result;
+
+		ifstream file(query_fname.c_str());
+		if (!file) {
+		  cout << "[Client][ERROR]: " << query_fname << " does not exist." << endl << endl;
+		  return;
+		}
+
+		while (std::getline(file, query)) {
+		  if (!trim_str(query)) {
+			  cout << "[Client][Error]: Empty Query" << endl << endl;
+			  return;
+		  }
+
+		  run_query(query, result, true);
+
+		  query.clear();
+		}
+
+        cout << "[Client] result: " << result << endl << endl;
+		return;
+	}
+
   // Timer:
   // 1. Whole time for user
   // 2. Touch Worker to Get result 
@@ -264,18 +287,25 @@ failed:
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
 {
-    if(argc != 2){
-        cout << "1 params required" <<endl;
+    if(argc != 2 && argc != 3){
+        cout << "1 or 2 params required" <<endl;
         return 0;
     }
     google::InitGoogleLogging(argv[0]);
     string cfg_fname = argv[1];
     CHECK(!cfg_fname.empty());
 
+	string query_fname;
+	if (argc == 2) {
+		query_fname = "";
+	} else {
+		query_fname = argv[2];
+	}
+
     Client client(cfg_fname);
     client.Init();
     cout << "DONE -> Client->Init()" << endl;
 
-    client.run_console();
+    client.run_console(query_fname);
     return 0;
 }

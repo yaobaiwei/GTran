@@ -34,7 +34,7 @@ public:
 
     void Init();
 
-    void run_console();
+    void run_console(string query_fname);
 
 private:
     int id;
