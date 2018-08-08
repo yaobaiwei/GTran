@@ -28,7 +28,7 @@ void Parser::LoadMapping(){
 	hdfsCloseFile(fs, vl_file);
 
 	// load vertex property key and type
-	string vp_path = config_->HDFS_PTY_TYPE_PATH + "./vtx_type_table";
+	string vp_path = config_->HDFS_INDEX_PATH + "./vtx_property_index";
 	hdfsFile vp_file = get_r_handle(vp_path.c_str(), fs);
 	LineReader vp_reader(fs, vp_file);
 	while (true)
@@ -77,7 +77,7 @@ void Parser::LoadMapping(){
 	hdfsCloseFile(fs, el_file);
 
 	// load edge property key and type
-	string ep_path = config_->HDFS_PTY_TYPE_PATH + "./edge_type_table";
+	string ep_path = config_->HDFS_INDEX_PATH + "./edge_property_index";
 	hdfsFile ep_file = get_r_handle(ep_path.c_str(), fs);
 	LineReader ep_reader(fs, ep_file);
 	while (true)
