@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string.h>
-
+#include <limits.h>
 
 #include "base/node.hpp"
 #include "base/communication.hpp"
@@ -67,21 +67,21 @@ public:
 
 	int ProgScheduler()
 	{
-		//the result should not be the same worker
-		int max = -1;
-		int max_index = -1;
+		// find worker with least tasks remained
+		uint32_t min = UINT_MAX;
+		int min_index = -1;
 		map<int, Progress>::iterator m_iter;
 		for(m_iter = progress_map_.begin(); m_iter != progress_map_.end(); m_iter++)
 		{
-			if(m_iter->second.num_tasks > max)
+			if(m_iter->second.num_tasks < min)
 			{
-				max = m_iter->second.num_tasks;
-				max_index = m_iter->first;
+				min = m_iter->second.num_tasks;
+				min_index = m_iter->first;
 			}
 		}
-		if(max_index != -1)
-			return max_index;
-		return rand() % node_.get_local_size() + 1;
+		if (min_index != -1)
+			return min_index;
+		return rand() % (node_.get_world_size() - 1) + 1;
 	}
 
 	void ProcessREQ(){

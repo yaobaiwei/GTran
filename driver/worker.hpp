@@ -41,12 +41,14 @@ public:
 		delete receiver_;
 		delete parser_;
 		delete rc_;
+		delete monitor_;
 	}
 
 	void Init(){
 		parser_ = new Parser(config_);
 		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
 		rc_ = new Result_Collector;
+		monitor_ = new Monitor(my_node_);
 		char addr[64];
 		sprintf(addr, "tcp://*:%d", my_node_.tcp_port);
 		receiver_->bind(addr);
@@ -76,13 +78,14 @@ public:
 			vector<Actor_Object> actors;
 			string error_msg;
 			bool success = parser_->Parse(query, actors, error_msg);
-			
+
 			if(success){
 				Pack pkg;
 				pkg.id = qid;
 				pkg.actors = move(actors);
 
 				queue_.Push(pkg);
+				monitor_->IncreaseCounter(1);
 			}else{
 				value_t v;
 				Tool::str2str(error_msg, v);
@@ -144,13 +147,11 @@ public:
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox);
 
-		Monitor * monitor = new Monitor(my_node_);
-		monitor->Start();
+		monitor_->Start();
 
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_->global_num_threads, rc_, mailbox, datastore);
 		actor_adapter->Start();
-
 
 		//pop out the query result from collector, automatically block when it's empty and wait
 		//fake, should find a way to stop
@@ -172,10 +173,12 @@ public:
 			sender.connect(addr);
 			cout << "Worker" << my_node_.get_world_rank() << " sends the results to Client " << re.first << endl;
 			sender.send(msg);
+
+			monitor_->DecreaseCounter(1);
 		}
 
 		actor_adapter->Stop();
-		monitor->Stop();
+		monitor_->Stop();
 
 		recvreq.join();
 		sendmsg.join();
@@ -188,6 +191,7 @@ private:
 	Parser* parser_;
 	ThreadSafeQueue<Pack> queue_;
 	Result_Collector * rc_;
+	Monitor * monitor_;
 	uint32_t num_query;
 
 	zmq::context_t context_;
