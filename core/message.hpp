@@ -102,7 +102,7 @@ public:
 	// currently
 	// recv_tid = qid % thread_pool.size()
 	// parent_node = _my_node.get_local_rank()
-	static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec);
+	static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, vector<Message>& vec);
 
 	// actors:  actors chain for current message
 	// data:    new data processed by actor_type

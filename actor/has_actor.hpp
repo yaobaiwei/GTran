@@ -93,9 +93,6 @@ private:
 	// Node
 	Node node_;
 
-	// Pointer of Result_Collector
-	Result_Collector * rc_;
-
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 

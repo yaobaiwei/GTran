@@ -98,7 +98,7 @@ obinstream& operator>>(obinstream& m, Message& msg)
 	return m;
 }
 
-void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, int max_data_size, vector<Message>& vec)
+void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, vector<Message>& vec)
 {
 	// assign receiver thread id
 	Meta m;
@@ -116,7 +116,6 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
 		Message msg;
 		msg.meta = m;
 		msg.meta.recver_nid = i;
-		msg.max_data_size = max_data_size;
 		vec.push_back(move(msg));
 	}
 }
@@ -219,6 +218,9 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 	vector<pair<history_t, vector<value_t>>> labeled_data;
 	int count = 0;
 	for (auto pair : data){
+		if(pair.second.size() == 0){
+			labeled_data.push_back(move(pair));
+		}
 		for(auto& value : pair.second){
 			value_t v;
 			Tool::str2int(to_string(count ++), v);
@@ -354,7 +356,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 					break;
 				}
 			}
-			else if(m.step < this->meta.step){
+			else if(m.step <= this->meta.step){
 				// to labelled branch parent
 				break;
 			}

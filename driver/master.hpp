@@ -26,7 +26,12 @@ using namespace std;
 
 struct Progress
 {
-	uint32_t num_tasks;
+	uint32_t assign_tasks;
+	uint32_t finish_tasks;
+
+	uint32_t remain_tasks(){
+		return assign_tasks - finish_tasks;
+	}
 };
 
 class Master{
@@ -56,7 +61,7 @@ public:
 			int src = prog[0];  //the slave ID
 			Progress & p = progress_map_[src];
 			if(prog[1] != -1){
-				p.num_tasks = prog[1];
+				p.finish_tasks = prog[1];
 			}else{
 				progress_map_.erase(src);
 			}
@@ -73,9 +78,9 @@ public:
 		map<int, Progress>::iterator m_iter;
 		for(m_iter = progress_map_.begin(); m_iter != progress_map_.end(); m_iter++)
 		{
-			if(m_iter->second.num_tasks < min)
+			if(m_iter->second.remain_tasks() < min)
 			{
-				min = m_iter->second.num_tasks;
+				min = m_iter->second.remain_tasks();
 				min_index = m_iter->first;
 			}
 		}
@@ -101,6 +106,7 @@ public:
 			}
 
 			int target_engine_id = ProgScheduler();
+			progress_map_[target_engine_id].assign_tasks ++;
 			//DEBUG
 			cout << "##### Master recvs request from Client: " << client_id << " and reply " << target_engine_id << endl;
 

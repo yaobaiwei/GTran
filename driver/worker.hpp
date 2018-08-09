@@ -41,14 +41,12 @@ public:
 		delete receiver_;
 		delete parser_;
 		delete rc_;
-		delete monitor_;
 	}
 
 	void Init(){
 		parser_ = new Parser(config_);
 		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
 		rc_ = new Result_Collector;
-		monitor_ = new Monitor(my_node_);
 		char addr[64];
 		sprintf(addr, "tcp://*:%d", my_node_.tcp_port);
 		receiver_->bind(addr);
@@ -85,7 +83,6 @@ public:
 				pkg.actors = move(actors);
 
 				queue_.Push(pkg);
-				monitor_->IncreaseCounter(1);
 			}else{
 				value_t v;
 				Tool::str2str(error_msg, v);
@@ -101,7 +98,7 @@ public:
 			queue_.WaitAndPop(pkg);
 
 			vector<Message> msgs;
-			Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(), pkg.id.value() % config_->global_num_threads, pkg.actors, config_->max_data_size, msgs);
+			Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(), pkg.id.value() % config_->global_num_threads, pkg.actors, msgs);
 			for(int i = 0 ; i < my_node_.get_local_size(); i++){
 				mailbox->Send(i, msgs[i]);
 			}
@@ -146,11 +143,11 @@ public:
 
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox);
-
-		monitor_->Start();
+		Monitor * monitor = new Monitor(my_node_);
+		monitor->Start();
 
 		//actor driver starts
-		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_->global_num_threads, rc_, mailbox, datastore);
+		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore);
 		actor_adapter->Start();
 
 		//pop out the query result from collector, automatically block when it's empty and wait
@@ -174,11 +171,11 @@ public:
 			cout << "Worker" << my_node_.get_world_rank() << " sends the results to Client " << re.first << endl;
 			sender.send(msg);
 
-			monitor_->DecreaseCounter(1);
+			monitor->IncreaseCounter(1);
 		}
 
 		actor_adapter->Stop();
-		monitor_->Stop();
+		monitor->Stop();
 
 		recvreq.join();
 		sendmsg.join();
@@ -191,7 +188,6 @@ private:
 	Parser* parser_;
 	ThreadSafeQueue<Pack> queue_;
 	Result_Collector * rc_;
-	Monitor * monitor_;
 	uint32_t num_query;
 
 	zmq::context_t context_;

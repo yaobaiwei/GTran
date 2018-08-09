@@ -42,8 +42,8 @@ using namespace std;
 
 class ActorAdapter {
 public:
-	ActorAdapter(Node & node, int num_thread, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store) : node_(node), num_thread_(num_thread), rc_(rc), mailbox_(mailbox), data_store_(data_store) {
-		times_.resize(num_thread, 0);
+	ActorAdapter(Node & node, Config * config, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store) : node_(node), config_(config), num_thread_(config->global_num_threads), rc_(rc), mailbox_(mailbox), data_store_(data_store) {
+		times_.resize(num_thread_, 0);
 	}
 
 	void Init(){
@@ -59,7 +59,7 @@ public:
 		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_, node_.get_local_size(), config_->max_data_size));
 		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, num_thread_, mailbox_));
@@ -136,7 +136,8 @@ public:
 private:
 	AbstractMailbox * mailbox_;
 	Result_Collector * rc_;
-	DataStore* data_store_;
+	DataStore * data_store_;
+	Config * config_;
 	msg_id_alloc id_allocator_;
 	Node node_;
 
