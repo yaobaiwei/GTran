@@ -20,7 +20,10 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, int nodes_num, int max_data_size) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::INIT) {
+    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, int num_nodes, int max_data_size) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
+	}
+
+	void InitMsg(){
 		// copy id list from data store
 		uint64_t start_t = timer::get_usec();
 		vector<vid_t> vid_list;
@@ -29,20 +32,19 @@ public:
 		data_store_->GetAllVertices(vid_list);
 		uint64_t end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for get_v&e in init_actor" << endl;
-		cout << "Msg max data size : " << max_data_size << endl;
 
 		// convert id to msg
 		Meta m;
 		m.step = 1;
-		m.msg_path = to_string(nodes_num);
+		m.msg_path = to_string(num_nodes_);
 
 		start_t = timer::get_usec();
-		InitVtxMsg(m, vid_list, max_data_size);
+		InitVtxMsg(m, vid_list, max_data_size_);
 		end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
 
 		start_t = timer::get_usec();
-		InitEdgeMsg(m, eid_list, max_data_size);
+		InitEdgeMsg(m, eid_list, max_data_size_);
 		end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
 	}
@@ -50,6 +52,10 @@ public:
     virtual ~InitActor(){}
 
     void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+		if(! is_ready_){
+			InitMsg();
+			is_ready_ = true;
+		}
         Meta & m = msg.meta;
         Actor_Object actor_obj = actor_objs[m.step];
 
@@ -89,6 +95,9 @@ public:
 private:
 	// Number of threads
 	int num_thread_;
+	int num_nodes_;
+	int max_data_size_;
+	bool is_ready_;
 
 	// Actor type
 	ACTOR_T type_;
@@ -104,7 +113,6 @@ private:
 	vector<Message> edge_msgs;
 
     void InitVtxMsg(Meta& m, vector<vid_t>& vid_list, int max_data_size) {
-		uint64_t start_t = timer::get_usec();
 		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
 		data[0].second.reserve(vid_list.size());

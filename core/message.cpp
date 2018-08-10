@@ -226,10 +226,11 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 			Tool::str2int(to_string(count ++), v);
 			history_t his = pair.first;
 			his.emplace_back(m.step, move(v));
-			labeled_data.emplace_back(move(his), vector<value_t>{value});
+			vector<value_t> val_vec;
+			val_vec.push_back(move(value));
+			labeled_data.emplace_back(move(his), move(val_vec));
 		}
 	}
-
 	// copy labeled data to each step
 	for(int i = 0; i < steps.size(); i ++){
 		int step = steps[i];
@@ -238,7 +239,13 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 		step_meta.branch_infos.push_back(info);
 		step_meta.step = step;
 
-		auto temp = labeled_data;
+		vector<pair<history_t, vector<value_t>>> temp;
+		if(i == steps.size() - 1){
+			temp = move(labeled_data);
+		}else{
+			temp = labeled_data;
+		}
+
 		// dispatch data to msg vec
 		int count = vec.size();
 		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
@@ -289,10 +296,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 		for(auto& p: data){
 			map<int, vector<value_t>> id2value_t;
 			if(p.second.size() == 0){
-				auto itr = merge_hisotry(empty_his, p.first, his_key);
-				if(itr == empty_his.end()){
-					empty_his.push_back(move(p));
-				}
+				empty_his.push_back(move(p));
 			}else{
 				// get node id
 				for(auto& v : p.second){
@@ -308,12 +312,10 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 		}
 	}
 	else{
+		id2data[m.recver_nid].reserve(data.size());
 		for(auto& p: data){
 			if(p.second.size() == 0){
-				auto itr = merge_hisotry(empty_his, p.first, his_key);
-				if(itr == empty_his.end()){
-					empty_his.push_back(move(p));
-				}
+				empty_his.push_back(move(p));
 			}else{
 				id2data[m.recver_nid].push_back(move(p));
 			}
@@ -358,6 +360,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 			}
 			else if(m.step <= this->meta.step){
 				// to labelled branch parent
+				empty_his.clear();
 				break;
 			}
 
@@ -443,7 +446,6 @@ bool Message::InsertData(pair<history_t, vector<value_t>>& pair)
 	if (pair.second.size() == 0){
 		data.push_back(pair);
 		data_size += his_size;
-		pair.second.clear();
 		return true;
 	}
 
@@ -467,26 +469,25 @@ bool Message::InsertData(pair<history_t, vector<value_t>>& pair)
 
 	// move data
 	if (in_size != his_size){
-		data.emplace_back(pair.first, vector<value_t>());
-		int i = data.size() - 1;
-		std::move(pair.second.begin(), itr, std::back_inserter(data[i].second));
-		itr = pair.second.erase(pair.second.begin(), itr);
+		vector<value_t> temp;
+		std::move(pair.second.begin(), itr, std::back_inserter(temp));
+		pair.second.erase(pair.second.begin(), itr);
+		data.emplace_back(pair.first, move(temp));
 		data_size += in_size;
 	}
-	assert(MemSize(data) == data_size);
 
 	return pair.second.size() == 0;
 }
 
 void Message::InsertData(vector<pair<history_t, vector<value_t>>>& vec)
 {
-	for (auto itr = vec.begin(); itr != vec.end();){
+	auto itr = vec.begin();
+	for (; itr != vec.end(); itr++){
 		if(! InsertData(*itr)){
 			break;
 		}
-		itr = vec.erase(itr);
 	}
-	assert(MemSize(data) == data_size);
+	vec.erase(vec.begin(), itr);
 }
 
 std::string Message::DebugString() const {

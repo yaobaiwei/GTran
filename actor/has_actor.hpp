@@ -106,7 +106,6 @@ private:
 
 		auto checkFunction = [&](value_t& value){
 			vid_t v_id(Tool::value_t2int(value));
-			bool isErase = false;
 
 			for (auto & pred_pair : pred_chain) {
 				int pid = pred_pair.first;
@@ -131,8 +130,7 @@ private:
 
 					// Cannot match all properties, erase
 					if (counter == 0) {
-						isErase = true;
-						break;
+						return true;
 					}
 				} else {
 
@@ -140,16 +138,14 @@ private:
 
 					if (pred.pred_type == Predicate_T::ANY) {
 						if(!data_store_->VPKeyIsExist(tid, vp_id)) {
-							// dont exist Key, erase 
-							isErase = true;
-							break;
+							// dont exist Key, erase
+							return true;
 						}
 					} else if (pred.pred_type == Predicate_T::NONE) {
 						// hasNot(key)
 						if(data_store_->VPKeyIsExist(tid, vp_id)) {
-							// exist under hasNot, erase 
-							isErase = true;
-							break;
+							// exist under hasNot, erase
+							return true;
 						}
 					} else {
 						// Get Properties
@@ -161,20 +157,18 @@ private:
 
 						if (val.content.size() == 0) {
 							// No such value or key, erase
-							isErase = true;
-							break;
+							return true;
 						}
 
 						// Erase when doesnt match
 						if(!Evaluate(pred, &val)) {
-							isErase = true;
-							break;
+							return true;
 						}
 					}
 				}
 			}
 
-			return isErase;
+			return false;
 		};
 
 		for (auto & data_pair : data) {
@@ -187,7 +181,6 @@ private:
 		auto checkFunction = [&](value_t& value){
 			eid_t e_id;
 			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
-			bool isErase = false;
 
 			for (auto & pred_pair : pred_chain) {
 				int pid = pred_pair.first;
@@ -212,8 +205,7 @@ private:
 
 					// Cannot match all properties, erase
 					if (counter == 0) {
-						isErase = true;
-						break;
+						return true;
 					}
 				} else {
 
@@ -221,16 +213,14 @@ private:
 
 					if (pred.pred_type == Predicate_T::ANY) {
 						if(!data_store_->EPKeyIsExist(tid, ep_id)) {
-							// dont exist Key, erase 
-							isErase = true;
-							break;
+							// dont exist Key, erase
+							return true;
 						}
 					} else if (pred.pred_type == Predicate_T::NONE) {
 						// hasNot(key)
 						if(data_store_->EPKeyIsExist(tid, ep_id)) {
-							// exist under hasNot, erase 
-							isErase = true;
-							break;
+							// exist under hasNot, erase
+							return true;
 						}
 					} else {
 						// Get Properties
@@ -242,20 +232,18 @@ private:
 
 						if (val.content.size() == 0) {
 							// No such value or key, erase
-							isErase = true;
-							break;
+							return true;
 						}
 
 						// Erase when doesnt match
 						if(!Evaluate(pred, &val)) {
-							isErase = true;
-							break;
+							return true;
 						}
 					}
 				}
 			}
 
-			return isErase;
+			return false;
 		};
 
 		for (auto & data_pair : data) {
