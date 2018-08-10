@@ -147,19 +147,13 @@ private:
 
 					PredicateValue single_pred(pred_type, his_val);
 
-					for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
-						if (!Evaluate(single_pred, &(*value_itr))) {
-							// if failed
-							value_itr = data_pair.second.erase(value_itr);
-						} else {
-							value_itr++;
-						}
-					}
+					auto checkSinglePred = [&](value_t & value) {
+						return !Evaluate(single_pred, &value);
+					};
+					data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkSinglePred), data_pair.second.end() );
 				}
 			} else {
 				for (auto & data_pair : data) {
-					cout << "Step label size : " << step_labels.size() << endl;
-
 					vector<value_t> his_val;
 					int counter = step_labels.size();
 
@@ -168,7 +162,6 @@ private:
 						do {
 							if (step_label == (*his_itr).first) {
 								his_val.push_back((*his_itr).second);
-								cout << step_label << " : " << Tool::DebugString((*his_itr).second) << endl;
 								counter--;
 								break;
 							}
@@ -182,14 +175,9 @@ private:
 					}
 
 					if (step_labels.size() > 2) {
-						cout << "Here" << endl;
-						cout << "Size of his_val : " << his_val.size();
 						PredicateValue single_pred(pred_type, vector<value_t>(his_val.begin() + 1, his_val.end()));
 						if (!Evaluate(single_pred, &his_val.at(0))) {
-							cout << "Erase" << endl;
 							data_pair.second.clear();
-						} else {
-							cout << "Pass : " << Tool::DebugString(his_val.at(0)) << endl; 
 						}
 					} else {
 						if (!Evaluate(pred_type, his_val.at(0), his_val.at(1))) {
@@ -202,32 +190,24 @@ private:
 		}
 	}
 
-	EvaluateForAggregate(vector<pair<history_t, vector<value_t>>> & data, map<value_t, int> & agg_data, int his_label, Predicate_T pred_type) {
+	void EvaluateForAggregate(vector<pair<history_t, vector<value_t>>> & data, map<value_t, int> & agg_data, int his_label, Predicate_T pred_type) {
+		auto checkFunction = [&](value_t & value) {
+			if (pred_type == Predicate_T::WITHIN) {
+				if (agg_data.find(value) == agg_data.end()) {
+					return true;
+				}
+				return false;
+			} else { // WITHOUT
+				if (agg_data.find(value) != agg_data.end()) {
+					return true;
+				}
+				return false;
+			}
+		};
+
 		if (his_label == -1) {
 			for (auto & data_pair : data) {
-				for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
-					if (pred_type == Predicate_T::WITHIN) {
-						if (agg_data.find(*value_itr) == agg_data.end()) {
-							// erase 
-							cout << "Erase: " << Tool::DebugString(*value_itr) << endl;
-							value_itr = data_pair.second.erase(value_itr);
-						} else {
-							cout << "Pass: " << Tool::DebugString(*value_itr) << endl;
-							value_itr++;
-						}
-					} else if (pred_type == Predicate_T::WITHOUT) {
-						if (agg_data.find(*value_itr) != agg_data.end()) {
-							// erase 
-							cout << "Erase: " << Tool::DebugString(*value_itr) << endl;
-							value_itr = data_pair.second.erase(value_itr);
-						} else {
-							value_itr++;
-						}
-					} else {
-						cout << "Wrong Predicate Type" << endl;
-						return;
-					}
-				}
+				data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
 			}
 		} else {
 			for (auto & data_pair : data) {
@@ -238,14 +218,11 @@ private:
 								// erase 
 								data_pair.second.clear();
 							}
-						} else if (pred_type == Predicate_T::WITHOUT) {
+						} else { // WIHTOUT
 							if (agg_data.find((*his_itr).second) != agg_data.end()) {
 								// erase 
 								data_pair.second.clear();
 							}
-						} else {
-							cout << "Wrong Predicate Type" << endl;
-							return;
 						}
 					}
 
@@ -257,8 +234,6 @@ private:
 
 	bool HasAggregateData(agg_t key, vector<value_t> & agg_data) {
 		data_store_->GetAggData(key, agg_data);
-
-		cout << agg_data.size() << endl;
 
 		if (agg_data.size() == 0) {
 			return false;

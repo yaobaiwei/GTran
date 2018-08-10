@@ -93,11 +93,6 @@ bool Evaluate(PredicateValue & pv, value_t *value)
 {
 	assert(pv.values.size() > 0);
 
-	cout << "Value : " << Tool::DebugString(*value) << endl;
-	cout << "pred_type : " << pv.pred_type << endl;
-	cout << "pred params type : " << to_string(pv.values.at(0).type) << endl;
-	cout << "pred params content size: " << pv.values.at(0).content.size() << endl;
-
 	// no value
 	if (value == NULL){
 		return pv.pred_type == Predicate_T::NONE;

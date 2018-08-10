@@ -267,16 +267,10 @@ private:
 
 			// filter
 			for(auto& pair : data){
-				auto& value_vec = pair.second;
-				for(auto itr_val = value_vec.begin(); itr_val != value_vec.end();){
-					// remove data if not passed
-					if(! pass(counter[i], num_of_branch)){
-						itr_val = value_vec.erase(itr_val);
-					}else{
-						itr_val ++;
-					}
-					i ++;
-				}
+				auto checkFunction = [&](value_t & value) {
+					return !pass(counter[i++], num_of_branch);
+				};
+				pair.second.erase( remove_if(pair.second.begin(), pair.second.end(), checkFunction), pair.second.end() );
 			}
 
 			// remove last branch info

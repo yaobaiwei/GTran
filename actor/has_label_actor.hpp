@@ -85,64 +85,54 @@ private:
 
 	void VertexHasLabel(int tid, vector<int> lid_list, vector<pair<history_t, vector<value_t>>> & data)
 	{
-		for (auto & data_pair : data) {
-			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
+		auto checkFunction = [&](value_t & value) {
+			vid_t v_id(Tool::value_t2int(value));
 
-				vid_t v_id(Tool::value_t2int(*value_itr));
+			label_t label;
+			if (!cache.get_label_from_cache(v_id.value(), label)) {
+				data_store_->GetLabelForVertex(tid, v_id, label);
+				cache.insert_label(v_id.value(), label);
+			}
 
-				label_t label;
-				if (!cache.get_label_from_cache(v_id.value(), label)) {
-					data_store_->GetLabelForVertex(tid, v_id, label);
-					cache.insert_label(v_id.value(), label);
-				}
-
-				bool isPass = false;
-				for (auto & lid : lid_list) {
-					if (lid == label) {
-						isPass = true;
-						break;
-					}
-				}
-
-				if (!isPass) {
-					// if not pass, erase this item
-					value_itr = data_pair.second.erase(value_itr);
-				} else {
-					value_itr++;
+			bool isErase = true;
+			for (auto & lid : lid_list) {
+				if (lid == label) {
+					isErase = false;
+					break;
 				}
 			}
+			return isErase;
+		};
+
+		for (auto & data_pair : data) {
+			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
 		}
 	}
 
 	void EdgeHasLabel(int tid, vector<int> lid_list, vector<pair<history_t, vector<value_t>>> & data)
 	{
-		for (auto & data_pair : data) {
-			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
+		auto checkFunction = [&](value_t & value) {
+			eid_t e_id;
+			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
-				eid_t e_id;
-				uint2eid_t(Tool::value_t2uint64_t(*value_itr), e_id);
+			label_t label;
+			if (!cache.get_label_from_cache(e_id.value(), label)) {
+				data_store_->GetLabelForEdge(tid, e_id, label);
+				cache.insert_label(e_id.value(), label);
+			}
 
-				label_t label;
-				if (!cache.get_label_from_cache(e_id.value(), label)) {
-					data_store_->GetLabelForEdge(tid, e_id, label);
-					cache.insert_label(e_id.value(), label);
-				}
-
-				bool isPass = false;
-				for (auto & lid : lid_list) {
-					if (lid == label) {
-						isPass = true;
-						break;
-					}
-				}
-
-				if (!isPass) {
-					// if not pass, erase this item
-					value_itr = data_pair.second.erase(value_itr);
-				} else {
-					value_itr++;
+			bool isErase = true;
+			for (auto & lid : lid_list) {
+				if (lid == label) {
+					isErase = false;
+					break;
 				}
 			}
+			return isErase;
+		};
+
+		for (auto & data_pair : data) {
+			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
 		}
 	}
 };

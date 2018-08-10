@@ -72,24 +72,26 @@ private:
 	std::mutex thread_mutex_;
 
 	void EvaluateData(vector<pair<history_t, vector<value_t>>> & data, vector<PredicateValue> & pred_chain) {
-		for (auto & data_pair : data) {
-			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
 
-				int counter = pred_chain.size();
-				for (auto & pred : pred_chain) {
-					if (Evaluate(pred, &(*value_itr))) {
-						counter--;
-					}
+		auto checkFunction = [&](value_t & value) {
+			int counter = pred_chain.size();
+			for (auto & pred : pred_chain) {
+				if (Evaluate(pred, &value)) {
+					counter--;
 				}
-
-				if (counter != 0) {
-					value_itr = data_pair.second.erase(value_itr);
-				} else {
-					value_itr++;
-				}
-
 			}
+
+			// Not match all pred
+			if (counter != 0) {
+				return true;
+			}
+			return false;
+		};
+
+		for (auto & data_pair : data) {
+			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
 		}
+
 	}
 
 };

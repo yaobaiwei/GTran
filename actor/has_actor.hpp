@@ -102,173 +102,164 @@ private:
 	// Cache
 	ActorCache cache;
 
-	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain)
-	{
-		for (auto & data_pair : data) {
-			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
+	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
 
-				vid_t v_id(Tool::value_t2int(*value_itr));
+		auto checkFunction = [&](value_t& value){
+			vid_t v_id(Tool::value_t2int(value));
+			bool isErase = false;
 
-				bool isEarsed = false;
-				for (auto & pred_pair : pred_chain) {
-					int pid = pred_pair.first;
-					PredicateValue pred = pred_pair.second;
+			for (auto & pred_pair : pred_chain) {
+				int pid = pred_pair.first;
+				PredicateValue pred = pred_pair.second;
 
-					if (pid == -1) {
-						Vertex* vtx = data_store_->GetVertex(v_id);
-						int counter = vtx->vp_list.size();
-						for (auto & pkey : vtx->vp_list) {
-							vpid_t vp_id(v_id, pkey);
+				if (pid == -1) {
+					Vertex* vtx = data_store_->GetVertex(v_id);
+					int counter = vtx->vp_list.size();
+					for (auto & pkey : vtx->vp_list) {
+						vpid_t vp_id(v_id, pkey);
 
-							value_t val;
-							if (!cache.get_property_from_cache(vp_id.value(), val)) {
-								data_store_->GetPropertyForVertex(tid, vp_id, val);
-								cache.insert_properties(vp_id.value(), val);
-							}
-
-							if(!Evaluate(pred, &val)) {
-								counter--;
-							}
+						value_t val;
+						if (!cache.get_property_from_cache(vp_id.value(), val)) {
+							data_store_->GetPropertyForVertex(tid, vp_id, val);
+							cache.insert_properties(vp_id.value(), val);
 						}
 
-						if (counter == 0) {
-							value_itr = data_pair.second.erase(value_itr);
-							isEarsed = true;
+						if(!Evaluate(pred, &val)) {
+							counter--;
+						}
+					}
+
+					// Cannot match all properties, erase
+					if (counter == 0) {
+						isErase = true;
+						break;
+					}
+				} else {
+
+					vpid_t vp_id(v_id, pid);
+
+					if (pred.pred_type == Predicate_T::ANY) {
+						if(!data_store_->VPKeyIsExist(tid, vp_id)) {
+							// dont exist Key, erase 
+							isErase = true;
+							break;
+						}
+					} else if (pred.pred_type == Predicate_T::NONE) {
+						// hasNot(key)
+						if(data_store_->VPKeyIsExist(tid, vp_id)) {
+							// exist under hasNot, erase 
+							isErase = true;
 							break;
 						}
 					} else {
+						// Get Properties
+						value_t val;
+						if (!cache.get_property_from_cache(vp_id.value(), val)) {
+							data_store_->GetPropertyForVertex(tid, vp_id, val);
+							cache.insert_properties(vp_id.value(), val);
+						}
 
-						vpid_t vp_id(v_id, pid);
+						if (val.content.size() == 0) {
+							// No such value or key, erase
+							isErase = true;
+							break;
+						}
 
-						if (pred.pred_type == Predicate_T::ANY) {
-							if(!data_store_->VPKeyIsExist(tid, vp_id)) {
-								// erase this data and break
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
-						} else if (pred.pred_type == Predicate_T::NONE) {
-							// hasNot(key)
-							if(data_store_->VPKeyIsExist(tid, vp_id)) {
-								// erase this data and break
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
-						} else {
-							// Get Properties
-							value_t val;
-							if (!cache.get_property_from_cache(vp_id.value(), val)) {
-								data_store_->GetPropertyForVertex(tid, vp_id, val);
-								cache.insert_properties(vp_id.value(), val);
-							}
-
-							if (val.content.size() == 0) {
-								// No such value or key, erase directly
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
-
-							// Erase when doesnt match
-							if(!Evaluate(pred, &val)) {
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
+						// Erase when doesnt match
+						if(!Evaluate(pred, &val)) {
+							isErase = true;
+							break;
 						}
 					}
 				}
-				// If not earsed, go next itr
-				if (!isEarsed) {
-					value_itr++;
-				}
 			}
+
+			return isErase;
+		};
+
+		for (auto & data_pair : data) {
+			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
 		}
 	}
 
 	void EvaluateEdge(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
-		for (auto & data_pair : data) {
-			for (auto value_itr = data_pair.second.begin(); value_itr != data_pair.second.end(); ) {
 
-				eid_t e_id;
-				uint2eid_t(Tool::value_t2uint64_t(*value_itr), e_id);
+		auto checkFunction = [&](value_t& value){
+			eid_t e_id;
+			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
+			bool isErase = false;
 
-				bool isEarsed = false;
-				for (auto & pred_pair : pred_chain) {
-					int pid = pred_pair.first;
-					PredicateValue pred = pred_pair.second;
+			for (auto & pred_pair : pred_chain) {
+				int pid = pred_pair.first;
+				PredicateValue pred = pred_pair.second;
 
-					if (pid == -1) {
-						Edge* edge = data_store_->GetEdge(e_id);
-						int counter = edge->ep_list.size();
-						for (auto & pkey : edge->ep_list) {
-							epid_t ep_id(e_id, pkey);
+				if (pid == -1) {
+					Edge* edge = data_store_->GetEdge(e_id);
+					int counter = edge->ep_list.size();
+					for (auto & pkey : edge->ep_list) {
+						epid_t ep_id(e_id, pkey);
 
-							value_t val;
-							if (!cache.get_property_from_cache(ep_id.value(), val)) {
-								data_store_->GetPropertyForEdge(tid, ep_id, val);
-								cache.insert_properties(ep_id.value(), val);
-							}
-
-							if(!Evaluate(pred, &val)) {
-								counter--;
-							}
+						value_t val;
+						if (!cache.get_property_from_cache(ep_id.value(), val)) {
+							data_store_->GetPropertyForEdge(tid, ep_id, val);
+							cache.insert_properties(ep_id.value(), val);
 						}
 
-						if (counter == 0) {
-							value_itr = data_pair.second.erase(value_itr);
-							isEarsed = true;
+						if(!Evaluate(pred, &val)) {
+							counter--;
+						}
+					}
+
+					// Cannot match all properties, erase
+					if (counter == 0) {
+						isErase = true;
+						break;
+					}
+				} else {
+
+					epid_t ep_id(e_id, pid);
+
+					if (pred.pred_type == Predicate_T::ANY) {
+						if(!data_store_->EPKeyIsExist(tid, ep_id)) {
+							// dont exist Key, erase 
+							isErase = true;
+							break;
+						}
+					} else if (pred.pred_type == Predicate_T::NONE) {
+						// hasNot(key)
+						if(data_store_->EPKeyIsExist(tid, ep_id)) {
+							// exist under hasNot, erase 
+							isErase = true;
 							break;
 						}
 					} else {
+						// Get Properties
+						value_t val;
+						if (!cache.get_property_from_cache(ep_id.value(), val)) {
+							data_store_->GetPropertyForEdge(tid, ep_id, val);
+							cache.insert_properties(ep_id.value(), val);
+						}
 
-						epid_t ep_id(e_id, pid);
+						if (val.content.size() == 0) {
+							// No such value or key, erase
+							isErase = true;
+							break;
+						}
 
-						if (pred.pred_type == Predicate_T::ANY) {
-							if(!data_store_->EPKeyIsExist(tid, ep_id)) {
-								// erase this data when NOT exist
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
-						} else if (pred.pred_type == Predicate_T::NONE) {
-							// hasNot(key)
-							if(data_store_->EPKeyIsExist(tid, ep_id)) {
-								// erase this data when exist
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
-						} else {
-							// Get Properties
-							value_t val;
-							if (!cache.get_property_from_cache(ep_id.value(), val)) {
-								data_store_->GetPropertyForEdge(tid, ep_id, val);
-								cache.insert_properties(ep_id.value(), val);
-							}
-
-							if (val.content.size() == 0) {
-								// No such value or key, erase directly
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
-
-							// Erase when doesnt match
-							if(!Evaluate(pred, &val)) {
-								value_itr = data_pair.second.erase(value_itr);
-								isEarsed = true;
-								break;
-							}
+						// Erase when doesnt match
+						if(!Evaluate(pred, &val)) {
+							isErase = true;
+							break;
 						}
 					}
 				}
-				// If not earsed, go next itr
-				if (!isEarsed) {
-					value_itr++;
-				}
 			}
+
+			return isErase;
+		};
+
+		for (auto & data_pair : data) {
+			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
 		}
 	}
 };
