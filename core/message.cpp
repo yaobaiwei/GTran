@@ -437,25 +437,23 @@ int Message::get_node_id(value_t & v, DataStore* data_store)
 
 bool Message::InsertData(pair<history_t, vector<value_t>>& pair)
 {
-	size_t in_size = MemSize(pair);
 	size_t space = max_data_size - data_size;
+	size_t his_size = MemSize(pair.first) + sizeof(size_t);
 
-	// with sufficient space
-	if (in_size <= space){
+	if (pair.second.size() == 0){
 		data.push_back(pair);
-		data_size += in_size;
+		data_size += his_size;
 		pair.second.clear();
 		return true;
 	}
 
 	// check if able to add history
-	size_t his_size = MemSize(pair.first) + sizeof(size_t);
 	// no space for history
 	if (his_size >= space){
 		return false;
 	}
 
-	in_size = his_size;
+	size_t in_size = his_size;
 	auto itr = pair.second.begin();
 	for (; itr != pair.second.end(); itr ++){
 		size_t s = MemSize(*itr);

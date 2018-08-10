@@ -14,6 +14,7 @@
 #include "storage/layout.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
+#include "utils/timer.hpp"
 
 using namespace std;
 
@@ -21,18 +22,29 @@ class InitActor : public AbstractActor {
 public:
     InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, int nodes_num, int max_data_size) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::INIT) {
 		// copy id list from data store
+		uint64_t start_t = timer::get_usec();
 		vector<vid_t> vid_list;
 		vector<eid_t> eid_list;
 		data_store_->GetAllEdges(eid_list);
 		data_store_->GetAllVertices(vid_list);
+		uint64_t end_t = timer::get_usec();
+		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for get_v&e in init_actor" << endl;
+		cout << "Msg max data size : " << max_data_size << endl;
 
 		// convert id to msg
 		Meta m;
 		m.step = 1;
 		m.msg_path = to_string(nodes_num);
 
+		start_t = timer::get_usec();
 		InitVtxMsg(m, vid_list, max_data_size);
+		end_t = timer::get_usec();
+		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
+
+		start_t = timer::get_usec();
 		InitEdgeMsg(m, eid_list, max_data_size);
+		end_t = timer::get_usec();
+		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
 	}
 
     virtual ~InitActor(){}
@@ -92,13 +104,15 @@ private:
 	vector<Message> edge_msgs;
 
     void InitVtxMsg(Meta& m, vector<vid_t>& vid_list, int max_data_size) {
-        vector<pair<history_t, vector<value_t>>> data;
+		uint64_t start_t = timer::get_usec();
+		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
-        for (auto& vid : vid_list) {
-            value_t v;
-            Tool::str2int(to_string(vid.value()), v);
-            data[0].second.push_back(v);
-        }
+		data[0].second.reserve(vid_list.size());
+		for (auto& vid : vid_list) {
+			value_t v;
+			Tool::str2int(to_string(vid.value()), v);
+			data[0].second.push_back(v);
+		}
 
 		do{
 			Message msg(m);
@@ -107,16 +121,22 @@ private:
 			vtx_msgs.push_back(move(msg));
 		}
 		while((data.size() != 0));
+
+		string num = "\t" + to_string(vtx_msgs.size());
+		for (auto & msg_ : vtx_msgs) {
+			msg_.meta.msg_path += num;
+		}
     }
 
     void InitEdgeMsg(Meta& m, vector<eid_t>& eid_list, int max_data_size) {
 		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
-        for (auto& eid : eid_list) {
-            value_t v;
-            Tool::str2uint64_t(to_string(eid.value()), v);
-            data[0].second.push_back(v);
-        }
+		data[0].second.reserve(eid_list.size());
+		for (auto& eid : eid_list) {
+			value_t v;
+			Tool::str2uint64_t(to_string(eid.value()), v);
+			data[0].second.push_back(v);
+		}
 
 		do{
 			Message msg(m);
@@ -125,6 +145,11 @@ private:
 			edge_msgs.push_back(move(msg));
 		}
 		while((data.size() != 0));
+
+		string num = "\t" + to_string(edge_msgs.size());
+		for (auto & msg_ : edge_msgs) {
+			msg_.meta.msg_path += num;
+		}
     }
 };
 

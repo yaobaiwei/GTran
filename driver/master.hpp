@@ -56,7 +56,7 @@ public:
 		while(1){
 			vector<uint32_t> prog = recv_data<vector<uint32_t>>(node_, MPI_ANY_SOURCE, true, MONITOR_CHANNEL);
 			//DEBUG
-			cout << "@@@@@ Master gets progress report from " << prog[0] << "=> " << prog[1] << endl;
+			// cout << "@@@@@ Master gets progress report from " << prog[0] << "=> " << prog[1] << endl;
 
 			int src = prog[0];  //the slave ID
 			Progress & p = progress_map_[src];

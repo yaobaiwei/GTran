@@ -136,7 +136,7 @@ public:
 		datastore->DataConverter();
 		worker_barrier(my_node_);
 
-		cout << "DONE -> Datastore->LoadData()" << endl;
+		cout << "DONE -> Datastore->DataConverter()" << endl;
 
 		parser_->LoadMapping();
 		cout << "DONE -> Parser_->LoadMapping()" << endl;
@@ -149,6 +149,7 @@ public:
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore);
 		actor_adapter->Start();
+		cout << "DONE -> actor_adapter->Start()" << endl;
 
 		//pop out the query result from collector, automatically block when it's empty and wait
 		//fake, should find a way to stop
