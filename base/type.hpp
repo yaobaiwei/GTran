@@ -14,6 +14,7 @@
 #include <sstream>
 #include <ext/hash_map>
 #include <ext/hash_set>
+#include <tbb/concurrent_hash_map.h>
 
 #include "utils/mymath.hpp"
 #include "base/serialization.hpp"
@@ -454,6 +455,19 @@ struct mkey_t {
 			return false;
 		}
 	}
+};
+
+// Provide hash function for tbb hash_map
+struct MkeyHashCompare {
+    static size_t hash( const mkey_t& x ) {
+        size_t value = mymath::hash_u128_to_u64(x.qid, x.mid);
+		mymath::hash_combine(value, x.index);
+        return value;
+    }
+    //! True if strings are equal
+    static bool equal( const mkey_t& x, const mkey_t& y ) {
+        return x==y;
+    }
 };
 
 // Aggregate data Key

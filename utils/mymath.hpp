@@ -110,6 +110,18 @@ public:
         return upper;
     }
 
+	//Hash128to64 function from Google's cityhash (available under the MIT License)
+	static uint64_t hash_u128_to_u64(uint64_t high, uint64_t low){
+		// Murmur-inspired hashing.
+		const uint64_t kMul = 0x9ddfea08eb382d69ULL;
+		uint64_t a = (low ^ high) * kMul;
+		a ^= (a >> 47);
+		uint64_t b = (high ^ a) * kMul;
+		b ^= (b >> 47);
+		b *= kMul;
+		return b;
+	}
+
     static void hash_combine(size_t& seed, int v)
     {
         seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);

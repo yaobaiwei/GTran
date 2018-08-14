@@ -20,25 +20,85 @@ struct msg_id_alloc{
 	}
 };
 
+namespace BranchData{
+	struct branch_data_base{
+		map<string, int> path_counter;
+		pair<int,int> branch_counter;
+	};
+}
+
 // Base class for labelled branch actors
 // Process on a single traverser instead of entire incoming data flow
 // Branched msg will aggregate back to labelled branch actor
+template<typename T = BranchData::branch_data_base>
 class LabelledBranchActorBase :  public AbstractActor{
+	static_assert(std::is_base_of<BranchData::branch_data_base, T>::value, "T must derive from barrier_data_base");
+	using BranchDataTable = tbb::concurrent_hash_map<mkey_t, T, MkeyHashCompare>;
+
 public:
 	LabelledBranchActorBase(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
+	void process(int t_id, vector<Actor_Object> & actors,  Message & msg){
+		if(msg.meta.msg_type == MSG_T::SPAWN){
+			uint64_t msg_id = send_branch_msg(t_id, actors, msg);
+
+			// set up data for sub branch collection
+			int index = 0;
+			if(msg.meta.branch_infos.size() > 0){
+				// get index of parent branch if any
+				index = msg.meta.branch_infos[msg.meta.branch_infos.size() - 1].index;
+			}
+			mkey_t key(msg.meta.qid, msg_id, index);
+
+			typename BranchDataTable::accessor ac;
+			data_table_.insert(ac, key);
+			ac->second.branch_counter = make_pair(get_steps_count(actors[msg.meta.step]), 0);
+
+			process_spawn(msg, ac);
+		}
+		else if(msg.meta.msg_type == MSG_T::BRANCH){
+			// get branch message key
+			mkey_t key;
+			string end_path;
+			GetMsgInfo(msg, key, end_path);
+
+			typename BranchDataTable::accessor ac;
+			data_table_.find(ac, key);
+
+			bool isReady = IsReady(ac, msg.meta, end_path);
+
+			process_branch(t_id, actors, msg, ac, isReady);
+
+			if(isReady){
+				data_table_.erase(ac);
+			}
+		}else{
+			cout << "Unexpected msg type in branch actor." << endl;
+			exit(-1);
+		}
+	}
 protected:
-	// main logic of branch actors
-	virtual void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady) = 0;
+	int num_thread_;
+	AbstractMailbox* mailbox_;
+
+	// Child class process message with type = SPAWN
+	virtual void process_spawn(Message & msg, typename BranchDataTable::accessor& ac) = 0;
+
+	// Child class process message with type = BRANCH
+	virtual void process_branch(int t_id, vector<Actor_Object> & actors, Message & msg, typename BranchDataTable::accessor& ac, bool isReady) = 0;
 
 	// get sub steps of branch actor
 	virtual void get_steps(Actor_Object & actor, vector<int>& steps) = 0;
 	virtual int get_steps_count(Actor_Object & actor) = 0;
 
-	int num_thread_;
-	AbstractMailbox* mailbox_;
+private:
+	// assign unique msg id
+	msg_id_alloc* id_allocator_;
+
+	BranchDataTable data_table_;
 
 	// send out msg with history label to indicate each input traverser
-	uint64_t send_branch_msg(int t_id, vector<Actor_Object> & actors, Message & msg){
+	uint64_t send_branch_msg(int t_id, vector<Actor_Object> & actors, Message & msg)
+	{
 		uint64_t msg_id;
 		id_allocator_->AssignId(msg_id);
 
@@ -54,73 +114,12 @@ protected:
 		return msg_id;
 	}
 
-	// process returning msg from branched steps
-	void process_branch(int t_id, vector<Actor_Object> & actors, Message & msg){
-		// get msg info
-		mkey_t key;
-		string end_path;
-		GetMsgInfo(msg, key, end_path);
-
-		// make sure only one thread executing on same msg key
-		{
-			unique_lock<mutex> lock(mkey_mutex_);
-			mkey_cv_.wait(lock, [&]{
-				if(mkey_set_.count(key) == 0){
-					mkey_set_.insert(key);
-					return true;
-				}else{
-					return false;
-				}
-			});
-		}
-
-		int branch_num = get_steps_count(actors[msg.meta.step]);
-		bool isReady = IsReady(key, end_path, msg.meta.msg_path, branch_num);
-		if(isReady){
-			//  reset msg path
-			msg.meta.msg_path = end_path;
-		}
-		do_work(t_id, actors, msg, key, isReady);
-
-		// notify blocked threads
-		{
-			lock_guard<mutex> lock(mkey_mutex_);
-			mkey_set_.erase(mkey_set_.find(key));
-		}
-		mkey_cv_.notify_all();
-	}
-
-private:
-	// lock for mkey_t
-	// make sure only one thread executing on same msg key
-	mutex mkey_mutex_;
-	condition_variable mkey_cv_;
-	set<mkey_t> mkey_set_;
-
-	// msg path counter, for checking if collection completed
-	map<mkey_t, map<string, int>> path_counters_;
-	// branch_num counter, recording num of collected branch
-	map<mkey_t, int> branch_num_counters_;
-	// lock for collector
-	// protect map insert and erase
-	mutex counters_mutex_;
-
-	// assign unique msg id
-	msg_id_alloc* id_allocator_;
-
 	// check if all branched steps are collected
-	bool IsReady(mkey_t key, string end_path, string msg_path, int branch_num)
+	static bool IsReady(typename BranchDataTable::accessor& ac, Meta& m, string end_path)
 	{
-		// get counter for key
-		counters_mutex_.lock();
-		auto itr = path_counters_.find(key);
-		if(itr == path_counters_.end()){
-			itr = path_counters_.insert(itr, make_pair(key, map<string, int>()));
-			branch_num_counters_[key] = 0;
-		}
-		counters_mutex_.unlock();
-
-		map<string, int> &counter =  itr->second;
+		map<string, int>& counter = ac->second.path_counter;
+		pair<int,int>& branch_counter = ac->second.branch_counter;
+		string msg_path = m.msg_path;
 
 		// check if all msg are collected
 		while (msg_path != end_path){
@@ -147,23 +146,20 @@ private:
 			}
 		}
 
-		branch_num_counters_[key] ++;
-		if(branch_num_counters_[key] == branch_num)
+		branch_counter.second ++;
+		if(branch_counter.first == branch_counter.second)
 		{
-			// remove counter from counters map when completed
-			lock_guard<mutex> lk(counters_mutex_);
-			path_counters_.erase(path_counters_.find(key));
-			branch_num_counters_.erase(branch_num_counters_.find(key));
+			m.msg_path = end_path;
 			return true;
 		}
-
 		return false;
 	}
 
 	// get msg info
 	// key : mkey_t, identifier of msg
 	// end_path: identifier of msg collection completed
-    static void GetMsgInfo(Message& msg, mkey_t &key, string &end_path){
+    static void GetMsgInfo(Message& msg, mkey_t &key, string &end_path)
+	{
 		// init info
 		uint64_t msg_id = 0;
 		int index = 0;
@@ -183,52 +179,40 @@ private:
 	}
 };
 
-class BranchFilterActor : public LabelledBranchActorBase{
+namespace BranchData{
+	struct branch_filter_data : branch_data_base{
+		// count num of successful branches for each data
+		map<int, uint32_t> counter;
+		// store input data of current step
+		vector<pair<history_t, vector<value_t>>> data;
+	};
+}
+
+class BranchFilterActor : public LabelledBranchActorBase<BranchData::branch_filter_data>{
 public:
-	BranchFilterActor(int id, DataStore* data_store_, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): LabelledBranchActorBase(id, data_store_, num_thread, mailbox, allocator){}
-	void process(int t_id, vector<Actor_Object> & actors,  Message & msg){
-		if(msg.meta.msg_type == MSG_T::SPAWN){
-			uint64_t msg_id = send_branch_msg(t_id, actors, msg);
-
-			int index = 0;
-			if(msg.meta.branch_infos.size() > 0){
-				// get index of parent branch if any
-				index = msg.meta.branch_infos[msg.meta.branch_infos.size() - 1].index;
-			}
-			mkey_t key(msg.meta.qid, msg_id, index);
-
-			data_mutex_.lock();
-			data_table_[key] = move(msg.data);
-			data_mutex_.unlock();
-		}
-		else if(msg.meta.msg_type == MSG_T::BRANCH){
-			process_branch(t_id, actors, msg);
-		}else{
-			cout << "Unexpected msg type in branch actor." << endl;
-			exit(-1);
-		}
-	}
+	BranchFilterActor(int id, DataStore* data_store_, int num_thread, AbstractMailbox* mailbox, msg_id_alloc* allocator): LabelledBranchActorBase<BranchData::branch_filter_data>(id, data_store_, num_thread, mailbox, allocator){}
 private:
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, mkey_t key, bool isReady)
+	void process_spawn(Message & msg, BranchDataTable::accessor& ac)
 	{
-		data_mutex_.lock();
-		auto itr = counter_table_.find(key);
-		if(itr == counter_table_.end()){
-			itr = counter_table_.insert(itr, make_pair(key, map<int, uint32_t>()));
-		}
-		data_mutex_.unlock();
+		ac->second.data = move(msg.data);
+	}
 
-		map<int, uint32_t> &counter =  itr->second;
+	void process_branch(int t_id, vector<Actor_Object> & actors, Message & msg, BranchDataTable::accessor& ac, bool isReady)
+	{
+		auto &counter =  ac->second.counter;
 
+		// get branch infos
 		int info_size = msg.meta.branch_infos.size();
 		assert(info_size > 0);
 		int branch_index = msg.meta.branch_infos[info_size - 1].index;
 		int his_key = msg.meta.branch_infos[info_size - 1].key;
+
 		for(auto& p : msg.data){
 			// empty data, not suceess
 			if(p.second.size() == 0){
 				continue;
 			}
+
 			// find history with given key
 			auto his_itr = std::find_if( p.first.begin(), p.first.end(),
 				[&his_key](const pair<int, value_t>& element){ return element.first == his_key;} );
@@ -238,20 +222,15 @@ private:
 			}
 
 			// get index of data
-			int data_index = Tool::value_t2int((*his_itr).second);
-
+			int data_index = Tool::value_t2int(his_itr->second);
 			// update counter
-			if(counter.count(data_index) == 0){
-				counter[data_index] = 0;
-			}
 			update_counter(counter[data_index], branch_index);
 		}
 
 		if(isReady){
 			// get actor info
 			Actor_Object& actor = actors[msg.meta.step];
-			int num_of_branch = actor.params.size() - 1;
-			assert(num_of_branch > 0);
+			int num_of_branch = ac->second.branch_counter.first;
 			Filter_T filter_type = (Filter_T)Tool::value_t2int(actor.params[0]);
 
 			// get filter function according to filter type
@@ -262,14 +241,13 @@ private:
 			case Filter_T::NOT:	pass = none_success; break;
 			}
 
-			vector<pair<history_t, vector<value_t>>> &data = data_table_[key];
+			vector<pair<history_t, vector<value_t>>> &data = ac->second.data;
 			int i = 0;
-
+			auto checkFunction = [&](value_t & value) {
+				return !pass(counter[i++], num_of_branch);
+			};
 			// filter
 			for(auto& pair : data){
-				auto checkFunction = [&](value_t & value) {
-					return !pass(counter[i++], num_of_branch);
-				};
 				pair.second.erase( remove_if(pair.second.begin(), pair.second.end(), checkFunction), pair.second.end() );
 			}
 
@@ -280,11 +258,6 @@ private:
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
-
-			data_mutex_.lock();
-			data_table_.erase(data_table_.find(key));
-			counter_table_.erase(counter_table_.find(key));
-			data_mutex_.unlock();
 		}
 	}
 
@@ -322,10 +295,4 @@ private:
 		// check if any bit is 1
 		return counter >= 1;
 	}
-
-	// store input data of current step
-	map<mkey_t, vector<pair<history_t, vector<value_t>>>> data_table_;
-	// count num of successful branches for each data
-	map<mkey_t, map<int, uint32_t>> counter_table_;
-	mutex data_mutex_;
 };

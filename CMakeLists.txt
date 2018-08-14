@@ -16,6 +16,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64")
 
 set(COMMON_LINK_LIBS "-lrt")
 
+# Please source tbbvars.sh first
+set(TBB_LIB "tbb")
+
 set(ZMQ_ROOT "/data/hzchen/lib/zmq")
 set(GLOG_ROOT "/data/hzchen/lib/glog")
 set(HDFS2_ROOT "/data/opt/hadoop-2.6.0")
@@ -34,7 +37,7 @@ include(cmake/modules/zmq.cmake)
 
 set(DEPS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/deps)
 set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR}  ${ZMQ_INCLUDE_DIR} ${DEPS_INCLUDE_DIR})
-set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${ZMQ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS})
+set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${ZMQ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS} ${TBB_LIB})
 
 add_subdirectory(actor)
 add_subdirectory(base)
