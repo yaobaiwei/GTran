@@ -63,13 +63,12 @@ private:
      bool CheckRecvBuf(int tid, int nid);
      void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
 
-     mutex mu_;
      Node & node_;
      Config* config_;
      Buffer * buffer_;
 
      rbf_rmeta_t *rmetas = NULL;
      rbf_lmeta_t *lmetas = NULL;
+	 pthread_spinlock_t *recv_locks = NULL;
      scheduler_t *schedulers;
 };
-  

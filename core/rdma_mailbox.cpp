@@ -28,6 +28,11 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
 		pthread_spin_init(&lmetas[i].lock, 0);
 	}
 
+	recv_locks = (pthread_spinlock_t *)malloc(sizeof(pthread_spinlock_t) * config_->global_num_threads);
+	for (int i = 0; i < config_->global_num_threads; i++) {
+		pthread_spin_init(&recv_locks[i], 0);
+	}
+
 	schedulers = (scheduler_t *)malloc(sizeof(scheduler_t) * config_->global_num_threads);
 	memset(schedulers, 0, sizeof(scheduler_t) * config_->global_num_threads);
 }
@@ -102,15 +107,17 @@ void RdmaMailbox::Recv(int tid, Message & msg) {
 
 
 bool RdmaMailbox::TryRecv(int tid, Message & msg) {
-	lock_guard<mutex> lck(mu_);
+	pthread_spin_lock(&recv_locks[tid]);
 	for (int machine_id = 0; machine_id < node_.get_local_size(); machine_id++) {
 		if (CheckRecvBuf(tid, machine_id)){
 			obinstream um;
 			FetchMsgFromRecvBuf(tid, machine_id, um);
 			um >> msg;
+			pthread_spin_unlock(&recv_locks[tid]);
 			return true;
 		}
 	}
+	pthread_spin_unlock(&recv_locks[tid]);
 	return false;
 }
 
