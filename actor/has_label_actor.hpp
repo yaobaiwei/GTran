@@ -22,7 +22,7 @@
 
 class HasLabelActor : public AbstractActor {
 public:
-	HasLabelActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::HASLABEL) {}
+	HasLabelActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, bool global_enable_caching) : AbstractActor(id, data_store), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HASLABEL) {}
 
 	// HasLabel:
 	// 		Pass if any label_key matches
@@ -67,6 +67,7 @@ public:
 private:
 	// Number of Threads
 	int num_thread_;
+	int machine_id_;
 
 	// Actor type
 	ACTOR_T type_;
@@ -82,26 +83,32 @@ private:
 
 	// Cache
 	ActorCache cache;
+	bool global_enable_caching_;
 
 	void VertexHasLabel(int tid, vector<int> lid_list, vector<pair<history_t, vector<value_t>>> & data)
 	{
 		auto checkFunction = [&](value_t & value) {
 			vid_t v_id(Tool::value_t2int(value));
 
-			label_t label;
-			if (!cache.get_label_from_cache(v_id.value(), label)) {
-				data_store_->GetLabelForVertex(tid, v_id, label);
-				cache.insert_label(v_id.value(), label);
-			}
+			bool isLocal = false;
+			if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
 
-			bool isErase = true;
-			for (auto & lid : lid_list) {
-				if (lid == label) {
-					isErase = false;
-					break;
+			label_t label;
+			if (isLocal || !global_enable_caching_) {
+				data_store_->GetLabelForVertex(tid, v_id, label);
+			} else {
+				if (!cache.get_label_from_cache(v_id.value(), label)) {
+					data_store_->GetLabelForVertex(tid, v_id, label);
+					cache.insert_label(v_id.value(), label);
 				}
 			}
-			return isErase;
+
+			for (auto & lid : lid_list) {
+				if (lid == label) {
+					return false;
+				}
+			}
+			return true;
 		};
 
 		for (auto & data_pair : data) {
@@ -115,20 +122,25 @@ private:
 			eid_t e_id;
 			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
-			label_t label;
-			if (!cache.get_label_from_cache(e_id.value(), label)) {
-				data_store_->GetLabelForEdge(tid, e_id, label);
-				cache.insert_label(e_id.value(), label);
-			}
+			bool isLocal = false;
+			if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
 
-			bool isErase = true;
-			for (auto & lid : lid_list) {
-				if (lid == label) {
-					isErase = false;
-					break;
+			label_t label;
+			if (isLocal || !global_enable_caching_) {
+				data_store_->GetLabelForEdge(tid, e_id, label);
+			} else {
+				if (!cache.get_label_from_cache(e_id.value(), label)) {
+					data_store_->GetLabelForEdge(tid, e_id, label);
+					cache.insert_label(e_id.value(), label);
 				}
 			}
-			return isErase;
+
+			for (auto & lid : lid_list) {
+				if (lid == label) {
+					return false;
+				}
+			}
+			return true; 
 		};
 
 		for (auto & data_pair : data) {

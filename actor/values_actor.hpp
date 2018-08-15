@@ -21,7 +21,7 @@
 
 class ValuesActor : public AbstractActor {
 public:
-	ValuesActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::VALUES) {}
+	ValuesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, bool global_enable_caching) : AbstractActor(id, data_store), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::VALUES) {}
 
 	// inType, [key]+
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
@@ -57,6 +57,7 @@ public:
 private:
     // Number of threads
     int num_thread_;
+	int machine_id_;
 
     // Actor type
     ACTOR_T type_;
@@ -69,6 +70,7 @@ private:
 
 	// Cache
 	ActorCache cache;
+	bool global_enable_caching_;
 
 	void get_properties_for_vertex(int tid, vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
 		for (auto & pair : data) {
@@ -82,13 +84,19 @@ private:
 					for (auto & pkey : vtx->vp_list) {
 						vpid_t vp_id(v_id, pkey);
 
+						bool isLocal = false;
+						if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
+
 						value_t val;
 						// Try cache
-						if (!cache.get_property_from_cache(vp_id.value(), val)) {
-							// not found in cache
-							cout << "not found in cache" << endl;
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
-							cache.insert_properties(vp_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								// not found in cache
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 						}
 
 						newData.push_back(val);
@@ -97,15 +105,21 @@ private:
 					for (auto key : key_list) {
 						vpid_t vp_id(v_id, key);
 
+						bool isLocal = false;
+						if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
+
 						if(! data_store_->VPKeyIsExist(tid, vp_id)) {
 							continue;
 						}
 
 						value_t val;
-						if (!cache.get_property_from_cache(vp_id.value(), val)) {
-							cout << "not found in cache" << endl;
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
-							cache.insert_properties(vp_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 						}
 
 						newData.push_back(val);
@@ -130,13 +144,19 @@ private:
 					Edge* edge = data_store_->GetEdge(e_id);
 					for (auto & pkey : edge->ep_list) {
 						epid_t ep_id(e_id, pkey);
+						
+						bool isLocal = false;
+						if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
 
 						value_t val;
-						if (!cache.get_property_from_cache(ep_id.value(), val)) {
-							// not found in cache
-							cout << "not found in cache" << endl;
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
-							cache.insert_properties(ep_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								// not found in cache
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 						}
 
 						newData.push_back(val);
@@ -145,16 +165,22 @@ private:
 					for (auto key : key_list) {
 						epid_t ep_id(e_id, key);
 
+						bool isLocal = false;
+						if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
+
 						if(! data_store_->EPKeyIsExist(tid, ep_id)) {
 							continue;
 						}
 
 						value_t val;
-						if (!cache.get_property_from_cache(ep_id.value(), val)) {
-							// not found in cache
-							cout << "not found in cache" << endl;
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
-							cache.insert_properties(ep_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								// not found in cache
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 						}
 
 						newData.push_back(val);

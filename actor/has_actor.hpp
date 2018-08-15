@@ -22,7 +22,7 @@
 
 class HasActor : public AbstractActor {
 public:
-	HasActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::HAS) {}
+	HasActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, bool global_enable_caching) : AbstractActor(id, data_store), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HAS) {}
 
 	// Has:
 	// inType
@@ -86,6 +86,7 @@ public:
 private:
 	// Number of Threads
 	int num_thread_;
+	int machine_id_;
 
 	// Actor type
 	ACTOR_T type_;
@@ -101,11 +102,15 @@ private:
 
 	// Cache
 	ActorCache cache;
+	bool global_enable_caching_;
 
 	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
 
 		auto checkFunction = [&](value_t& value){
 			vid_t v_id(Tool::value_t2int(value));
+
+			bool isLocal = false;
+			if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
 
 			for (auto & pred_pair : pred_chain) {
 				int pid = pred_pair.first;
@@ -118,9 +123,14 @@ private:
 						vpid_t vp_id(v_id, pkey);
 
 						value_t val;
-						if (!cache.get_property_from_cache(vp_id.value(), val)) {
+						if (isLocal || !global_enable_caching_) {
+							// No Need to check Cache for local and cache is disabled
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
-							cache.insert_properties(vp_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 						}
 
 						if(!Evaluate(pred, &val)) {
@@ -138,21 +148,26 @@ private:
 
 					if (pred.pred_type == Predicate_T::ANY) {
 						if(!data_store_->VPKeyIsExist(tid, vp_id)) {
-							// dont exist Key, erase
+							// dont exist Key, erase 
 							return true;
 						}
 					} else if (pred.pred_type == Predicate_T::NONE) {
 						// hasNot(key)
 						if(data_store_->VPKeyIsExist(tid, vp_id)) {
-							// exist under hasNot, erase
+							// exist under hasNot, erase 
 							return true;
 						}
 					} else {
 						// Get Properties
 						value_t val;
-						if (!cache.get_property_from_cache(vp_id.value(), val)) {
+						if (isLocal || !global_enable_caching_) {
+							// No Need to check Cache for local
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
-							cache.insert_properties(vp_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 						}
 
 						if (val.content.size() == 0) {
@@ -182,6 +197,9 @@ private:
 			eid_t e_id;
 			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
+			bool isLocal = false;
+			if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
+
 			for (auto & pred_pair : pred_chain) {
 				int pid = pred_pair.first;
 				PredicateValue pred = pred_pair.second;
@@ -193,9 +211,13 @@ private:
 						epid_t ep_id(e_id, pkey);
 
 						value_t val;
-						if (!cache.get_property_from_cache(ep_id.value(), val)) {
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
-							cache.insert_properties(ep_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 						}
 
 						if(!Evaluate(pred, &val)) {
@@ -213,21 +235,25 @@ private:
 
 					if (pred.pred_type == Predicate_T::ANY) {
 						if(!data_store_->EPKeyIsExist(tid, ep_id)) {
-							// dont exist Key, erase
+							// dont exist Key, erase 
 							return true;
 						}
 					} else if (pred.pred_type == Predicate_T::NONE) {
 						// hasNot(key)
 						if(data_store_->EPKeyIsExist(tid, ep_id)) {
-							// exist under hasNot, erase
+							// exist under hasNot, erase 
 							return true;
 						}
 					} else {
 						// Get Properties
 						value_t val;
-						if (!cache.get_property_from_cache(ep_id.value(), val)) {
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
-							cache.insert_properties(ep_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 						}
 
 						if (val.content.size() == 0) {

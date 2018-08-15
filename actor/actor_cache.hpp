@@ -46,19 +46,30 @@ public:
 		insert(id, val);
 	}
 
+	void print_cache() {
+		int counter = 0;
+		for (auto & item : items) {
+			if (!item.isEmpty) counter++;
+		}
+
+		cout << "[Cache] Use Ratio : " << to_string(counter) << "/" << to_string(NUM_CACHE) << endl;
+	}
+
 private:
 
 	struct CacheItem {
 		pthread_spinlock_t lock;
 		uint64_t id; // epid_t, vpid_t, eid_t, vid_t
 		value_t value; // properties or labels
+		bool isEmpty;
 
 		CacheItem() {
+			isEmpty = true;
 			pthread_spin_init(&lock, 0);
 		}
 	};
 
-	static const int NUM_CACHE = 10000;
+	static const int NUM_CACHE = 1000000;
 	CacheItem items[NUM_CACHE];
 
 	bool lookup(uint64_t id, value_t & val) {
@@ -81,6 +92,7 @@ private:
 		pthread_spin_lock(&(items[key].lock));
 		items[key].id = id;
 		items[key].value = val;
+		items[key].isEmpty = false;
 		pthread_spin_unlock(&(items[key].lock));
 	}
 

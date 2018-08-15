@@ -22,8 +22,7 @@
 
 class PropertiesActor : public AbstractActor {
 public:
-	PropertiesActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::PROPERTY) {
-	}
+	PropertiesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, bool global_enable_caching) : AbstractActor(id, data_store), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::PROPERTY) {}
 
 	// inType, [key]+
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
@@ -59,6 +58,7 @@ public:
 private:
     // Number of threads
     int num_thread_;
+	int machine_id_;
 
     // Actor type
     ACTOR_T type_;
@@ -71,6 +71,7 @@ private:
 
 	// Cache
 	ActorCache cache;
+	bool global_enable_caching_;
 
 	void get_properties_for_vertex(int tid, vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
 		for (auto & pair : data) {
@@ -79,6 +80,9 @@ private:
 
 			for (auto & value : pair.second) {
 				vid_t v_id(Tool::value_t2int(value));
+				bool isLocal = false;
+
+				if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
 
 				if (key_list.empty()) {
 					Vertex* vtx = data_store_->GetVertex(v_id);
@@ -87,12 +91,13 @@ private:
 
 						value_t val;
 						// Try cache
-						if (!cache.get_property_from_cache(vp_id.value(), val)) {
-							cout << "not found in cache" << endl;
-							// not found in cache
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
-
-							cache.insert_properties(vp_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 						}
 
 						string keyStr;
@@ -110,11 +115,14 @@ private:
 
 						value_t val;
 						// Try cache
-						if (!cache.get_property_from_cache(vp_id.value(), val)) {
-							// not found in cache
-							cout << "not found in cache" << endl;
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
-							cache.insert_properties(vp_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(vp_id.value(), val)) {
+								// not found in cache
+								data_store_->GetPropertyForVertex(tid, vp_id, val);
+								cache.insert_properties(vp_id.value(), val);
+							}
 						}
 
 						string keyStr;
@@ -138,6 +146,9 @@ private:
 
 				eid_t e_id;
 				uint2eid_t(Tool::value_t2uint64_t(value), e_id);
+				bool isLocal = false;
+
+				if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
 
 				if (key_list.empty()) {
 					Edge* edge = data_store_->GetEdge(e_id);
@@ -145,11 +156,14 @@ private:
 						epid_t ep_id(e_id, pkey);
 
 						value_t val;
-						if (!cache.get_property_from_cache(ep_id.value(), val)) {
-							// not found in cache
-							cout << "not found in cache" << endl;
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
-							cache.insert_properties(ep_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								// not found in cache
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 						}
 
 						string keyStr;
@@ -166,11 +180,14 @@ private:
 						}
 
 						value_t val;
-						if (!cache.get_property_from_cache(ep_id.value(), val)) {
-							cout << "not found in cache" << endl;
-							// not found in cache
+						if (isLocal || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
-							cache.insert_properties(ep_id.value(), val);
+						} else {
+							if (!cache.get_property_from_cache(ep_id.value(), val)) {
+								// not found in cache
+								data_store_->GetPropertyForEdge(tid, ep_id, val);
+								cache.insert_properties(ep_id.value(), val);
+							}
 						}
 
 						string keyStr;

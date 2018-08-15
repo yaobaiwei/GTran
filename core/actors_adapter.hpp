@@ -32,6 +32,7 @@
 
 #include "base/node.hpp"
 #include "base/type.hpp"
+#include "base/core_affinity.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
@@ -57,19 +58,19 @@ public:
 		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, rc_));
 		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
+		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_, node_.get_local_size(), config_->max_data_size));
 		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, num_thread_, mailbox_));
+		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, node_.get_local_rank()));
+		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_));
 		//TODO add more
 	}
@@ -127,7 +128,7 @@ public:
 
 	        success = mailbox_->TryRecv(steal_tid, recv_msg);
 	        if(success){
-	        	execute(steal_tid, recv_msg);
+	        	execute(tid, recv_msg);
 	        }
         	times_[tid] = timer::get_usec();
 	    }
