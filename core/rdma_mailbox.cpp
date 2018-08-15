@@ -39,6 +39,7 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
 
 int RdmaMailbox::Send(int tid, const Message & msg) {
 
+	timer::start_timer(tid);
 	int dst_nid = msg.meta.recver_nid;
 	int dst_tid = msg.meta.recver_tid;
 
@@ -92,6 +93,7 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid) + _sz, msg_sz - _sz, rdma_off);
 		}
 	}
+	timer::stop_timer(tid);
 }
 
 void RdmaMailbox::Recv(int tid, Message & msg) {

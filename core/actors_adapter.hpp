@@ -72,6 +72,8 @@ public:
 		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_));
 		//TODO add more
+
+		timer::init_timers((actors_.size() + timer_offset) * num_thread_);
 	}
 
 	void Start(){
@@ -97,6 +99,35 @@ public:
 		}else if(m.msg_type == MSG_T::EXIT){
 			msg_logic_table_.erase(m.qid);
 			// TODO: erase aggregate data
+
+			// Print time
+			timer::stop_timer(tid + num_thread_);
+			double exec = 0;
+			double recv = 0;
+			double send = 0;
+			vector<double> actors_time(actors_.size());
+
+			for(int i = 0; i < num_thread_; i++){
+				send += timer::get_timer(i);
+				exec += timer::get_timer(i + num_thread_);
+				recv += timer::get_timer(i + 2 * num_thread_);
+				for(int j = 0; j < actors_.size(); j++){
+					actors_time[j] += timer::get_timer(i + (timer_offset + j) * num_thread_);
+				}
+			}
+			timer::reset_timers();
+
+			string ofname = "timer" + to_string(m.recver_nid) + ".txt";
+			std::ofstream ofs(ofname.c_str(), std::ofstream::out);
+			ofs << "Exec: " << exec << "ms" << endl;
+
+			for(auto& act : actors_){
+				ofs << "\t" << std::left << setw(15) << string(ActorType[static_cast<int>(act.first)]) << ": " << actors_time[act.second->GetActorId()] << "ms" << endl;
+			}
+			ofs << endl;
+
+			ofs << "Send: " << send << "ms" << endl;
+			ofs << "Recv: " << recv << "ms" << endl;
 			return;
 		}
 
@@ -111,22 +142,25 @@ public:
 		}
 
 		ACTOR_T next_actor = msg_logic_table_iter->second[m.step].actor_type;
+		int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
+
+		timer::start_timer(tid + offset);
 		actors_[next_actor]->process(tid, msg_logic_table_iter->second, msg);
+		timer::stop_timer(tid + offset);
 	}
 
 	void ThreadExecutor(int tid) {
-		// bind thread to core
-		if (config_->global_enable_core_binding) {
-			bind_to_core(core_bindings[tid]);
-		}
-
 	    while (true) {
+			timer::start_timer(tid + num_thread_);
 	        Message recv_msg;
+			timer::start_timer(tid + 2 * num_thread_);
 	        bool success = mailbox_->TryRecv(tid, recv_msg);
 	        times_[tid] = timer::get_usec();
 	        if(success){
+				timer::stop_timer(tid + 2 * num_thread_);
 	        	execute(tid, recv_msg);
 	        	times_[tid] = timer::get_usec();
+				timer::stop_timer(tid + num_thread_);
 	        }
 
 	        //TODO work stealing
@@ -134,9 +168,13 @@ public:
 	        if(times_[tid] < times_[steal_tid] + STEALTIMEOUT)
 	        	continue;
 
+			timer::start_timer(tid);
+			timer::start_timer(tid + 10);
 	        success = mailbox_->TryRecv(steal_tid, recv_msg);
 	        if(success){
+				timer::stop_timer(tid + 10);
 	        	execute(tid, recv_msg);
+				timer::stop_timer(tid);
 	        }
         	times_[tid] = timer::get_usec();
 	    }
@@ -163,6 +201,10 @@ private:
 	//clocks
 	vector<uint64_t> times_;
 	int num_thread_;
+
+	// 3 more timers for total, recv , send
+	const static int timer_offset = 3;
+
 	const static uint64_t STEALTIMEOUT = 100000;
 };
 

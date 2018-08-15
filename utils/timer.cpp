@@ -1,13 +1,20 @@
 #include "utils/timer.hpp"
 
+int timer::N_Timers = 0;
+std::vector<double> timer::_timers = std::vector<double>();
+std::vector<double> timer::_acc_time = std::vector<double>();
 
-double timer::_timers[timer::N_Timers]; // timers
-double timer::_acc_time[timer::N_Timers]; // accumulated time
-
-void timer::init_timers()
+void timer::init_timers(int count)
 {
-	for (int i = 0; i < N_Timers; i++)
-	{
+	N_Timers = count;
+	_timers.resize(count);
+	_acc_time.resize(count);
+}
+
+void timer::reset_timers()
+{
+	for(int i = 0; i < N_Timers; i ++){
+		_timers[i] = get_current_time();
 		_acc_time[i] = 0;
 	}
 }
