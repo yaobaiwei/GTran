@@ -56,7 +56,7 @@ public:
 		actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, data_store_ ,num_thread_, mailbox_));
 		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, rc_));
+		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, node_.get_local_size(), rc_, mailbox_));
 		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
@@ -95,6 +95,10 @@ public:
 			agg_t agg_key(m.qid, m.step);
 			data_store_->InsertAggData(agg_key, msg.data[0].second);
 			return ;
+		}else if(m.msg_type == MSG_T::EXIT){
+			msg_logic_table_.erase(m.qid);
+			// TODO: erase aggregate data
+			return;
 		}
 
 		auto msg_logic_table_iter = msg_logic_table_.find(m.qid);

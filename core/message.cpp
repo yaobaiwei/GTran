@@ -120,6 +120,18 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
 	}
 }
 
+void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
+	Meta m;
+	m.qid = this->meta.qid;
+	m.msg_type = MSG_T::EXIT;
+	m.recver_tid = this->meta.parent_tid;
+	for(int i = 0; i < nodes_num; i ++){
+		m.recver_nid = i;
+		Message msg(m);
+		vec.push_back(move(msg));
+	}
+}
+
 
 void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
 {
@@ -280,45 +292,54 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 
 void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
 {
+	Meta cm = m;
 	bool route_assigned = update_route(m, actors);
-	// node id to data
+	bool empty_to_barrier = update_collection_route(cm, actors);
+	// <node id, data>
 	map<int, vector<pair<history_t, vector<value_t>>>> id2data;
+	// store history with empty data
 	vector<pair<history_t, vector<value_t>>> empty_his;
-
-	int branch_depth = m.branch_infos.size() - 1;
-	int his_key = -1;
-	if(branch_depth >= 0){
-		his_key = m.branch_infos[branch_depth].key;
-	}
 
 	// enable route mapping
 	if(actors[m.step].actor_type == ACTOR_T::TRAVERSAL){
 		for(auto& p: data){
 			map<int, vector<value_t>> id2value_t;
 			if(p.second.size() == 0){
-				empty_his.push_back(move(p));
-			}else{
-				// get node id
-				for(auto& v : p.second){
-					int node = get_node_id(v, data_store);
-					id2value_t[node].push_back(move(v));
-				}
-
-				// insert his/value pair to corresponding node
-				for(auto& item : id2value_t){
-					id2data[item.first].emplace_back(p.first, move(item.second));
-				}
+				if(empty_to_barrier)
+					empty_his.push_back(move(p));
+				continue;
 			}
+
+			// get node id
+			for(auto& v : p.second){
+				int node = get_node_id(v, data_store);
+				id2value_t[node].push_back(move(v));
+			}
+
+			// insert his/value pair to corresponding node
+			for(auto& item : id2value_t){
+				id2data[item.first].emplace_back(p.first, move(item.second));
+			}
+		}
+
+		// no data is added to next actor
+		if(id2data.size() == 0 && empty_his.size() == 0){
+			empty_his.emplace_back(history_t(), vector<value_t>());
 		}
 	}
 	else{
-		id2data[m.recver_nid].reserve(data.size());
 		for(auto& p: data){
 			if(p.second.size() == 0){
-				empty_his.push_back(move(p));
-			}else{
-				id2data[m.recver_nid].push_back(move(p));
+				if(empty_to_barrier)
+					empty_his.push_back(move(p));
+				continue;
 			}
+			id2data[m.recver_nid].push_back(move(p));
+		}
+
+		// no data is added to next actor
+		if(id2data[m.recver_nid].size() == 0 && empty_his.size() == 0){
+			empty_his.emplace_back(history_t(), vector<value_t>());
 		}
 	}
 
@@ -339,38 +360,9 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 
 	// send history with empty data
 	if(empty_his.size() != 0){
-		// empty data should be send to:
-		// 1. barrier actor, msg_type = BARRIER
-		// 2. branch actor: which will broadcast empty data to barriers inside each branches for msg collection, msg_type = SPAWN
-		// 3. labelled branch parent: which will collect branched msg with label, msg_type = BRANCH
-		while(m.step < actors.size()){
-			if(actors[m.step].IsBarrier()){
-				// to barrier
-				break;
-			}
-			else if(actors[m.step].actor_type == ACTOR_T::BRANCH){
-				if(m.step <= this->meta.step){
-					// to branch parent, pop back one branch info
-					// as barrier actor is not founded in sub branch, continue to search
-					m.branch_infos.pop_back();
-				}else{
-					// to branch actor for the first time, should broadcast empty data to each branches
-					break;
-				}
-			}
-			else if(m.step <= this->meta.step){
-				// to labelled branch parent
-				empty_his.clear();
-				break;
-			}
-
-			m.step = actors[m.step].next_actor;
-		}
-
-		update_route(m, actors);
 		// insert history to msg
 		do{
-			Message msg(m);
+			Message msg(cm);
 			msg.max_data_size = this->max_data_size;
 			msg.InsertData(empty_his);
 			vec.push_back(move(msg));
@@ -421,7 +413,40 @@ bool Message::update_route(Meta& m, vector<Actor_Object>& actors){
 		return false;
 	}
 }
+bool Message::update_collection_route(Meta& m, vector<Actor_Object>& actors){
+	bool to_barrier = false;
+	// empty data should be send to:
+	// 1. barrier actor, msg_type = BARRIER
+	// 2. branch actor: which will broadcast empty data to barriers inside each branches for msg collection, msg_type = SPAWN
+	// 3. labelled branch parent: which will collect branched msg with label, msg_type = BRANCH
+	while(m.step < actors.size()){
+		if(actors[m.step].IsBarrier()){
+			// to barrier
+			to_barrier = true;
+			break;
+		}
+		else if(actors[m.step].actor_type == ACTOR_T::BRANCH){
+			if(m.step <= this->meta.step){
+				// to branch parent, pop back one branch info
+				// as barrier actor is not founded in sub branch, continue to search
+				m.branch_infos.pop_back();
+			}else{
+				// to branch actor for the first time, should broadcast empty data to each branches
+				break;
+			}
+		}
+		else if(m.step <= this->meta.step){
+			// to labelled branch parent
+			break;
+		}
 
+		m.step = actors[m.step].next_actor;
+	}
+
+	update_route(m, actors);
+
+	return to_barrier;
+}
 int Message::get_node_id(value_t & v, DataStore* data_store)
 {
 	int type = v.type;
