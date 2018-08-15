@@ -32,7 +32,6 @@
 
 #include "base/node.hpp"
 #include "base/type.hpp"
-#include "base/core_affinity.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
