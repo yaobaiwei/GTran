@@ -104,6 +104,9 @@ public:
 	// parent_node = _my_node.get_local_rank()
 	static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, vector<Message>& vec);
 
+	// create exit msg, notifying ending of one query
+	void CreateExitMsg(int nodes_num, vector<Message>& vec);
+
 	// actors:  actors chain for current message
 	// data:    new data processed by actor_type
 	// vec:     messages to be send
@@ -130,7 +133,11 @@ public:
 private:
 	// dispatch input data to different node
 	void dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec);
+	// update route to next actor
 	bool update_route(Meta& m, vector<Actor_Object>& actors);
+	// update route to barrier or labelled branch actors for msg collection
+	bool update_collection_route(Meta& m, vector<Actor_Object>& actors);
+	// get the node where vertex or edge is stored
 	static int get_node_id(value_t & v, DataStore* data_store);
 };
 

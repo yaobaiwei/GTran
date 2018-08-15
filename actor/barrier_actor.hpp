@@ -200,10 +200,12 @@ namespace BarrierData{
 class EndActor : public BarrierActorBase<BarrierData::end_data>
 {
 public:
-	EndActor(int id, DataStore* data_store, Result_Collector * rc) : BarrierActorBase<BarrierData::end_data>(id, data_store), rc_(rc){}
+	EndActor(int id, DataStore* data_store, int num_nodes, Result_Collector * rc, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::end_data>(id, data_store), num_nodes_(num_nodes),rc_(rc), mailbox_(mailbox){}
 
 private:
 	Result_Collector * rc_;
+	AbstractMailbox * mailbox_;
+	int num_nodes_;
 
 	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data = ac->second.result;
@@ -217,8 +219,13 @@ private:
 		if(isReady){
 			// insert data to result collector
 			rc_->InsertResult(msg.meta.qid, data);
-		}
 
+			vector<Message> vec;
+			msg.CreateExitMsg(num_nodes_, vec);
+			for(auto& m : vec){
+				mailbox_->Send(t_id, m);
+			}
+		}
 	}
 };
 
