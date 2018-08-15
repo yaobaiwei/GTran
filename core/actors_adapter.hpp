@@ -68,7 +68,7 @@ public:
 		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_));
-		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, node_.get_local_rank()));
+		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_));
 		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, config_->global_enable_caching));
 		actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_));
 		//TODO add more
@@ -115,6 +115,11 @@ public:
 	}
 
 	void ThreadExecutor(int tid) {
+		// bind thread to core
+		if (config_->global_enable_core_binding) {
+			bind_to_core(core_bindings[tid]);
+		}
+
 	    while (true) {
 	        Message recv_msg;
 	        bool success = mailbox_->TryRecv(tid, recv_msg);
