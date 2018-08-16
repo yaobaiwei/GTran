@@ -73,10 +73,6 @@ typedef vector<pair<int, value_t>> history_t;
 
 bool operator==(const history_t& l, const history_t& r);
 
-// remove histroy after branch_key and find parent history in vector
-template<class T>
-typename vector<pair<history_t, T>>::iterator merge_hisotry(vector<pair<history_t, T>>& vec, history_t& his, int branch_key);
-
 class Message {
 public:
 	Meta meta;
@@ -145,14 +141,14 @@ ibinstream& operator<<(ibinstream& m, const Message& msg);
 
 obinstream& operator>>(obinstream& m, Message& msg);
 
-size_t MemSize(int i);
-size_t MemSize(char c);
-size_t MemSize(value_t data);
+size_t MemSize(const int& i);
+size_t MemSize(const char& c);
+size_t MemSize(const value_t& data);
 
 template<class T1, class T2>
-size_t MemSize(pair<T1, T2> p);
+size_t MemSize(const pair<T1, T2>& p);
 
 template<class T>
-size_t MemSize(vector<T> data);
+size_t MemSize(const vector<T>& data);
 
 #include "message.tpp"

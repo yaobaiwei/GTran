@@ -15,7 +15,7 @@ bool operator ==(const value_t& v1, const value_t& v2)
 		}
 		return false;
 	}
-	return Tool::value_t2string(v1) == Tool::value_t2string(v2);
+	return v1.content == v2.content;
 }
 
 bool operator !=(const value_t& v1, const value_t& v2)
@@ -26,66 +26,74 @@ bool operator !=(const value_t& v1, const value_t& v2)
 		}
 		return true;
 	}
-	return Tool::value_t2string(v1) != Tool::value_t2string(v2);
+	return v1.content != v2.content;
 }
 
 bool operator <(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
-		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
-			return Tool::DebugString(const_cast<value_t&>(v1)) < Tool::DebugString(const_cast<value_t&>(v2));
+		if(v1.type == 1 && v2.type == 2) {
+			return Tool::value_t2int(v1) < Tool::value_t2double(v2);
+		}else if(v1.type == 2 && v2.type == 1){
+			return Tool::value_t2double(v1) < Tool::value_t2int(v2);
 		}
-		return Tool::value_t2string(v1) < Tool::value_t2string(v2);
+		return v1.content < v2.content;
 	}
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) < Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) < Tool::value_t2double(v2);
-		default: 	return Tool::value_t2string(v1) < Tool::value_t2string(v2);
+		default: 	return v1.content < v2.content;
 	}
 }
 
 bool operator >(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
-		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
-			return Tool::DebugString(const_cast<value_t&>(v1)) > Tool::DebugString(const_cast<value_t&>(v2));
+		if(v1.type == 1 && v2.type == 2) {
+			return Tool::value_t2int(v1) > Tool::value_t2double(v2);
+		}else if(v1.type == 2 && v2.type == 1){
+			return Tool::value_t2double(v1) > Tool::value_t2int(v2);
 		}
-		return Tool::value_t2string(v1) > Tool::value_t2string(v2);
+		return v1.content > v2.content;
 	}
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) > Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) > Tool::value_t2double(v2);
-		default: 	return Tool::value_t2string(v1) > Tool::value_t2string(v2);
+		default: 	return v1.content > v2.content;
 	}
 }
 
 bool operator <=(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
-		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
-			return Tool::DebugString(const_cast<value_t&>(v1)) <= Tool::DebugString(const_cast<value_t&>(v2));
+		if(v1.type == 1 && v2.type == 2) {
+			return Tool::value_t2int(v1) <= Tool::value_t2double(v2);
+		}else if(v1.type == 2 && v2.type == 1){
+			return Tool::value_t2double(v1) <= Tool::value_t2int(v2);
 		}
-		return Tool::value_t2string(v1) <= Tool::value_t2string(v2);
+		return v1.content <= v2.content;
 	}
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) <= Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) <= Tool::value_t2double(v2);
-		default: 	return Tool::value_t2string(v1) <= Tool::value_t2string(v2);
+		default: 	return v1.content <= v2.content;
 	}
 }
 
 bool operator >=(const value_t& v1, const value_t& v2)
 {
 	if(v1.type != v2.type){
-		if( (v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
-			return Tool::DebugString(const_cast<value_t&>(v1)) >= Tool::DebugString(const_cast<value_t&>(v2));
+		if(v1.type == 1 && v2.type == 2) {
+			return Tool::value_t2int(v1) >= Tool::value_t2double(v2);
+		}else if(v1.type == 2 && v2.type == 1){
+			return Tool::value_t2double(v1) >= Tool::value_t2int(v2);
 		}
-		return Tool::value_t2string(v1) >= Tool::value_t2string(v2);
+		return v1.content >= v2.content;
 	}
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) >= Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) >= Tool::value_t2double(v2);
-		default: 	return Tool::value_t2string(v1) >= Tool::value_t2string(v2);
+		default: 	return v1.content >= v2.content;
 	}
 }
 
@@ -164,4 +172,3 @@ bool Evaluate(Predicate_T pred_type, value_t & val1, value_t & val2) {
 			return val1 >= val2;
 	}
 }
-

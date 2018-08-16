@@ -64,6 +64,8 @@ ibinstream& operator<<(ibinstream& m, const vector<int>& v);
 
 ibinstream& operator<<(ibinstream& m, const vector<double>& v);
 
+ibinstream& operator<<(ibinstream& m, const vector<char>& v);
+
 template <class T>
 ibinstream& operator<<(ibinstream& m, const list<T>& v);
 
@@ -138,6 +140,8 @@ obinstream& operator>>(obinstream& m, vector<T>& v);
 obinstream& operator>>(obinstream& m, vector<int>& v);
 
 obinstream& operator>>(obinstream& m, vector<double>& v);
+
+obinstream& operator>>(obinstream& m, vector<char>& v);
 
 template <class T>
 obinstream& operator>>(obinstream& m, list<T>& v);

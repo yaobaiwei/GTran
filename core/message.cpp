@@ -540,17 +540,17 @@ bool operator == (const history_t& l, const history_t& r){
 	return true;
 }
 
-size_t MemSize(int i)
+size_t MemSize(const int& i)
 {
 	return sizeof(int);
 }
 
-size_t MemSize(char c)
+size_t MemSize(const char& c)
 {
 	return sizeof(char);
 }
 
-size_t MemSize(value_t data)
+size_t MemSize(const value_t& data)
 {
 	size_t s = sizeof(uint8_t);
 	s += MemSize(data.content);
