@@ -43,9 +43,11 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 	int dst_nid = msg.meta.recver_nid;
 	int dst_tid = msg.meta.recver_tid;
 
+	timer::start_timer(tid + config_->global_num_threads);
 	ibinstream im;
 	im << msg;
 	size_t data_sz = im.size();
+	timer::stop_timer(tid + config_->global_num_threads);
 
 	uint64_t msg_sz = sizeof(uint64_t) + ceil(data_sz, sizeof(uint64_t)) + sizeof(uint64_t);
 
@@ -114,7 +116,9 @@ bool RdmaMailbox::TryRecv(int tid, Message & msg) {
 		if (CheckRecvBuf(tid, machine_id)){
 			obinstream um;
 			FetchMsgFromRecvBuf(tid, machine_id, um);
+			timer::start_timer(tid + config_->global_num_threads);
 			um >> msg;
+			timer::stop_timer(tid + config_->global_num_threads);
 			pthread_spin_unlock(&recv_locks[tid]);
 			return true;
 		}

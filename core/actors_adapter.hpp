@@ -105,12 +105,17 @@ public:
 			double exec = 0;
 			double recv = 0;
 			double send = 0;
+			double serialization = 0;
+			double create_msg = 0;
 			vector<double> actors_time(actors_.size());
 
 			for(int i = 0; i < num_thread_; i++){
 				send += timer::get_timer(i);
-				exec += timer::get_timer(i + num_thread_);
-				recv += timer::get_timer(i + 2 * num_thread_);
+				serialization += timer::get_timer(i + num_thread_);
+				exec += timer::get_timer(i + 2 *num_thread_);
+				recv += timer::get_timer(i + 3 * num_thread_);
+				create_msg += timer::get_timer(i + 4 * num_thread_);
+
 				for(int j = 0; j < actors_.size(); j++){
 					actors_time[j] += timer::get_timer(i + (timer_offset + j) * num_thread_);
 				}
@@ -122,12 +127,17 @@ public:
 			ofs << "Exec: " << exec << "ms" << endl;
 
 			for(auto& act : actors_){
-				ofs << "\t" << std::left << setw(15) << string(ActorType[static_cast<int>(act.first)]) << ": " << actors_time[act.second->GetActorId()] << "ms" << endl;
+				double t = actors_time[act.second->GetActorId()];
+				if(t != 0){
+					ofs << "\t" << std::left << setw(15) << string(ActorType[static_cast<int>(act.first)]) << ": " << t << "ms" << endl;
+				}
 			}
 			ofs << endl;
 
 			ofs << "Send: " << send << "ms" << endl;
 			ofs << "Recv: " << recv << "ms" << endl;
+			ofs << "Serialize: " << serialization << "ms" << endl;
+			ofs << "Create Msg: " << create_msg << "ms" << endl;
 			return;
 		}
 
@@ -151,30 +161,31 @@ public:
 
 	void ThreadExecutor(int tid) {
 	    while (true) {
-			timer::start_timer(tid + num_thread_);
-	        Message recv_msg;
 			timer::start_timer(tid + 2 * num_thread_);
+	        Message recv_msg;
+			timer::start_timer(tid + 3 * num_thread_);
 	        bool success = mailbox_->TryRecv(tid, recv_msg);
 	        times_[tid] = timer::get_usec();
 	        if(success){
-				timer::stop_timer(tid + 2 * num_thread_);
+				timer::stop_timer(tid + 3 * num_thread_);
 	        	execute(tid, recv_msg);
 	        	times_[tid] = timer::get_usec();
-				timer::stop_timer(tid + num_thread_);
+				timer::stop_timer(tid + 2 * num_thread_);
 	        }
 
+			continue;
 	        //TODO work stealing
 	        int steal_tid = (tid + 1) % num_thread_; //next thread
 	        if(times_[tid] < times_[steal_tid] + STEALTIMEOUT)
 	        	continue;
 
-			timer::start_timer(tid);
-			timer::start_timer(tid + 10);
+			timer::start_timer(tid + 2 * num_thread_);
+			timer::start_timer(tid + 3 * num_thread_);
 	        success = mailbox_->TryRecv(steal_tid, recv_msg);
 	        if(success){
-				timer::stop_timer(tid + 10);
+				timer::start_timer(tid + 3 * num_thread_);
 	        	execute(tid, recv_msg);
-				timer::stop_timer(tid);
+				timer::start_timer(tid + 2 * num_thread_);
 	        }
         	times_[tid] = timer::get_usec();
 	    }
@@ -202,8 +213,8 @@ private:
 	vector<uint64_t> times_;
 	int num_thread_;
 
-	// 3 more timers for total, recv , send
-	const static int timer_offset = 3;
+	// 5 more timers for total, recv , send, serialization, create msg
+	const static int timer_offset = 5;
 
 	const static uint64_t STEALTIMEOUT = 100000;
 };

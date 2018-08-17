@@ -135,6 +135,7 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
 
 void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
 {
+	timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
 
@@ -150,9 +151,11 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	for(int i = count; i < vec.size(); i++){
 		vec[i].meta.msg_path += num;
 	}
+	timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
 void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, vector<Message>& vec){
+	timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 
 	// append steps num into msg path
@@ -213,9 +216,11 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
 		}
 	}
+	timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
 void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec){
+	timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 
 	// update branch info
@@ -267,6 +272,7 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
 		}
 	}
+	timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
 void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vector<Message>& vec){
