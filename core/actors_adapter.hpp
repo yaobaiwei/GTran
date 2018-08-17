@@ -162,6 +162,8 @@ public:
 	void ThreadExecutor(int tid) {
 	    while (true) {
 			timer::start_timer(tid + 2 * num_thread_);
+			mailbox_->Sweep(tid);
+
 	        Message recv_msg;
 			timer::start_timer(tid + 3 * num_thread_);
 	        bool success = mailbox_->TryRecv(tid, recv_msg);
@@ -169,6 +171,7 @@ public:
 	        if(success){
 				timer::stop_timer(tid + 3 * num_thread_);
 	        	execute(tid, recv_msg);
+				mailbox_->Sweep(tid);
 	        	times_[tid] = timer::get_usec();
 				timer::stop_timer(tid + 2 * num_thread_);
 	        }

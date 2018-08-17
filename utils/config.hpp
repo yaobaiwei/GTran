@@ -73,15 +73,25 @@ struct Config{
 
 	// send_buffer_sz = num_threads * global_per_send_buffer_sz_mb
 	uint64_t send_buffer_sz;
-	// send_buffer_offset = data_store_sz
+	// send_buffer_offset = kvstore_sz + kvstore_offset
 	uint64_t send_buffer_offset;
 
-	// recv_buffer_sz = num_machines * global_per_recv_buffer_sz_mb
+	// recv_buffer_sz = num_machines * num_threads *global_per_recv_buffer_sz_mb
 	uint64_t recv_buffer_sz;
-	// recv_buffer_offset = global_datastore_sz_gb + send_buffer_sz_mb
+	// recv_buffer_offset = send_buffer_sz + send_buffer_offset
 	uint64_t recv_buffer_offset;
 
-	// buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz
+	// local_head_buffer_sz = num_machines * num_threads *sizeof(uint64_t)
+	uint64_t local_head_buffer_sz;
+	// local_head_buffer_offset = recv_buffer_sz * recv_buffer_offset
+	uint64_t local_head_buffer_offset;
+
+	// remote_head_buffer_sz = num_machines * num_threads *sizeof(uint64_t)
+	uint64_t remote_head_buffer_sz;
+	// remote_head_buffer_offset = local_head_buffer_sz * local_head_buffer_offset
+	uint64_t remote_head_buffer_offset;
+
+	// buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz +remote_head_buffer_sz
 	uint64_t buffer_sz;
 
 
@@ -90,6 +100,8 @@ struct Config{
 	char * kvstore;
 	char * send_buf;
 	char * recv_buf;
+	char * local_head_buf;
+	char * remote_head_buf;
 
 	uint32_t num_vertex_node;
 	uint32_t num_edge_node;
@@ -275,7 +287,13 @@ struct Config{
     	recv_buffer_sz = global_num_machines * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
     	recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
-    	buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz;
+		local_head_buffer_sz = global_num_machines * global_num_threads * sizeof(uint64_t);
+		local_head_buffer_offset = recv_buffer_sz + recv_buffer_offset;
+
+		remote_head_buffer_sz = global_num_machines * global_num_threads * sizeof(uint64_t);
+		remote_head_buffer_offset = local_head_buffer_sz + local_head_buffer_offset;
+
+    	buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz;
 
     	//init hdfs
     	hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);

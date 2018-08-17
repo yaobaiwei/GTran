@@ -35,24 +35,61 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
 
 	schedulers = (scheduler_t *)malloc(sizeof(scheduler_t) * config_->global_num_threads);
 	memset(schedulers, 0, sizeof(scheduler_t) * config_->global_num_threads);
+
+	pending_msgs.resize(config_->global_num_threads);
+}
+
+bool RdmaMailbox::IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz) {
+	static uint64_t old_head = 0;
+    uint64_t rbf_sz = MiB2B(config_->global_per_recv_buffer_sz_mb);
+    uint64_t head = *(uint64_t *)buffer_->GetRemoteHeadBuf(dst_tid, dst_nid);
+
+    return rbf_sz < (tail - head + msg_sz);
+}
+
+void RdmaMailbox::Sweep(int tid) {
+	if(pending_msgs[tid].size() == 0){
+		return;
+	}
+	timer::start_timer(tid);
+	for (auto it = pending_msgs[tid].begin(); it != pending_msgs[tid].end();){
+        if (SendData(tid, *it)){
+            it = pending_msgs[tid].erase(it);
+		}else{
+			it++;
+		}
+	}
+	timer::stop_timer(tid);
 }
 
 int RdmaMailbox::Send(int tid, const Message & msg) {
-
-	timer::start_timer(tid);
-	int dst_nid = msg.meta.recver_nid;
-	int dst_tid = msg.meta.recver_tid;
+	rdma_data_t data;
+	data.dst_nid = msg.meta.recver_nid;
+	data.dst_tid = msg.meta.recver_tid;
 
 	timer::start_timer(tid + config_->global_num_threads);
-	ibinstream im;
-	im << msg;
-	size_t data_sz = im.size();
+	data.stream << msg;
 	timer::stop_timer(tid + config_->global_num_threads);
 
+	pending_msgs[tid].push_back(move(data));
+}
+
+bool RdmaMailbox::SendData(int tid, const rdma_data_t& data) {
+	int dst_nid = data.dst_nid;
+	int dst_tid = data.dst_tid;
+
+	size_t data_sz = data.stream.size();
 	uint64_t msg_sz = sizeof(uint64_t) + ceil(data_sz, sizeof(uint64_t)) + sizeof(uint64_t);
 
 	rbf_rmeta_t *rmeta = &rmetas[dst_nid * config_->global_num_threads + dst_tid];
+
 	pthread_spin_lock(&rmeta->lock);
+	 // detect overflow
+	if (IsBufferFull(dst_nid, dst_tid, rmeta->tail, msg_sz)) {
+        pthread_spin_unlock(&rmeta->lock);
+        return false;
+    }
+	// update tail
     uint64_t off = rmeta->tail;
     rmeta->tail += msg_sz;
 	pthread_spin_unlock(&rmeta->lock);
@@ -66,11 +103,11 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 		off += sizeof(uint64_t);
 
 		if (off / rbf_sz == (off + data_sz - 1) / rbf_sz ) { 		// data
-			memcpy(recv_buf_ptr + (off % rbf_sz), im.get_buf(), data_sz);
+			memcpy(recv_buf_ptr + (off % rbf_sz), data.stream.get_buf(), data_sz);
 		} else {
 			uint64_t _sz = rbf_sz - (off % rbf_sz);
-			memcpy(recv_buf_ptr + (off % rbf_sz), im.get_buf(), _sz);
-			memcpy(recv_buf_ptr, im.get_buf() + _sz, data_sz - _sz);
+			memcpy(recv_buf_ptr + (off % rbf_sz), data.stream.get_buf(), _sz);
+			memcpy(recv_buf_ptr, data.stream.get_buf() + _sz, data_sz - _sz);
 		}
 		off += ceil(data_sz, sizeof(uint64_t));
 		*((uint64_t *)(recv_buf_ptr + off % rbf_sz)) = data_sz;  	// footer
@@ -80,7 +117,7 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 		*((uint64_t *)rdma_buf) = data_sz;  // header
 		rdma_buf += sizeof(uint64_t);
 
-		memcpy(rdma_buf, im.get_buf(), data_sz);    // data
+		memcpy(rdma_buf, data.stream.get_buf(), data_sz);    // data
 		rdma_buf += ceil(data_sz, sizeof(uint64_t));
 
 		*((uint64_t*)rdma_buf) = data_sz;   // footer
@@ -95,7 +132,7 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid) + _sz, msg_sz - _sz, rdma_off);
 		}
 	}
-	timer::stop_timer(tid);
+	return true;
 }
 
 void RdmaMailbox::Recv(int tid, Message & msg) {
@@ -112,7 +149,8 @@ void RdmaMailbox::Recv(int tid, Message & msg) {
 
 bool RdmaMailbox::TryRecv(int tid, Message & msg) {
 	pthread_spin_lock(&recv_locks[tid]);
-	for (int machine_id = 0; machine_id < node_.get_local_size(); machine_id++) {
+	for (int i = 0; i < node_.get_local_size(); i++) {
+		int machine_id = (schedulers[tid].rr_cnt++) % node_.get_local_size();
 		if (CheckRecvBuf(tid, machine_id)){
 			obinstream um;
 			FetchMsgFromRecvBuf(tid, machine_id, um);
@@ -183,6 +221,21 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 
 		// advance the pointer
 		lmeta->head += 2 * sizeof(uint64_t) + ceil(pop_msg_size, sizeof(uint64_t));
-		lmeta->head %= rbf_sz;
+
+		// update heads of ring buffer to writer to help it detect overflow
+		timer::start_timer(tid);
+        const uint64_t threshold = 0;
+		char *head = buffer_->GetLocalHeadBuf(tid, nid);
+        if (lmeta->head - *(uint64_t *)head > threshold) {
+            *(uint64_t *)head = lmeta->head;
+            if (node_.get_local_rank() == nid) {
+                *(uint64_t *)buffer_->GetRemoteHeadBuf(tid, nid) = lmeta->head;
+            } else {
+				RDMA &rdma = RDMA::get_rdma();
+                uint64_t off = buffer_->GetRemoteHeadBufOffset(tid, node_.get_local_rank());
+                rdma.dev->RdmaWrite(tid, nid, head, sizeof(uint64_t), off);
+            }
+        }
+		timer::stop_timer(tid);
 	}
 }

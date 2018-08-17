@@ -44,6 +44,8 @@ public:
 
     bool TryRecv(int tid, Message & msg) override;
 
+	void Sweep(int tid) override;
+
 private:
     struct rbf_rmeta_t {
          uint64_t tail; // write from here
@@ -60,12 +62,22 @@ private:
          uint64_t rr_cnt; // round-robin
      } __attribute__ ((aligned (CLINE)));
 
+	 struct rdma_data_t{
+		 ibinstream stream;
+		 int dst_nid;
+		 int dst_tid;
+	 };
+
      bool CheckRecvBuf(int tid, int nid);
      void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
+	 bool IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz);
+	 bool SendData(int tid, const rdma_data_t& data);
 
      Node & node_;
      Config* config_;
      Buffer * buffer_;
+
+	 vector<vector<rdma_data_t>> pending_msgs;
 
      rbf_rmeta_t *rmetas = NULL;
      rbf_lmeta_t *lmetas = NULL;
