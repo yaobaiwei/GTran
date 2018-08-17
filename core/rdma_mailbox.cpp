@@ -224,7 +224,7 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 
 		// update heads of ring buffer to writer to help it detect overflow
 		timer::start_timer(tid);
-        const uint64_t threshold = 0;
+        const uint64_t threshold = rbf_sz / 16;
 		char *head = buffer_->GetLocalHeadBuf(tid, nid);
         if (lmeta->head - *(uint64_t *)head > threshold) {
             *(uint64_t *)head = lmeta->head;
