@@ -10,6 +10,7 @@
 
 #include "utils/zmq.hpp"
 
+#include "base/core_affinity.hpp"
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "base/thread_safe_queue.hpp"
@@ -110,6 +111,11 @@ public:
 		//===================prepare stage=================
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_, config_);
 
+		//init core affinity
+		CoreAffinity * core_affinity = new CoreAffinity(my_node_.get_world_rank());
+		core_affinity->Init(config_->global_num_threads);
+		cout << "DONE -> Init Core Affinity" << endl;
+
 		//set the in-memory layout for RDMA buf
 		Buffer * buf = new Buffer(my_node_, config_);
 		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
@@ -147,7 +153,7 @@ public:
 		monitor->Start();
 
 		//actor driver starts
-		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore);
+		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore, core_affinity);
 		actor_adapter->Start();
 		cout << "DONE -> actor_adapter->Start()" << endl;
 

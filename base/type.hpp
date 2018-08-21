@@ -101,7 +101,7 @@ obinstream& operator>>(obinstream& m, ikey_t& p);
 
 bool operator == (const ikey_t &p1, const ikey_t &p2);
 
-enum {VID_BITS = 26}; // <32; the total # of vertices should no be more than 2^26
+enum {VID_BITS = 27}; // <32; the total # of vertices should no be more than 2^26
 enum {EID_BITS = (VID_BITS * 2)}; //eid = v1_id | v2_id (52 bits)
 enum {PID_BITS = (64 - EID_BITS)}; //12, the total # of property should no be more than 2^PID_BITS
 
@@ -212,7 +212,7 @@ namespace __gnu_cxx {
 	};
 }
 
-//vpid: 64bits  vid|0x26|pid
+//vpid: 64bits  vid|0x27|pid
 struct vpid_t {
 uint64_t vid : VID_BITS;
 uint64_t pid : PID_BITS;
@@ -533,5 +533,18 @@ namespace std {
 		}
 	};
 }
+
+// Thread_division for actors
+// Cache_Sequential : LabelActor, HasLabelActor, PropertiesActor, ValuesActor, HasActor, KeyActor [1/4 #threads]
+// Cache_Barrier : GroupActor, OrderActor [1/6 #threads]
+// TRAVERSAL : TraversalActor [1/12 #threads]
+// Normal_Barrier : CountActor, AggregateActor, CapActor, DedupActor, MathActor [1/6 #threads]
+// Normal_Branch : RangeActor, BranchFilterActor, BranchActor [1/6 #threads]
+// Normal_Sequential : AsActor, SelectActor, WhereActor, IsActor [1/6 #threads]
+enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ }; 
+enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };
+
+static const int NUM_THREAD_DIVISION = 6;
+static const int NUM_RESIDENT_THREAD = 4;
 
 #endif /* TYPE_HPP_ */

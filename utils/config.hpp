@@ -60,6 +60,7 @@ struct Config{
 
 	bool global_use_rdma;
 	bool global_enable_caching;
+	bool global_enable_core_binding;
 	bool global_enable_workstealing;
 
 	int max_data_size;
@@ -259,6 +260,15 @@ struct Config{
 			exit(-1);
 		}
 
+		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_CORE_BIND", val_not_found);
+		if(val!=val_not_found) global_enable_core_binding=val;
+		else
+		{
+			fprintf(stderr, "must enter the ENABLE_CORE_BIND. exits.\n");
+			exit(-1);
+		}
+
+
 		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_STEALING", val_not_found);
 		if(val!=val_not_found) global_enable_workstealing=val;
 		else
@@ -322,6 +332,7 @@ struct Config{
 
     	ss << "global_use_rdma : " << global_use_rdma << endl;
     	ss << "global_enable_caching : " << global_enable_caching << endl;
+    	ss << "global_enable_core_binding : " << global_enable_core_binding << endl;
     	ss << "global_enable_workstealing : " << global_enable_workstealing << endl;
 
     	return ss.str();

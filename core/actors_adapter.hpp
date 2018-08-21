@@ -42,7 +42,7 @@ using namespace std;
 
 class ActorAdapter {
 public:
-	ActorAdapter(Node & node, Config * config, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store) : node_(node), config_(config), num_thread_(config->global_num_threads), rc_(rc), mailbox_(mailbox), data_store_(data_store) {
+	ActorAdapter(Node & node, Config * config, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity) : node_(node), config_(config), num_thread_(config->global_num_threads), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity) {
 		times_.resize(num_thread_, 0);
 	}
 
@@ -101,7 +101,7 @@ public:
 			// TODO: erase aggregate data
 
 			// Print time
-			timer::stop_timer(tid + num_thread_);
+			timer::stop_timer(tid + 2 * num_thread_);
 			double exec = 0;
 			double recv = 0;
 			double send = 0;
@@ -160,6 +160,11 @@ public:
 	}
 
 	void ThreadExecutor(int tid) {
+		// bind thread to core
+		if (config_->global_enable_core_binding) {
+			core_affinity_->BindToCore(tid);
+		}
+
 	    while (true) {
 			timer::start_timer(tid + 2 * num_thread_);
 			mailbox_->Sweep(tid);
@@ -174,23 +179,29 @@ public:
 				mailbox_->Sweep(tid);
 	        	times_[tid] = timer::get_usec();
 				timer::stop_timer(tid + 2 * num_thread_);
-	        }
+	        } else {
+				//TODO work stealing
+				if (!config_->global_enable_workstealing)
+					continue;
 
-			continue;
-	        //TODO work stealing
-	        int steal_tid = (tid + 1) % num_thread_; //next thread
-	        if(times_[tid] < times_[steal_tid] + STEALTIMEOUT)
-	        	continue;
+				vector<int> steal_list;
+				core_affinity_->GetStealList(tid, steal_list);
+				for (auto itr = steal_list.begin(); itr != steal_list.end(); itr++) {
+					// if(times_[tid] < times_[*itr] + STEALTIMEOUT)
+					// 		continue;
 
-			timer::start_timer(tid + 2 * num_thread_);
-			timer::start_timer(tid + 3 * num_thread_);
-	        success = mailbox_->TryRecv(steal_tid, recv_msg);
-	        if(success){
-				timer::start_timer(tid + 3 * num_thread_);
-	        	execute(tid, recv_msg);
-				timer::start_timer(tid + 2 * num_thread_);
-	        }
-        	times_[tid] = timer::get_usec();
+					timer::start_timer(tid + 2 * num_thread_);
+					timer::start_timer(tid + 3 * num_thread_);
+					success = mailbox_->TryRecv(*itr, recv_msg);
+					if(success){
+						timer::stop_timer(tid + 3 * num_thread_);
+						execute(tid, recv_msg);
+						timer::stop_timer(tid + 2 * num_thread_);
+						break;
+					}
+				}
+				times_[tid] = timer::get_usec();
+			}
 	    }
 	};
 
@@ -199,6 +210,7 @@ private:
 	Result_Collector * rc_;
 	DataStore * data_store_;
 	Config * config_;
+	CoreAffinity * core_affinity_;
 	msg_id_alloc id_allocator_;
 	Node node_;
 
