@@ -405,7 +405,8 @@ namespace BarrierData{
 		// int: assigned branch value by labelled branch step
  		// vec: filtered data
  		unordered_map<int, vector<pair<history_t, vector<value_t>>>> data_map;
-		unordered_map<int, set<history_t>> dedup_map;
+		unordered_map<int, set<history_t>> dedup_his_map;	// for dedup by history
+		unordered_map<int, set<value_t>> dedup_val_map;		// for dedup by value
 	};
 }
 
@@ -420,7 +421,8 @@ private:
 
 	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
-		auto& dedup_map = ac->second.dedup_map;
+		auto& dedup_his_map = ac->second.dedup_his_map;
+		auto& dedup_val_map = ac->second.dedup_val_map;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
@@ -436,7 +438,6 @@ private:
 
 			// get data and history set under branch value
 			auto& data_vec = data_map[branch_value];
-			auto& dedup_set = dedup_map[branch_value];
 
 			vector<pair<history_t, vector<value_t>>>::iterator itr_dp;
 			if(data_vec.size() != 0)
@@ -458,8 +459,9 @@ private:
 				itr_dp = data_vec.insert(itr_dp, {p.first, vector<value_t>()});
 			}
 
-			history_t his;
 			if(key_set.size() > 0 && p.second.size() != 0){
+				auto& dedup_set = dedup_his_map[branch_value];
+				history_t his;
 				// dedup history
 				// construct history with given key
 				for(auto& val : p.first){
@@ -467,23 +469,18 @@ private:
 						his.push_back(move(val));
 					}
 				}
-				// find constructed history in his set
-				auto itr_his = dedup_set.find(his);
-				if(itr_his == dedup_set.end()){
+				// insert constructed history and check if exists
+				if(dedup_set.insert(move(his)).second){
 					itr_dp->second.push_back(move(p.second[0]));
-					dedup_set.insert(move(his));
 				}
 			}else{
+				auto& dedup_set = dedup_val_map[branch_value];
 				// dedup value, should check on all values
 				for(auto& val : p.second){
-					// construct history with current value
-					his.emplace_back(0, val);
-					auto itr_his = dedup_set.find(his);
-					if(itr_his == dedup_set.end()){
+					// insert value to set and check if exists
+					if(dedup_set.insert(val).second){
 						itr_dp->second.push_back(move(val));
-						dedup_set.insert(move(his));
 					}
-					his.clear();
 				}
 			}
 		}
@@ -635,7 +632,8 @@ namespace BarrierData{
   		//		map<value_t, multiset<value_t>>:
 		//			value_t: 						key for ordering
 		//			multiset<value_t>				store real data
-  		unordered_map<int, pair<history_t, map<value_t, multiset<value_t>>>> data_map;
+  		unordered_map<int, pair<history_t, map<value_t, multiset<value_t>>>> data_map;	// for order with mapping
+		unordered_map<int, pair<history_t, multiset<value_t>>> data_set;				// for order without mapping
 	};
 }
 
@@ -650,6 +648,7 @@ private:
 
 	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
+		auto& data_set = ac->second.data_set;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
@@ -670,19 +669,32 @@ private:
 		for(auto& p : msg.data){
 			int branch_value = get_branch_value(p.first, branch_key);
 
-			// get <history_t, map<string, vector<value_t>> pair by branch_value
-			auto itr_data = data_map.find(branch_value);
-			if(itr_data == data_map.end()){
-				itr_data = data_map.insert(itr_data, {branch_value, {move(p.first), map<value_t, multiset<value_t>>()}});
-			}
-			auto& map_ = itr_data->second.second;
-
-			for(auto& val : p.second){
-				value_t key = val;
-				if(! kp(t_id, key, keyProjection, data_store_)){
-					continue;
+			if(keyProjection < 0){
+				// get <history_t, multiset<value_t>> pair by branch_value
+				auto itr_data = data_set.find(branch_value);
+				if(itr_data == data_set.end()){
+					itr_data = data_set.insert(itr_data, {branch_value, {move(p.first), multiset<value_t>()}});
 				}
-				map_[key].insert(move(val));
+				auto& set_ = itr_data->second.second;
+
+				for(auto& val : p.second){
+					set_.insert(move(val));
+				}
+			}else{
+				// get <history_t, map<value_t, multiset<value_t>>> pair by branch_value
+				auto itr_data = data_map.find(branch_value);
+				if(itr_data == data_map.end()){
+					itr_data = data_map.insert(itr_data, {branch_value, {move(p.first), map<value_t, multiset<value_t>>()}});
+				}
+				auto& map_ = itr_data->second.second;
+
+				for(auto& val : p.second){
+					value_t key = val;
+					if(! kp(t_id, key, keyProjection, data_store_)){
+						continue;
+					}
+					map_[key].insert(move(val));
+				}
 			}
 		}
 
@@ -690,21 +702,33 @@ private:
 		if(isReady){
 			Order_T order = (Order_T)Tool::value_t2int(actor.params[2]);
 			vector<pair<history_t, vector<value_t>>> msg_data;
-			for(auto& p : data_map){
-				vector<value_t> val_vec;
-				auto& m = p.second.second;
-				if(order == Order_T::INCR){
-					for(auto itr = m.begin(); itr != m.end(); itr++){
-						val_vec.insert(val_vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
+			if(keyProjection < 0){
+				for(auto& p : data_set){
+					vector<value_t> val_vec;
+					auto& set_ = p.second.second;
+					if(order == Order_T::INCR){
+						val_vec.insert(val_vec.end(), make_move_iterator(set_.begin()), make_move_iterator(set_.end()));
+					}else{
+						val_vec.insert(val_vec.end(), make_move_iterator(set_.rbegin()), make_move_iterator(set_.rend()));
 					}
-				}else{
-					for(auto itr = m.rbegin(); itr != m.rend(); itr++){
-						val_vec.insert(val_vec.end(), make_move_iterator(itr->second.rbegin()), make_move_iterator(itr->second.rend()));
-					}
+					msg_data.emplace_back(move(p.second.first), move(val_vec));
 				}
-				msg_data.emplace_back(move(p.second.first), move(val_vec));
+			}else{
+				for(auto& p : data_map){
+					vector<value_t> val_vec;
+					auto& m = p.second.second;
+					if(order == Order_T::INCR){
+						for(auto itr = m.begin(); itr != m.end(); itr++){
+							val_vec.insert(val_vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
+						}
+					}else{
+						for(auto itr = m.rbegin(); itr != m.rend(); itr++){
+							val_vec.insert(val_vec.end(), make_move_iterator(itr->second.rbegin()), make_move_iterator(itr->second.rend()));
+						}
+					}
+					msg_data.emplace_back(move(p.second.first), move(val_vec));
+				}
 			}
-
 			vector<Message> v;
 			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
 			for(auto& m : v){
