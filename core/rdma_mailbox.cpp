@@ -51,15 +51,20 @@ void RdmaMailbox::Sweep(int tid) {
 	if(pending_msgs[tid].size() == 0){
 		return;
 	}
+	bool success = false;	// for time measurement only
+
 	timer::start_timer(tid);
 	for (auto it = pending_msgs[tid].begin(); it != pending_msgs[tid].end();){
         if (SendData(tid, *it)){
             it = pending_msgs[tid].erase(it);
+			success = true;
 		}else{
 			it++;
 		}
 	}
-	timer::stop_timer(tid);
+	if(success){
+		timer::stop_timer(tid);
+	}
 }
 
 int RdmaMailbox::Send(int tid, const Message & msg) {
@@ -124,6 +129,7 @@ bool RdmaMailbox::SendData(int tid, const rdma_data_t& data) {
 
 		RDMA &rdma = RDMA::get_rdma();
 		uint64_t rdma_off = buffer_->GetRecvBufOffset(dst_tid, node_.get_local_rank());
+		pthread_spin_lock(&rmeta->lock);
 		if (off / rbf_sz == (off + msg_sz - 1) / rbf_sz ) {
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), msg_sz, rdma_off + (off % rbf_sz));
 		} else {
@@ -131,6 +137,7 @@ bool RdmaMailbox::SendData(int tid, const rdma_data_t& data) {
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), _sz, rdma_off + (off % rbf_sz));
 			rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid) + _sz, msg_sz - _sz, rdma_off);
 		}
+		pthread_spin_unlock(&rmeta->lock);
 	}
 	return true;
 }
@@ -154,10 +161,11 @@ bool RdmaMailbox::TryRecv(int tid, Message & msg) {
 		if (CheckRecvBuf(tid, machine_id)){
 			obinstream um;
 			FetchMsgFromRecvBuf(tid, machine_id, um);
+			pthread_spin_unlock(&recv_locks[tid]);
+
 			timer::start_timer(tid + config_->global_num_threads);
 			um >> msg;
 			timer::stop_timer(tid + config_->global_num_threads);
-			pthread_spin_unlock(&recv_locks[tid]);
 			return true;
 		}
 	}
@@ -231,9 +239,12 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
             if (node_.get_local_rank() == nid) {
                 *(uint64_t *)buffer_->GetRemoteHeadBuf(tid, nid) = lmeta->head;
             } else {
+				rbf_rmeta_t *rmeta = &rmetas[nid * config_->global_num_threads + tid];
 				RDMA &rdma = RDMA::get_rdma();
                 uint64_t off = buffer_->GetRemoteHeadBufOffset(tid, node_.get_local_rank());
+				pthread_spin_lock(&rmeta->lock);
                 rdma.dev->RdmaWrite(tid, nid, head, sizeof(uint64_t), off);
+				pthread_spin_unlock(&rmeta->lock);
             }
         }
 		timer::stop_timer(tid);
