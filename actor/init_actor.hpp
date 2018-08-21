@@ -68,26 +68,18 @@ public:
             msg_vec = &edge_msgs;
         }
 
-		bool isBarrier = actor_objs[m.step + 1].IsBarrier();
+		MSG_T msg_type = actor_objs[m.step + 1].IsBarrier() ? MSG_T::BARRIER : MSG_T::SPAWN;
 
         // Send Message
         for (auto& msg : *msg_vec) {
 			msg.meta.qid = m.qid;
 
 			// update route
-			if(isBarrier){
-				msg.meta.recver_nid = m.parent_nid;
-				msg.meta.recver_tid = m.parent_tid;
-				msg.meta.parent_nid = m.parent_nid;
-				msg.meta.parent_tid = m.parent_tid;
-				msg.meta.msg_type = MSG_T::BARRIER;
-			}else{
-				msg.meta.recver_nid = m.recver_nid;
-				msg.meta.recver_tid = (m.recver_tid ++) % num_thread_;
-				msg.meta.parent_nid = m.parent_nid;
-				msg.meta.parent_tid = m.parent_tid;
-				msg.meta.msg_type = MSG_T::SPAWN;
-			}
+			msg.meta.recver_nid = m.recver_nid;
+			msg.meta.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step+1].actor_type);
+			msg.meta.parent_nid = m.parent_nid;
+			msg.meta.parent_tid = m.parent_tid;
+			msg.meta.msg_type = msg_type;
             mailbox_->Send(tid, msg);
         }
     }
