@@ -24,7 +24,7 @@ class BarrierActorBase :  public AbstractActor{
 	using BarrierDataTable = tbb::concurrent_hash_map<mkey_t, T, MkeyHashCompare>;
 
 public:
-	BarrierActorBase(int id, DataStore* data_store) : AbstractActor(id, data_store){}
+	BarrierActorBase(int id, DataStore* data_store, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity){}
 
 	void process(int t_id, vector<Actor_Object> & actors, Message & msg){
 		// get msg info
@@ -200,7 +200,7 @@ namespace BarrierData{
 class EndActor : public BarrierActorBase<BarrierData::end_data>
 {
 public:
-	EndActor(int id, DataStore* data_store, int num_nodes, Result_Collector * rc, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::end_data>(id, data_store), num_nodes_(num_nodes),rc_(rc), mailbox_(mailbox){}
+	EndActor(int id, DataStore* data_store, int num_nodes, Result_Collector * rc, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::end_data>(id, data_store, core_affinity), num_nodes_(num_nodes),rc_(rc), mailbox_(mailbox){}
 
 private:
 	Result_Collector * rc_;
@@ -239,7 +239,7 @@ namespace BarrierData{
 class AggregateActor : public BarrierActorBase<BarrierData::agg_data>
 {
 public:
-	AggregateActor(int id, DataStore* data_store, int num_nodes, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::agg_data>(id, data_store), num_nodes_(num_nodes), num_thread_(num_thread), mailbox_(mailbox){}
+	AggregateActor(int id, DataStore* data_store, int num_nodes, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::agg_data>(id, data_store, core_affinity), num_nodes_(num_nodes), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_nodes_;
@@ -275,7 +275,7 @@ private:
 			// send aggregated data to other nodes
 			msg.CreateFeedMsg(key, num_nodes_, agg_data, v);
 			// send input data and history to next actor
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
@@ -287,7 +287,7 @@ private:
 class CapActor : public BarrierActorBase<>
 {
 public:
-	CapActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	CapActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -338,7 +338,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -359,7 +359,7 @@ namespace BarrierData{
 class CountActor : public BarrierActorBase<BarrierData::count_data>
 {
 public:
-	CountActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::count_data>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	CountActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::count_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -392,7 +392,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -413,7 +413,7 @@ namespace BarrierData{
 class DedupActor : public BarrierActorBase<BarrierData::dedup_data>
 {
 public:
-	DedupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::dedup_data>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	DedupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::dedup_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -493,7 +493,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -514,7 +514,7 @@ namespace BarrierData{
 class GroupActor : public BarrierActorBase<BarrierData::group_data>
 {
 public:
-	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::group_data>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -616,7 +616,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -640,7 +640,7 @@ namespace BarrierData{
 class OrderActor : public BarrierActorBase<BarrierData::order_data>
 {
 public:
-	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::order_data>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -730,7 +730,7 @@ private:
 				}
 			}
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -751,7 +751,7 @@ namespace BarrierData{
 class RangeActor : public BarrierActorBase<BarrierData::range_data>
 {
 public:
-	RangeActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::range_data>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	RangeActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::range_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -829,7 +829,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -853,7 +853,7 @@ namespace BarrierData{
 class MathActor : public BarrierActorBase<BarrierData::math_data>
 {
 public:
-	MathActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : BarrierActorBase<BarrierData::math_data>(id, data_store), num_thread_(num_thread), mailbox_(mailbox){}
+	MathActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::math_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 
 private:
 	int num_thread_;
@@ -909,7 +909,7 @@ private:
 			}
 
 			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, v);
+			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}

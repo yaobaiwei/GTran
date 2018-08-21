@@ -21,7 +21,7 @@
 
 class SelectActor : public AbstractActor {
 public:
-	SelectActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::SELECT) {}
+	SelectActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::SELECT) {}
 
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
@@ -48,7 +48,7 @@ public:
 
 		// Create Message
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {

@@ -11,12 +11,13 @@
 #include <string>
 #include <vector>
 
+#include "base/core_affinity.hpp"
 #include "core/message.hpp"
 #include "storage/data_store.hpp"
 
 class AbstractActor {
 public:
-	AbstractActor(int id, DataStore* data_store):id_(id), data_store_(data_store){}
+	AbstractActor(int id, DataStore* data_store, CoreAffinity* core_affinity):id_(id), data_store_(data_store), core_affinity_(core_affinity){}
 
 	virtual ~AbstractActor() {}
 
@@ -29,6 +30,9 @@ public:
 protected:
 	// Data Store
     DataStore* data_store_;
+
+	// Core affinity
+	CoreAffinity* core_affinity_;
 
 private:
 	// Actor ID

@@ -133,14 +133,14 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
 }
 
 
-void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
+void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec)
 {
 	timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
 
 	int count = vec.size();
-	dispatch_data(m, actors, data, num_thread, data_store,vec);
+	dispatch_data(m, actors, data, num_thread, data_store, core_affinity, vec);
 
 	// set disptching path
 	string num = to_string(vec.size() - count);
@@ -154,7 +154,7 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
-void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, vector<Message>& vec){
+void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec){
 	timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 
@@ -209,7 +209,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 		auto temp = data;
 		// dispatch data to msg vec
 		int count = vec.size();
-		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, core_affinity, vec);
 
 		// set msg_path for each branch
 		for(int j = count; j < vec.size(); j++){
@@ -219,7 +219,7 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 	timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
-void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec){
+void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec){
 	timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 
@@ -265,7 +265,7 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 
 		// dispatch data to msg vec
 		int count = vec.size();
-		dispatch_data(step_meta, actors, temp, num_thread, data_store, vec);
+		dispatch_data(step_meta, actors, temp, num_thread, data_store, core_affinity, vec);
 
 		// set msg_path for each branch
 		for(int j = count; j < vec.size(); j++){
@@ -296,7 +296,7 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 	}
 }
 
-void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec)
+void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec)
 {
 	Meta cm = m;
 	bool route_assigned = update_route(m, actors);
@@ -355,9 +355,9 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 			Message msg(m);
 			msg.max_data_size = this->max_data_size;
 			msg.meta.recver_nid = item.first;
-			if(! route_assigned){
-				msg.meta.recver_tid = (m.recver_tid ++) % num_thread;
-			}
+			// if(! route_assigned){
+			msg.meta.recver_tid = core_affinity->GetThreadIdForActor(actors[m.step].actor_type);
+			// }
 			msg.InsertData(item.second);
 			vec.push_back(move(msg));
 		}
@@ -370,6 +370,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 		do{
 			Message msg(cm);
 			msg.max_data_size = this->max_data_size;
+			msg.meta.recver_tid = core_affinity->GetThreadIdForActor(actors[cm.step].actor_type);
 			msg.InsertData(empty_his);
 			vec.push_back(move(msg));
 		}
@@ -384,12 +385,12 @@ bool Message::update_route(Meta& m, vector<Actor_Object>& actors){
 		if(branch_depth >= 0){
 			// barrier actor in branch
 			m.recver_nid = m.branch_infos[branch_depth].node_id;
-			m.recver_tid = m.branch_infos[branch_depth].thread_id;
+			// m.recver_tid = m.branch_infos[branch_depth].thread_id;
 		}
 		else{
 			// barrier actor in main query
 			m.recver_nid = m.parent_nid;
-			m.recver_tid = m.parent_tid;
+			// m.recver_tid = m.parent_tid;
 		}
 		m.msg_type = MSG_T::BARRIER;
 		return true;

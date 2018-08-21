@@ -20,7 +20,7 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, int num_nodes, int max_data_size) : AbstractActor(id, data_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
+    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, int num_nodes, int max_data_size) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
 	}
 
 	void InitMsg(){

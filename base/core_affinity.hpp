@@ -3,12 +3,14 @@
 
 #include <fstream>
 #include <algorithm>
+#include <mutex>
 
 #include <hwloc.h>
 #include <math.h>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include "base/type.hpp"
+#include "utils/config.hpp"
 #include "utils/global.hpp"
 
 using namespace std;
@@ -32,12 +34,12 @@ using namespace std;
 class CoreAffinity {
 public:
 
-	CoreAffinity (int world_rank) : world_rank_(world_rank) {}
+	CoreAffinity (Config * config) : config_(config) {}
 
-	void Init(int num_thread) {
+	void Init() {
 		load_node_topo();
 		// Calculate Number of threads for each thread division
-		get_num_thread_for_each_division(num_thread);
+		get_num_thread_for_each_division(config_->global_num_threads);
 
 		// Assign thread id to each division according to last function
 		get_core_id_for_each_division();
@@ -50,23 +52,6 @@ public:
 
 		// Assign stealing list to each thread
 		load_steal_list();
-
-		// Test 
-		if (world_rank_ == 1) {
-			cout << "HAS : " << GetThreadIdForActor(ACTOR_T::HAS) << endl;
-			cout << "HAS : " << GetThreadIdForActor(ACTOR_T::HAS) << endl;
-			cout << "HAS : " << GetThreadIdForActor(ACTOR_T::HAS) << endl;
-			cout << "HAS : " << GetThreadIdForActor(ACTOR_T::HAS) << endl;
-			cout << "HAS : " << GetThreadIdForActor(ACTOR_T::HAS) << endl;
-
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-			cout << "GROUP : " << GetThreadIdForActor(ACTOR_T::GROUP) << endl;
-		}
 	}
 
 	/* 
@@ -85,7 +70,6 @@ public:
 	bool BindToCore(int tid)
 	{
 		size_t core = (size_t)thread_to_core_map[tid];
-		if (world_rank_ == 1) cout << to_string(core) << endl;
 		cpu_set_t mask;
 		CPU_ZERO(&mask);
 		CPU_SET(core, &mask);
@@ -101,12 +85,21 @@ public:
 	}
 
 	int GetThreadIdForActor(ACTOR_T type) {
-		return core_to_thread_map[get_core_id_by_actor(type)];
+		if (config_->global_enable_core_binding)
+			return core_to_thread_map[get_core_id_by_actor(type)];
+		else {
+			lock_guard<mutex> lck(cnt_mtx);
+			counter++;
+			return counter % config_->global_num_threads;
+		}
 	}
 
 private:
 
-	int world_rank_;
+	// Config
+	Config * config_;
+	int counter = 0;
+	mutex cnt_mtx;
 
 	vector<vector<int>> cpu_topo;
 	int num_cores = 0;
@@ -271,11 +264,8 @@ private:
 			num_threads[id]++;
 		}
 
-		// Debug
 		int sum = 0;
 		for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
-			if (world_rank_ == 1)
-				cout << DebugString(i) << " : " << num_threads[i] << endl;
 			sum += num_threads[i];
 		}
 		assert(sum == num_thread);
@@ -292,18 +282,6 @@ private:
 		for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
 			core_pool_table_itr[i] = core_pool_table[i].begin();
 			pthread_spin_init(&lock_table[i], 0);
-		}
-
-		// debug
-		for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
-			if (world_rank_ == 1)
-				cout << i << ":";
-			for (auto & item : core_pool_table[i]) {
-				if (world_rank_ == 1)
-					cout << item << ", ";
-			}
-			if (world_rank_ == 1)
-				cout << endl;
 		}
 	}
 
@@ -345,23 +323,9 @@ private:
 				}
 			}
 		}
-
-
-		// Test
-		if (world_rank_ == 1) {
-			for (auto itr = stealing_table.begin(); itr != stealing_table.end();) {
-				cout << "Thread " << itr->first << " :" << endl;
-				for (auto & nbr : itr->second) {
-					cout << nbr << " ";
-				}
-				cout << endl;
-				itr++;
-			}
-		}
 	}
 
 	int get_core_id_by_actor(ACTOR_T type) {
-		// TODO: TEST Concurrency
 		ActorDivisionType att = actor_division[type];
 
 		pthread_spin_lock(&(lock_table[att]));

@@ -22,7 +22,7 @@
 
 class PropertiesActor : public AbstractActor {
 public:
-	PropertiesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, bool global_enable_caching) : AbstractActor(id, data_store), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::PROPERTY) {}
+	PropertiesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::PROPERTY) {}
 
 	// inType, [key]+
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
@@ -47,7 +47,7 @@ public:
 		}
 
 		vector<Message> msg_vec;
-		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, msg_vec);
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
 
 		// Send Message
 		for (auto& msg : msg_vec) {

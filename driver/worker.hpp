@@ -112,8 +112,8 @@ public:
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_, config_);
 
 		//init core affinity
-		CoreAffinity * core_affinity = new CoreAffinity(my_node_.get_world_rank());
-		core_affinity->Init(config_->global_num_threads);
+		CoreAffinity * core_affinity = new CoreAffinity(config_);
+		core_affinity->Init();
 		cout << "DONE -> Init Core Affinity" << endl;
 
 		//set the in-memory layout for RDMA buf

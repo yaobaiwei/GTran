@@ -11,6 +11,7 @@
 #include <sstream>
 #include <functional>
 
+#include "base/core_affinity.hpp"
 #include "base/serialization.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
@@ -107,18 +108,18 @@ public:
 	// data:    new data processed by actor_type
 	// vec:     messages to be send
 	// mapper:  function that maps value_t to particular machine, default NULL
-	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec);
+	void CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec);
 
 	// actors:  actors chain for current message
 	// stpes:   branching steps
 	// vec:     messages to be send
-	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, vector<Message>& vec);
+	void CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec);
 
 	// actors:  actors chain for current message
 	// stpes:   branching steps
 	// msg_id:  assigned by actor to indicate parent msg
 	// vec:     messages to be send
-	void CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, vector<Message>& vec);
+	void CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec);
 
 	// create Feed msg
 	// Feed data to all node with tid = parent_tid
@@ -128,7 +129,7 @@ public:
 
 private:
 	// dispatch input data to different node
-	void dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, vector<Message>& vec);
+	void dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec);
 	// update route to next actor
 	bool update_route(Meta& m, vector<Actor_Object>& actors);
 	// update route to barrier or labelled branch actors for msg collection
