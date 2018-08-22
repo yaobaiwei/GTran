@@ -53,8 +53,15 @@ public:
 
     void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
 		if(! is_ready_){
-			InitMsg();
-			is_ready_ = true;
+			if(thread_mutex_.try_lock()){
+				InitMsg();
+				is_ready_ = true;
+				thread_mutex_.unlock();
+			}else{
+				// wait until InitMsg finished
+				while(! thread_mutex_.try_lock());
+				thread_mutex_.unlock();
+			}
 		}
         Meta & m = msg.meta;
         Actor_Object actor_obj = actor_objs[m.step];
@@ -70,6 +77,7 @@ public:
 
 		MSG_T msg_type = actor_objs[m.step + 1].IsBarrier() ? MSG_T::BARRIER : MSG_T::SPAWN;
 
+		thread_mutex_.lock();
         // Send Message
         for (auto& msg : *msg_vec) {
 			msg.meta.qid = m.qid;
@@ -82,6 +90,7 @@ public:
 			msg.meta.msg_type = msg_type;
             mailbox_->Send(tid, msg);
         }
+		thread_mutex_.unlock();
     }
 
 private:
