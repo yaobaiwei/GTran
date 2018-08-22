@@ -57,7 +57,7 @@ public:
     }
 
     inline char* GetSendBuf(int index) {
-        CHECK_LT(index, config_->global_num_threads);
+        CHECK_LE(index, config_->global_num_threads);
         return config_->send_buf + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 
@@ -66,7 +66,7 @@ public:
     }
 
     inline uint64_t GetSendBufOffset(int index) {
-    	CHECK_LT(index, config_->global_num_threads);
+    	CHECK_LE(index, config_->global_num_threads);
     	return config_->send_buffer_offset + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 

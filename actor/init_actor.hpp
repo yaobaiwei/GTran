@@ -23,32 +23,6 @@ public:
     InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, int num_nodes, int max_data_size) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
 	}
 
-	void InitMsg(){
-		// copy id list from data store
-		uint64_t start_t = timer::get_usec();
-		vector<vid_t> vid_list;
-		vector<eid_t> eid_list;
-		data_store_->GetAllEdges(eid_list);
-		data_store_->GetAllVertices(vid_list);
-		uint64_t end_t = timer::get_usec();
-		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for get_v&e in init_actor" << endl;
-
-		// convert id to msg
-		Meta m;
-		m.step = 1;
-		m.msg_path = to_string(num_nodes_);
-
-		start_t = timer::get_usec();
-		InitVtxMsg(m, vid_list, max_data_size_);
-		end_t = timer::get_usec();
-		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
-
-		start_t = timer::get_usec();
-		InitEdgeMsg(m, eid_list, max_data_size_);
-		end_t = timer::get_usec();
-		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
-	}
-
     virtual ~InitActor(){}
 
     void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
@@ -75,7 +49,12 @@ public:
             msg_vec = &edge_msgs;
         }
 
-		MSG_T msg_type = actor_objs[m.step + 1].IsBarrier() ? MSG_T::BARRIER : MSG_T::SPAWN;
+		MSG_T msg_type = MSG_T::SPAWN;
+		int recver_nid = m.recver_nid;
+		if(actor_objs[m.step + 1].IsBarrier()){
+			msg_type = MSG_T::BARRIER;
+			recver_nid = m.parent_nid;
+		}
 
 		thread_mutex_.lock();
         // Send Message
@@ -83,11 +62,12 @@ public:
 			msg.meta.qid = m.qid;
 
 			// update route
-			msg.meta.recver_nid = m.recver_nid;
+			msg.meta.msg_type = msg_type;
+			msg.meta.recver_nid = recver_nid;
 			msg.meta.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step+1].actor_type);
 			msg.meta.parent_nid = m.parent_nid;
 			msg.meta.parent_tid = m.parent_tid;
-			msg.meta.msg_type = msg_type;
+
             mailbox_->Send(tid, msg);
         }
 		thread_mutex_.unlock();
@@ -112,6 +92,35 @@ private:
 	// Messages
 	vector<Message> vtx_msgs;
 	vector<Message> edge_msgs;
+
+	void InitMsg(){
+		if(is_ready_){
+			return;
+		}
+		// copy id list from data store
+		uint64_t start_t = timer::get_usec();
+		vector<vid_t> vid_list;
+		vector<eid_t> eid_list;
+		data_store_->GetAllEdges(eid_list);
+		data_store_->GetAllVertices(vid_list);
+		uint64_t end_t = timer::get_usec();
+		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for get_v&e in init_actor" << endl;
+
+		// convert id to msg
+		Meta m;
+		m.step = 1;
+		m.msg_path = to_string(num_nodes_);
+
+		start_t = timer::get_usec();
+		InitVtxMsg(m, vid_list, max_data_size_);
+		end_t = timer::get_usec();
+		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
+
+		start_t = timer::get_usec();
+		InitEdgeMsg(m, eid_list, max_data_size_);
+		end_t = timer::get_usec();
+		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
+	}
 
     void InitVtxMsg(Meta& m, vector<vid_t>& vid_list, int max_data_size) {
 		vector<pair<history_t, vector<value_t>>> data;

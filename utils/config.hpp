@@ -72,7 +72,7 @@ struct Config{
 	uint64_t kvstore_sz;
 	uint64_t kvstore_offset;
 
-	// send_buffer_sz = num_threads * global_per_send_buffer_sz_mb
+	// send_buffer_sz = (num_threads + 1) * global_per_send_buffer_sz_mb
 	uint64_t send_buffer_sz;
 	// send_buffer_offset = kvstore_sz + kvstore_offset
 	uint64_t send_buffer_offset;
@@ -291,7 +291,8 @@ struct Config{
     	kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
     	kvstore_offset = 0;
 
-    	send_buffer_sz = global_num_threads * MiB2B(global_per_send_buffer_sz_mb);
+		// one more thread for worker main thread
+    	send_buffer_sz = (global_num_threads + 1) * MiB2B(global_per_send_buffer_sz_mb);
     	send_buffer_offset = kvstore_offset + kvstore_sz;
 
     	recv_buffer_sz = global_num_machines * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);

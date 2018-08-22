@@ -101,8 +101,9 @@ public:
 			vector<Message> msgs;
 			Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(), pkg.id.value() % config_->global_num_threads, pkg.actors, msgs);
 			for(int i = 0 ; i < my_node_.get_local_size(); i++){
-				mailbox->Send(i, msgs[i]);
+				mailbox->Send(config_->global_num_threads, msgs[i]);
 			}
+			mailbox->Sweep(config_->global_num_threads);
 		}
 	}
 

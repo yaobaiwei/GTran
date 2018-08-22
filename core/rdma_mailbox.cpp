@@ -10,7 +10,7 @@
 
 void RdmaMailbox::Init(vector<Node> & nodes) {
 	// Init RDMA
-	RDMA_init(node_.get_local_size(), config_->global_num_threads, node_.get_local_rank(), buffer_->GetBuf(), buffer_->GetBufSize(), nodes);
+	RDMA_init(node_.get_local_size(), config_->global_num_threads + 1, node_.get_local_rank(), buffer_->GetBuf(), buffer_->GetBufSize(), nodes);
 
 	int nrbfs = config_->global_num_machines * config_->global_num_threads;
 
@@ -36,7 +36,7 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
 	schedulers = (scheduler_t *)malloc(sizeof(scheduler_t) * config_->global_num_threads);
 	memset(schedulers, 0, sizeof(scheduler_t) * config_->global_num_threads);
 
-	pending_msgs.resize(config_->global_num_threads);
+	pending_msgs.resize(config_->global_num_threads + 1);
 }
 
 bool RdmaMailbox::IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz) {
