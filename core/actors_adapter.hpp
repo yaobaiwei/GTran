@@ -152,12 +152,16 @@ public:
 			return;
 		}
 
-		ACTOR_T next_actor = msg_logic_table_iter->second[m.step].actor_type;
-		int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
+		int current_step;
+		do{
+			current_step = msg.meta.step;
+			ACTOR_T next_actor = msg_logic_table_iter->second[current_step].actor_type;
+			int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
 
-		timer::start_timer(tid + offset);
-		actors_[next_actor]->process(tid, msg_logic_table_iter->second, msg);
-		timer::stop_timer(tid + offset);
+			timer::start_timer(tid + offset);
+			actors_[next_actor]->process(tid, msg_logic_table_iter->second, msg);
+			timer::stop_timer(tid + offset);
+		}while(current_step != msg.meta.step);	// process next actor directly if step is modified
 	}
 
 	void ThreadExecutor(int tid) {

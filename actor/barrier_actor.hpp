@@ -41,6 +41,12 @@ public:
 
 		if(isReady){
 			data_table_.erase(ac);
+
+			// don't need to send out msg when next actor is still barrier actor
+			if(is_next_barrier(actors, msg.meta.step)){
+				// move to next actor
+				msg.meta.step = actors[msg.meta.step].next_actor;
+			}
 		}
 	}
 
@@ -76,6 +82,11 @@ protected:
 			}
 		}
 		return branch_value;
+	}
+
+	static inline bool is_next_barrier(vector<Actor_Object> actors, int step){
+		int next = actors[step].next_actor;
+		return next < actors.size() && actors[next].IsBarrier();
 	}
 
 	// projection functions from E/V to label or property
@@ -274,9 +285,13 @@ private:
 			vector<Message> v;
 			// send aggregated data to other nodes
 			msg.CreateFeedMsg(key, num_nodes_, agg_data, v);
-			// send input data and history to next actor
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				// send input data and history to next actor
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+			}
 			for(auto& m : v){
 				mailbox_->Send(t_id, m);
 			}
@@ -297,12 +312,12 @@ private:
 		// all msg are collected
 		if(isReady){
 			Actor_Object& actor = actors[msg.meta.step];
-			vector<pair<history_t, vector<value_t>>> data;
-			data.emplace_back(history_t(), vector<value_t>());
+			vector<pair<history_t, vector<value_t>>> msg_data;
+			msg_data.emplace_back(history_t(), vector<value_t>());
 
 			// calculate max size of one value_t with empty history
 			// max msg size - sizeof(data with one empty pair) - sizeof(empty value_t)
-			size_t max_size = msg.max_data_size - MemSize(data) - MemSize(value_t());
+			size_t max_size = msg.max_data_size - MemSize(msg_data) - MemSize(value_t());
 
 			assert(actor.params.size() % 2 == 0);
 
@@ -328,7 +343,7 @@ private:
 					value_t v;
 					// each value_t should have at most max_size
 					Tool::str2str(temp.substr(0, max_size), v);
-					data[0].second.push_back(move(v));
+					msg_data[0].second.push_back(move(v));
 					if(temp.size() > max_size){
 						temp = temp.substr(max_size);
 					}else{
@@ -337,10 +352,14 @@ private:
 				}
 			}
 
-			vector<Message> v;
-			msg.CreateNextMsg(actors, data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
@@ -391,10 +410,14 @@ private:
 				msg_data.emplace_back(move(p.second.first), vector<value_t>{move(v)});
 			}
 
-			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
@@ -492,10 +515,14 @@ private:
 				msg_data.insert(msg_data.end(), make_move_iterator(p.second.begin()), make_move_iterator(p.second.end()));
 			}
 
-			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
@@ -615,10 +642,14 @@ private:
 				msg_data.emplace_back(move(p.second.first), move(vec_val));
 			}
 
-			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
@@ -729,10 +760,14 @@ private:
 					msg_data.emplace_back(move(p.second.first), move(val_vec));
 				}
 			}
-			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
@@ -828,10 +863,14 @@ private:
 				msg_data.insert(msg_data.end(), make_move_iterator(p.second.second.begin()), make_move_iterator(p.second.second.end()));
 			}
 
-			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
@@ -908,10 +947,14 @@ private:
 				msg_data.emplace_back(move(data.history), move(val_vec));
 			}
 
-			vector<Message> v;
-			msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
-			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+			if(is_next_barrier(actors, msg.meta.step)){
+				msg.data = move(msg_data);
+			}else{
+				vector<Message> v;
+				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+				for(auto& m : v){
+					mailbox_->Send(t_id, m);
+				}
 			}
 		}
 	}
