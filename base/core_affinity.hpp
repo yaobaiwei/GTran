@@ -12,6 +12,7 @@
 #include "base/type.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
+#include "utils/timer.hpp"
 
 using namespace std;
 
@@ -54,19 +55,6 @@ public:
 		load_steal_list();
 	}
 
-	/* 
-	 * For Master : 
-	 * 	   Thread Listener : bind to thread 0;
-	 * 	   Thread Process bind to thread 1;
-	 * 	   Main Thread : No need to bind;
-	 * 
-	 * For Worker :
-	 * 	   Main Thread : bind to thread [offset + num_thread]
-	 * 	   Thread RecvReq : bind to thread [offset + num_thread]
-	 * 	   Thread SendQueryMsg : bind to thread [offset + num_thread]
-	 * 	   Thread Monitor::ProgressReport : bind to thread [offset + num_thread]
-	 * 	   Thread pool for actors : bind to thread [0, num_threads]
-	 */
 	bool BindToCore(int tid)
 	{
 		size_t core = (size_t)thread_to_core_map[tid];
@@ -85,10 +73,9 @@ public:
 	}
 
 	int GetThreadIdForActor(ACTOR_T type) {
-		if (config_->global_enable_core_binding)
+		if (config_->global_enable_actor_division)
 			return core_to_thread_map[get_core_id_by_actor(type)];
 		else {
-			lock_guard<mutex> lck(cnt_mtx);
 			counter++;
 			return counter % config_->global_num_threads;
 		}
@@ -99,7 +86,6 @@ private:
 	// Config
 	Config * config_;
 	int counter = 0;
-	mutex cnt_mtx;
 
 	vector<vector<int>> cpu_topo;
 	int num_cores = 0;
