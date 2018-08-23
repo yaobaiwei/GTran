@@ -33,12 +33,12 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta)
 {
 	m << meta.qid;
 	m << meta.step;
+	m << meta.msg_type;
 	m << meta.recver_nid;
 	m << meta.recver_tid;
-	m << meta.msg_type;
-	m << meta.msg_path;
 	m << meta.parent_nid;
 	m << meta.parent_tid;
+	m << meta.msg_path;
 	m << meta.branch_infos;
 	m << meta.actors;
 	return m;
@@ -48,15 +48,32 @@ obinstream& operator>>(obinstream& m, Meta& meta)
 {
 	m >> meta.qid;
 	m >> meta.step;
+	m >> meta.msg_type;
 	m >> meta.recver_nid;
 	m >> meta.recver_tid;
-	m >> meta.msg_type;
-	m >> meta.msg_path;
 	m >> meta.parent_nid;
 	m >> meta.parent_tid;
+	m >> meta.msg_path;
 	m >> meta.branch_infos;
 	m >> meta.actors;
 	return m;
+}
+
+void update_route(ibinstream& m, const Meta& meta){
+	char* head = m.get_buf();
+	*(uint64_t*)head = meta.qid;
+	head += sizeof(uint64_t);
+	*(int*)head = meta.step;
+	head += sizeof(int);
+	*(int*)head = static_cast<int>(meta.msg_type);
+	head += sizeof(int);
+	*(int*)head = meta.recver_nid;
+	head += sizeof(int);
+	*(int*)head = meta.recver_tid;
+	head += sizeof(int);
+	*(int*)head = meta.parent_nid;
+	head += sizeof(int);
+	*(int*)head = meta.parent_tid;
 }
 
 std::string Meta::DebugString() const {

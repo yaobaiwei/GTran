@@ -28,7 +28,7 @@ public:
     void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
 		if(! is_ready_){
 			if(thread_mutex_.try_lock()){
-				InitMsg();
+				InitData();
 				is_ready_ = true;
 				thread_mutex_.unlock();
 			}else{
@@ -37,38 +37,36 @@ public:
 				thread_mutex_.unlock();
 			}
 		}
-        Meta & m = msg.meta;
+        Meta m = msg.meta;
         Actor_Object actor_obj = actor_objs[m.step];
 
+		// Get init element type
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
-		vector<Message>* msg_vec;
+		vector<AbstractMailbox::mailbox_data_t>* data_vec;
 
         if (inType == Element_T::VERTEX) {
-            msg_vec = &vtx_msgs;
+            data_vec = &vtx_data;
         } else if (inType == Element_T::EDGE) {
-            msg_vec = &edge_msgs;
+            data_vec = &edge_data;
         }
 
-		MSG_T msg_type = MSG_T::SPAWN;
-		int recver_nid = m.recver_nid;
-		if(actor_objs[m.step + 1].IsBarrier()){
-			msg_type = MSG_T::BARRIER;
-			recver_nid = m.parent_nid;
+		// update meta
+		m.step ++;
+		m.msg_type = MSG_T::SPAWN;
+		if(actor_objs[m.step].IsBarrier()){
+			m.msg_type = MSG_T::BARRIER;
+			m.recver_nid = m.parent_nid;
 		}
 
 		thread_mutex_.lock();
         // Send Message
-        for (auto& msg : *msg_vec) {
-			msg.meta.qid = m.qid;
+        for (auto& data : *data_vec) {
+			m.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step].actor_type);
+			update_route(data.stream, m);
+			data.dst_nid = m.recver_nid;
+			data.dst_tid = m.recver_tid;
 
-			// update route
-			msg.meta.msg_type = msg_type;
-			msg.meta.recver_nid = recver_nid;
-			msg.meta.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step+1].actor_type);
-			msg.meta.parent_nid = m.parent_nid;
-			msg.meta.parent_tid = m.parent_tid;
-
-            mailbox_->Send(tid, msg);
+            mailbox_->Send(tid, data);
         }
 		thread_mutex_.unlock();
     }
@@ -89,11 +87,11 @@ private:
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
 
-	// Messages
-	vector<Message> vtx_msgs;
-	vector<Message> edge_msgs;
+	// Cached data
+	vector<AbstractMailbox::mailbox_data_t> vtx_data;
+	vector<AbstractMailbox::mailbox_data_t> edge_data;
 
-	void InitMsg(){
+	void InitData(){
 		if(is_ready_){
 			return;
 		}
@@ -112,17 +110,17 @@ private:
 		m.msg_path = to_string(num_nodes_);
 
 		start_t = timer::get_usec();
-		InitVtxMsg(m, vid_list, max_data_size_);
+		InitVtxData(m, vid_list, max_data_size_);
 		end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
 
 		start_t = timer::get_usec();
-		InitEdgeMsg(m, eid_list, max_data_size_);
+		InitEdgeData(m, eid_list, max_data_size_);
 		end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
 	}
 
-    void InitVtxMsg(Meta& m, vector<vid_t>& vid_list, int max_data_size) {
+    void InitVtxData(Meta& m, vector<vid_t>& vid_list, int max_data_size) {
 		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
 		data[0].second.reserve(vid_list.size());
@@ -132,6 +130,7 @@ private:
 			data[0].second.push_back(v);
 		}
 
+		vector<Message> vtx_msgs;
 		do{
 			Message msg(m);
 			msg.max_data_size = max_data_size;
@@ -143,10 +142,13 @@ private:
 		string num = "\t" + to_string(vtx_msgs.size());
 		for (auto & msg_ : vtx_msgs) {
 			msg_.meta.msg_path += num;
+			AbstractMailbox::mailbox_data_t data;
+			data.stream << msg_;
+			vtx_data.push_back(move(data));
 		}
     }
 
-    void InitEdgeMsg(Meta& m, vector<eid_t>& eid_list, int max_data_size) {
+    void InitEdgeData(Meta& m, vector<eid_t>& eid_list, int max_data_size) {
 		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
 		data[0].second.reserve(eid_list.size());
@@ -156,6 +158,7 @@ private:
 			data[0].second.push_back(v);
 		}
 
+		vector<Message> edge_msgs;
 		do{
 			Message msg(m);
 			msg.max_data_size = max_data_size;
@@ -167,6 +170,9 @@ private:
 		string num = "\t" + to_string(edge_msgs.size());
 		for (auto & msg_ : edge_msgs) {
 			msg_.meta.msg_path += num;
+			AbstractMailbox::mailbox_data_t data;
+			data.stream << msg_;
+			edge_data.push_back(move(data));
 		}
     }
 };

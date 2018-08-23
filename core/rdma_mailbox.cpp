@@ -68,7 +68,7 @@ void RdmaMailbox::Sweep(int tid) {
 }
 
 int RdmaMailbox::Send(int tid, const Message & msg) {
-	rdma_data_t data;
+	mailbox_data_t data;
 	data.dst_nid = msg.meta.recver_nid;
 	data.dst_tid = msg.meta.recver_tid;
 
@@ -79,7 +79,11 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 	pending_msgs[tid].push_back(move(data));
 }
 
-bool RdmaMailbox::SendData(int tid, const rdma_data_t& data) {
+int RdmaMailbox::Send(int tid, const mailbox_data_t & data) {
+	pending_msgs[tid].push_back(data);
+}
+
+bool RdmaMailbox::SendData(int tid, const mailbox_data_t& data) {
 	int dst_nid = data.dst_nid;
 	int dst_tid = data.dst_tid;
 

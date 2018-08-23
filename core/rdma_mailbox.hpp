@@ -40,6 +40,8 @@ public:
     // the lock in the id_mapper
     int Send(int tid, const Message & msg) override;
 
+	int Send(int tid, const mailbox_data_t & data) override;
+
     void Recv(int tid, Message & msg) override ;
 
     bool TryRecv(int tid, Message & msg) override;
@@ -71,13 +73,13 @@ private:
      bool CheckRecvBuf(int tid, int nid);
      void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
 	 bool IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz);
-	 bool SendData(int tid, const rdma_data_t& data);
+	 bool SendData(int tid, const mailbox_data_t& data);
 
      Node & node_;
      Config* config_;
      Buffer * buffer_;
 
-	 vector<vector<rdma_data_t>> pending_msgs;
+	 vector<vector<mailbox_data_t>> pending_msgs;
 
      rbf_rmeta_t *rmetas = NULL;
      rbf_lmeta_t *lmetas = NULL;
