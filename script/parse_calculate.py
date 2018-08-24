@@ -1,6 +1,6 @@
 import sys
 
-sum = 0
+sum = 1
 count = 0
 
 if ( len(sys.argv) != 3 ) :
@@ -8,7 +8,7 @@ if ( len(sys.argv) != 3 ) :
     sys.exit(2)
 
 for num in range(int(sys.argv[1]), int(sys.argv[2])) :
-    fname = "/data/aaron/gquery/output/output" + str(num)
+    fname = "/data/aaron/test_gquery/gquery/output/outputworker" + str(num)
     file = open(fname, "r")
 
     for line in file :
@@ -17,10 +17,10 @@ for num in range(int(sys.argv[1]), int(sys.argv[2])) :
             if ( token == "[Timer]" ):
                 count += 1
                 if ( tokens[2] == "ms"):
-                    sum = sum + int(tokens[1]) * 1000
+                    sum = sum * int(tokens[1])
                 else:
-                    sum = sum + int(tokens[1])
+                    sum = sum * float(int(tokens[1]) / 1000)
             elif (token == "[Error]" or token == "error" or token == "Error" or token == "[error]" or token == "Error:"):
                 print(line)
 
-print("Average Time : ", round(sum / count, 4), " us");
+print("Average Time : ", round(sum **(1.0 / count), 4), " ms");
