@@ -385,23 +385,20 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		vector<string> params = SplitParam(stepToken.second);
 		switch (type){
 		//AggregateActor
-		case AGGREGATE:case STORE:
-			ParseAggregate(params, type); break;
+		case AGGREGATE:
+			ParseAggregate(params); break;
 		//As Actor
 		case AS:
 			ParseAs(params); break;
-		//Branch Actors
-		case CHOOSE:case COALESCE:case UNION:
-			ParseBranch(params, type); break;
+		//Branch ActorsW
+		case UNION:
+			ParseBranch(params); break;
 		//BranchFilter Actors
 		case AND:case NOT:case OR:
 			ParseBranchFilter(params, type); break;
 		//Cap Actor
 		case CAP:
 			ParseCap(params); break;
-		//Coin Actor
-		case COIN:
-			ParseCoin(params); break;
 		//Count Actor
 		case COUNT:
 			ParseCount(params); break;
@@ -436,15 +433,8 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		case PROPERTIES:
 			ParseProperties(params); break;
 		//Range Actor
-		case LIMIT:case RANGE:case SKIP:case TAIL:
+		case LIMIT:case RANGE:case SKIP:
 			ParseRange(params, type); break;
-		//Repeat Actor
-		case REPEAT:
-			ParseRepeat(params); break;
-		case LOOPS:
-			ParseLoops(params); break;
-		case EMIT:case UNTIL:case TIMES:
-			ParseRepeatModulator(params, type); break;
 		//Select Actor
 		case SELECT:
 			ParseSelect(params); break;
@@ -570,22 +560,14 @@ void Parser::ParseInit(Element_T type)
 	AppendActor(actor);
 }
 
-void Parser::ParseAggregate(const vector<string>& params, Step_T type)
+void Parser::ParseAggregate(const vector<string>& params)
 {
-	//@ AggregateActor params: (bool islazy, int side_effect_key)
+	//@ AggregateActor params: (int side_effect_key)
 	//  i_type = o_type = any
 	Actor_Object actor(ACTOR_T::AGGREGATE);
 	if (params.size() != 1){
 		throw ParserException("expect one parameter for aggregate");
 	}
-
-	bool islazy;
-	switch (type){
-	case Step_T::AGGREGATE:	islazy = false; break;
-	case Step_T::STORE:		islazy = true; break;
-	default:		throw ParserException("unexpected error");
-	}
-	actor.AddParam(islazy);
 
 	// get side-effect key id by string
 	string key = params[0];
@@ -621,28 +603,14 @@ void Parser::ParseAs(const vector<string>& params)
 	AppendActor(actor);
 }
 
-void Parser::ParseBranch(const vector<string>& params, Step_T type)
+void Parser::ParseBranch(const vector<string>& params)
 {
-	//@ BranchActor params: (Branch_T branchType, int sub_steps, ...)
+	//@ BranchActor params: (int sub_steps, ...)
 	//  i_type = any, o_type = subquery->o_type
 	Actor_Object actor(ACTOR_T::BRANCH);
 	if (params.size() < 1){
 		throw ParserException("expect at least one parameter for branch");
 	}
-
-	int branchType;
-	switch(type){
-	case Step_T::UNION:		branchType = Branch_T::UNION; break;
-	case Step_T::COALESCE:	branchType = Branch_T::COALESCE; break;
-	case Step_T::CHOOSE:
-		branchType = Branch_T::CHOOSE;
-		if (params.size() < 2 || params.size() > 3){
-			throw ParserException("expect two or three parameters for choose");
-		}
-		break;
-	default:		throw ParserException("unexpected error");
-	}
-	actor.AddParam(branchType);
 
 	int current = actors_.size();
 	AppendActor(actor);
@@ -697,30 +665,6 @@ void Parser::ParseCap(const vector<string>& params)
 
 	AppendActor(actor);
 	io_type_ = COLLECTION;
-}
-
-void Parser::ParseCoin(const vector<string>& params)
-{
-	//@ CoinActor params: (double probability)
-	//  i_type = o_type = any
-	Actor_Object actor(ACTOR_T::CAP);
-	if (params.size() != 1){
-		throw ParserException("expect one parameter for coin");
-	}
-
-	int type = Tool::checktype(params[0]);
-	if (type != 1 && type != 2)
-	{
-		throw ParserException("expect number for coin");
-	}
-
-	string prob = params[0];
-	if (prob.find('.') == string::npos){
-		prob += ".0";
-	}
-	actor.AddParam(prob);
-
-	AppendActor(actor);
 }
 
 void Parser::ParseCount(const vector<string>& params)
@@ -958,23 +902,6 @@ void Parser::ParseLabel(const vector<string>& params)
 	io_type_ = IO_T::STRING;
 }
 
-void Parser::ParseLoops(const vector<string>& params)
-{
-	//@ LoopsActor params: ()
-	//  i_type = any, o_type = int
-	Actor_Object actor(ACTOR_T::LOOPS);
-	if (params.size() != 0){
-		throw ParserException("expect no parameter for loops");
-	}
-
-	if (!is_in_repeat_){
-		throw ParserException("expect loops in repeat or repeat modulators");
-	}
-
-	AppendActor(actor);
-	io_type_ = IO_T::INT;
-}
-
 void Parser::ParseMath(const vector<string>& params, Step_T type)
 {
 	//@ LabelActor params: (Math_T mathType)
@@ -1106,88 +1033,12 @@ void Parser::ParseRange(const vector<string>& params, Step_T type)
 		}
 		start = vec[0];
 		break;
-	case Step_T::TAIL:
-		throw ParserException("tail is not supported");
-		if (params.size() != 1){
-			throw ParserException("expect one parameter for skip");
-		}
-		start = -vec[0];
-		break;
 	default: throw ParserException("unexpected error");
 	}
 	actor.AddParam(start);
 	actor.AddParam(end);
 
 	AppendActor(actor);
-}
-
-void Parser::ParseRepeat(const vector<string>& params)
-{
-	//@ RepeatActor params: (int times, int emit_step, int until_step, int repeat_step)
-	//  i_type = o_type = any
-	Actor_Object actor(ACTOR_T::REPEAT);
-	if (params.size() != 1){
-		throw ParserException("expect only one parameter for repeat");
-	}
-
-	int current = actors_.size();
-	actor.AddParam(0);					//times
-	actor.AddParam(-1);				//defualt no emit step
-	actor.AddParam(-1);				//default no until step
-	AppendActor(actor);
-
-	IO_T current_type = io_type_;
-	bool m_is_in_repeat_ = is_in_repeat_; //save status
-	is_in_repeat_ = true;
-	ParseSub(params, current, false);	//repeat step and next step
-	is_in_repeat_ = m_is_in_repeat_;		//restore status
-
-	if (io_type_ != current_type){
-		throw ParserException("expect same in/out type in repeat");
-	}
-}
-
-void Parser::ParseRepeatModulator(const vector<string>& params, Step_T type)
-{
-	//@ RepeatActor params: (int times, int emit_step, int until_step, int repeat_step)
-	//  i_type = o_type = any
-	if (params.size() != 1){
-		throw ParserException("expect only one param for modulators");
-	}
-
-	// find repeat actor
-	int repeat = 0;
-	if (!CheckLastActor(ACTOR_T::REPEAT, &repeat)){
-		throw ParserException("expect repeat before modulators");
-	}
-
-	int pos = 0;
-	bool m_is_in_repeat_ = is_in_repeat_;
-	is_in_repeat_ = true;
-	switch (type)
-	{
-	case Step_T::EMIT:
-		ParseSub(params, repeat, true);
-		pos = 1;
-		break;
-	case Step_T::UNTIL:
-		ParseSub(params, repeat, true);
-		pos = 2;
-		break;
-	case Step_T::TIMES:
-		if (Tool::checktype(params[0]) != 1){
-			throw ParserException("expect number for times");
-		}
-		actors_[repeat].AddParam(params[0]);
-		pos = 0;
-		break;
-	default: throw ParserException("unexpected step");
-	}
-	is_in_repeat_ = m_is_in_repeat_;
-
-	Actor_Object &actor = actors_[repeat];
-	swap(actor.params[pos], actor.params[4]);	// update param in specified pos
-	actor.params.pop_back();
 }
 
 void Parser::ParseSelect(const vector<string>& params)
@@ -1393,12 +1244,8 @@ const map<string, Parser::Step_T> Parser::str2step = {
 	{ "aggregate", AGGREGATE },
 	{ "as", AS },
 	{ "cap", CAP },
-	{ "choose", CHOOSE },
-	{ "coalesce", COALESCE },
-	{ "coin", COIN },
 	{ "count", COUNT },
 	{ "dedup", DEDUP },
-	{ "emit", EMIT },
 	{ "group", GROUP},
 	{ "groupCount", GROUPCOUNT},
 	{ "has", HAS },
@@ -1410,7 +1257,6 @@ const map<string, Parser::Step_T> Parser::str2step = {
 	{ "key", KEY },
 	{ "label", LABEL },
 	{ "limit", LIMIT },
-	{ "loops", LOOPS },
 	{ "max", MAX },
 	{ "mean", MEAN },
 	{ "min", MIN },
@@ -1419,15 +1265,10 @@ const map<string, Parser::Step_T> Parser::str2step = {
 	{ "order", ORDER },
 	{ "properties", PROPERTIES },
 	{ "range", RANGE },
-	{ "repeat", REPEAT },
 	{ "select", SELECT },
 	{ "skip", SKIP },
-	{ "store", STORE },
 	{ "sum", SUM },
-	{ "tail", TAIL },
-	{ "times", TIMES },
 	{ "union", UNION },
-	{ "until", UNTIL },
 	{ "values", VALUES },
 	{ "where", WHERE }
 };

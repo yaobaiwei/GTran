@@ -20,10 +20,9 @@ class Parser
 {
 private:
 	enum Step_T{
-		IN, OUT, BOTH, INE, OUTE, BOTHE, INV, OUTV, BOTHV, AND, AGGREGATE, AS, CAP, CHOOSE, COALESCE, COIN,
-		COUNT, DEDUP, EMIT, GROUP, GROUPCOUNT, HAS, HASLABEL, HASKEY, HASVALUE, HASNOT, IS, KEY, LABEL, LIMIT,
-		LOOPS, MAX, MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, REPEAT, SELECT, SKIP, STORE, SUM, TAIL, TIMES,
-		UNION, UNTIL, VALUES, WHERE
+		IN, OUT, BOTH, INE, OUTE, BOTHE, INV, OUTV, BOTHV, AND, AGGREGATE, AS, CAP, COUNT, DEDUP,
+		GROUP, GROUPCOUNT, HAS, HASLABEL, HASKEY, HASVALUE, HASNOT, IS, KEY, LABEL, LIMIT, MAX,
+		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE
 	};
 
 	enum IO_T { EDGE, VERTEX, INT, DOUBLE, CHAR, STRING, COLLECTION };
@@ -98,12 +97,11 @@ private:
 
 	// Parse actors
 	void ParseInit(Element_T type);
-	void ParseAggregate(const vector<string>& params, Step_T type);
+	void ParseAggregate(const vector<string>& params);
 	void ParseAs(const vector<string>& params);
-	void ParseBranch(const vector<string>& params, Step_T type);
+	void ParseBranch(const vector<string>& params);
 	void ParseBranchFilter(const vector<string>& params, Step_T type);
 	void ParseCap(const vector<string>& params);
-	void ParseCoin(const vector<string>& params);
 	void ParseCount(const vector<string>& params);
 	void ParseDedup(const vector<string>& params);
 	void ParseGroup(const vector<string>& params, Step_T type);	// should we support traversal projection?
@@ -112,13 +110,10 @@ private:
 	void ParseIs(const vector<string>& params);
 	void ParseKey(const vector<string>& params);
 	void ParseLabel(const vector<string>& params);
-	void ParseLoops(const vector<string>& params);
 	void ParseMath(const vector<string>& params, Step_T type);
 	void ParseOrder(const vector<string>& params);
 	void ParseProperties(const vector<string>& params);
 	void ParseRange(const vector<string>& params, Step_T type);
-	void ParseRepeat(const vector<string>& params);
-	void ParseRepeatModulator(const vector<string>& params, Step_T type);
 	void ParseSelect(const vector<string>& params);
 	void ParseTraversal(const vector<string>& params, Step_T type);
 	void ParseValues(const vector<string>& params);
