@@ -76,7 +76,7 @@ private:
     //        Size get from user
     //
     //    These two parameters should be put into config later
-    static const int HD_RATIO = 70; // header / (header + entry)
+    int HD_RATIO; // header / (header + entry)
     static const int MHD_RATIO = 80; // main-header / (main-header + indirect-header)
 
     // size of vkvstore and offset to rdma start point

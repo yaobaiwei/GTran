@@ -96,6 +96,9 @@ struct Config{
 	// buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz +remote_head_buffer_sz
 	uint64_t buffer_sz;
 
+	// head [key region] / (head + entry) [Total] * 100
+	int key_value_ratio_in_rdma;
+
 
 	//================================================================
 	//settle down after data loading
@@ -122,7 +125,8 @@ struct Config{
 			exit(-1);
 		}
 		string conf_path(GQUERY_HOME);
-		conf_path.append("/gquery-conf.ini");
+		// conf_path.append("/gquery-conf.ini");
+		conf_path.append("/gquery-conf-amazon.ini");
 		ini = iniparser_load(conf_path.c_str());
 		if(ini == NULL)
 		{
@@ -245,6 +249,14 @@ struct Config{
 			exit(-1);
 		}
 
+		val = iniparser_getint(ini, "SYSTEM:KEY_VALUE_RATIO", val_not_found);
+		if(val!=val_not_found) key_value_ratio_in_rdma=val;
+		else
+		{
+			fprintf(stderr, "must enter the KEY_VALUE_RATIO. exits.\n");
+			exit(-1);
+		}
+
 		val = iniparser_getboolean(ini, "SYSTEM:USE_RDMA", val_not_found);
 		if(val!=val_not_found) global_use_rdma=val;
 		else
@@ -339,6 +351,7 @@ struct Config{
     	ss << "global_edge_property_kv_sz_gb : " << global_edge_property_kv_sz_gb << endl;
     	ss << "global_per_send_buffer_sz_mb : " << global_per_send_buffer_sz_mb << endl;
     	ss << "global_per_recv_buffer_sz_mb : " << global_per_recv_buffer_sz_mb << endl;
+    	ss << "key_value_ratio : " << key_value_ratio_in_rdma << endl;
 
     	ss << "global_use_rdma : " << global_use_rdma << endl;
     	ss << "global_enable_caching : " << global_enable_caching << endl;

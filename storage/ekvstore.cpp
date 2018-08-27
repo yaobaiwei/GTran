@@ -184,6 +184,7 @@ EKVStore::EKVStore(Config * config, Buffer * buf) : config_(config), buf_(buf)
 	mem = config_->kvstore + GiB2B(config_->global_vertex_property_kv_sz_gb);
 	mem_sz = GiB2B(config_->global_edge_property_kv_sz_gb);
     offset = config_->kvstore_offset + GiB2B(config_->global_vertex_property_kv_sz_gb);
+	HD_RATIO = config_->key_value_ratio_in_rdma;
 
     // size for header and entry
     uint64_t header_sz = mem_sz * HD_RATIO / 100;
