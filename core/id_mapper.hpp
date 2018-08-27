@@ -61,7 +61,7 @@ public:
 	bool IsEdgeLocal(const eid_t e_id) {
 		return GetMachineIdForEdge(e_id) == my_node_.get_local_rank();
 	}
-  
+
 	bool IsVPropertyLocal(const vpid_t vp_id) {
 		return GetMachineIdForVProperty(vp_id) == my_node_.get_local_rank();
 	}
@@ -73,26 +73,32 @@ public:
 	// vertex/edge/property -> machine index mapping
 	int GetMachineIdForVertex(vid_t v_id) {
 		return mymath::hash_mod(v_id.hash(), my_node_.get_local_size());
-//		return v_id.vid % config_->global_num_machines;
 	}
 
 	int GetMachineIdForEdge(eid_t e_id) {
 		return mymath::hash_mod(e_id.hash(), my_node_.get_local_size());
-//		return (e_id.in_v + e_id.out_v) % config_->global_num_machines;
 	}
 
+//#define BY_EV_ID
+#ifdef BY_EV_ID
 	int GetMachineIdForVProperty(vpid_t vp_id) {
 		vid_t v(vp_id.vid);
 		return mymath::hash_mod(v.hash(), my_node_.get_local_size());
-//		return vp_id.vid % config_->global_num_machines;
 	}
 
 	int GetMachineIdForEProperty(epid_t ep_id) {
 		eid_t e(ep_id.in_vid, ep_id.out_vid);
 		return mymath::hash_mod(e.hash(), my_node_.get_local_size());
-//		return (ep_id.in_vid + ep_id.out_vid) % config_->global_num_machines;
+	}
+#else
+	int GetMachineIdForVProperty(vpid_t vp_id) {
+		return mymath::hash_mod(vp_id.hash(), my_node_.get_local_size());
 	}
 
+	int GetMachineIdForEProperty(epid_t ep_id) {
+		return mymath::hash_mod(ep_id.hash(), my_node_.get_local_size());
+	}
+#endif
 private:
 	Config * config_;
 	Node my_node_;

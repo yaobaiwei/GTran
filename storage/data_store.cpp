@@ -57,7 +57,7 @@ void DataStore::Shuffle()
 	for (int i = 0; i < vertices.size(); i++)
 	{
 		Vertex* v = vertices[i];
-		vtx_parts[mymath::hash_mod(v->id.hash(), node_.get_local_size())].push_back(v);
+		vtx_parts[id_mapper_->GetMachineIdForVertex(v->id)].push_back(v);
 	}
 	all_to_all(node_, false, vtx_parts);
 	vertices.clear();
@@ -74,7 +74,7 @@ void DataStore::Shuffle()
 	for (int i = 0; i < edges.size(); i++)
 	{
 		Edge* e = edges[i];
-		edges_parts[mymath::hash_mod(e->id.hash(), node_.get_local_size())].push_back(e);
+		edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
 	}
 
 	all_to_all(node_, false, edges_parts);
@@ -92,7 +92,16 @@ void DataStore::Shuffle()
 	for (int i = 0; i < vplist.size(); i++)
 	{
 		VProperty* vp = vplist[i];
-		vp_parts[mymath::hash_mod(vp->id.hash(), node_.get_local_size())].push_back(vp);
+		map<int, vector<V_KVpair>> node_map;
+		for(auto& kv_pair : vp->plist)
+			node_map[id_mapper_->GetMachineIdForVProperty(kv_pair.key)].push_back(kv_pair);
+		for(auto& item : node_map){
+			VProperty* vp_ = new VProperty();
+			vp_->id = vp->id;
+			vp_->label = vp->label;
+			vp_->plist = move(item.second);
+			vp_parts[item.first].push_back(vp_);
+		}
 	}
 	all_to_all(node_, false, vp_parts);
 	vplist.clear();
@@ -109,7 +118,16 @@ void DataStore::Shuffle()
 	for (int i = 0; i < eplist.size(); i++)
 	{
 		EProperty* ep = eplist[i];
-		ep_parts[mymath::hash_mod(ep->id.hash(), node_.get_local_size())].push_back(ep);
+		map<int, vector<E_KVpair>> node_map;
+		for(auto& kv_pair : ep->plist)
+			node_map[id_mapper_->GetMachineIdForEProperty(kv_pair.key)].push_back(kv_pair);
+		for(auto& item : node_map){
+			EProperty* ep_ = new EProperty();
+			ep_->id = ep->id;
+			ep_->label = ep->label;
+			ep_->plist = move(item.second);
+			ep_parts[item.first].push_back(ep_);
+		}
 	}
 
 	all_to_all(node_, false, ep_parts);
@@ -127,7 +145,7 @@ void DataStore::Shuffle()
 	for (int i = 0; i < vp_buf.size(); i++)
 	{
 		vp_list* vp = vp_buf[i];
-		vpl_parts[mymath::hash_mod(vp->vid.hash(), node_.get_local_size())].push_back(vp);
+		vpl_parts[id_mapper_->GetMachineIdForVertex(vp->vid)].push_back(vp);
 	}
 
 	all_to_all(node_, false, vpl_parts);
