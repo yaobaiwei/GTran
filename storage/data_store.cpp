@@ -613,7 +613,7 @@ void DataStore::load_vplist(const char* inpath)
 }
 
 //Format
-//vid [\t] [kid:value,kid:value,...]
+//vid [\t] label[\t] [kid:value,kid:value,...]
 void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf)
 {
 	VProperty * vp = new VProperty;
@@ -705,7 +705,7 @@ void DataStore::load_eplist(const char* inpath)
 }
 
 //Format
-//eid [\t] [kid:value,kid:value,...]
+//in-v[\t] out-v[\t] label[\t] [kid:value,kid:value,...]
 void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 {
 	Edge * e = new Edge;
