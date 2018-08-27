@@ -125,8 +125,7 @@ struct Config{
 			exit(-1);
 		}
 		string conf_path(GQUERY_HOME);
-		// conf_path.append("/gquery-conf.ini");
-		conf_path.append("/gquery-conf-amazon.ini");
+		conf_path.append("/gquery-conf.ini");
 		ini = iniparser_load(conf_path.c_str());
 		if(ini == NULL)
 		{
