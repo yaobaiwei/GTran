@@ -276,8 +276,8 @@ private:
 		// all msg are collected
 		if(isReady){
 			Actor_Object& actor = actors[msg.meta.step];
-			assert(actor.params.size() == 2);
-			int key = Tool::value_t2int(actor.params[1]);
+			assert(actor.params.size() == 1);
+			int key = Tool::value_t2int(actor.params[0]);
 
 			// insert to current node's storage
 			data_store_->InsertAggData(agg_t(msg.meta.qid, key), agg_data);

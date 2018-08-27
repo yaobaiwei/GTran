@@ -378,19 +378,18 @@ ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
-	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COIN, COUNT, DEDUP, GROUP, HAS,
-	HASLABEL, IS, KEY, LABEL, LOOPS, MATH, ORDER, PROPERTY, RANGE, REPEAT, SELECT, TRAVERSAL, VALUES, WHERE, END
+	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COUNT, DEDUP, GROUP, HAS, HASLABEL,
+	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, END
 };
 
-static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COIN", "COUNT", "DEDUP", "GROUP", "HAS",
-"HASLABEL", "IS", "KEY", "LABEL", "LOOPS", "MATH", "ORDER", "PROPERTY", "RANGE", "REPEAT", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
+static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COUNT", "DEDUP", "GROUP", "HAS",
+"HASLABEL", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
 obinstream& operator>>(obinstream& m, ACTOR_T& type);
 
 // Enums for actors
-enum Branch_T { UNION, COALESCE, CHOOSE };
 enum Filter_T{ AND, OR, NOT };
 enum Math_T { SUM, MAX, MIN, MEAN };
 enum Element_T{ VERTEX, EDGE };
@@ -471,8 +470,8 @@ struct MkeyHashCompare {
 };
 
 // Aggregate data Key
-//  qr | nid | label_key 
-//  32 |  16 |        16 
+//  qr | nid | label_key
+//  32 |  16 |        16
 enum { NBITS_QR = 32 };
 enum { NBITS_NID = 16 };
 enum { NBITS_SEK = 16 };
@@ -541,7 +540,7 @@ namespace std {
 // Normal_Barrier : CountActor, AggregateActor, CapActor, DedupActor, MathActor [1/6 #threads]
 // Normal_Branch : RangeActor, BranchFilterActor, BranchActor [1/6 #threads]
 // Normal_Sequential : AsActor, SelectActor, WhereActor, IsActor [1/6 #threads]
-enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ }; 
+enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
 enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };
 
 static const int NUM_THREAD_DIVISION = 6;
