@@ -63,6 +63,7 @@ struct Config{
 	bool global_enable_core_binding;
 	bool global_enable_actor_division;
 	bool global_enable_workstealing;
+	bool global_enable_step_reorder;
 
 	int max_data_size;
 
@@ -288,6 +289,13 @@ struct Config{
 			exit(-1);
 		}
 
+		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_STEP_REORDER", val_not_found);
+		if(val!=val_not_found) global_enable_step_reorder=val;
+		else
+		{
+			fprintf(stderr, "must enter the ENABLE_ACTOR_REORDER. exits.\n");
+			exit(-1);
+		}
 
 		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_STEALING", val_not_found);
 		if(val!=val_not_found) global_enable_workstealing=val;

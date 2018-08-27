@@ -255,6 +255,9 @@ void Parser::DoParse(const string& query)
 	// extract steps from query
 	GetSteps(query, tokens);
 
+	// Optimization
+	ReOrderSteps(tokens);
+
 	// Parse steps to actors_
 	ParseSteps(tokens);
 }
@@ -274,7 +277,7 @@ void Parser::AppendActor(Actor_Object& actor){
 	actors_.push_back(actor);
 }
 
-bool Parser::CheckLastActor(ACTOR_T type, int* index){
+bool Parser::CheckLastActor(ACTOR_T type){
 	int current = actors_.size();
 	int itr = actors_.size() - 1;
 
@@ -288,11 +291,40 @@ bool Parser::CheckLastActor(ACTOR_T type, int* index){
 		itr = actors_[itr].next_actor;
 	}
 
-	if (index != NULL){
-		*index = itr;
-	}
-
 	return actors_[itr].actor_type == type;
+}
+
+bool Parser::CheckIfQuery(const string& param){
+	int pos = param.find("(");
+	string step = param.substr(0, pos);
+
+	return str2step.count(step) == 1;
+}
+
+int Parser::GetStepPriority(Step_T type){
+	switch(type){
+	case Step_T::IS:
+	case Step_T::WHERE:
+		return 0;
+	case Step_T::HAS:
+	case Step_T::HASNOT:
+	case Step_T::HASKEY:
+	case Step_T::HASVALUE:
+	case Step_T::HASLABEL:
+		return 1;
+	case Step_T::AND:
+	case Step_T::OR:
+	case Step_T::NOT:
+		return 2;
+	case Step_T::DEDUP:
+		return 3;
+	case Step_T::AS:
+		return 4;
+	case Step_T::ORDER:
+		return 5;
+	default:
+		return -1;
+	}
 }
 
 bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type)
@@ -357,6 +389,7 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 				// get params string
 				if (parentheses == 0){
 					params = query.substr(lbpos + 1, pos - lbpos - 1);
+					Tool::trim(params, " ");
 					tokens.push_back(make_pair(str2step.at(step), params));
 					pos++;
 					if (pos != length && query[pos ++] != '.'){
@@ -376,6 +409,45 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 	// checking ending with ')'
 	if (pos != length){
 		throw ParserException("unexpected words at the end: '" + query.substr(pos - 1) + "'");
+	}
+}
+
+void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
+	if(config_->global_enable_step_reorder){
+		for(int i = 1; i < tokens.size(); i ++){
+			int priority = GetStepPriority(tokens[i].first);
+
+			if(priority != -1){
+				int current = i;
+				bool checkAs = false;
+
+				// Should not move where and dedup step before as step
+				// when they will access label key
+				if(tokens[i].first == Step_T::WHERE){
+					if(CheckIfQuery(tokens[i].second)){
+						// Where step => And step
+						priority = GetStepPriority(Step_T::AND);
+					}else{
+						checkAs = true;
+					}
+				}else if(tokens[i].first == Step_T::DEDUP){
+					checkAs = tokens[i].second.size() != 0;
+				}
+
+				// Go through previous steps
+				for(int j = i - 1; j >= 0; j --){
+					if(checkAs && tokens[j].first == Step_T::AS){
+						break;
+					}else if(GetStepPriority(tokens[j].first) > priority){
+						// move current actor forward
+						swap(tokens[current], tokens[j]);
+						current = j;
+					}else{
+						break;
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -1191,12 +1263,7 @@ void Parser::ParseWhere(const vector<string>& params)
 
 	// check param type -> subquery/predicate
 	if (params.size() == 1){
-		int pos = params[0].find("(");
-		string step = params[0].substr(0, pos);
-		// matching step name
-		if (str2step.count(step) == 1){
-			is_query = true;
-		}
+		is_query = CheckIfQuery(params[0]);
 	}
 
 	if (is_query){

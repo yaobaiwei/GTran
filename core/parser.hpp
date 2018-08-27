@@ -67,7 +67,13 @@ private:
 	IO_T Value2IO(uint8_t type);
 
 	// check the type of last actor
-	bool CheckLastActor(ACTOR_T type, int* index = NULL);
+	bool CheckLastActor(ACTOR_T type);
+
+	// check if parameter is query
+	bool CheckIfQuery(const string& param);
+
+	// Get priority for re-ordering
+	int GetStepPriority(Step_T type);
 
 	// splitting parameters
 	vector<string> SplitParam(string& param);
@@ -82,6 +88,9 @@ private:
 
 	// extract steps and corresponding params from query string
 	void GetSteps(const string& query, vector<pair<Step_T, string>>& tokens);
+
+	// Re-ordering Optimization
+	void ReOrderSteps(vector<pair<Step_T, string>>& tokens);
 
 	// mapping steps to actors
 	void ParseSteps(const vector<pair<Step_T, string>>& tokens);
