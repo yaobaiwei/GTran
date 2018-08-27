@@ -24,8 +24,11 @@ public:
 	// index of next actor
 	int next_actor;
 
-	Actor_Object() : next_actor(-1){}
-	Actor_Object(ACTOR_T type) : actor_type(type), next_actor(-1){}
+	// flag for sending data to remote nodes
+	bool send_remote;
+
+	Actor_Object() : next_actor(-1), send_remote(false){}
+	Actor_Object(ACTOR_T type) : actor_type(type), next_actor(-1), send_remote(false){}
 
 	void AddParam(int key);
 	bool AddParam(string s);

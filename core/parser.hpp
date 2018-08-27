@@ -33,9 +33,11 @@ private:
 	// tmp actors store
 	vector<Actor_Object> actors_;
 
-	// Flags for sub-query
-	bool is_in_repeat_;	// is inside repeat branch
-	int first_in_sub_;	// first step index in sub query
+	// first step index in sub query
+	int first_in_sub_;
+
+	// record step index of actor which should send data to non-local nodes
+	int dispatch_step_;
 
 	// str to enum
 	const static map<string, Step_T> str2step;		// step type
@@ -63,6 +65,7 @@ private:
 	// IO type checking
 	bool IsNumber();
 	bool IsValue(uint8_t& type);
+	bool IsElement();
 	bool IsElement(Element_T& type);
 	IO_T Value2IO(uint8_t type);
 

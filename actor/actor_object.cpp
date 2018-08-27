@@ -51,7 +51,9 @@ string Actor_Object::DebugString()
 	{
 		s += Tool::DebugString(v) + " ";
 	}
-	s += ", NextActor: " + to_string(next_actor) + "\n";
+	s += ", NextActor: " + to_string(next_actor);
+	s += ", Remote: ";
+	s += send_remote ? "Yes" : "No";
 	return s;
 }
 
@@ -59,6 +61,7 @@ ibinstream& operator<<(ibinstream& m, const Actor_Object& obj)
 {
 	m << obj.actor_type;
 	m << obj.next_actor;
+	m << obj.send_remote;
 	m << obj.params;
 	return m;
 }
@@ -67,6 +70,7 @@ obinstream& operator>>(obinstream& m, Actor_Object& obj)
 {
 	m >> obj.actor_type;
 	m >> obj.next_actor;
+	m >> obj.send_remote;
 	m >> obj.params;
 	return m;
 }

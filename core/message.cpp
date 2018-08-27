@@ -324,7 +324,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 	vector<pair<history_t, vector<value_t>>> empty_his;
 
 	// enable route mapping
-	if(actors[m.step].actor_type == ACTOR_T::TRAVERSAL){
+	if(!route_assigned && actors[this->meta.step].send_remote){
 		for(auto& p: data){
 			map<int, vector<value_t>> id2value_t;
 			if(p.second.size() == 0){

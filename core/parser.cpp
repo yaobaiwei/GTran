@@ -220,6 +220,10 @@ bool Parser::IsValue(uint8_t& type){
 	return true;
 }
 
+bool Parser::IsElement(){
+	return io_type_ == Element_T::VERTEX || io_type_ == Element_T::EDGE;
+}
+
 bool Parser::IsElement(Element_T& type){
 	switch (io_type_)
 	{
@@ -268,7 +272,6 @@ void Parser::Clear()
 	str2ls.clear();
 	ls2type.clear();
 	str2se.clear();
-	is_in_repeat_ = false;
 	first_in_sub_ = 0;
 }
 
@@ -647,6 +650,7 @@ void Parser::ParseAggregate(const vector<string>& params)
 		str2se[key] = str2se.size();
 	}
 	actor.AddParam(str2se[key]);
+	actor.send_remote = IsElement();
 
 	AppendActor(actor);
 }
@@ -766,6 +770,7 @@ void Parser::ParseDedup(const vector<string>& params)
 		actor.AddParam(str2ls[key]);
 	}
 
+	actor.send_remote = IsElement();
 	AppendActor(actor);
 }
 
@@ -1041,6 +1046,7 @@ void Parser::ParseOrder(const vector<string>& params)
 	actor.AddParam(element_type);
 	actor.AddParam(key);
 	actor.AddParam(order);
+	actor.send_remote = IsElement();
 	AppendActor(actor);
 }
 
@@ -1109,7 +1115,7 @@ void Parser::ParseRange(const vector<string>& params, Step_T type)
 	}
 	actor.AddParam(start);
 	actor.AddParam(end);
-
+	actor.send_remote = IsElement();
 	AppendActor(actor);
 }
 
@@ -1135,13 +1141,16 @@ void Parser::ParseSelect(const vector<string>& params)
 		actor.AddParam(param);
 	}
 
-	AppendActor(actor);
+
 	if (params.size() == 1){
 		io_type_ = type;
+		actor.send_remote = IsElement();
 	}
 	else{
 		io_type_ = IO_T::COLLECTION;
 	}
+
+	AppendActor(actor);
 }
 
 void Parser::ParseTraversal(const vector<string>& params, Step_T type)
@@ -1211,6 +1220,7 @@ void Parser::ParseTraversal(const vector<string>& params, Step_T type)
 	actor.AddParam(outType);
 	actor.AddParam(dir);
 	actor.AddParam(lid);
+	actor.send_remote = true;
 	AppendActor(actor);
 
 	io_type_ = (outType == Element_T::EDGE) ? IO_T::EDGE : IO_T::VERTEX;
