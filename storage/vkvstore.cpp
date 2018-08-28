@@ -69,25 +69,6 @@ done:
 
 // Insert all properties for one vertex
 void VKVStore::insert_single_vertex_property(VProperty* vp) {
-	vpid_t key(vp->id, 0);
-
-	size_t sz = sizeof(label_t);
-	char f[sz];
-	memcpy(f,(const char*)&(vp->label), sz);
-	string str(f);
-
-	// key do not need to be hash
-	int slot_id = insert_id(key.value());
-	uint64_t length = sizeof(label_t);
-	uint64_t off = sync_fetch_and_alloc_values(length);
-
-	// insert ptr
-	ptr_t ptr = ptr_t(length, off);
-	keys[slot_id].ptr = ptr;
-
-	// insert value
-	memcpy(&values[off], str.c_str(), length);
-
     // Every <vpid_t, value_t>
     for (int i = 0; i < vp->plist.size(); i++) {
         V_KVpair v_kv = vp->plist[i];
@@ -280,33 +261,16 @@ void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t &
 }
 
 void VKVStore::get_label_local(uint64_t pid, label_t & label){
-    ikey_t key;
-	// no need to hash pid
-    get_key_local(pid, key);
-
-	if (key.is_empty()) return;
-
-    uint64_t off = key.ptr.off;
-
-    label = *reinterpret_cast<label_t *>(&(values[off]));
+	value_t val;
+	get_property_local(pid, val);
+	label = (label_t)Tool::value_t2int(val);
 }
 
 
 void VKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label){
-	ikey_t key;
-	// no need to hash pid
-	get_key_remote(tid, dst_nid, pid, key);
-
-	if (key.is_empty()) return;
-
-	char * buffer = buf_->GetSendBuf(tid);
-	uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
-	uint64_t r_sz = key.ptr.size;
-
-	RDMA &rdma = RDMA::get_rdma();
-	rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
-
-	label = *reinterpret_cast<label_t *>(buffer);
+	value_t val;
+	get_property_remote(tid, dst_nid, pid, val);
+	label = (label_t)Tool::value_t2int(val);
 }
 
 // analysis

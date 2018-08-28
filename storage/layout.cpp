@@ -102,7 +102,6 @@ string VProperty::DebugString() const {
 ibinstream& operator<<(ibinstream& m, const VProperty& vp)
 {
 	m << vp.id;
-	m << vp.label;
 	m << vp.plist;
 	return m;
 }
@@ -110,7 +109,6 @@ ibinstream& operator<<(ibinstream& m, const VProperty& vp)
 obinstream& operator>>(obinstream& m, VProperty& vp)
 {
 	m >> vp.id;
-	m >> vp.label;
 	m >> vp.plist;
 	return m;
 }
@@ -147,7 +145,6 @@ string EProperty::DebugString() const {
 ibinstream& operator<<(ibinstream& m, const EProperty& ep)
 {
 	m << ep.id;
-	m << ep.label;
 	m << ep.plist;
 	return m;
 }
@@ -155,7 +152,6 @@ ibinstream& operator<<(ibinstream& m, const EProperty& ep)
 obinstream& operator>>(obinstream& m, EProperty& ep)
 {
 	m >> ep.id;
-	m >> ep.label;
 	m >> ep.plist;
 	return m;
 }

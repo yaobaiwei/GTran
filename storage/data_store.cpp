@@ -98,7 +98,6 @@ void DataStore::Shuffle()
 		for(auto& item : node_map){
 			VProperty* vp_ = new VProperty();
 			vp_->id = vp->id;
-			vp_->label = vp->label;
 			vp_->plist = move(item.second);
 			vp_parts[item.first].push_back(vp_);
 		}
@@ -124,7 +123,6 @@ void DataStore::Shuffle()
 		for(auto& item : node_map){
 			EProperty* ep_ = new EProperty();
 			ep_->id = ep->id;
-			ep_->label = ep->label;
 			ep_->plist = move(item.second);
 			ep_parts[item.first].push_back(ep_);
 		}
@@ -645,7 +643,13 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
 
 	pch = strtok(NULL, "\t");
 	label_t label = (label_t)atoi(pch);
-	vp->label = label;
+
+	// insert label to VProperty
+	V_KVpair v_pair;
+	v_pair.key = vpid_t(vid, 0);
+	Tool::str2int(to_string(label),v_pair.value);
+	//push to property_list of v
+	vp->plist.push_back(v_pair);
 
 	pch = strtok(NULL, "");
 	string s(pch);
@@ -742,7 +746,12 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 
 	pch = strtok(NULL, "\t");
 	label_t label = (label_t)atoi(pch);
-	ep->label = label;
+	// insert label to EProperty
+	E_KVpair e_pair;
+	e_pair.key = epid_t(in_v, out_v, 0);
+	Tool::str2int(to_string(label),e_pair.value);
+	//push to property_list of v
+	ep->plist.push_back(e_pair);
 
 	pch = strtok(NULL, "");
 	string s(pch);

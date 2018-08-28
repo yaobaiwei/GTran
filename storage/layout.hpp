@@ -55,7 +55,6 @@ obinstream& operator>>(obinstream& m, V_KVpair& pair);
 
 struct VProperty{
 	vid_t id;
-	label_t label;
 	vector<V_KVpair> plist;
 	string DebugString() const ;
 };
@@ -78,7 +77,6 @@ struct EProperty {
 //	vid_t v_1;
 //	vid_t v_2;
 	eid_t id;
-	label_t label;
 	vector<E_KVpair> plist;
 	string DebugString() const ;
 };

@@ -69,24 +69,6 @@ done:
 
 // Insert all properties for one vertex
 void EKVStore::insert_single_edge_property(EProperty* ep) {
-	epid_t key(ep->id, 0);
-
-	size_t sz = sizeof(label_t);
-	char f[sz];
-	memcpy(f,(const char*)&(ep->label), sz);
-	string str(f);
-
-	int slot_id = insert_id(key.value());
-	uint64_t length = sizeof(label_t);
-	uint64_t off = sync_fetch_and_alloc_values(length);
-
-	// insert ptr
-	ptr_t ptr = ptr_t(length, off);
-	keys[slot_id].ptr = ptr;
-
-	// insert value
-	memcpy(&values[off], str.c_str(), length);
-
 	// Every <vpid_t, value_t>
     for (int i = 0; i < ep->plist.size(); i++) {
         E_KVpair e_kv = ep->plist[i];
@@ -276,37 +258,16 @@ void EKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t &
 }
 
 void EKVStore::get_label_local(uint64_t pid, label_t & label){
-    ikey_t key;
-    get_key_local(pid, key);
-
-	if (key.is_empty()) {
-		cout << "@@@@@@@@@@@@@" << endl;
-		return;
-	}
-
-    uint64_t off = key.ptr.off;
-
-    label = *reinterpret_cast<label_t *>(&(values[off]));
+	value_t val;
+	get_property_local(pid, val);
+	label = (label_t)Tool::value_t2int(val);
 }
 
 
 void EKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label){
-	ikey_t key;
-	get_key_remote(tid, dst_nid, pid, key);
-
-	if (key.is_empty()) {
-		cout << "@@@@@@@@@@@@@" << endl;
-		return;
-	}
-
-	char * buffer = buf_->GetSendBuf(tid);
-	uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
-	uint64_t r_sz = key.ptr.size;
-
-	RDMA &rdma = RDMA::get_rdma();
-	rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
-
-	label = *reinterpret_cast<label_t *>(buffer);
+	value_t val;
+	get_property_remote(tid, dst_nid, pid, val);
+	label = (label_t)Tool::value_t2int(val);
 }
 
 // analysis
