@@ -85,17 +85,8 @@ private:
 	// Actor type
 	ACTOR_T type_;
 
-	// Node
-	Node node_;
-
-	// Pointer of Result_Collector
-	Result_Collector * rc_;
-
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
-
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
 
 	//============Vertex===============
 	// Get IN/OUT/BOTH of Vertex

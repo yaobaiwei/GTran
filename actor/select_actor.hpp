@@ -66,9 +66,6 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
-
 	void GrabHistory(vector<pair<int, string>> label_step_list, vector<pair<history_t, vector<value_t>>> & data) {
 		vector<value_t> result;
 

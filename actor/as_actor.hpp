@@ -54,9 +54,6 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
-
 	void RecordHistory(int label_step_key, vector<pair<history_t, vector<value_t>>> & data) {	
 		vector<pair<history_t, vector<value_t>>> newData;
 		map<value_t, int> value_pos;
