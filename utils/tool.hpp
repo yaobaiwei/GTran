@@ -285,9 +285,15 @@ public:
 	{
 		string value = value_t2string(v);
 		vector<string> values;
-		splitWithEscape(value, "\t", values);
 		int type = v.type & 0xF;
 
+		if(type==4){
+			// string
+			splitWithEscape(value, "\t", values);
+		}else{
+			split(value, "\t", values);
+		}
+		
 		// scalar
 		if (v.type < 0xF){
 			vec.push_back(v);
