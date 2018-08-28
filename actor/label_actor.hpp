@@ -65,14 +65,8 @@ private:
 	// Actor type
 	ACTOR_T type_;
 
-	// Node
-	Node node_;
-
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
-
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
 
 	// Cache
 	ActorCache cache;
@@ -85,11 +79,8 @@ private:
 
 				vid_t v_id(Tool::value_t2int(elem));
 
-				bool isLocal = false;
-				if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
-
 				label_t label;
-				if (isLocal || !global_enable_caching_) {
+				if (data_store_->VPKeyIsLocal(vpid_t(v_id, 0)) || !global_enable_caching_) {
 					data_store_->GetLabelForVertex(tid, v_id, label);
 				} else {
 					if (!cache.get_label_from_cache(v_id.value(), label)) {
@@ -118,11 +109,8 @@ private:
 				eid_t e_id;
 				uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
-				bool isLocal = false;
-				if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
-
 				label_t label;
-				if (isLocal || !global_enable_caching_) {
+				if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !global_enable_caching_) {
 					data_store_->GetLabelForEdge(tid, e_id, label);
 				} else {
 					if (!cache.get_label_from_cache(e_id.value(), label)) {

@@ -59,35 +59,30 @@ public:
 
 
 	Vertex* GetVertex(vid_t v_id);
-
 	Edge* GetEdge(eid_t e_id);
 
 	void GetAllVertices(vector<vid_t> & vid_list);
-
 	void GetAllEdges(vector<eid_t> & eid_list);
 
 	bool VPKeyIsExist(int tid, vpid_t vp_id);
-
 	bool EPKeyIsExist(int tid, epid_t ep_id);
 
-	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
+	bool VPKeyIsLocal(vpid_t vp_id);
+	bool EPKeyIsLocal(epid_t ep_id);
 
+	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
 	bool GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);
 
 	bool GetLabelForVertex(int tid, vid_t vid, label_t & label);
-
 	bool GetLabelForEdge(int tid, eid_t eid, label_t & label);
 
 	int GetMachineIdForVertex(vid_t v_id);
-
 	int GetMachineIdForEdge(eid_t e_id);
 
 	void GetNameFromIndex(Index_T type, label_t label, string & str);
 
 	void InsertAggData(agg_t key, vector<value_t> & data);
-
 	void GetAggData(agg_t key, vector<value_t> & data);
-
 	void DeleteAggData(agg_t key);
 
 private:

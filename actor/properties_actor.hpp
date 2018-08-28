@@ -66,9 +66,6 @@ private:
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
 
-    // Ensure only one thread ever runs the actor
-    std::mutex thread_mutex_;
-
 	// Cache
 	ActorCache cache;
 	bool global_enable_caching_;
@@ -80,18 +77,15 @@ private:
 
 			for (auto & value : pair.second) {
 				vid_t v_id(Tool::value_t2int(value));
-				bool isLocal = false;
-
-				if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
+				Vertex* vtx = data_store_->GetVertex(v_id);
 
 				if (key_list.empty()) {
-					Vertex* vtx = data_store_->GetVertex(v_id);
 					for (auto & pkey : vtx->vp_list) {
 						vpid_t vp_id(v_id, pkey);
 
 						value_t val;
 						// Try cache
-						if (isLocal || !global_enable_caching_) {
+						if (data_store_->VPKeyIsLocal(vp_id) || !global_enable_caching_) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
 						} else {
 							if (!cache.get_property_from_cache(vp_id.value(), val)) {
@@ -107,15 +101,14 @@ private:
 					}
 				} else {
 					for (auto pkey : key_list) {
-						vpid_t vp_id(v_id, pkey);
-
-						if(! data_store_->VPKeyIsExist(tid, vp_id)) {
+						if (find(vtx->vp_list.begin(), vtx->vp_list.end(), pkey) == vtx->vp_list.end()) {
 							continue;
 						}
 
+						vpid_t vp_id(v_id, pkey);
 						value_t val;
 						// Try cache
-						if (isLocal || !global_enable_caching_) {
+						if (data_store_->VPKeyIsLocal(vp_id) || !global_enable_caching_) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
 						} else {
 							if (!cache.get_property_from_cache(vp_id.value(), val)) {
@@ -146,17 +139,14 @@ private:
 
 				eid_t e_id;
 				uint2eid_t(Tool::value_t2uint64_t(value), e_id);
-				bool isLocal = false;
-
-				if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
+				Edge* edge = data_store_->GetEdge(e_id);
 
 				if (key_list.empty()) {
-					Edge* edge = data_store_->GetEdge(e_id);
 					for (auto & pkey : edge->ep_list) {
 						epid_t ep_id(e_id, pkey);
 
 						value_t val;
-						if (isLocal || !global_enable_caching_) {
+						if (data_store_->EPKeyIsLocal(ep_id) || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
 						} else {
 							if (!cache.get_property_from_cache(ep_id.value(), val)) {
@@ -172,15 +162,14 @@ private:
 						result.emplace_back( keyStr, Tool::DebugString(val) );
 					}
 				} else {
-					for (auto key : key_list) {
-						epid_t ep_id(e_id, key);
-
-						if(! data_store_->EPKeyIsExist(tid, ep_id)) {
+					for (auto pkey : key_list) {
+						if (find(edge->ep_list.begin(), edge->ep_list.end(), pkey) == edge->ep_list.end()) {
 							continue;
 						}
 
+						epid_t ep_id(e_id, pkey);
 						value_t val;
-						if (isLocal || !global_enable_caching_) {
+						if (data_store_->EPKeyIsLocal(ep_id) || !global_enable_caching_) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
 						} else {
 							if (!cache.get_property_from_cache(ep_id.value(), val)) {
@@ -191,7 +180,7 @@ private:
 						}
 
 						string keyStr;
-						data_store_->GetNameFromIndex(Index_T::E_PROPERTY, key, keyStr);
+						data_store_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
 
 						result.emplace_back( keyStr, Tool::DebugString(val) );
 					}

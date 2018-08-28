@@ -68,9 +68,6 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
-
 	void EvaluateData(vector<pair<history_t, vector<value_t>>> & data, vector<PredicateValue> & pred_chain) {
 
 		auto checkFunction = [&](value_t & value) {

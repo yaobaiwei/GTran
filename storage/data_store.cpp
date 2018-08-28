@@ -265,6 +265,22 @@ bool DataStore::EPKeyIsExist(int tid, epid_t ep_id) {
 	return true;
 }
 
+bool DataStore::VPKeyIsLocal(vpid_t vp_id) {
+	if(id_mapper_->IsVPropertyLocal(vp_id)){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+bool DataStore::EPKeyIsLocal(epid_t ep_id) {
+	if(id_mapper_->IsEPropertyLocal(ep_id)){
+		return true;
+	}else{
+		return false;
+	}
+}
+
 bool DataStore::GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val){
 	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
 		vpstore_->get_property_local(vp_id.value(), val);

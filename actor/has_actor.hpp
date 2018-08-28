@@ -9,6 +9,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "actor/abstract_actor.hpp"
 #include "actor/actor_cache.hpp"
@@ -36,6 +37,8 @@ public:
 	// HasValue(params) : values -> [key = -1; pred = EQ; pred_params = string(value)]
 	// HasNot(params) : key -> [key = pid; pred = NONE; pred_params = -1]
 	// HasKey(params) : keys -> [key = pid; pred = ANY; pred_params = -1]
+	//
+	// TODO : Indexing
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
@@ -91,14 +94,8 @@ private:
 	// Actor type
 	ACTOR_T type_;
 
-	// Node
-	Node node_;
-
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
-
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
 
 	// Cache
 	ActorCache cache;
@@ -108,30 +105,19 @@ private:
 
 		auto checkFunction = [&](value_t& value){
 			vid_t v_id(Tool::value_t2int(value));
-
-			bool isLocal = false;
-			if (data_store_->GetMachineIdForVertex(v_id) == machine_id_) isLocal = true;
+			Vertex* vtx = data_store_->GetVertex(v_id);
 
 			for (auto & pred_pair : pred_chain) {
 				int pid = pred_pair.first;
 				PredicateValue pred = pred_pair.second;
 
 				if (pid == -1) {
-					Vertex* vtx = data_store_->GetVertex(v_id);
 					int counter = vtx->vp_list.size();
 					for (auto & pkey : vtx->vp_list) {
 						vpid_t vp_id(v_id, pkey);
 
 						value_t val;
-						if (isLocal || !global_enable_caching_) {
-							// No Need to check Cache for local and cache is disabled
-							data_store_->GetPropertyForVertex(tid, vp_id, val);
-						} else {
-							if (!cache.get_property_from_cache(vp_id.value(), val)) {
-								data_store_->GetPropertyForVertex(tid, vp_id, val);
-								cache.insert_properties(vp_id.value(), val);
-							}
-						}
+						get_properties_for_vertex(tid, vp_id, val);
 
 						if(!Evaluate(pred, &val)) {
 							counter--;
@@ -143,42 +129,22 @@ private:
 						return true;
 					}
 				} else {
+					// Check whether key exists for this vtx
+					if (find(vtx->vp_list.begin(), vtx->vp_list.end(), pid) == vtx->vp_list.end()) {
+						// does not exist
+						if (pred.pred_type == Predicate_T::NONE)
+							return false;
+						return true;
+					}
 
+					// Get Properties
 					vpid_t vp_id(v_id, pid);
+					value_t val;
+					get_properties_for_vertex(tid, vp_id, val);
 
-					if (pred.pred_type == Predicate_T::ANY) {
-						if(!data_store_->VPKeyIsExist(tid, vp_id)) {
-							// dont exist Key, erase 
-							return true;
-						}
-					} else if (pred.pred_type == Predicate_T::NONE) {
-						// hasNot(key)
-						if(data_store_->VPKeyIsExist(tid, vp_id)) {
-							// exist under hasNot, erase 
-							return true;
-						}
-					} else {
-						// Get Properties
-						value_t val;
-						if (isLocal || !global_enable_caching_) {
-							// No Need to check Cache for local
-							data_store_->GetPropertyForVertex(tid, vp_id, val);
-						} else {
-							if (!cache.get_property_from_cache(vp_id.value(), val)) {
-								data_store_->GetPropertyForVertex(tid, vp_id, val);
-								cache.insert_properties(vp_id.value(), val);
-							}
-						}
-
-						if (val.content.size() == 0) {
-							// No such value or key, erase
-							return true;
-						}
-
-						// Erase when doesnt match
-						if(!Evaluate(pred, &val)) {
-							return true;
-						}
+					// Erase when doesnt match
+					if(!Evaluate(pred, &val)) {
+						return true;
 					}
 				}
 			}
@@ -196,29 +162,18 @@ private:
 		auto checkFunction = [&](value_t& value){
 			eid_t e_id;
 			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
-
-			bool isLocal = false;
-			if (data_store_->GetMachineIdForEdge(e_id) == machine_id_) isLocal = true;
+			Edge* edge = data_store_->GetEdge(e_id);
 
 			for (auto & pred_pair : pred_chain) {
 				int pid = pred_pair.first;
 				PredicateValue pred = pred_pair.second;
 
 				if (pid == -1) {
-					Edge* edge = data_store_->GetEdge(e_id);
 					int counter = edge->ep_list.size();
 					for (auto & pkey : edge->ep_list) {
 						epid_t ep_id(e_id, pkey);
-
 						value_t val;
-						if (isLocal || !global_enable_caching_) {
-							data_store_->GetPropertyForEdge(tid, ep_id, val);
-						} else {
-							if (!cache.get_property_from_cache(ep_id.value(), val)) {
-								data_store_->GetPropertyForEdge(tid, ep_id, val);
-								cache.insert_properties(ep_id.value(), val);
-							}
-						}
+						get_properties_for_edge(tid, ep_id, val);
 
 						if(!Evaluate(pred, &val)) {
 							counter--;
@@ -230,41 +185,22 @@ private:
 						return true;
 					}
 				} else {
+					// Check whether key exists for this vtx
+					if (find(edge->ep_list.begin(), edge->ep_list.end(), pid) == edge->ep_list.end()) {
+						// does not exist
+						if (pred.pred_type == Predicate_T::NONE)
+							return false;
+						return true;
+					}
 
+					// Get Properties
 					epid_t ep_id(e_id, pid);
+					value_t val;
+					get_properties_for_edge(tid, ep_id, val);
 
-					if (pred.pred_type == Predicate_T::ANY) {
-						if(!data_store_->EPKeyIsExist(tid, ep_id)) {
-							// dont exist Key, erase 
-							return true;
-						}
-					} else if (pred.pred_type == Predicate_T::NONE) {
-						// hasNot(key)
-						if(data_store_->EPKeyIsExist(tid, ep_id)) {
-							// exist under hasNot, erase 
-							return true;
-						}
-					} else {
-						// Get Properties
-						value_t val;
-						if (isLocal || !global_enable_caching_) {
-							data_store_->GetPropertyForEdge(tid, ep_id, val);
-						} else {
-							if (!cache.get_property_from_cache(ep_id.value(), val)) {
-								data_store_->GetPropertyForEdge(tid, ep_id, val);
-								cache.insert_properties(ep_id.value(), val);
-							}
-						}
-
-						if (val.content.size() == 0) {
-							// No such value or key, erase
-							return true;
-						}
-
-						// Erase when doesnt match
-						if(!Evaluate(pred, &val)) {
-							return true;
-						}
+					// Erase when doesnt match
+					if(!Evaluate(pred, &val)) {
+						return true;
 					}
 				}
 			}
@@ -274,6 +210,29 @@ private:
 
 		for (auto & data_pair : data) {
 			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
+		}
+	}
+
+	void get_properties_for_vertex(int tid, vpid_t vp_id, value_t & val) {
+		if (data_store_->VPKeyIsLocal(vp_id) || !global_enable_caching_) {
+			// No Need to check Cache for local or cache is disabled
+			data_store_->GetPropertyForVertex(tid, vp_id, val);
+		} else {
+			if (!cache.get_property_from_cache(vp_id.value(), val)) {
+				data_store_->GetPropertyForVertex(tid, vp_id, val);
+				cache.insert_properties(vp_id.value(), val);
+			}
+		}
+	}
+
+	void get_properties_for_edge(int tid, epid_t ep_id, value_t & val) {
+		if (data_store_->EPKeyIsLocal(ep_id) || !global_enable_caching_) {
+			data_store_->GetPropertyForEdge(tid, ep_id, val);
+		} else {
+			if (!cache.get_property_from_cache(ep_id.value(), val)) {
+				data_store_->GetPropertyForEdge(tid, ep_id, val);
+				cache.insert_properties(ep_id.value(), val);
+			}
 		}
 	}
 };

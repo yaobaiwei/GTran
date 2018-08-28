@@ -31,7 +31,6 @@ public:
 	// 	e.g. g.V().as('a'),,,.where(neq('a'))
 	// 	 	 g.V().as('a'),,,.as('b').,,,.where('a', neq('b'))
 	//
-	// 	Notes: Current Version does NOT support within && without
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
@@ -70,7 +69,6 @@ public:
 					}
 
 					for (auto & sgl_data : tmp_agg_data) {
-						cout << "agg_data: " << Tool::DebugString(sgl_data) << endl;
 						if (agg_datas.find(sgl_data) == agg_datas.end()) {
 							agg_datas.insert(pair<value_t, int>(sgl_data, 1));
 						}
@@ -110,9 +108,6 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
-	// Ensure only one thread ever runs the actor
-	std::mutex thread_mutex_;
-
 	void EvaluateData(vector<pair<history_t, vector<value_t>>> & data, vector<PredicateHistory> & pred_chain)
 	{
 		for (auto & pred : pred_chain) {
@@ -124,52 +119,25 @@ private:
 				// Find the value of history_label
 
 				for (auto & data_pair : data) {
-					history_t::iterator his_itr = data_pair.first.begin();
 					vector<value_t> his_val;
-					int counter = step_labels.size();
-
-					do {
-						if ((*his_itr).first == step_labels.at(step_labels.size() - counter)) {
-							his_val.push_back((*his_itr).second);
-							counter--;
-						}
-
-						if (counter == 0) break;
-						his_itr++;
-					} while (his_itr != data_pair.first.end());
-
-					// IF not found, try next predicate
-					if (counter != 0) {
-						// Clear value of this history;
+					if (!GetHistoryValue(data_pair.first, vector<int>(step_labels.begin() + 1, step_labels.end()), his_val)) {
 						data_pair.second.clear();
 						continue;
 					}
 
 					PredicateValue single_pred(pred_type, his_val);
-
 					auto checkSinglePred = [&](value_t & value) {
 						return !Evaluate(single_pred, &value);
 					};
-					data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkSinglePred), data_pair.second.end() );
+					data_pair.second.erase( remove_if(data_pair.second.begin(),
+									data_pair.second.end(),
+									checkSinglePred),
+								data_pair.second.end() );
 				}
 			} else {
 				for (auto & data_pair : data) {
 					vector<value_t> his_val;
-					int counter = step_labels.size();
-
-					for (auto & step_label : step_labels) {
-						history_t::iterator his_itr = data_pair.first.begin();
-						do {
-							if (step_label == (*his_itr).first) {
-								his_val.push_back((*his_itr).second);
-								counter--;
-								break;
-							}
-							his_itr++;
-						} while (his_itr != data_pair.first.end());
-					}
-
-					if (counter != 0) {
+					if (!GetHistoryValue(data_pair.first, step_labels, his_val)) {
 						data_pair.second.clear();
 						continue;
 					}
@@ -207,7 +175,10 @@ private:
 
 		if (his_label == -1) {
 			for (auto & data_pair : data) {
-				data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
+				data_pair.second.erase( remove_if(data_pair.second.begin(),
+								data_pair.second.end(),
+								checkFunction),
+							data_pair.second.end() );
 			}
 		} else {
 			for (auto & data_pair : data) {
@@ -215,17 +186,14 @@ private:
 					if ((*his_itr).first == his_label) {
 						if (pred_type == Predicate_T::WITHIN) {
 							if (agg_data.find((*his_itr).second) == agg_data.end()) {
-								// erase 
 								data_pair.second.clear();
 							}
 						} else { // WIHTOUT
 							if (agg_data.find((*his_itr).second) != agg_data.end()) {
-								// erase 
 								data_pair.second.clear();
 							}
 						}
 					}
-
 					his_itr++;
 				}
 			}
@@ -240,6 +208,28 @@ private:
 		}
 		return true;
 	}
+
+	bool GetHistoryValue(history_t & data_his, vector<int> step_labels, vector<value_t> & his_val){
+		int counter = step_labels.size();
+		for (auto & step_label : step_labels) {
+			history_t::iterator his_itr = data_his.begin();
+			do {
+				if ((*his_itr).first == step_label) {
+					his_val.push_back((*his_itr).second);
+					counter--;
+					break;
+				}
+				his_itr++;
+			} while (his_itr != data_his.end());
+		}
+
+		// IF not found all
+		if (counter != 0) {
+			return false;
+		}
+		return true;
+	}
+
 };
 
 #endif /* WHERE_ACTOR_HPP_ */
