@@ -15,6 +15,7 @@
 #include "actor/actor_cache.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
+#include "core/index_store.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
 #include "storage/layout.hpp"
@@ -23,11 +24,12 @@
 
 class HasActor : public AbstractActor {
 public:
-	HasActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HAS) {}
+	HasActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), index_store_(index_store), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HAS) {}
 
 	// Has:
 	// inType
 	// [	key:  int
+	//		is_indexed: bool
 	// 		pred: Predicate_T
 	// 		pred_param: value_t]
 	// Has(params) :
@@ -45,37 +47,48 @@ public:
 		Actor_Object actor_obj = actor_objs[m.step];
 
 		// store all predicate
-		vector<pair<int, PredicateValue>> pred_chain;
+		vector<pair<int, PredicateValue>> pred_chain_indexed; // predicate with indexed key
+		vector<pair<int, PredicateValue>> pred_chain;		  // predicate with not indexed key
 
 		// Get Params
-		assert(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 3 == 0); // make sure input format
+		assert(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 4 == 0); // make sure input format
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-		int numParamsGroup = (actor_obj.params.size() - 1) / 3; // number of groups of params
+		int numParamsGroup = (actor_obj.params.size() - 1) / 4; // number of groups of params
 
+		bool is_init = m.msg_type == MSG_T::INIT;
 		// Create predicate chain for this query
 		for (int i = 0; i < numParamsGroup; i++) {
-			int pos = i * 3 + 1;
+			int pos = i * 4 + 1;
 			// Get predicate params
 			int pid = Tool::value_t2int(actor_obj.params.at(pos));
-
-			Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 1));
+			bool is_indexed = Tool::value_t2int(actor_obj.params.at(pos + 1));
+			Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 2));
 			vector<value_t> pred_params;
-			Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
+			Tool::value_t2vec(actor_obj.params.at(pos + 3), pred_params);
 
-			pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
+			if(is_indexed){
+				pred_chain_indexed.emplace_back(pid, PredicateValue(pred_type, pred_params));
+			}else{
+				pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
+			}
 		}
 
-		switch(inType) {
-			case Element_T::VERTEX:
-				EvaluateVertex(tid, msg.data, pred_chain);
-				break;
-			case Element_T::EDGE:
-				EvaluateEdge(tid, msg.data, pred_chain);
-				break;
-			default:
-				cout << "Wrong inType" << endl;
+		if(pred_chain_indexed.size() != 0){
+			HasByIndex(inType, msg.data, is_init, pred_chain_indexed);
 		}
 
+		if(pred_chain.size() != 0){
+			switch(inType) {
+				case Element_T::VERTEX:
+					EvaluateVertex(tid, msg.data, pred_chain);
+					break;
+				case Element_T::EDGE:
+					EvaluateEdge(tid, msg.data, pred_chain);
+					break;
+				default:
+					cout << "Wrong inType" << endl;
+			}
+		}
 		// Create Message
 		vector<Message> msg_vec;
 		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
@@ -96,6 +109,8 @@ private:
 
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
+
+	IndexStore * index_store_;
 
 	// Cache
 	ActorCache cache;
@@ -136,6 +151,8 @@ private:
 							return false;
 						return true;
 					}
+					if (pred.pred_type == Predicate_T::ANY)
+						return false;
 
 					// Get Properties
 					vpid_t vp_id(v_id, pid);
@@ -193,6 +210,9 @@ private:
 						return true;
 					}
 
+					if (pred.pred_type == Predicate_T::ANY)
+						return false;
+
 					// Get Properties
 					epid_t ep_id(e_id, pid);
 					value_t val;
@@ -210,6 +230,13 @@ private:
 
 		for (auto & data_pair : data) {
 			data_pair.second.erase( remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end() );
+		}
+	}
+
+	void HasByIndex(Element_T type, vector<pair<history_t, vector<value_t>>> & data, bool is_init, vector<pair<int, PredicateValue>> & pred_chain)
+	{
+		for(auto& pred_pair : pred_chain){
+			index_store_->GetElementByProperty(type, pred_pair.first, pred_pair.second, is_init, data);
 		}
 	}
 

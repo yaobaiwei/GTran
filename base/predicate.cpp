@@ -42,6 +42,7 @@ bool operator <(const value_t& v1, const value_t& v2)
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) < Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) < Tool::value_t2double(v2);
+		case 5:		return Tool::value_t2uint64_t(v1) < Tool::value_t2uint64_t(v2);
 		default: 	return v1.content < v2.content;
 	}
 }
@@ -59,6 +60,7 @@ bool operator >(const value_t& v1, const value_t& v2)
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) > Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) > Tool::value_t2double(v2);
+		case 5:		return Tool::value_t2uint64_t(v1) > Tool::value_t2uint64_t(v2);
 		default: 	return v1.content > v2.content;
 	}
 }
@@ -76,6 +78,7 @@ bool operator <=(const value_t& v1, const value_t& v2)
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) <= Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) <= Tool::value_t2double(v2);
+		case 5:		return Tool::value_t2uint64_t(v1) <= Tool::value_t2uint64_t(v2);
 		default: 	return v1.content <= v2.content;
 	}
 }
@@ -93,11 +96,12 @@ bool operator >=(const value_t& v1, const value_t& v2)
 	switch (v1.type) {
 		case 1:		return Tool::value_t2int(v1) >= Tool::value_t2int(v2);
 		case 2:	 	return Tool::value_t2double(v1) >= Tool::value_t2double(v2);
+		case 5:		return Tool::value_t2uint64_t(v1) >= Tool::value_t2uint64_t(v2);
 		default: 	return v1.content >= v2.content;
 	}
 }
 
-bool Evaluate(PredicateValue & pv, value_t *value)
+bool Evaluate(PredicateValue & pv, const value_t *value)
 {
 	assert(pv.values.size() > 0);
 
@@ -125,7 +129,7 @@ bool Evaluate(PredicateValue & pv, value_t *value)
 		return *value > pv.values[0];
 	case Predicate_T::GTE:
 		return *value >= pv.values[0];
-	case Predicate_T::INSDIE:
+	case Predicate_T::INSIDE:
 		assert(pv.values.size() == 2);
 		return *value > pv.values[0] && *value < pv.values[1];
 	case Predicate_T::OUTSIDE:

@@ -20,6 +20,7 @@
 #include "actor/has_actor.hpp"
 #include "actor/has_label_actor.hpp"
 #include "actor/init_actor.hpp"
+#include "actor/index_actor.hpp"
 #include "actor/is_actor.hpp"
 #include "actor/key_actor.hpp"
 #include "actor/label_actor.hpp"
@@ -35,6 +36,7 @@
 #include "base/core_affinity.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
+#include "core/index_store.hpp"
 #include "storage/data_store.hpp"
 #include "utils/config.hpp"
 #include "utils/timer.hpp"
@@ -43,7 +45,7 @@ using namespace std;
 
 class ActorAdapter {
 public:
-	ActorAdapter(Node & node, Config * config, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity) : node_(node), config_(config), num_thread_(config->global_num_threads), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity) {
+	ActorAdapter(Node & node, Config * config, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), config_(config), num_thread_(config->global_num_threads), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) {
 		times_.resize(num_thread_, 0);
 	}
 
@@ -58,9 +60,10 @@ public:
 		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, node_.get_local_size(), rc_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, config_->global_enable_caching));
-		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, config_->global_enable_caching));
+		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, index_store_, config_->global_enable_caching));
+		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, index_store_, config_->global_enable_caching));
 		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, node_.get_local_size(), config_->max_data_size));
+		actors_[ACTOR_T::INDEX] = unique_ptr<AbstractActor>(new IndexActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, index_store_));
 		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, config_->global_enable_caching));
@@ -214,6 +217,7 @@ private:
 	AbstractMailbox * mailbox_;
 	Result_Collector * rc_;
 	DataStore * data_store_;
+	IndexStore * index_store_;
 	Config * config_;
 	CoreAffinity * core_affinity_;
 	msg_id_alloc id_allocator_;

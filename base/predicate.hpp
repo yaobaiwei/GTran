@@ -40,6 +40,6 @@ struct PredicateHistory {
 	PredicateHistory(Predicate_T _pred_type, vector<int> _step_labels) : pred_type(_pred_type), history_step_labels(_step_labels) {}
 };
 
-bool Evaluate (PredicateValue & pv, value_t *value = NULL);
+bool Evaluate (PredicateValue & pv, const value_t *value = NULL);
 
 bool Evaluate (Predicate_T pred_type, value_t & val1, value_t & val2);

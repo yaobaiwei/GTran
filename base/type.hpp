@@ -378,12 +378,12 @@ ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
-	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COUNT, DEDUP, GROUP, HAS, HASLABEL,
+	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COUNT, DEDUP, GROUP, HAS, HASLABEL, INDEX,
 	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, END
 };
 
 static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COUNT", "DEDUP", "GROUP", "HAS",
-"HASLABEL", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
+"HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
@@ -395,7 +395,7 @@ enum Math_T { SUM, MAX, MIN, MEAN };
 enum Element_T{ VERTEX, EDGE };
 enum Direction_T{ IN, OUT, BOTH };
 enum Order_T {INCR, DECR};
-enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSDIE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
+enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSIDE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
 struct qid_t{
 	uint32_t nid;

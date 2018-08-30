@@ -62,8 +62,10 @@ struct Config{
 	bool global_enable_caching;
 	bool global_enable_core_binding;
 	bool global_enable_actor_division;
-	bool global_enable_workstealing;
 	bool global_enable_step_reorder;
+	bool global_enable_indexing;
+	bool global_enable_workstealing;
+
 
 	int max_data_size;
 
@@ -294,6 +296,14 @@ struct Config{
 		else
 		{
 			fprintf(stderr, "must enter the ENABLE_ACTOR_REORDER. exits.\n");
+			exit(-1);
+		}
+
+		val = iniparser_getboolean(ini, "SYSTEM:ENABLE_INDEXING", val_not_found);
+		if(val!=val_not_found) global_enable_indexing=val;
+		else
+		{
+			fprintf(stderr, "must enter the ENABLE_INDEXING. exits.\n");
 			exit(-1);
 		}
 

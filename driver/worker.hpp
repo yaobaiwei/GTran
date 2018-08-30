@@ -23,6 +23,7 @@
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "core/actors_adapter.hpp"
+#include "core/index_store.hpp"
 #include "core/progress_monitor.hpp"
 #include "core/parser.hpp"
 #include "core/result_collector.hpp"
@@ -42,11 +43,13 @@ public:
 	~Worker(){
 		delete receiver_;
 		delete parser_;
+		delete index_store_;
 		delete rc_;
 	}
 
 	void Init(){
-		parser_ = new Parser(config_);
+		index_store_ = new IndexStore(config_);
+		parser_ = new Parser(config_, index_store_);
 		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
 		rc_ = new Result_Collector;
 		char addr[64];
@@ -158,7 +161,7 @@ public:
 		monitor->Start();
 
 		//actor driver starts
-		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore, core_affinity);
+		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore, core_affinity, index_store_);
 		actor_adapter->Start();
 		cout << "DONE -> actor_adapter->Start()" << endl;
 
@@ -198,6 +201,7 @@ private:
 	vector<Node> & workers_;
 	Config * config_;
 	Parser* parser_;
+	IndexStore* index_store_;
 	ThreadSafeQueue<Pack> queue_;
 	Result_Collector * rc_;
 	uint32_t num_query;

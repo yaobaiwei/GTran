@@ -106,6 +106,8 @@ void Parser::LoadMapping(){
 bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error_msg)
 {
 	Clear();
+	bool build_index = false;
+	string error_prefix = "Parsing Error: ";
 	// check prefix
 	if (query.find("g.V().") == 0){
 		ParseInit(Element_T::VERTEX);
@@ -115,20 +117,26 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error
 		ParseInit(Element_T::EDGE);
 		io_type_ = IO_T::EDGE;
 	}
-	else{
-		error_msg = "'g.V().' or 'g.E().' expected";
+	else if (query.find("BuildIndex") == 0){
+		build_index = true;
+		error_prefix = "Build Index error: ";
+	}else{
+		error_msg = "1. Execute query with 'g.V()' or 'g.E()'\n 2. Set up index by BuildIndex(V/E, propertyname)";
 		return false;
 	}
 
-	// trim blanks and remove prefix
-	string q = query.substr(6);
-	q = Tool::trim(q, " ");
-
 	try{
-		DoParse(q);
+		if(build_index){
+			ParseIndex(query);
+		}else{
+			// trim blanks and remove prefix
+			string q = query.substr(6);
+			q = Tool::trim(q, " ");
+			DoParse(q);
+		}
 	}
 	catch (ParserException e){
-		error_msg = "Parsing Error: " + e.message;
+		error_msg = error_prefix + e.message;
 		return false;
 	}
 
@@ -251,6 +259,41 @@ Parser::IO_T Parser::Value2IO(uint8_t type){
 	default:
 		throw ParserException("unexpected error");
 	}
+}
+
+void Parser::ParseIndex(const string& param){
+	vector<string> params;
+	Tool::splitWithEscape(param, ",() ", params);
+	if(params.size() != 3){
+		throw ParserException("expect 2 parameters");
+	}
+
+	Actor_Object actor(ACTOR_T::INDEX);
+
+	Element_T type;
+	if(params[1] == "V"){
+		type = Element_T::VERTEX;
+		io_type_ = IO_T::VERTEX;
+	}else if(params[1] == "E"){
+		type = Element_T::EDGE;
+		io_type_ = IO_T::EDGE;
+	}else{
+		throw ParserException("expect V/E but get: " + params[1]);
+	}
+
+	int property_key = 0;
+	Tool::trim(params[2], "\"");
+	if(params[2] != "label" && !ParseKeyId(params[2], false, property_key)){
+		throw ParserException("unexpected property key: " + params[2]);
+	}
+
+	if(index_store_->IsIndexEnabled(type, property_key)){
+		throw ParserException("index is already built for " + params[2]);
+	}
+
+	actor.AddParam(type);
+	actor.AddParam(property_key);
+	AppendActor(actor);
 }
 
 void Parser::DoParse(const string& query)
@@ -575,7 +618,7 @@ void Parser::ParseSub(const vector<string>& params, int current, bool filterBran
 	first_in_sub_ = m_first_in_sub;
 }
 
-void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey)
+Predicate_T Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey)
 {
 	Predicate_T pred_type;
 	value_t pred_param;
@@ -606,12 +649,14 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 		if (pred_params.size() != 1){
 			throw ParserException("expect only one param: " + param);
 		}
-		Tool::str2value_t(pred_params[0], pred_param);
+		if(!Tool::str2value_t(pred_params[0], pred_param)){
+			throw ParserException("unexpected value: " + param);
+		}
 		break;
 
 		// collection predicate
 		// where (inside, outside, between) only accept 2 numbers
-	case Predicate_T::INSDIE:	case Predicate_T::OUTSIDE:	case Predicate_T::BETWEEN:
+	case Predicate_T::INSIDE:	case Predicate_T::OUTSIDE:	case Predicate_T::BETWEEN:
 		if (pred_params.size() != 2){
 			throw ParserException("expect two params: " + param);
 		}
@@ -624,6 +669,8 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 
 	actor.AddParam(pred_type);
 	actor.params.push_back(pred_param);
+
+	return pred_type;
 }
 
 void Parser::ParseInit(Element_T type)
@@ -819,7 +866,7 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type)
 
 void Parser::ParseHas(const vector<string>& params, Step_T type)
 {
-	//@ HasActor params: (Element_T type, [int pid, Predicate_T  p_type, vector values]...)
+	//@ HasActor params: (Element_T type, bool isInit, [int pid, Predicate_T  p_type, vector values]...)
 	//  i_type = o_type = VERTX/EDGE
 	if (params.size() < 1){
 		throw ParserException("expect at least one param for has");
@@ -840,8 +887,16 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 	string pred_param = "";
 	int key = 0;
 	uint8_t vtype = 0;
+	bool index_enabled = false;
+	Predicate_T pred_type = Predicate_T::ANY;
 	switch (type){
 	case HAS:
+		/*
+			key	   			= params[0]
+			index_enabled 	= enabled(key)
+			pred_type 		= parse(params[1])
+			pred_value		= parse(params[1])
+		*/
 		if (params.size() > 2){
 			throw ParserException("expect at most two params for has");
 		}
@@ -853,39 +908,101 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		if (params.size() == 2){
 			pred_param = params[1];
 		}
+		index_enabled = index_store_->IsIndexEnabled(element_type, key);
 		actor.AddParam(key);
-		ParsePredicate(pred_param, vtype, actor, false);
+		actor.AddParam(index_enabled);
+		pred_type = ParsePredicate(pred_param, vtype, actor, false);
 		break;
 	case HASVALUE:
+		/*
+			key	   			= -1
+			index_enabled 	= false -> No key, cannot use index
+			pred_type 		= EQ
+			pred_value		= parse(param)
+		*/
+		pred_type = Predicate_T::EQ;
 		for (string param : params){
 			actor.AddParam(-1);
-			actor.AddParam(Predicate_T::EQ);
+			actor.AddParam(false);
+			actor.AddParam(pred_type);
 			if (!actor.AddParam(param)){
 				throw ParserException("unexpected value: " + param);
 			}
 		}
 		break;
 	case HASNOT:
-		for (string param : params){
-			if (!ParseKeyId(param, false, key)){
-				throw ParserException("unexpected key in hasNot : " + param);
-			}
-			actor.AddParam(key);
-			actor.AddParam(Predicate_T::NONE);
-			actor.AddParam(-1);
+		/*
+			key	   			= params[0]
+			index_enabled 	= enabled(key)
+			pred_type 		= NONE
+			pred_value		= -1
+		*/
+		if (params.size() != 1){
+			throw ParserException("expect at most two params for has");
 		}
+
+		if (!ParseKeyId(params[0], false, key)){
+			throw ParserException("unexpected key in hasNot : " + params[0]);
+		}
+		index_enabled = index_store_->IsIndexEnabled(element_type, key);
+		pred_type = Predicate_T::NONE;
+		actor.AddParam(key);
+		actor.AddParam(index_enabled);
+		actor.AddParam(pred_type);
+		actor.AddParam(-1);
 		break;
 	case HASKEY:
+		/*
+			key	   			= params[0]
+			index_enabled 	= false -> haskey will generate too many vertices
+			pred_type 		= ANY
+			pred_value		= -1
+		*/
 		for (string param : params){
 			if (!ParseKeyId(param, false, key)){
 				throw ParserException("unexpected key in hasKey : " + param);
 			}
+
+			index_enabled = index_store_->IsIndexEnabled(element_type, key);
 			actor.AddParam(key);
-			actor.AddParam(Predicate_T::ANY);
+			actor.AddParam(index_enabled);
+			actor.AddParam(pred_type);
 			actor.AddParam(-1);
 		}
 		break;
 	default: throw ParserException("unexpected error");
+	}
+
+	// switch key with index to front
+	if(index_enabled){
+		auto itr = actors_.end() - 1;
+		bool is_init = actors_.size() == 1;
+		if(actors_.size() == 2 && actors_[0].actor_type == ACTOR_T::INIT){
+			itr = actors_.erase(actors_.begin());
+			itr->next_actor = 1;
+			is_init = true;
+		}
+		int num_of_tuple = (itr->params.size() - 1) / 4;
+		int priority = index_store_->PredicatePriority(pred_type, is_init);
+
+		for(int i = 0; i < num_of_tuple - 1; i++){
+			bool isIndexed = Tool::value_t2int(itr->params[i * 4 + 2]);
+
+			if(isIndexed){
+				Predicate_T type = (Predicate_T)Tool::value_t2int(itr->params[i * 4 + 3]);
+				if(priority < index_store_->PredicatePriority(type, is_init)){
+					// set flag for rotating
+					isIndexed = false;
+				}
+			}
+
+			if(!isIndexed){
+				auto itr_first = itr->params.begin() + 1 + 4 * i;	// start of tuple i
+				auto itr_rotate = itr->params.begin() + 1 + 4 * (num_of_tuple - 1); // start of last tuple
+				rotate(itr_first, itr_rotate, itr->params.end());
+				break;
+			}
+		}
 	}
 }
 
@@ -904,7 +1021,14 @@ void Parser::ParseHasLabel(const vector<string>& params)
 
 	if (!CheckLastActor(ACTOR_T::HASLABEL)){
 		Actor_Object tmp(ACTOR_T::HASLABEL);
+		bool index_enabled = index_store_->IsIndexEnabled(element_type, 0);
 		tmp.AddParam(element_type);
+		tmp.AddParam(index_enabled);
+
+		// set haslabel as init actor
+		if(index_enabled && actors_.size() == 1 && actors_[0].actor_type == ACTOR_T::INIT){
+			actors_.clear();
+		}
 		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
@@ -952,7 +1076,7 @@ void Parser::ParseKey(const vector<string>& params)
 
 	Element_T element_type;
 	if (!IsElement(element_type)){
-		throw ParserException("expect vertex/edge input for hasLabel");
+		throw ParserException("expect vertex/edge input for key");
 	}
 	actor.AddParam(element_type);
 
@@ -971,7 +1095,7 @@ void Parser::ParseLabel(const vector<string>& params)
 
 	Element_T element_type;
 	if (!IsElement(element_type)){
-		throw ParserException("expect vertex/edge input for hasLabel");
+		throw ParserException("expect vertex/edge input for label");
 	}
 	actor.AddParam(element_type);
 
@@ -1058,7 +1182,7 @@ void Parser::ParseProperties(const vector<string>& params)
 
 	Element_T element_type;
 	if (!IsElement(element_type)){
-		throw ParserException("expect vertex/edge input for hasLabel");
+		throw ParserException("expect vertex/edge input for properties");
 	}
 	actor.AddParam(element_type);
 
@@ -1234,7 +1358,7 @@ void Parser::ParseValues(const vector<string>& params)
 
 	Element_T element_type;
 	if (!IsElement(element_type)){
-		throw ParserException("expect vertex/edge input for hasLabel");
+		throw ParserException("expect vertex/edge input for values");
 	}
 	actor.AddParam(element_type);
 
@@ -1357,7 +1481,7 @@ const map<string, Predicate_T> Parser::str2pred = {
 	{ "lte", Predicate_T::LTE },
 	{ "gt", Predicate_T::GT },
 	{ "gte", Predicate_T::GTE },
-	{ "inside", Predicate_T::INSDIE },
+	{ "inside", Predicate_T::INSIDE },
 	{ "outside", Predicate_T::OUTSIDE },
 	{ "between", Predicate_T::BETWEEN },
 	{ "within", Predicate_T::WITHIN },

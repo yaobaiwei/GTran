@@ -9,10 +9,11 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "utils/tool.hpp"
-#include "base/type.hpp"
-#include "utils/hdfs_core.hpp"
 #include "actor/actor_object.hpp"
+#include "base/type.hpp"
+#include "core/index_store.hpp"
+#include "utils/tool.hpp"
+#include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
 using namespace std;
 
@@ -61,6 +62,7 @@ private:
 	map<uint32_t, uint8_t> epk2eptype;
 
 	Config * config_;
+	IndexStore * index_store_;
 
 	// IO type checking
 	bool IsNumber();
@@ -86,6 +88,9 @@ private:
 
 	void AppendActor(Actor_Object& actor);
 
+	// Parse build index
+	void ParseIndex(const string& param);
+
 	// Parse query or sub-query
 	void DoParse(const string& query);
 
@@ -105,7 +110,7 @@ private:
 	void ParseSub(const vector<string>& params, int current_step, bool checkType);
 
 	// Parse predicate
-	void ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
+	Predicate_T ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
 
 	// Parse actors
 	void ParseInit(Element_T type);
@@ -135,7 +140,7 @@ public:
 	// Parse query string
 	bool Parse(const string& query, vector<Actor_Object>& vec, string& error_msg);
 
-	Parser(Config *config): config_(config){};
+	Parser(Config *config, IndexStore* index_store): config_(config), index_store_(index_store){};
 
 	// load property and label mapping
 	void LoadMapping();
