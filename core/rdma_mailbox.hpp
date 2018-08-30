@@ -34,7 +34,7 @@ public:
 
     virtual ~RdmaMailbox() {}
 
-    void Init(vector<Node> & nodes);
+    void Init(vector<Node> & nodes) override;
 
     // When sent to the same recv buffer, the consistency relies on
     // the lock in the id_mapper

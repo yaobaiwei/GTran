@@ -21,6 +21,7 @@
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
 #include "core/rdma_mailbox.hpp"
+#include "core/tcp_mailbox.hpp"
 #include "core/actors_adapter.hpp"
 #include "core/progress_monitor.hpp"
 #include "core/parser.hpp"
@@ -93,7 +94,7 @@ public:
 		}
 	}
 
-	void SendQueryMsg(RdmaMailbox * mailbox){
+	void SendQueryMsg(AbstractMailbox * mailbox){
 		while(1){
 			Pack pkg;
 			queue_.WaitAndPop(pkg);
@@ -121,11 +122,14 @@ public:
 		Buffer * buf = new Buffer(my_node_, config_);
 		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
 
-		//init the rdma mailbox
-		RdmaMailbox * mailbox = new RdmaMailbox(my_node_, config_, buf);
+		AbstractMailbox * mailbox;
+		if (config_->global_use_rdma)
+			mailbox = new RdmaMailbox(my_node_, config_, buf);
+		else 
+			mailbox = new TCPMailbox(my_node_, config_);
 		mailbox->Init(workers_);
 
-		cout << "DONE -> RdmaMailbox->Init()" << endl;
+		cout << "DONE -> Mailbox->Init()" << endl;
 
 		DataStore * datastore = new DataStore(my_node_, config_, id_mapper, buf);
 		datastore->Init();
