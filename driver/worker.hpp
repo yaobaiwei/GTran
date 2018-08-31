@@ -63,6 +63,8 @@ public:
 		{
 			zmq::message_t request;
 			receiver_->recv(&request);
+			qid_t qid(my_node_.get_local_rank(), ++num_query);
+			timer_map[qid.value()] = timer::get_usec();
 
 			char* buf = new char[request.size()];
 			memcpy(buf, (char *)request.data(), request.size());
@@ -75,7 +77,6 @@ public:
 			um >> query;
 			cout << "Worker" << my_node_.get_world_rank() << " gets one QUERY: " << query << endl;
 
-			qid_t qid(my_node_.get_local_rank(), ++num_query);
 			rc_->Register(qid.value(), client_host);
 
 			vector<Actor_Object> actors;
@@ -171,9 +172,12 @@ public:
 			reply re;
 			rc_->Pop(re);
 
+			uint64_t time_ = timer::get_usec() - timer_map[re.qid];
+
 			ibinstream m;
-			m << re.first; //client hostname
-			m << re.second; //query results
+			m << re.hostname; //client hostname
+			m << re.results; //query results
+			m << time_;   //execution time
 
 			zmq::message_t msg(m.size());
 			memcpy((void *)msg.data(), m.get_buf(), m.size());
@@ -181,9 +185,9 @@ public:
 			zmq::socket_t sender(context_, ZMQ_PUSH);
 			char addr[64];
 			//port calculation is based on our self-defined protocol
-			sprintf(addr, "tcp://%s:%d", re.first.c_str(), workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
+			sprintf(addr, "tcp://%s:%d", re.hostname.c_str(), workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
 			sender.connect(addr);
-			cout << "Worker" << my_node_.get_world_rank() << " sends the results to Client " << re.first << endl;
+			cout << "Worker" << my_node_.get_world_rank() << " sends the results to Client " << re.hostname << endl;
 			sender.send(msg);
 
 			monitor->IncreaseCounter(1);
@@ -205,6 +209,8 @@ private:
 	ThreadSafeQueue<Pack> queue_;
 	Result_Collector * rc_;
 	uint32_t num_query;
+
+	map<uint64_t, uint64_t> timer_map;
 
 	zmq::context_t context_;
 	zmq::socket_t * receiver_;

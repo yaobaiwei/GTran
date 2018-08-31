@@ -23,7 +23,11 @@
 using __gnu_cxx::hash_map;
 using namespace std;
 
-typedef pair<string, vector<value_t>> reply;
+struct reply{
+	string hostname;
+	uint64_t qid;
+	vector<value_t> results;
+};
 
 class Result_Collector
 {
@@ -44,7 +48,10 @@ public:
 		}
 
 		itemItr re_pos = it->second;
-		reply re = make_pair(move(*re_pos), move(data));
+		reply re;
+		re.hostname = move(*re_pos);
+		re.results = move(data);
+		re.qid = qid;
 		reply_list_.erase(re_pos);
 		mp_.erase(it);
 

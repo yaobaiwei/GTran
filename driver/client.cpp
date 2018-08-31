@@ -48,9 +48,11 @@ string Client::CommitQuery(string query){
 
     string result;
 	string hname;
+	uint64_t time_;
     vector<value_t> values;
     um >> hname;
     um >> values;
+	um >> time_;
 
 	result = "";
 	if (values.size() == 0) {
@@ -63,6 +65,16 @@ string Client::CommitQuery(string query){
 		}
 	}
 
+	result += "[Timer] ";
+	if (time_ / 1000 == 0)
+        result += to_string(time_) + " us for ProcessQuery";
+    else{
+		stringstream ss;
+		ss << std::fixed << std::setprecision(2) << (time_ / 1000.0);
+		result += ss.str() + " ms for ProcessQuery";
+	}
+
+
     return result;
 }
 
@@ -72,17 +84,11 @@ void Client::run_query(string query, string& result, bool isBatch) {
 
     RequestWorker();
 
-    uint64_t touchWorker_t = timer::get_usec();
     if (isBatch) {
         result += CommitQuery(query) + "\n";
     } else {
         result = CommitQuery(query);
     }
-    uint64_t endWorker_t = timer::get_usec();
-    if ((endWorker_t - touchWorker_t) / 1000 == 0)
-        cout << "[Timer] " << (endWorker_t - touchWorker_t) << " us for CommitQuery" << endl;
-    else
-        cout << "[Timer] " << (endWorker_t - touchWorker_t) / 1000 << " ms for CommitQuery" << endl;
 }
 
 void Client::print_help()
