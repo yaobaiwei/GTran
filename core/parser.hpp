@@ -110,7 +110,7 @@ private:
 	void ParseSub(const vector<string>& params, int current_step, bool checkType);
 
 	// Parse predicate
-	Predicate_T ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
+	void ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
 
 	// Parse actors
 	void ParseInit(Element_T type);

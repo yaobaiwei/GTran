@@ -22,7 +22,7 @@
 
 class HasLabelActor : public AbstractActor {
 public:
-	HasLabelActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), index_store_(index_store), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HASLABEL) {}
+	HasLabelActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HASLABEL) {}
 
 	// HasLabel:
 	// 		Pass if any label_key matches
@@ -35,30 +35,23 @@ public:
 		Actor_Object actor_obj = actor_objs[m.step];
 
 		// Get Params
-		assert(actor_obj.params.size() > 2);
+		assert(actor_obj.params.size() > 1);
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-		bool is_indexed = Tool::value_t2int(actor_obj.params.at(1));
 
-		if(is_indexed){
-			bool is_init = m.msg_type == MSG_T::INIT;
-			vector<value_t> lid_list(actor_obj.params.begin() + 2, actor_obj.params.end());
-			index_store_->GetElementByLabel(inType, lid_list, is_init, msg.data);
-		}else{
-			vector<int> lid_list;
-			for (int pos = 2; pos < actor_obj.params.size(); pos++) {
-				int lid = Tool::value_t2int(actor_obj.params.at(pos));
-				lid_list.push_back(lid);
-			}
-			switch(inType) {
-				case Element_T::VERTEX:
-					VertexHasLabel(tid, lid_list, msg.data);
-					break;
-				case Element_T::EDGE:
-					EdgeHasLabel(tid, lid_list, msg.data);
-					break;
-				default:
-					cout << "Wrong in type"  << endl;
-			}
+		vector<int> lid_list;
+		for (int pos = 1; pos < actor_obj.params.size(); pos++) {
+			int lid = Tool::value_t2int(actor_obj.params.at(pos));
+			lid_list.push_back(lid);
+		}
+		switch(inType) {
+			case Element_T::VERTEX:
+				VertexHasLabel(tid, lid_list, msg.data);
+				break;
+			case Element_T::EDGE:
+				EdgeHasLabel(tid, lid_list, msg.data);
+				break;
+			default:
+				cout << "Wrong in type"  << endl;
 		}
 		// Create Message
 		vector<Message> msg_vec;
@@ -80,8 +73,6 @@ private:
 
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
-
-	IndexStore * index_store_;
 
 	// Cache
 	ActorCache cache;

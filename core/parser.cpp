@@ -356,18 +356,19 @@ int Parser::GetStepPriority(Step_T type){
 	case Step_T::HASNOT:
 	case Step_T::HASKEY:
 	case Step_T::HASVALUE:
-	case Step_T::HASLABEL:
 		return 1;
+	case Step_T::HASLABEL:
+		return 2;
 	case Step_T::AND:
 	case Step_T::OR:
 	case Step_T::NOT:
-		return 2;
-	case Step_T::DEDUP:
 		return 3;
-	case Step_T::AS:
+	case Step_T::DEDUP:
 		return 4;
-	case Step_T::ORDER:
+	case Step_T::AS:
 		return 5;
+	case Step_T::ORDER:
+		return 6;
 	default:
 		return -1;
 	}
@@ -618,7 +619,7 @@ void Parser::ParseSub(const vector<string>& params, int current, bool filterBran
 	first_in_sub_ = m_first_in_sub;
 }
 
-Predicate_T Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey)
+void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey)
 {
 	Predicate_T pred_type;
 	value_t pred_param;
@@ -669,8 +670,6 @@ Predicate_T Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& ac
 
 	actor.AddParam(pred_type);
 	actor.params.push_back(pred_param);
-
-	return pred_type;
 }
 
 void Parser::ParseInit(Element_T type)
@@ -887,13 +886,11 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 	string pred_param = "";
 	int key = 0;
 	uint8_t vtype = 0;
-	bool index_enabled = false;
-	Predicate_T pred_type = Predicate_T::ANY;
+
 	switch (type){
 	case HAS:
 		/*
 			key	   			= params[0]
-			index_enabled 	= enabled(key)
 			pred_type 		= parse(params[1])
 			pred_value		= parse(params[1])
 		*/
@@ -908,23 +905,19 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		if (params.size() == 2){
 			pred_param = params[1];
 		}
-		index_enabled = index_store_->IsIndexEnabled(element_type, key);
 		actor.AddParam(key);
-		actor.AddParam(index_enabled);
-		pred_type = ParsePredicate(pred_param, vtype, actor, false);
+		ParsePredicate(pred_param, vtype, actor, false);
 		break;
 	case HASVALUE:
 		/*
 			key	   			= -1
-			index_enabled 	= false -> No key, cannot use index
 			pred_type 		= EQ
 			pred_value		= parse(param)
 		*/
-		pred_type = Predicate_T::EQ;
+		key = -1;
 		for (string param : params){
-			actor.AddParam(-1);
-			actor.AddParam(false);
-			actor.AddParam(pred_type);
+			actor.AddParam(key);
+			actor.AddParam(Predicate_T::EQ);
 			if (!actor.AddParam(param)){
 				throw ParserException("unexpected value: " + param);
 			}
@@ -933,74 +926,51 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 	case HASNOT:
 		/*
 			key	   			= params[0]
-			index_enabled 	= enabled(key)
 			pred_type 		= NONE
 			pred_value		= -1
 		*/
 		if (params.size() != 1){
-			throw ParserException("expect at most two params for has");
+			throw ParserException("expect at most two params for hasNot");
 		}
 
 		if (!ParseKeyId(params[0], false, key)){
 			throw ParserException("unexpected key in hasNot : " + params[0]);
 		}
-		index_enabled = index_store_->IsIndexEnabled(element_type, key);
-		pred_type = Predicate_T::NONE;
 		actor.AddParam(key);
-		actor.AddParam(index_enabled);
-		actor.AddParam(pred_type);
+		actor.AddParam(Predicate_T::NONE);
 		actor.AddParam(-1);
 		break;
 	case HASKEY:
 		/*
 			key	   			= params[0]
-			index_enabled 	= false -> haskey will generate too many vertices
 			pred_type 		= ANY
 			pred_value		= -1
 		*/
-		for (string param : params){
-			if (!ParseKeyId(param, false, key)){
-				throw ParserException("unexpected key in hasKey : " + param);
-			}
-
-			index_enabled = index_store_->IsIndexEnabled(element_type, key);
-			actor.AddParam(key);
-			actor.AddParam(index_enabled);
-			actor.AddParam(pred_type);
-			actor.AddParam(-1);
+		if (params.size() != 1){
+			throw ParserException("expect at most two params for hasKey");
 		}
+		if (!ParseKeyId(params[0], false, key)){
+			throw ParserException("unexpected key in hasKey : " + params[0]);
+		}
+
+		actor.AddParam(key);
+		actor.AddParam(Predicate_T::ANY);
+		actor.AddParam(-1);
 		break;
 	default: throw ParserException("unexpected error");
 	}
 
-	// switch key with index to front
-	if(index_enabled){
-		auto itr = actors_.end() - 1;
-		bool is_init = actors_.size() == 1;
-		if(actors_.size() == 2 && actors_[0].actor_type == ACTOR_T::INIT){
-			itr = actors_.erase(actors_.begin());
-			itr->next_actor = 1;
-			is_init = true;
-		}
-		int num_of_tuple = (itr->params.size() - 1) / 4;
-		int priority = index_store_->PredicatePriority(pred_type, is_init);
+	// When has actor is after init actor
+	if(actors_.size() == 2 || (actors_.size() == 3 && actors_[1].actor_type == ACTOR_T::HASLABEL)){
+		// if index_enabled
+		if(key != -1 && index_store_->IsIndexEnabled(element_type, key)){
+			Actor_Object &init_actor = actors_[0];
+			init_actor.params.insert(init_actor.params.end(), make_move_iterator(actor.params.end() - 3), make_move_iterator(actor.params.end()));
+			actor.params.resize(actor.params.size() - 3);
 
-		for(int i = 0; i < num_of_tuple - 1; i++){
-			bool isIndexed = Tool::value_t2int(itr->params[i * 4 + 2]);
-
-			if(isIndexed){
-				Predicate_T type = (Predicate_T)Tool::value_t2int(itr->params[i * 4 + 3]);
-				if(priority < index_store_->PredicatePriority(type, is_init)){
-					// set flag for rotating
-					isIndexed = false;
-				}
-			}
-
-			if(!isIndexed){
-				auto itr_first = itr->params.begin() + 1 + 4 * i;	// start of tuple i
-				auto itr_rotate = itr->params.begin() + 1 + 4 * (num_of_tuple - 1); // start of last tuple
-				rotate(itr_first, itr_rotate, itr->params.end());
-				break;
+			// no predicate in has actor params
+			if(actor.params.size() == 1){
+				actors_.erase(actors_.end() - 1);
 			}
 		}
 	}
@@ -1021,14 +991,7 @@ void Parser::ParseHasLabel(const vector<string>& params)
 
 	if (!CheckLastActor(ACTOR_T::HASLABEL)){
 		Actor_Object tmp(ACTOR_T::HASLABEL);
-		bool index_enabled = index_store_->IsIndexEnabled(element_type, 0);
 		tmp.AddParam(element_type);
-		tmp.AddParam(index_enabled);
-
-		// set haslabel as init actor
-		if(index_enabled && actors_.size() == 1 && actors_[0].actor_type == ACTOR_T::INIT){
-			actors_.clear();
-		}
 		AppendActor(tmp);
 	}
 	Actor_Object &actor = actors_[actors_.size() - 1];
@@ -1039,6 +1002,23 @@ void Parser::ParseHasLabel(const vector<string>& params)
 			throw ParserException("unexpected label in hasLabel : " + param);
 		}
 		actor.AddParam(lid);
+	}
+
+	// When hasLabel actor is after init actor
+	if(actors_.size() == 2 || (actors_.size() == 3 && actors_[1].actor_type == ACTOR_T::HAS)){
+		// if index_enabled
+		if(index_store_->IsIndexEnabled(element_type, 0)){
+			actor.params.erase(actor.params.begin());
+			value_t v;
+			Tool::vec2value_t(actor.params, v);
+			actors_.erase(actors_.end() - 1);
+
+			// add params to init actor
+			Actor_Object &init_actor = actors_[0];
+			init_actor.AddParam(0);
+			init_actor.AddParam(Predicate_T::WITHIN);
+			init_actor.params.push_back(v);
+		}
 	}
 }
 

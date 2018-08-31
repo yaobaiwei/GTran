@@ -265,6 +265,27 @@ public:
 		return true;
 	}
 
+	static bool vec2value_t(const vector<value_t>& vec, value_t & v)
+	{
+		if (vec.size() == 0)
+		{
+			return false;
+		}
+		int type = vec[0].type;
+		for (auto& val : vec){
+			if(val.type != type){
+				return false;
+			}
+			v.content.insert(v.content.begin(), val.content.begin(), val.content.end());
+			v.content.push_back('\t');
+		}
+
+		// remove last '\t'
+		v.content.pop_back();
+		v.type = 16 | type;
+		return true;
+	}
+
 	static void kvmap2value_t(const map<string, string>& m, vector<value_t> & vec){
 		for(auto& item : m){
 			value_t v;

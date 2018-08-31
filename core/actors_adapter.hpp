@@ -60,9 +60,9 @@ public:
 		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, node_.get_local_size(), rc_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, index_store_, config_->global_enable_caching));
-		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, index_store_, config_->global_enable_caching));
-		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, node_.get_local_size(), config_->max_data_size));
+		actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, config_->global_enable_caching));
+		actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, config_->global_enable_caching));
+		actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, index_store_, node_.get_local_size(), config_->max_data_size));
 		actors_[ACTOR_T::INDEX] = unique_ptr<AbstractActor>(new IndexActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, index_store_));
 		actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));

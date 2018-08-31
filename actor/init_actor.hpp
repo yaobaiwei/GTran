@@ -9,8 +9,10 @@
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
+#include "core/index_store.hpp"
 #include "base/node.hpp"
 #include "base/type.hpp"
+#include "base/predicate.hpp"
 #include "storage/layout.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
@@ -20,55 +22,17 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, int num_nodes, int max_data_size) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
+    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes, int max_data_size) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
 	}
 
     virtual ~InitActor(){}
 
     void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
-		if(! is_ready_){
-			if(thread_mutex_.try_lock()){
-				InitData();
-				is_ready_ = true;
-				thread_mutex_.unlock();
-			}else{
-				// wait until InitMsg finished
-				while(! thread_mutex_.try_lock());
-				thread_mutex_.unlock();
-			}
+		if(actor_objs[msg.meta.step].params.size() == 1){
+			InitWithoutIndex(tid, actor_objs, msg);
+		}else{
+			InitWithIndex(tid, actor_objs, msg);
 		}
-        Meta m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
-
-		// Get init element type
-        Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
-		vector<AbstractMailbox::mailbox_data_t>* data_vec;
-
-        if (inType == Element_T::VERTEX) {
-            data_vec = &vtx_data;
-        } else if (inType == Element_T::EDGE) {
-            data_vec = &edge_data;
-        }
-
-		// update meta
-		m.step ++;
-		m.msg_type = MSG_T::SPAWN;
-		if(actor_objs[m.step].IsBarrier()){
-			m.msg_type = MSG_T::BARRIER;
-			m.recver_nid = m.parent_nid;
-		}
-
-		thread_mutex_.lock();
-        // Send Message
-        for (auto& data : *data_vec) {
-			m.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step].actor_type);
-			update_route(data.stream, m);
-			data.dst_nid = m.recver_nid;
-			data.dst_tid = m.recver_tid;
-
-            mailbox_->Send(tid, data);
-        }
-		thread_mutex_.unlock();
     }
 
 private:
@@ -83,6 +47,9 @@ private:
 
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
+
+	// Pointer of index store
+	IndexStore * index_store_;
 
 	// Ensure only one thread ever runs the actor
 	std::mutex thread_mutex_;
@@ -175,6 +142,88 @@ private:
 			edge_data.push_back(move(data));
 		}
     }
+
+	void InitWithIndex(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+        Meta m = msg.meta;
+        Actor_Object& actor_obj = actor_objs[m.step];
+
+		// store all predicate
+		vector<pair<int, PredicateValue>> pred_chain;
+
+		// Get Params
+		assert(actor_obj.params.size() > 1 && (actor_obj.params.size() - 1) % 3 == 0); // make sure input format
+		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
+		int numParamsGroup = (actor_obj.params.size() - 1) / 3; // number of groups of params
+
+		// Create predicate chain for this query
+		for (int i = 0; i < numParamsGroup; i++) {
+			int pos = i * 3 + 1;
+			// Get predicate params
+			int pid = Tool::value_t2int(actor_obj.params.at(pos));
+			Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 1));
+			vector<value_t> pred_params;
+			Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
+			pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
+		}
+
+		msg.data.clear();
+		msg.data.emplace_back(history_t(), vector<value_t>());
+		index_store_->GetElements(inType, pred_chain, msg.data[0].second);
+
+		vector<Message> vec;
+		msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, vec);
+
+        // Send Message
+        for (auto& msg_ : vec) {
+            mailbox_->Send(tid, msg_);
+        }
+	}
+
+	void InitWithoutIndex(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+		if(! is_ready_){
+			if(thread_mutex_.try_lock()){
+				InitData();
+				is_ready_ = true;
+				thread_mutex_.unlock();
+			}else{
+				// wait until InitMsg finished
+				while(! thread_mutex_.try_lock());
+				thread_mutex_.unlock();
+			}
+		}
+        Meta m = msg.meta;
+        Actor_Object& actor_obj = actor_objs[m.step];
+
+		// Get init element type
+        Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
+		vector<AbstractMailbox::mailbox_data_t>* data_vec;
+
+        if (inType == Element_T::VERTEX) {
+            data_vec = &vtx_data;
+        } else if (inType == Element_T::EDGE) {
+            data_vec = &edge_data;
+        }
+
+		// update meta
+		m.step ++;
+		m.msg_type = MSG_T::SPAWN;
+		if(actor_objs[m.step].IsBarrier()){
+			m.msg_type = MSG_T::BARRIER;
+			m.recver_nid = m.parent_nid;
+		}
+
+		thread_mutex_.lock();
+        // Send Message
+        for (auto& data : *data_vec) {
+			m.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step].actor_type);
+			update_route(data.stream, m);
+			data.dst_nid = m.recver_nid;
+			data.dst_tid = m.recver_tid;
+
+            mailbox_->Send(tid, data);
+        }
+		thread_mutex_.unlock();
+	}
 };
 
 #endif /* INIT_ACTOR_HPP_ */

@@ -80,196 +80,26 @@ public:
 		return false;
 	}
 
-	//	type: 		VERTEX / EDGE
-	//	labels:		labels to extract
-	//	isInit:		If isInit, return all results from index map
-	//				Else do intersection between input and result
-	// 	vec:		If isInit, vec is Empty
-	//				Else vec contains vtx/edge id list
-	bool GetElementByLabel(Element_T type, vector<value_t>& labels, bool& isInit, vector<pair<history_t, vector<value_t>>>& vec){
-		if(IsIndexEnabled(type, 0)){
-			map<value_t, set<value_t>>* m;
+	void GetElements(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data){
+		bool is_first = true;
+		bool need_sort = pred_chain.size() != 1;
+		for(auto& pred_pair : pred_chain){
+			vector<value_t> vec;
+			// get sorted vector of all elements satisfying current predicate
+			get_by_predicate(type, pred_pair.first, pred_pair.second, need_sort, vec);
 
-			// get index map according to element type
-			if(type == Element_T::VERTEX){
-				m = &vtx_index_store[0];
+			if(is_first){
+				data.swap(vec);
+				is_first = false;
 			}else{
-				m = &edge_index_store[0];
+				vector<value_t> temp;
+				// do intersection with previous result
+				// temp is sorted after intersection
+				set_intersection(make_move_iterator(data.begin()), make_move_iterator(data.end()),
+								make_move_iterator(vec.begin()), make_move_iterator(vec.end()),
+								back_inserter(temp));
+				data.swap(temp);
 			}
-
-			// get all elements with provided labels
-			vector<value_t> temp;
-			for(auto& item : labels){
-				auto itr = m->find(item);
-				if(itr != m->end()){
-					temp.insert(temp.end(), itr->second.begin(), itr->second.end());
-				}
-			}
-
-			if(isInit){
-				vec.clear();
-				vec.emplace_back(history_t(), move(temp));
-				isInit = false;
-			}else{
-				sort(temp.begin(),temp.end());
-				for(auto& data_pair : vec){
-					sort(data_pair.second.begin(), data_pair.second.end());
-					vector<value_t> temp_store;
-					// TODO: should not use intersection as it will do dedup
-					set_intersection(make_move_iterator(data_pair.second.begin()), make_move_iterator(data_pair.second.end()),
-									make_move_iterator(temp.begin()), make_move_iterator(temp.end()),
-									std::back_inserter(temp_store));
-
-					data_pair.second.swap(temp_store);
-				}
-			}
-
-			return true;
-		}
-		return false;
-	}
-
-	//	type: 			VERTEX / EDGE
-	//	property_key:	key
-	// 	pred:			PredicateValue, defines behaviour of searching index map
-	//	isInit:			If isInit, return all results from index map
-	//					Else do intersection between input and result
-	// 	vec:			If isInit, vec is Empty
-	//					Else vec contains vtx/edge id list
-	bool GetElementByProperty(Element_T type, int property_key, PredicateValue& pred, bool& isInit, vector<pair<history_t, vector<value_t>>>& vec){
-		if(IsIndexEnabled(type, property_key)){
-			map<value_t, set<value_t>>* m;
-			set<value_t>* s;
-
-			// get index map and elements without provided key according to element type
-			if(type == Element_T::VERTEX){
-				m = &vtx_index_store[property_key];
-				s = &vtx_index_store_no_key[property_key];
-			}else{
-				m = &edge_index_store[property_key];
-				s = &edge_index_store_no_key[property_key];
-			}
-
-			Predicate_T real_type = pred.pred_type;
-			if(!isInit){
-				// For follwing predicate, switch to opposite type and do difference
-				switch(real_type){
-				case Predicate_T::ANY:
-					pred.pred_type = Predicate_T::NONE;
-				case Predicate_T::NEQ:
-					pred.pred_type = Predicate_T::EQ;
-				case Predicate_T::OUTSIDE:
-					pred.pred_type = Predicate_T::BETWEEN;
-				case Predicate_T::WITHOUT:
-					pred.pred_type = Predicate_T::WITHIN;
-				}
-			}
-
-			vector<value_t> temp;
-			map<value_t, set<value_t>>::iterator itr;
-			switch (pred.pred_type) {
-			case Predicate_T::EQ:
-				// Get elements with single value
-				itr = m->find(pred.values[0]);
-				if(itr != m->end()){
-					temp.assign(itr->second.begin(), itr->second.end());
-				}
-				break;
-			case Predicate_T::WITHIN:
-				// Get elements with given values
-				for(auto& val : pred.values){
-					itr = m->find(val);
-					if(itr != m->end()){
-						temp.insert(temp.end(), itr->second.begin(), itr->second.end());
-					}
-				}
-				break;
-			case Predicate_T::NONE:
-				// Get elements from no_key_store
-				temp.assign(s->begin(), s->end());
-				break;
-			case Predicate_T::ANY:
-			case Predicate_T::NEQ:
-			case Predicate_T::WITHOUT:
-				// Search though whole index map to find matched values
-				for(auto& item : *m){
-					if(Evaluate(pred, &item.first)){
-						temp.insert(temp.end(), item.second.begin(), item.second.end());
-					}
-				}
-				break;
-			case Predicate_T::OUTSIDE:
-				// find less than
-				pred.pred_type = Predicate_T::LT;
-				build_range(m, pred, temp);
-				// find greater than
-				pred.pred_type = Predicate_T::GT;
-				swap(pred.values[0], pred.values[1]);
-				build_range(m, pred, temp);
-				break;
-			default:
-				// LT, LTE, GT, GTE, BETWEEN, INSIDE
-				build_range(m, pred, temp);
-				break;
-			}
-
-			if(isInit){
-				vec.clear();
-				vec.emplace_back(history_t(), move(temp));
-				isInit = false;
-			}else{
-				sort(temp.begin(),temp.end());
-				for(auto& data_pair : vec){
-					sort(data_pair.second.begin(), data_pair.second.end());
-					vector<value_t> temp_store;
-					if(pred.pred_type == real_type){
-						// TODO: should not use intersection as it will do dedup
-						set_intersection(make_move_iterator(data_pair.second.begin()), make_move_iterator(data_pair.second.end()),
-										make_move_iterator(temp.begin()), make_move_iterator(temp.end()),
-										std::back_inserter(temp_store));
-					}else{
-						set_difference(make_move_iterator(data_pair.second.begin()), make_move_iterator(data_pair.second.end()),
-										make_move_iterator(temp.begin()), make_move_iterator(temp.end()),
-										std::back_inserter(temp_store));
-					}
-					data_pair.second.swap(temp_store);
-				}
-			}
-			return true;
-		}
-		return false;
-	}
-
-	// Get predicate priority for parser re-ordering
-	int PredicatePriority(Predicate_T type, bool isInit){
-		switch(type){
-		// single known value
-		case Predicate_T::EQ:
-			return 1;
-		case Predicate_T::NEQ:
-			return isInit ? 9 : 1;
-		// mulitple known values
-		case Predicate_T::WITHIN:
-			return 2;
-		case Predicate_T::WITHOUT:
-			return isInit ? 8 : 2;
-		// single set
-		case Predicate_T::NONE:
-			return 3;
-		case Predicate_T::ANY:
-			return isInit ? 7 : 3;
-		// bounded range
-		case Predicate_T::INSIDE:
-		case Predicate_T::BETWEEN:
-			return 4;
-		case Predicate_T::OUTSIDE:
-			return isInit ? 6 : 4;
-		// unbounded range
-		case Predicate_T::LT:
-		case Predicate_T::LTE:
-		case Predicate_T::GT:
-		case Predicate_T::GTE:
-			return 5;
 		}
 	}
 
@@ -287,7 +117,84 @@ private:
 	unordered_map<int, set<value_t>> vtx_index_store_no_key;
 	unordered_map<int, set<value_t>> edge_index_store_no_key;
 
-	void build_range(map<value_t, set<value_t>>* m, PredicateValue& pred, vector<value_t>& vec){
+	void get_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec){
+		map<value_t, set<value_t>>* m;
+		set<value_t>* s;
+
+		if(type == Element_T::VERTEX){
+			m = &vtx_index_store[pid];
+			s = &vtx_index_store_no_key[pid];
+		}else{
+			m = &edge_index_store[pid];
+			s = &edge_index_store_no_key[pid];
+		}
+
+		map<value_t, set<value_t>>::iterator itr;
+		int num_set = 0;
+
+		switch (pred.pred_type) {
+		case Predicate_T::ANY:
+			// Search though whole index map
+			for(auto& item : *m){
+				vec.insert(vec.end(), item.second.begin(), item.second.end());
+				num_set++;
+			}
+			break;
+		case Predicate_T::NEQ:
+		case Predicate_T::WITHOUT:
+			// Search though whole index map to find matched values
+			for(auto& item : *m){
+				if(Evaluate(pred, &item.first)){
+					vec.insert(vec.end(), item.second.begin(), item.second.end());
+					num_set++;
+				}
+			}
+			break;
+		case Predicate_T::EQ:
+			// Get elements with single value
+			itr = m->find(pred.values[0]);
+			if(itr != m->end()){
+				vec.assign(itr->second.begin(), itr->second.end());
+				num_set ++;
+			}
+			break;
+		case Predicate_T::WITHIN:
+			// Get elements with given values
+			for(auto& val : pred.values){
+				itr = m->find(val);
+				if(itr != m->end()){
+					vec.insert(vec.end(), itr->second.begin(), itr->second.end());
+					num_set++;
+				}
+			}
+			break;
+		case Predicate_T::NONE:
+			// Get elements from no_key_store
+			vec.assign(s->begin(), s->end());
+			num_set++;
+			break;
+
+		case Predicate_T::OUTSIDE:
+			// find less than
+			pred.pred_type = Predicate_T::LT;
+			build_range(m, pred, vec, num_set);
+			// find greater than
+			pred.pred_type = Predicate_T::GT;
+			swap(pred.values[0], pred.values[1]);
+			build_range(m, pred, vec, num_set);
+			break;
+		default:
+			// LT, LTE, GT, GTE, BETWEEN, INSIDE
+			build_range(m, pred, vec, num_set);
+			break;
+		}
+
+		if(need_sort && num_set > 1){
+			sort(vec.begin(),vec.end());
+		}
+	}
+
+	void build_range(map<value_t, set<value_t>>* m, PredicateValue& pred, vector<value_t>& vec, int& num_set){
 		map<value_t, set<value_t>>::iterator itr_low = m->begin();
 		map<value_t, set<value_t>>::iterator itr_high = m->end();
 
@@ -335,6 +242,7 @@ private:
 
 		for(auto itr = itr_low; itr != itr_high; itr ++){
 			vec.insert(vec.end(), itr->second.begin(), itr->second.end());
+			num_set ++;
 		}
 	}
 };
