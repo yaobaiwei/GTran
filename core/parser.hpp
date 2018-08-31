@@ -91,6 +91,9 @@ private:
 	// Parse build index
 	void ParseIndex(const string& param);
 
+	// Parse set config
+	void ParseSetConfig(const string& param);
+
 	// Parse query or sub-query
 	void DoParse(const string& query);
 

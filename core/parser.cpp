@@ -107,6 +107,7 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error
 {
 	Clear();
 	bool build_index = false;
+	bool set_config = false;
 	string error_prefix = "Parsing Error: ";
 	// check prefix
 	if (query.find("g.V().") == 0){
@@ -120,14 +121,21 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error
 	else if (query.find("BuildIndex") == 0){
 		build_index = true;
 		error_prefix = "Build Index error: ";
+	}else if (query.find("SetConfig") == 0){
+		set_config = true;
+		error_prefix = "Set Config error: ";
 	}else{
-		error_msg = "1. Execute query with 'g.V()' or 'g.E()'\n 2. Set up index by BuildIndex(V/E, propertyname)";
+		error_msg = "1. Execute query with 'g.V()' or 'g.E()'\n";
+		error_msg += "2. Set up index by BuildIndex(V/E, propertyname)\n";
+		error_msg += "3. Change config by SetConfig(config_name, t/f)\n";
 		return false;
 	}
 
 	try{
 		if(build_index){
 			ParseIndex(query);
+		}else if(set_config){
+			ParseSetConfig(query);
 		}else{
 			// trim blanks and remove prefix
 			string q = query.substr(6);
@@ -293,6 +301,37 @@ void Parser::ParseIndex(const string& param){
 
 	actor.AddParam(type);
 	actor.AddParam(property_key);
+	AppendActor(actor);
+}
+
+void Parser::ParseSetConfig(const string& param){
+	vector<string> params;
+	Tool::splitWithEscape(param, ",() ", params);
+	if(params.size() != 3){
+		throw ParserException("expect 2 parameters");
+	}
+
+	Actor_Object actor(ACTOR_T::CONFIG);
+
+	Tool::trim(params[1], "\"");
+	Tool::trim(params[2], "\"");
+
+	bool enable;
+	if(params[2] == "enable"
+		|| params[2][0] == 'y'
+		|| params[2][0] == 't'){
+			enable = true;
+	}else if(params[2] == "disable"
+		|| params[2][0] == 'n'
+		|| params[2][0] == 'f'){
+			enable = false;
+	}else{
+		throw ParserException("expect 'enable' or 'y' or 't'");
+	}
+	value_t v;
+	Tool::str2str(params[1], v);
+	actor.params.push_back(v);
+	actor.AddParam(enable);
 	AppendActor(actor);
 }
 

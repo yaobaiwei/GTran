@@ -378,11 +378,11 @@ ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
-	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, COUNT, DEDUP, GROUP, HAS, HASLABEL, INDEX,
+	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, CONFIG, COUNT, DEDUP, GROUP, HAS, HASLABEL, INDEX,
 	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, END
 };
 
-static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "COUNT", "DEDUP", "GROUP", "HAS",
+static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "CONFIG", "COUNT", "DEDUP", "GROUP", "HAS",
 "HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);

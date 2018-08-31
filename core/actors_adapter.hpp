@@ -17,6 +17,7 @@
 #include "actor/as_actor.hpp"
 #include "actor/barrier_actor.hpp"
 #include "actor/branch_actor.hpp"
+#include "actor/config_actor.hpp"
 #include "actor/has_actor.hpp"
 #include "actor/has_label_actor.hpp"
 #include "actor/init_actor.hpp"
@@ -56,6 +57,7 @@ public:
 		actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, &id_allocator_));
 		actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, data_store_ ,num_thread_, mailbox_, core_affinity_));
+		actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, config_));
 		actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, node_.get_local_size(), rc_, mailbox_, core_affinity_));
