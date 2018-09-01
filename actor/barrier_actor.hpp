@@ -96,10 +96,6 @@ protected:
 
 		epid_t ep_id(e_id, key);
 
-		if(! datastore->EPKeyIsExist(tid, ep_id)){
-			return false;
-		}
-
 		val.content.clear();
 		datastore->GetPropertyForEdge(tid, ep_id, val);
 		return true;
@@ -108,10 +104,6 @@ protected:
 	static bool project_property_vertex(int tid, value_t & val, int key, DataStore * datastore){
 		vid_t v_id(Tool::value_t2int(val));
 		vpid_t vp_id(v_id, key);
-
-		if(! datastore->VPKeyIsExist(tid, vp_id)){
-			return false;
-		}
 
 		val.content.clear();
 		datastore->GetPropertyForVertex(tid, vp_id, val);
