@@ -323,6 +323,8 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 	// store history with empty data
 	vector<pair<history_t, vector<value_t>>> empty_his;
 
+	bool is_count = actors[m.step].actor_type == ACTOR_T::COUNT;
+
 	// enable route mapping
 	if(!route_assigned && actors[this->meta.step].send_remote){
 		for(auto& p: data){
@@ -357,7 +359,13 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 					empty_his.push_back(move(p));
 				continue;
 			}
-			id2data[m.recver_nid].push_back(move(p));
+			if(is_count){
+				value_t v;
+				Tool::str2int(to_string(p.second.size()), v);
+				id2data[m.recver_nid].emplace_back(move(p.first), vector<value_t>{move(v)});
+			}else{
+				id2data[m.recver_nid].push_back(move(p));
+			}
 		}
 
 		// no data is added to next actor

@@ -46,6 +46,14 @@ public:
 			if(is_next_barrier(actors, msg.meta.step)){
 				// move to next actor
 				msg.meta.step = actors[msg.meta.step].next_actor;
+				if(actors[msg.meta.step].actor_type == ACTOR_T::COUNT){
+					for(auto& p : msg.data){
+						value_t v;
+						Tool::str2int(to_string(p.second.size()), v);
+						p.second.clear();
+						p.second.push_back(move(v));
+					}
+				}
 			}
 		}
 	}
@@ -390,7 +398,10 @@ private:
 
 		// process msg data
 		for(auto& p : msg.data){
-			int count = p.second.size();
+			int count = 0;
+			if(p.second.size() != 0){
+				count = Tool::value_t2int(p.second[0]);
+			}
 			int branch_value = get_branch_value(p.first, branch_key);
 
 			// get <history_t, int> pair by branch_value
