@@ -58,6 +58,10 @@ private:
 	vector<AbstractMailbox::mailbox_data_t> vtx_data;
 	vector<AbstractMailbox::mailbox_data_t> edge_data;
 
+	// msg for count actor
+	vector<AbstractMailbox::mailbox_data_t> vtx_data_count;
+	vector<AbstractMailbox::mailbox_data_t> edge_data_count;
+
 	void InitData(){
 		if(is_ready_){
 			return;
@@ -113,6 +117,15 @@ private:
 			data.stream << msg_;
 			vtx_data.push_back(move(data));
 		}
+
+		Message count_msg(m);
+		count_msg.max_data_size = max_data_size;
+		value_t v;
+		Tool::str2int(to_string(vid_list.size()), v);
+		count_msg.data.emplace_back(history_t(), vector<value_t>{v});
+		AbstractMailbox::mailbox_data_t msg_data;
+		msg_data.stream << count_msg;
+		vtx_data_count.push_back(move(msg_data));
     }
 
     void InitEdgeData(Meta& m, vector<eid_t>& eid_list, int max_data_size) {
@@ -141,6 +154,15 @@ private:
 			data.stream << msg_;
 			edge_data.push_back(move(data));
 		}
+
+		Message count_msg(m);
+		count_msg.max_data_size = max_data_size;
+		value_t v;
+		Tool::str2int(to_string(eid_list.size()), v);
+		count_msg.data.emplace_back(history_t(), vector<value_t>{v});
+		AbstractMailbox::mailbox_data_t msg_data;
+		msg_data.stream << count_msg;
+		edge_data_count.push_back(move(msg_data));
     }
 
 	void InitWithIndex(int tid, vector<Actor_Object> & actor_objs, Message & msg){
@@ -198,11 +220,20 @@ private:
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
 		vector<AbstractMailbox::mailbox_data_t>* data_vec;
 
-        if (inType == Element_T::VERTEX) {
-            data_vec = &vtx_data;
-        } else if (inType == Element_T::EDGE) {
-            data_vec = &edge_data;
-        }
+		if(actor_objs[m.step + 1].actor_type == ACTOR_T::COUNT){
+			if (inType == Element_T::VERTEX) {
+	            data_vec = &vtx_data_count;
+	        } else if (inType == Element_T::EDGE) {
+	            data_vec = &edge_data_count;
+	        }
+		}else{
+			if (inType == Element_T::VERTEX) {
+	            data_vec = &vtx_data;
+	        } else if (inType == Element_T::EDGE) {
+	            data_vec = &edge_data;
+	        }
+		}
+
 
 		// update meta
 		m.step ++;
