@@ -61,6 +61,14 @@ public:
 			s += "6. stealing\n";
 		}
 
+		s += "\n";
+		s += "Caching : " + string(config_->global_enable_caching ? "True" : "False") + "\n";
+		s += "CoreBind : " + string(config_->global_enable_core_binding ? "True" : "False") + "\n";
+		s += "ActorDivision : " + string(config_->global_enable_actor_division ? "True" : "False") + "\n";
+		s += "StepReorder : " + string(config_->global_enable_step_reorder ? "True" : "False") + "\n";
+		s += "Indexing : " + string(config_->global_enable_indexing ? "True" : "False") + "\n";
+		s += "Stealing : " + string(config_->global_enable_workstealing ? "True" : "False") + "\n";
+
 		if(m.recver_nid == m.parent_nid){
 			value_t v;
 			Tool::str2str(s, v);
