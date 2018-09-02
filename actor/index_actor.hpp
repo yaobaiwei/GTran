@@ -35,19 +35,21 @@ public:
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params[0]);
 		int pid = Tool::value_t2int(actor_obj.params[1]);
 
-
+		bool enabled = false;
 		switch(inType) {
 			case Element_T::VERTEX:
-				BuildIndexVtx(tid, pid);
+				enabled = BuildIndexVtx(tid, pid);
 				break;
 			case Element_T::EDGE:
-				BuildIndexEdge(tid, pid);
+				enabled = BuildIndexEdge(tid, pid);
 				break;
 			default:
 				cout << "Wrong inType" << endl;
+				return;
 		}
 
-		string s = "Build index done in node" + to_string(m.recver_nid);
+		string ena = (enabled? "enabled":"disabled");
+		string s = "Index is " + ena + " in node" + to_string(m.recver_nid);
 		value_t v;
 		Tool::str2str(s, v);
 		msg.data.emplace_back(history_t(), vector<value_t>{v});
@@ -73,7 +75,13 @@ private:
 
 	IndexStore * index_store_;
 
-	void BuildIndexVtx(int tid, int pid) {
+	map<int, bool> vtx_enabled_map;
+	map<int, bool> edge_enabled_map;
+
+	bool BuildIndexVtx(int tid, int pid) {
+		if(vtx_enabled_map.find(pid) != vtx_enabled_map.end()){
+			return index_store_->SetIndexMapEnable(Element_T::VERTEX, pid, true);
+		}
 		vector<vid_t> vid_list;
 		data_store_->GetAllVertices(vid_list);
 
@@ -96,12 +104,16 @@ private:
 		}
 
 		index_store_->SetIndexMap(Element_T::VERTEX, pid, index_map, no_key_vec);
+		vtx_enabled_map[pid] = true;
 
 		// TODO: set index enable after all node done building
-		index_store_->SetIndexMapEnable(Element_T::VERTEX, pid);
+		return index_store_->SetIndexMapEnable(Element_T::VERTEX, pid);
 	}
 
-	void BuildIndexEdge(int tid, int pid) {
+	bool BuildIndexEdge(int tid, int pid) {
+		if(edge_enabled_map.find(pid) != edge_enabled_map.end()){
+			return index_store_->SetIndexMapEnable(Element_T::EDGE, pid, true);
+		}
 		vector<eid_t> eid_list;
 		data_store_->GetAllEdges(eid_list);
 
@@ -123,9 +135,10 @@ private:
 		}
 
 		index_store_->SetIndexMap(Element_T::EDGE, pid, index_map, no_key_vec);
+		edge_enabled_map[pid] = true;
 
 		// TODO: set index enable after all node done building
-		index_store_->SetIndexMapEnable(Element_T::EDGE, pid);
+		return index_store_->SetIndexMapEnable(Element_T::EDGE, pid);
 	}
 };
 
