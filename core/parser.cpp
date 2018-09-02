@@ -295,10 +295,6 @@ void Parser::ParseIndex(const string& param){
 		throw ParserException("unexpected property key: " + params[2]);
 	}
 
-	if(index_store_->IsIndexEnabled(type, property_key)){
-		throw ParserException("index is already built for " + params[2]);
-	}
-
 	actor.AddParam(type);
 	actor.AddParam(property_key);
 	AppendActor(actor);
@@ -351,9 +347,11 @@ void Parser::DoParse(const string& query)
 void Parser::Clear()
 {
 	actors_.clear();
+	index_count_.clear();
 	str2ls.clear();
 	ls2type.clear();
 	str2se.clear();
+	min_count_ = -1; // max of uint64_t
 	first_in_sub_ = 0;
 }
 
@@ -1000,13 +998,40 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 	}
 
 	// When has actor is after init actor
-	if(actors_.size() == 2 || (actors_.size() == 3 && actors_[1].actor_type == ACTOR_T::HASLABEL)){
-		// if index_enabled
-		if(key != -1 && index_store_->IsIndexEnabled(element_type, key)){
+	if(actors_.size() == 2 && key != -1){
+		int size = actor.params.size();
+		Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor.params[size - 2]);
+		PredicateValue pred(pred_type, actor.params[size - 1]);
+
+		uint64_t count = 0;
+		bool enabled = index_store_->IsIndexEnabled(element_type, key, pred, count);
+
+		if(enabled && count / index_ratio < min_count_)
+		{
 			Actor_Object &init_actor = actors_[0];
 			init_actor.params.insert(init_actor.params.end(), make_move_iterator(actor.params.end() - 3), make_move_iterator(actor.params.end()));
 			actor.params.resize(actor.params.size() - 3);
 
+			// update min_count
+			if(count < min_count_){
+				min_count_ = count;
+
+				// remove all predicate with large count from init actor
+				int i = 0;
+				for(auto itr = index_count_.begin(); itr != index_count_.end();){
+					if(*itr / index_ratio >= min_count_){
+						itr = index_count_.erase(itr);
+						int first = 1 + 3 * i;
+						move(init_actor.params.begin() + first, init_actor.params.begin() + first + 3, back_inserter(actor.params));
+						init_actor.params.erase(init_actor.params.begin() + first, init_actor.params.begin() + first + 3);
+					}else{
+						itr ++;
+						i ++;
+					}
+				}
+			}
+
+			index_count_.push_back(count);
 			// no predicate in has actor params
 			if(actor.params.size() == 1){
 				actors_.erase(actors_.end() - 1);
@@ -1044,18 +1069,23 @@ void Parser::ParseHasLabel(const vector<string>& params)
 	}
 
 	// When hasLabel actor is after init actor
-	if(actors_.size() == 2 || (actors_.size() == 3 && actors_[1].actor_type == ACTOR_T::HAS)){
+	if(actors_.size() == 2){
 		// if index_enabled
-		if(index_store_->IsIndexEnabled(element_type, 0)){
-			actor.params.erase(actor.params.begin());
-			value_t v;
-			Tool::vec2value_t(actor.params, v);
+		Predicate_T pred_type = Predicate_T::WITHIN;
+		vector<value_t> pred_params = actor.params;
+		pred_params.erase(pred_params.begin());
+		PredicateValue pred(pred_type, pred_params);
+
+		uint64_t count = 0;
+		if(index_store_->IsIndexEnabled(element_type, 0, pred, count)){
 			actors_.erase(actors_.end() - 1);
 
+			value_t v;
+			Tool::vec2value_t(pred_params, v);
 			// add params to init actor
 			Actor_Object &init_actor = actors_[0];
 			init_actor.AddParam(0);
-			init_actor.AddParam(Predicate_T::WITHIN);
+			init_actor.AddParam(pred_type);
 			init_actor.params.push_back(v);
 		}
 	}

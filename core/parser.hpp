@@ -34,6 +34,11 @@ private:
 	// tmp actors store
 	vector<Actor_Object> actors_;
 
+	// disable index when (count of given predicate > min_count_ * ratio)
+	const static int index_ratio = 3;
+	vector<uint64_t> index_count_;
+	uint64_t min_count_;
+
 	// first step index in sub query
 	int first_in_sub_;
 
