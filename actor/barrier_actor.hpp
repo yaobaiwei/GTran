@@ -105,8 +105,7 @@ protected:
 		epid_t ep_id(e_id, key);
 
 		val.content.clear();
-		datastore->GetPropertyForEdge(tid, ep_id, val);
-		return true;
+		return datastore->GetPropertyForEdge(tid, ep_id, val);
 	}
 
 	static bool project_property_vertex(int tid, value_t & val, int key, DataStore * datastore){
@@ -114,8 +113,7 @@ protected:
 		vpid_t vp_id(v_id, key);
 
 		val.content.clear();
-		datastore->GetPropertyForVertex(tid, vp_id, val);
-		return true;
+		return datastore->GetPropertyForVertex(tid, vp_id, val);
 	}
 
 	static bool project_label_edge(int tid, value_t & val, int key, DataStore * datastore){
