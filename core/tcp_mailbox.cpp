@@ -22,17 +22,17 @@ TCPMailbox::~TCPMailbox() {
 }
 
 void TCPMailbox::Init(vector<Node> & nodes) {
-	receivers_.resize(config_->global_num_threads);
 
+	receivers_.resize(config_->global_num_threads);
 	for (int tid = 0; tid < config_->global_num_threads; tid++) {
 		receivers_[tid] = new zmq::socket_t(context, ZMQ_PULL);
 		char addr[64] = "";
-		sprintf(addr, "tcp://*:%d", my_node_.tcp_port + 1 + port_code(my_node_.get_local_rank(), tid));
+		sprintf(addr, "tcp://*:%d", my_node_.tcp_port + 1 + tid);
 		receivers_[tid]->bind(addr);
 	}
 
 	for (int nid = 0; nid < config_->global_num_machines; nid++) {
-		Node & r_node = GetNodeById(nodes, nid);
+		Node & r_node = GetNodeById(nodes, nid + 1);
 		string hostname = r_node.hostname;
 
 		for (int tid = 0; tid < config_->global_num_threads; tid++) {
@@ -40,7 +40,7 @@ void TCPMailbox::Init(vector<Node> & nodes) {
 
 			senders_[pcode] = new zmq::socket_t(context, ZMQ_PUSH);
 			char addr[64] = "";
-			sprintf(addr, "tcp://%s:%d", hostname.c_str(), r_node.tcp_port + 1 + pcode);
+			sprintf(addr, "tcp://%s:%d", hostname.c_str(), r_node.tcp_port + 1 + tid);
 			// FIXME: check return value
 			senders_[pcode]->connect(addr);
 		}
@@ -92,7 +92,7 @@ bool TCPMailbox::TryRecv(int tid, Message & msg) {
 	zmq::message_t zmq_msg;
 	obinstream um;
 
-	if (receivers_[tid]->recv(&zmq_msg, ZMQ_NOBLOCK) < 0) {
+	if (receivers_[tid]->recv(&zmq_msg) < 0) {
 		cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
 		return false;
 	}else {

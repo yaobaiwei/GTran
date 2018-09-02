@@ -10,6 +10,7 @@
 DataStore::DataStore(Node & node, Config * config, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), config_(config), id_mapper_(id_mapper), buffer_(buf){
 	vpstore_ = NULL;
 	epstore_ = NULL;
+	tcp_helper = NULL;
 }
 
 DataStore::~DataStore(){
@@ -17,11 +18,15 @@ DataStore::~DataStore(){
 	delete epstore_;
 }
 
-void DataStore::Init(){
+void DataStore::Init(vector<Node> & nodes){
 	vpstore_ = new VKVStore(config_, buffer_);
 	epstore_ = new EKVStore(config_, buffer_);
-	vpstore_->init();
-	epstore_->init();
+	vpstore_->init(nodes);
+	epstore_->init(nodes);
+
+	if (!config_->global_use_rdma) {
+		tcp_helper = new TCPHelper(vpstore_, epstore_, config_->global_use_rdma);
+	}
 }
 
 //index format
@@ -101,6 +106,7 @@ void DataStore::Shuffle()
 			vp_->plist = move(item.second);
 			vp_parts[item.first].push_back(vp_);
 		}
+		delete vp;
 	}
 	all_to_all(node_, false, vp_parts);
 	vplist.clear();
@@ -126,6 +132,7 @@ void DataStore::Shuffle()
 			ep_->plist = move(item.second);
 			ep_parts[item.first].push_back(ep_);
 		}
+		delete ep;
 	}
 
 	all_to_all(node_, false, ep_parts);
@@ -237,32 +244,6 @@ void DataStore::GetAllEdges(vector<eid_t> & eid_list) {
     for (et_itr = e_table.begin(); et_itr != e_table.end(); et_itr++) {
        eid_list.push_back(et_itr->first); 
     }
-}
-
-bool DataStore::VPKeyIsExist(int tid, vpid_t vp_id) {
-	ikey_t key;
-	if(id_mapper_->IsVPropertyLocal(vp_id)){ 	//locally
-		vpstore_->get_key_local(vp_id.value(), key);
-	}else{										//remotely
-		vpstore_->get_key_remote(tid, id_mapper_->GetMachineIdForVProperty(vp_id), vp_id.value(), key);
-	}
-
-	if (key.is_empty())
-		return false;
-	return true;
-}
-
-bool DataStore::EPKeyIsExist(int tid, epid_t ep_id) {
-	ikey_t key;
-	if(id_mapper_->IsEPropertyLocal(ep_id)){ 	//locally
-		epstore_->get_key_local(ep_id.value(), key);
-	}else{										//remotely
-		epstore_->get_key_remote(tid, id_mapper_->GetMachineIdForEProperty(ep_id), ep_id.value(), key);
-	}
-
-	if (key.is_empty())
-		return false;
-	return true;
 }
 
 bool DataStore::VPKeyIsLocal(vpid_t vp_id) {

@@ -5,6 +5,7 @@ file(GLOB store-src-files
 	data_store.cpp
     ekvstore.cpp
     vkvstore.cpp
+	tcp_helper.cpp
     )
 
 add_library(store-objs OBJECT ${store-src-files})

@@ -18,6 +18,7 @@
 
 #include "storage/vkvstore.hpp"
 #include "storage/ekvstore.hpp"
+#include "storage/tcp_helper.hpp"
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
 #include "utils/hdfs_core.hpp"
@@ -26,6 +27,7 @@
 #include "utils/tool.hpp"
 #include "utils/global.hpp"
 #include "base/type.hpp"
+#include "base/node_util.hpp"
 #include "base/communication.hpp"
 
 
@@ -38,7 +40,7 @@ public:
 
 	~DataStore();
 
-	void Init();
+	void Init(vector<Node> & nodes);
 
 	//index format
 	//string \t index [int]
@@ -64,9 +66,6 @@ public:
 	void GetAllVertices(vector<vid_t> & vid_list);
 	void GetAllEdges(vector<eid_t> & eid_list);
 
-	bool VPKeyIsExist(int tid, vpid_t vp_id);
-	bool EPKeyIsExist(int tid, epid_t ep_id);
-
 	bool VPKeyIsLocal(vpid_t vp_id);
 	bool EPKeyIsLocal(epid_t ep_id);
 
@@ -84,6 +83,9 @@ public:
 	void InsertAggData(agg_t key, vector<value_t> & data);
 	void GetAggData(agg_t key, vector<value_t> & data);
 	void DeleteAggData(agg_t key);
+
+	// For TCP use
+	TCPHelper * tcp_helper;
 
 private:
 

@@ -134,6 +134,8 @@ void VKVStore::get_key_local(uint64_t pid, ikey_t & key) {
 
 // Get key by key remotely
 void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) {
+	assert(config_->global_use_rdma);
+
     uint64_t bucket_id = pid % num_buckets;
 
     while (true) {
@@ -199,11 +201,25 @@ VKVStore::VKVStore(Config * config, Buffer * buf) : config_(config), buf_(buf)
         pthread_spin_init(&bucket_locks[i], 0);
 }
 
-void VKVStore::init() {
+void VKVStore::init(vector<Node> & nodes) {
     // initiate keys to 0 which means empty key
     for (uint64_t i = 0; i < num_slots; i++) {
         keys[i] = ikey_t();
     }
+
+	if (!config_->global_use_rdma) {
+		requesters.resize(config_->global_num_machines);
+		for (int nid = 0; nid < config_->global_num_machines; nid++) {
+			Node & r_node = GetNodeById(nodes, nid + 1);
+			string hostname = r_node.hostname;
+
+			requesters[nid] = new zmq::socket_t(context, ZMQ_REQ);
+			char addr[64] = "";
+			sprintf(addr, "tcp://%s:%d", hostname.c_str(), r_node.tcp_port + 1 + config_->global_num_threads);
+			requesters[nid]->connect(addr);
+		}
+    	pthread_spin_init(&req_lock, 0);
+	}
 }
 
 // Insert a list of Vertex properties
@@ -237,27 +253,41 @@ void VKVStore::get_property_local(uint64_t pid, value_t & val) {
 
 // Get properties by key remotely
 void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t & val) {
-	ikey_t key;
-	// no need to hash pid
-	get_key_remote(tid, dst_nid, pid, key);
-	if (key.is_empty()) {
-		val.content.resize(0);
-		return;
+	if (config_->global_use_rdma) {
+		ikey_t key;
+		// no need to hash pid
+		get_key_remote(tid, dst_nid, pid, key);
+		if (key.is_empty()) {
+			val.content.resize(0);
+			return;
+		}
+
+		char * buffer = buf_->GetSendBuf(tid);
+		uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
+		uint64_t r_sz = key.ptr.size;
+
+		RDMA &rdma = RDMA::get_rdma();
+		rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
+
+		// type : char to uint8_t
+		val.type = buffer[0];
+		val.content.resize(r_sz-1);
+
+		char * ctt = &(buffer[1]);
+		std::copy(ctt, ctt + r_sz-1, val.content.begin());
+	} else {
+		ibinstream im;
+		obinstream um;
+
+		im << pid;
+		im << Element_T::VERTEX;
+		pthread_spin_lock(&req_lock);
+		SendReq(dst_nid, im);
+
+		RecvRep(dst_nid, um);
+		pthread_spin_unlock(&req_lock);
+		um >> val;
 	}
-
-	char * buffer = buf_->GetSendBuf(tid);
-	uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
-	uint64_t r_sz = key.ptr.size;
-
-	RDMA &rdma = RDMA::get_rdma();
-	rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
-
-	// type : char to uint8_t
-	val.type = buffer[0];
-	val.content.resize(r_sz-1);
-
-	char * ctt = &(buffer[1]);
-	std::copy(ctt, ctt + r_sz-1, val.content.begin());
 }
 
 void VKVStore::get_label_local(uint64_t pid, label_t & label){
@@ -313,4 +343,23 @@ void VKVStore::print_mem_usage() {
          << " MB (" << num_entries << " entries)" << endl;
     cout << "\tused: " << 100.0 * last_entry / num_entries
          << " % (" << last_entry << " entries)" << endl;
+}
+
+void VKVStore::SendReq(int dst_nid, ibinstream & m) {
+	zmq::message_t msg(m.size());
+	memcpy((void *)msg.data(), m.get_buf(), m.size());
+	requesters[dst_nid]->send(msg);
+}
+
+bool VKVStore::RecvRep(int nid, obinstream & um) {
+    zmq::message_t msg;
+
+	if (requesters[nid]->recv(&msg) < 0) {
+		return false;
+	}
+
+    char* buf = new char[msg.size()];
+    memcpy(buf, msg.data(), msg.size());
+    um.assign(buf, msg.size(), 0);
+	return true;
 }

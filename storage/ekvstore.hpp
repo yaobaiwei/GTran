@@ -16,11 +16,14 @@
 
 #include "base/rdma.hpp"
 #include "base/type.hpp"
+#include "base/serialization.hpp"
+#include "base/node_util.hpp"
 #include "utils/mymath.hpp"
 #include "utils/unit.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
 #include "utils/tool.hpp"
+#include "utils/zmq.hpp"
 #include "core/buffer.hpp"
 #include "storage/layout.hpp"
 
@@ -33,7 +36,7 @@ public:
     // For Vertex-Properties
     EKVStore(Config * config, Buffer * buf);
 
-    void init();
+    void init(vector<Node> & nodes);
 
     // Insert a list of Edge properties
     void insert_edge_properties(vector<EProperty*> & eplist);
@@ -111,6 +114,14 @@ private:
     void insert_single_edge_property(EProperty* ep);
 
     uint64_t sync_fetch_and_alloc_values(uint64_t n);
+
+	// For TCP use
+	zmq::context_t context;
+	vector<zmq::socket_t *> requesters;
+    pthread_spinlock_t req_lock;
+
+	void SendReq(int dst_nid, ibinstream & m);
+	bool RecvRep(int nid, obinstream & um);
 };
 
 

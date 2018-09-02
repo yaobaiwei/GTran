@@ -42,6 +42,7 @@ public:
 
 	~Worker(){
 		delete receiver_;
+		delete w_listener_;
 		delete parser_;
 		delete index_store_;
 		delete rc_;
@@ -51,12 +52,51 @@ public:
 		index_store_ = new IndexStore(config_);
 		parser_ = new Parser(config_, index_store_);
 		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
+		w_listener_ = new zmq::socket_t(context_, ZMQ_REP);
 		rc_ = new Result_Collector;
 		char addr[64];
+		char w_addr[64];
 		sprintf(addr, "tcp://*:%d", my_node_.tcp_port);
+		sprintf(w_addr, "tcp://*:%d", my_node_.tcp_port + config_->global_num_threads + 1);
 		receiver_->bind(addr);
+		w_listener_->bind(w_addr);
 	}
 
+	void WorkerListener(DataStore * datastore){
+		while(1) {
+			zmq::message_t request;
+			w_listener_->recv(&request);
+
+			char* buf = new char[request.size()];
+			memcpy(buf, (char *)request.data(), request.size());
+			obinstream um(buf, request.size());
+
+			uint64_t id;
+			int elem_type;
+
+			um >> id;
+			um >> elem_type;
+
+			value_t val;
+			ibinstream m;
+
+			switch(elem_type) {
+				case Element_T::VERTEX:
+					datastore->tcp_helper->GetPropertyForVertex(id, val); 
+					break;
+				case Element_T::EDGE:
+					datastore->tcp_helper->GetPropertyForEdge(id, val); 
+					break;
+				default:
+					cout << "Wrong element type" << endl;
+			}
+
+			m << val;
+			zmq::message_t msg(m.size());
+			memcpy((void *)msg.data(), m.get_buf(), m.size());
+			w_listener_->send(msg);
+		}
+	}
 
 	void RecvRequest(){
 		while(1)
@@ -136,7 +176,7 @@ public:
 		cout << "DONE -> Mailbox->Init()" << endl;
 
 		DataStore * datastore = new DataStore(my_node_, config_, id_mapper, buf);
-		datastore->Init();
+		datastore->Init(workers_);
 
 		cout << "DONE -> DataStore->Init()" << endl;
 
@@ -158,6 +198,12 @@ public:
 
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox);
+
+		// for TCP use
+		thread w_listener;
+		if (!config_->global_use_rdma)
+			w_listener = thread(&Worker::WorkerListener, this, datastore);
+
 		Monitor * monitor = new Monitor(my_node_);
 		monitor->Start();
 
@@ -198,6 +244,8 @@ public:
 
 		recvreq.join();
 		sendmsg.join();
+		if (!config_->global_use_rdma)
+			w_listener.join();
 	}
 
 private:
@@ -214,6 +262,7 @@ private:
 
 	zmq::context_t context_;
 	zmq::socket_t * receiver_;
+	zmq::socket_t * w_listener_;
 };
 
 
