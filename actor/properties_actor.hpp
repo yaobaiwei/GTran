@@ -22,7 +22,7 @@
 
 class PropertiesActor : public AbstractActor {
 public:
-	PropertiesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::PROPERTY) {}
+	PropertiesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::PROPERTY) {}
 
 	// inType, [key]+
 	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
@@ -68,7 +68,7 @@ private:
 
 	// Cache
 	ActorCache cache;
-	bool global_enable_caching_;
+	Config* config_;
 
 	void get_properties_for_vertex(int tid, vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
 		for (auto & pair : data) {
@@ -85,7 +85,7 @@ private:
 
 						value_t val;
 						// Try cache
-						if (data_store_->VPKeyIsLocal(vp_id) || !global_enable_caching_) {
+						if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
 						} else {
 							if (!cache.get_property_from_cache(vp_id.value(), val)) {
@@ -108,7 +108,7 @@ private:
 						vpid_t vp_id(v_id, pkey);
 						value_t val;
 						// Try cache
-						if (data_store_->VPKeyIsLocal(vp_id) || !global_enable_caching_) {
+						if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
 							data_store_->GetPropertyForVertex(tid, vp_id, val);
 						} else {
 							if (!cache.get_property_from_cache(vp_id.value(), val)) {
@@ -146,7 +146,7 @@ private:
 						epid_t ep_id(e_id, pkey);
 
 						value_t val;
-						if (data_store_->EPKeyIsLocal(ep_id) || !global_enable_caching_) {
+						if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
 						} else {
 							if (!cache.get_property_from_cache(ep_id.value(), val)) {
@@ -169,7 +169,7 @@ private:
 
 						epid_t ep_id(e_id, pkey);
 						value_t val;
-						if (data_store_->EPKeyIsLocal(ep_id) || !global_enable_caching_) {
+						if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
 							data_store_->GetPropertyForEdge(tid, ep_id, val);
 						} else {
 							if (!cache.get_property_from_cache(ep_id.value(), val)) {

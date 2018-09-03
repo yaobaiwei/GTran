@@ -24,7 +24,7 @@
 
 class HasActor : public AbstractActor {
 public:
-	HasActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HAS) {}
+	HasActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::HAS) {}
 
 	// Has:
 	// inType
@@ -99,7 +99,7 @@ private:
 
 	// Cache
 	ActorCache cache;
-	bool global_enable_caching_;
+	Config* config_;
 
 	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
 
@@ -219,7 +219,7 @@ private:
 	}
 
 	void get_properties_for_vertex(int tid, vpid_t vp_id, value_t & val) {
-		if (data_store_->VPKeyIsLocal(vp_id) || !global_enable_caching_) {
+		if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
 			// No Need to check Cache for local or cache is disabled
 			data_store_->GetPropertyForVertex(tid, vp_id, val);
 		} else {
@@ -231,7 +231,7 @@ private:
 	}
 
 	void get_properties_for_edge(int tid, epid_t ep_id, value_t & val) {
-		if (data_store_->EPKeyIsLocal(ep_id) || !global_enable_caching_) {
+		if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
 			data_store_->GetPropertyForEdge(tid, ep_id, val);
 		} else {
 			if (!cache.get_property_from_cache(ep_id.value(), val)) {

@@ -8,6 +8,7 @@
 #include <limits.h>
 
 #include "actor/abstract_actor.hpp"
+#include "actor/actor_cache.hpp"
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
@@ -98,49 +99,106 @@ protected:
 	}
 
 	// projection functions from E/V to label or property
-	static bool project_property_edge(int tid, value_t & val, int key, DataStore * datastore){
+	static bool project_property_edge(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache){
 		eid_t e_id;
 		uint2eid_t(Tool::value_t2uint64_t(val),e_id);
 
 		epid_t ep_id(e_id, key);
 
 		val.content.clear();
-		return datastore->GetPropertyForEdge(tid, ep_id, val);
+
+		// Try cache
+		if (datastore->EPKeyIsLocal(ep_id) || cache == NULL) {
+			return datastore->GetPropertyForEdge(tid, ep_id, val);
+		} else {
+			bool found = true;
+			if (!cache->get_property_from_cache(ep_id.value(), val)) {
+				// not found in cache
+				found = datastore->GetPropertyForEdge(tid, ep_id, val);
+				if(found){
+					cache->insert_properties(ep_id.value(), val);
+				}
+			}
+			return found;
+		}
 	}
 
-	static bool project_property_vertex(int tid, value_t & val, int key, DataStore * datastore){
+	static bool project_property_vertex(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache){
 		vid_t v_id(Tool::value_t2int(val));
 		vpid_t vp_id(v_id, key);
 
 		val.content.clear();
-		return datastore->GetPropertyForVertex(tid, vp_id, val);
+
+		// Try cache
+		if (datastore->VPKeyIsLocal(vp_id) || cache == NULL) {
+			return datastore->GetPropertyForVertex(tid, vp_id, val);
+		} else {
+			bool found = true;
+			if (!cache->get_property_from_cache(vp_id.value(), val)) {
+				// not found in cache
+				found = datastore->GetPropertyForVertex(tid, vp_id, val);
+				if(found){
+					cache->insert_properties(vp_id.value(), val);
+				}
+			}
+			return found;
+		}
 	}
 
-	static bool project_label_edge(int tid, value_t & val, int key, DataStore * datastore){
+	static bool project_label_edge(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache){
 		eid_t e_id;
 		uint2eid_t(Tool::value_t2uint64_t(val), e_id);
-
 		val.content.clear();
-		label_t label_id;
-		string label;
-		datastore->GetLabelForEdge(tid, e_id, label_id);
-		datastore->GetNameFromIndex(Index_T::E_LABEL, label_id, label);
-		Tool::str2str(label, val);
-		return true;
+
+		label_t label;
+		bool found;
+		if (datastore->EPKeyIsLocal(epid_t(e_id, 0)) || cache == NULL) {
+			found = datastore->GetLabelForEdge(tid, e_id, label);
+		} else {
+			found = true;
+			if (!cache->get_label_from_cache(e_id.value(), label)) {
+				found = datastore->GetLabelForEdge(tid, e_id, label);
+				if(found){
+					cache->insert_label(e_id.value(), label);
+				}
+			}
+		}
+
+		if(found){
+			string label_str;
+			datastore->GetNameFromIndex(Index_T::E_LABEL, label, label_str);
+			Tool::str2str(label_str, val);
+		}
+		return found;
 	}
-	static bool project_label_vertex(int tid, value_t & val, int key, DataStore * datastore){
+	static bool project_label_vertex(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache){
 		vid_t v_id(Tool::value_t2int(val));
 
 		val.content.clear();
-		label_t label_id;
-		string label;
-		datastore->GetLabelForVertex(tid, v_id, label_id);
-		datastore->GetNameFromIndex(Index_T::V_LABEL, label_id, label);
-		Tool::str2str(label, val);
-		return true;
+
+		label_t label;
+		bool found;
+		if (datastore->VPKeyIsLocal(vpid_t(v_id, 0)) || cache == NULL) {
+			found = datastore->GetLabelForVertex(tid, v_id, label);
+		} else {
+			found = true;
+			if (!cache->get_label_from_cache(v_id.value(), label)) {
+				found = datastore->GetLabelForVertex(tid, v_id, label);
+				if(found){
+					cache->insert_label(v_id.value(), label);
+				}
+			}
+		}
+
+		if(found){
+			string label_str;
+			datastore->GetNameFromIndex(Index_T::V_LABEL, label, label_str);
+			Tool::str2str(label_str, val);
+		}
+		return found;
 	}
 
-	static bool project_none(int tid, value_t & val, int key, DataStore * datastore){
+	static bool project_none(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache){
 		return true;
 	}
 
@@ -542,11 +600,14 @@ namespace BarrierData{
 class GroupActor : public BarrierActorBase<BarrierData::group_data>
 {
 public:
-	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
+	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), config_(config){}
 
 private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
+
+	Config* config_;
+	ActorCache cache_;
 
 	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
@@ -560,8 +621,8 @@ private:
 		int valueProjection = Tool::value_t2int(actor.params[3]);
 
 		// get projection function by actor params
-		bool(*kp)(int, value_t&, int, DataStore*) = project_none;
-		bool(*vp)(int, value_t&, int, DataStore*) = project_none;
+		bool(*kp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
+		bool(*vp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
 		if(keyProjection == 0){
 			kp = (element_type == Element_T::VERTEX) ? project_label_vertex : project_label_edge;
 		}else if(keyProjection > 0){
@@ -573,6 +634,10 @@ private:
 			vp = (element_type == Element_T::VERTEX) ? project_property_vertex : project_property_edge;
 		}
 
+		ActorCache * cache = NULL;
+		if(config_->global_enable_caching){
+			cache = &cache_;
+		}
 		// process msg data
 		for(auto& p : msg.data){
 			int branch_value = get_branch_value(p.first, branch_key);
@@ -587,10 +652,10 @@ private:
 			for(auto& val : p.second){
 				value_t k = val;
 				value_t v = val;
-				if(! kp(t_id, k, keyProjection, data_store_)){
+				if(! kp(t_id, k, keyProjection, data_store_, cache)){
 					continue;
 				}
-				if(! vp(t_id, v, valueProjection, data_store_)){
+				if(! vp(t_id, v, valueProjection, data_store_, cache)){
 					continue;
 				}
 				string key = Tool::DebugString(k);
@@ -672,11 +737,14 @@ namespace BarrierData{
 class OrderActor : public BarrierActorBase<BarrierData::order_data>
 {
 public:
-	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
+	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), config_(config){}
 
 private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
+
+	ActorCache cache_;
+	Config* config_;
 
 	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
@@ -690,11 +758,16 @@ private:
 		int keyProjection = Tool::value_t2int(actor.params[1]);
 
 		// get projection function by actor params
-		bool(*kp)(int, value_t&, int, DataStore*) = project_none;
+		bool(*kp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
 		if(keyProjection == 0){
 			kp = (element_type == Element_T::VERTEX) ? project_label_vertex : project_label_edge;
 		}else if(keyProjection > 0){
 			kp = (element_type == Element_T::VERTEX) ? project_property_vertex : project_property_edge;
+		}
+
+		ActorCache * cache = NULL;
+		if(config_->global_enable_caching){
+			cache = &cache_;
 		}
 
 		// process msg data
@@ -722,7 +795,7 @@ private:
 
 				for(auto& val : p.second){
 					value_t key = val;
-					if(! kp(t_id, key, keyProjection, data_store_)){
+					if(! kp(t_id, key, keyProjection, data_store_, cache)){
 						continue;
 					}
 					map_[key].insert(move(val));

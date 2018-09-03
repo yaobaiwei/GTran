@@ -22,8 +22,8 @@
 
 class HasLabelActor : public AbstractActor {
 public:
-	HasLabelActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, bool global_enable_caching) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), global_enable_caching_(global_enable_caching), type_(ACTOR_T::HASLABEL) {}
 
+	HasLabelActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::HASLABEL) {}
 	// HasLabel:
 	// 		Pass if any label_key matches
 	// Parmas:
@@ -76,7 +76,7 @@ private:
 
 	// Cache
 	ActorCache cache;
-	bool global_enable_caching_;
+	Config* config_;
 
 	void VertexHasLabel(int tid, vector<int> lid_list, vector<pair<history_t, vector<value_t>>> & data)
 	{
@@ -84,7 +84,7 @@ private:
 			vid_t v_id(Tool::value_t2int(value));
 
 			label_t label;
-			if (data_store_->VPKeyIsLocal(vpid_t(v_id, 0)) || !global_enable_caching_) {
+			if (data_store_->VPKeyIsLocal(vpid_t(v_id, 0)) || !config_->global_enable_caching) {
 				data_store_->GetLabelForVertex(tid, v_id, label);
 			} else {
 				if (!cache.get_label_from_cache(v_id.value(), label)) {
@@ -113,7 +113,7 @@ private:
 			uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
 			label_t label;
-			if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !global_enable_caching_) {
+			if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !config_->global_enable_caching) {
 				data_store_->GetLabelForEdge(tid, e_id, label);
 			} else {
 				if (!cache.get_label_from_cache(e_id.value(), label)) {
@@ -127,7 +127,7 @@ private:
 					return false;
 				}
 			}
-			return true; 
+			return true;
 		};
 
 		for (auto & data_pair : data) {
