@@ -138,13 +138,13 @@ public:
 		}
 	}
 
-	void SendQueryMsg(AbstractMailbox * mailbox){
+	void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity){
 		while(1){
 			Pack pkg;
 			queue_.WaitAndPop(pkg);
 
 			vector<Message> msgs;
-			Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(), pkg.id.value() % config_->global_num_threads, pkg.actors, msgs);
+			Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(),core_affinity->GetThreadIdForActor(ACTOR_T::INIT), pkg.actors, msgs);
 			for(int i = 0 ; i < my_node_.get_local_size(); i++){
 				mailbox->Send(config_->global_num_threads, msgs[i]);
 			}
@@ -197,7 +197,7 @@ public:
 		cout << "DONE -> Parser_->LoadMapping()" << endl;
 
 		thread recvreq(&Worker::RecvRequest, this);
-		thread sendmsg(&Worker::SendQueryMsg, this, mailbox);
+		thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
 
 		// for TCP use
 		thread w_listener;

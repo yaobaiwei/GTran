@@ -901,7 +901,7 @@ vector<vector<string>> dispatch_locality(const char* in_dir, int num_slaves)
 		getline(ss, cur, '_');
 		getline(ss, cur, '_');
 		int slave_of_file = atoi(cur.c_str());
-		if (assigned[slave_of_file] + it->size <= avg)
+		if (slave_of_file < num_slaves && assigned[slave_of_file] + it->size <= avg)
 		{
 			assignment[slave_of_file].push_back(it->fname);
 			assigned[slave_of_file] += it->size;
