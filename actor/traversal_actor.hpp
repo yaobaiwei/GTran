@@ -26,7 +26,7 @@ using namespace std::placeholders;
 
 class TraversalActor : public AbstractActor {
 public:
-	TraversalActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::TRAVERSAL) {}
+	TraversalActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity, Config * config) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::TRAVERSAL) {}
 
 	// TraversalActorObject->Params;
 	//  inType--outType--dir--lid
@@ -88,6 +88,10 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
+	// Cache
+	ActorCache cache;
+	Config* config_;
+
 	//============Vertex===============
 	// Get IN/OUT/BOTH of Vertex
 	void GetNeighborOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
@@ -107,7 +111,7 @@ private:
 						if (lid > 0) {
 							eid_t e_id(in_nb.value(), cur_vtx_id.value());
 							label_t label;
-							data_store_->GetLabelForEdge(tid, e_id, label);
+							get_label_for_edge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -124,7 +128,7 @@ private:
 						if (lid > 0) {
 							eid_t e_id(cur_vtx_id.value(), out_nb.value());
 							label_t label;
-							data_store_->GetLabelForEdge(tid, e_id, label);
+							get_label_for_edge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -159,7 +163,7 @@ private:
 						eid_t e_id(in_nb.value(), cur_vtx_id.value());
 						if (lid > 0) {
 							label_t label;
-							data_store_->GetLabelForEdge(tid, e_id, label);
+							get_label_for_edge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -176,7 +180,7 @@ private:
 						eid_t e_id(cur_vtx_id.value(), out_nb.value());
 						if (lid > 0) {
 							label_t label;
-							data_store_->GetLabelForEdge(tid, e_id, label);
+							get_label_for_edge(tid, e_id, label);
 
 							if (label != lid) {
 								continue;
@@ -229,6 +233,17 @@ private:
 			// Replace pair.second with new data
 			pair.second.swap(newData);
         }
+	}
+
+	void get_label_for_edge(int tid, eid_t e_id, label_t & label) {
+		if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !config_->global_enable_caching) {
+			data_store_->GetLabelForEdge(tid, e_id, label);
+		} else {
+			if (!cache.get_label_from_cache(e_id.value(), label)) {
+				data_store_->GetLabelForEdge(tid, e_id, label);
+				cache.insert_label(e_id.value(), label);
+			}
+		}
 	}
 
 };
