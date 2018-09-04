@@ -86,8 +86,8 @@ private:
 	int GetStepPriority(Step_T type);
 
 	// splitting parameters
-	vector<string> SplitParam(string& param);
-	vector<string> SplitPredicate(string& param, Predicate_T& pred_type);
+	void SplitParam(string& param, vector<string>& params);
+	void SplitPredicate(string& param, Predicate_T& pred_type, vector<string>& params);
 
 	void Clear();
 

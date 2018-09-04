@@ -95,13 +95,22 @@ private:
 
 	// Full core_id for each division
 	// use once
+	/*
 	int PotentialCorePool[6][6] = {
-		{0, 6, 1, 7, 2, 8},
-		{3, 9, 4, 10},
-		{5, 11},
-		{12, 18, 13, 19},
-		{14, 15, 20, 21},
-		{16, 17, 22, 23}
+		{0, 12, 2, 14, 4, 16},
+		{6, 18, 8, 20},
+		{10, 22},
+		{1, 13, 3, 15},
+		{5, 17, 7, 19},
+		{9, 21, 11, 23}
+	};*/
+	int PotentialCorePool[6][8] = {
+		{0, 16, 2, 18, 4, 20, 6, 22},
+		{8, 24, 10, 26},
+		{12, 28, 14, 30},
+		{1, 17, 3, 19, 5, 21},
+		{7, 23, 9, 25, 11, 27},
+		{13, 29, 15, 31}
 	};
 
 	// stealing list for each thread
@@ -134,7 +143,9 @@ private:
 
 		// Traversal
 		actor_division[ACTOR_T::TRAVERSAL] = ActorDivisionType::TRAVERSAL;
-		
+		actor_division[ACTOR_T::INIT] = ActorDivisionType::TRAVERSAL;
+		actor_division[ACTOR_T::INDEX] = ActorDivisionType::TRAVERSAL;
+
 		// NormalBarrier
 		actor_division[ACTOR_T::COUNT] = ActorDivisionType::NORMAL_BARR;
 		actor_division[ACTOR_T::AGGREGATE] = ActorDivisionType::NORMAL_BARR;

@@ -148,16 +148,16 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error
 		return false;
 	}
 
-	for (auto actor : actors_){
-		vec.push_back(actor);
+	for (auto& actor : actors_){
+		vec.push_back(move(actor));
 	}
 
-	vec.push_back(Actor_Object(ACTOR_T::END));
+	vec.emplace_back(ACTOR_T::END);
 
 	return true;
 }
 
-vector<string> Parser::SplitParam(string& param)
+void Parser::SplitParam(string& param, vector<string>& params)
 {
 	param = Tool::trim(param, " ");
 	int len = param.size();
@@ -166,7 +166,6 @@ vector<string> Parser::SplitParam(string& param)
 	}
 	vector<string> tmp;
 	Tool::splitWithEscape(param, ",", tmp);
-	vector<string> params;
 	string p = "";
 	int balance = 0;
 	for (auto& itr : tmp){
@@ -186,9 +185,8 @@ vector<string> Parser::SplitParam(string& param)
 	return params;
 }
 
-vector<string> Parser::SplitPredicate(string& param, Predicate_T& pred_type)
+void Parser::SplitPredicate(string& param, Predicate_T& pred_type, vector<string>& pred_params)
 {
-	vector<string> pred_params;
 	param = Tool::trim(param, " ");
 	vector<string> pred;
 	Tool::splitWithEscape(param, "()", pred);
@@ -204,7 +202,7 @@ vector<string> Parser::SplitPredicate(string& param, Predicate_T& pred_type)
 	}
 	else if (len == 2 && str2pred.count(pred[0]) != 0){
 		pred_type = str2pred.at(pred[0]);
-		pred_params = SplitParam(pred[1]);
+		SplitParam(pred[1], pred_params);
 	}
 	else{
 		throw ParserException("unexpected predicate: " + param);
@@ -357,7 +355,7 @@ void Parser::Clear()
 
 void Parser::AppendActor(Actor_Object& actor){
 	actor.next_actor = actors_.size() + 1;
-	actors_.push_back(actor);
+	actors_.push_back(move(actor));
 }
 
 bool Parser::CheckLastActor(ACTOR_T type){
@@ -538,7 +536,8 @@ void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 	for (auto stepToken : tokens){
 		Step_T type = stepToken.first;
-		vector<string> params = SplitParam(stepToken.second);
+		vector<string> params;
+		SplitParam(stepToken.second, params);
 		switch (type){
 		//AggregateActor
 		case AGGREGATE:
@@ -660,7 +659,8 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 {
 	Predicate_T pred_type;
 	value_t pred_param;
-	vector<string> pred_params = SplitPredicate(param, pred_type);
+	vector<string> pred_params;
+	SplitPredicate(param, pred_type, pred_params);
 
 	if (toKey){
 		map<string, int> *map;

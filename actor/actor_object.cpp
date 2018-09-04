@@ -10,7 +10,7 @@ void Actor_Object::AddParam(int key)
 {
 	value_t v;
 	Tool::str2int(to_string(key), v);
-	params.push_back(v);
+	params.push_back(move(v));
 }
 
 bool Actor_Object::AddParam(string s)
@@ -20,7 +20,7 @@ bool Actor_Object::AddParam(string s)
 	if (! Tool::str2value_t(s_value, v)){
 		return false;
 	}
-	params.push_back(v);
+	params.push_back(move(v));
 	return true;
 }
 
