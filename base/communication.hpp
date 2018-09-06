@@ -11,6 +11,7 @@
 #include "base/node.hpp"
 #include "base/serialization.hpp"
 #include "utils/global.hpp"
+#include "utils/unit.hpp"
 
 using namespace std;
 //============================================

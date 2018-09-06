@@ -47,15 +47,16 @@ bool all_land(bool my_copy, MPI_Comm world)
 }
 
 //============================================
+// size = #char / sizeof(uint64_t)
 void send(void* buf, int size, int dst, MPI_Comm world, int tag)
 {
-	MPI_Send(buf, size, MPI_CHAR, dst, tag, world);
+	MPI_Send(buf, size, MPI_UINT64_T, dst, tag, world);
 }
 
 int recv(void* buf, int size, int src, MPI_Comm world, int tag) //return the actual source, since "src" can be MPI_ANY_SOURCE
 {
 	MPI_Status status;
-	MPI_Recv(buf, size, MPI_CHAR, src, tag, world, &status);
+	MPI_Recv(buf, size, MPI_UINT64_T, src, tag, world, &status);
 	return status.MPI_SOURCE;
 }
 
@@ -63,17 +64,21 @@ int recv(void* buf, int size, int src, MPI_Comm world, int tag) //return the act
 void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag)
 {
 	size_t size = m.size();
-	send(&size, sizeof(size_t), dst, world, tag);
-	send(m.get_buf(), m.size(), dst, world, tag);
+	send(&size, 1, dst, world, tag);
+
+	size_t msg_size = ceil(size, sizeof(uint64_t)) / sizeof(uint64_t);
+	send(m.get_buf(), msg_size, dst, world, tag);
 }
 
 
 void recv_obinstream(obinstream& m, int src, MPI_Comm world, int tag)
 {
 	size_t size;
-	src = recv(&size, sizeof(size_t), src, world, tag); //must receive the content (paired with the msg-size) from the msg-size source
-	char* buf = new char[size];
-	recv(buf, size, src, world, tag);
+	src = recv(&size, 1, src, world, tag); //must receive the content (paired with the msg-size) from the msg-size source
+
+	size_t msg_sz = ceil(size, sizeof(uint64_t)) / sizeof(uint64_t);
+	char* buf = new char[msg_sz * sizeof(uint64_t)];
+	recv(buf, msg_sz, src, world, tag);
 	m.assign(buf, size, 0);
 }
 
