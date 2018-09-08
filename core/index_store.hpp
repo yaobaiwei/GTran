@@ -17,7 +17,7 @@ class IndexStore {
 public:
 	IndexStore(Config * config) : config_(config){}
 
-	const static double ratio = 0.25;
+	const static double ratio = 0.2;
 	bool IsIndexEnabled(Element_T type, int pid, PredicateValue& pred, uint64_t& count){
 		if(config_->global_enable_indexing){
 			unordered_map<int, index_>* m;

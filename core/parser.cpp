@@ -101,6 +101,7 @@ void Parser::LoadMapping(){
 			break;
 	}
 	hdfsCloseFile(fs, ep_file);
+	hdfsDisconnect(fs);
 }
 
 bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error_msg)

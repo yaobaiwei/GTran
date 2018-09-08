@@ -678,7 +678,7 @@ private:
 					string map_string;
 					// construct string
 					if(isCount){
-						map_string = to_string(item.second.size());
+						map_string = item.first + ":[" + to_string(item.second.size()) + "]";
 					}else{
 						map_string = item.first + ":[";
 						for(auto& v : item.second){
