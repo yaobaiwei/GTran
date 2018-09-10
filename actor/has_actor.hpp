@@ -133,11 +133,11 @@ private:
 					if (find(vtx->vp_list.begin(), vtx->vp_list.end(), pid) == vtx->vp_list.end()) {
 						// does not exist
 						if (pred.pred_type == Predicate_T::NONE)
-							return false;
+							continue;
 						return true;
 					}
 					if (pred.pred_type == Predicate_T::ANY)
-						return false;
+						continue;
 
 					// Get Properties
 					vpid_t vp_id(v_id, pid);
@@ -191,12 +191,12 @@ private:
 					if (find(edge->ep_list.begin(), edge->ep_list.end(), pid) == edge->ep_list.end()) {
 						// does not exist
 						if (pred.pred_type == Predicate_T::NONE)
-							return false;
+							continue;
 						return true;
 					}
 
 					if (pred.pred_type == Predicate_T::ANY)
-						return false;
+						continue;
 
 					// Get Properties
 					epid_t ep_id(e_id, pid);
