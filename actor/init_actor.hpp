@@ -66,45 +66,42 @@ private:
 		if(is_ready_){
 			return;
 		}
-		// copy id list from data store
-		uint64_t start_t = timer::get_usec();
-		vector<vid_t> vid_list;
-		vector<eid_t> eid_list;
-		data_store_->GetAllEdges(eid_list);
-		data_store_->GetAllVertices(vid_list);
-		uint64_t end_t = timer::get_usec();
-		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for get_v&e in init_actor" << endl;
 
 		// convert id to msg
 		Meta m;
 		m.step = 1;
 		m.msg_path = to_string(num_nodes_);
 
-		start_t = timer::get_usec();
-		InitVtxData(m, vid_list, max_data_size_);
-		end_t = timer::get_usec();
+		uint64_t start_t = timer::get_usec();
+		InitVtxData(m);
+		uint64_t end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
 
 		start_t = timer::get_usec();
-		InitEdgeData(m, eid_list, max_data_size_);
+		InitEdgeData(m);
 		end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
 	}
 
-    void InitVtxData(Meta& m, vector<vid_t>& vid_list, int max_data_size) {
+    void InitVtxData(Meta& m) {
+		vector<vid_t> vid_list;
+		data_store_->GetAllVertices(vid_list);
+		uint64_t count = vid_list.size();
+
 		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
-		data[0].second.reserve(vid_list.size());
+		data[0].second.reserve(count);
 		for (auto& vid : vid_list) {
 			value_t v;
 			Tool::str2int(to_string(vid.value()), v);
 			data[0].second.push_back(v);
 		}
+		vector<vid_t>().swap(vid_list);
 
 		vector<Message> vtx_msgs;
 		do{
 			Message msg(m);
-			msg.max_data_size = max_data_size;
+			msg.max_data_size = max_data_size_;
 			msg.InsertData(data);
 			vtx_msgs.push_back(move(msg));
 		}
@@ -119,29 +116,34 @@ private:
 		}
 
 		Message count_msg(m);
-		count_msg.max_data_size = max_data_size;
+		count_msg.max_data_size = max_data_size_;
 		value_t v;
-		Tool::str2int(to_string(vid_list.size()), v);
+		Tool::str2int(to_string(count), v);
 		count_msg.data.emplace_back(history_t(), vector<value_t>{v});
 		AbstractMailbox::mailbox_data_t msg_data;
 		msg_data.stream << count_msg;
 		vtx_data_count.push_back(move(msg_data));
     }
 
-    void InitEdgeData(Meta& m, vector<eid_t>& eid_list, int max_data_size) {
+    void InitEdgeData(Meta& m) {
+		vector<eid_t> eid_list;
+		data_store_->GetAllEdges(eid_list);
+		uint64_t count = eid_list.size();
+
 		vector<pair<history_t, vector<value_t>>> data;
 		data.emplace_back(history_t(), vector<value_t>());
-		data[0].second.reserve(eid_list.size());
+		data[0].second.reserve(count);
 		for (auto& eid : eid_list) {
 			value_t v;
 			Tool::str2uint64_t(to_string(eid.value()), v);
 			data[0].second.push_back(v);
 		}
+		vector<eid_t>().swap(eid_list);
 
 		vector<Message> edge_msgs;
 		do{
 			Message msg(m);
-			msg.max_data_size = max_data_size;
+			msg.max_data_size = max_data_size_;
 			msg.InsertData(data);
 			edge_msgs.push_back(move(msg));
 		}
@@ -156,9 +158,9 @@ private:
 		}
 
 		Message count_msg(m);
-		count_msg.max_data_size = max_data_size;
+		count_msg.max_data_size = max_data_size_;
 		value_t v;
-		Tool::str2int(to_string(eid_list.size()), v);
+		Tool::str2int(to_string(count), v);
 		count_msg.data.emplace_back(history_t(), vector<value_t>{v});
 		AbstractMailbox::mailbox_data_t msg_data;
 		msg_data.stream << count_msg;

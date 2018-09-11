@@ -83,7 +83,7 @@ protected:
 
 			if(his_itr != his.end()){
 				// convert branch value to int
-				int branch_value = Tool::value_t2int(his_itr->second);
+				branch_value = Tool::value_t2int(his_itr->second);
 				// some barrier actors will remove hisotry after branch key
 				if(erase_his){
 					his.erase(his_itr + 1, his.end());
@@ -678,7 +678,7 @@ private:
 					string map_string;
 					// construct string
 					if(isCount){
-						map_string = item.first + ":[" + to_string(item.second.size()) + "]";
+						map_string = item.first + ":" + to_string(item.second.size());
 					}else{
 						map_string = item.first + ":[";
 						for(auto& v : item.second){
