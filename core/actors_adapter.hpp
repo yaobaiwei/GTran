@@ -196,8 +196,8 @@ public:
 				vector<int> steal_list;
 				core_affinity_->GetStealList(tid, steal_list);
 				for (auto itr = steal_list.begin(); itr != steal_list.end(); itr++) {
-					// if(times_[tid] < times_[*itr] + STEALTIMEOUT)
-					// 		continue;
+					if(times_[tid] < times_[*itr] + STEALTIMEOUT)
+							continue;
 
 					timer::start_timer(tid + 2 * num_thread_);
 					timer::start_timer(tid + 3 * num_thread_);
@@ -241,7 +241,7 @@ private:
 	// 5 more timers for total, recv , send, serialization, create msg
 	const static int timer_offset = 5;
 
-	const static uint64_t STEALTIMEOUT = 100000;
+	const static uint64_t STEALTIMEOUT = 1000;
 };
 
 
