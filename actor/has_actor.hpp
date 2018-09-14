@@ -41,7 +41,7 @@ public:
 	// HasKey(params) : keys -> [key = pid; pred = ANY; pred_params = -1]
 	//
 	// TODO : Indexing
-	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];

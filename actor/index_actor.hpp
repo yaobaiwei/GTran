@@ -25,7 +25,7 @@ class IndexActor : public AbstractActor {
 public:
 	IndexActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), index_store_(index_store), type_(ACTOR_T::HAS) {}
 
-	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];

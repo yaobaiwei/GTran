@@ -14,7 +14,7 @@
 class BranchActor : public AbstractActor{
 public:
 	BranchActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
-	void process(int t_id, vector<Actor_Object> & actors,  Message & msg){
+	void process(int t_id, const vector<Actor_Object> & actors,  Message & msg){
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			vector<int> step_vec;
 			get_steps(actors[msg.meta.step], step_vec);
@@ -34,7 +34,7 @@ private:
 	int num_thread_;
 	AbstractMailbox* mailbox_;
 
-	void get_steps(Actor_Object & actor, vector<int>& steps)
+	void get_steps(const Actor_Object & actor, vector<int>& steps)
 	{
 		vector<value_t> params = actor.params;
 		assert(params.size() > 1);

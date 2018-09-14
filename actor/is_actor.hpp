@@ -24,7 +24,7 @@ public:
 	IsActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::IS) {}
 
 	// [pred_T , pred_params]...
-	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];

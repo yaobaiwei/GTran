@@ -24,7 +24,7 @@ bool Actor_Object::AddParam(string s)
 	return true;
 }
 
-bool Actor_Object::IsBarrier()
+bool Actor_Object::IsBarrier() const
 {
 	switch (actor_type)
 	{

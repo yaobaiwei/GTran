@@ -25,7 +25,7 @@ public:
 	const int GetActorId(){return id_;}
 
 
-	virtual void process(int t_id, vector<Actor_Object> & actors, Message & msg) = 0;
+	virtual void process(int t_id, const vector<Actor_Object> & actors, Message & msg) = 0;
 
 protected:
 	// Data Store

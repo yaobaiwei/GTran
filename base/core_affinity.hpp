@@ -303,7 +303,7 @@ private:
 				stealing_table[id].erase(remove(stealing_table[id].begin(), stealing_table[id].end(), id), stealing_table[id].end());
 
 				// Add other division
-				if (id / (num_cores / 2) == 0) {
+				if (id % 2 == 0) {
 					for (int j = 0; j < NUM_THREAD_DIVISION; j++) {
 						if (j != i) {
 							stealing_table[id].insert(stealing_table[id].end(),
@@ -311,11 +311,15 @@ private:
 						}
 					}
 				} else {
-					for (int j = NUM_THREAD_DIVISION - 1; j >= 0; j--) {
+					for (int j = NUM_THREAD_DIVISION / 2; j < NUM_THREAD_DIVISION; j++) {
 						if (j != i) {
 							stealing_table[id].insert(stealing_table[id].end(),
 									core_pool_table[j].begin(), core_pool_table[j].end());
 						}
+					}
+					for (int j = 0; j < NUM_THREAD_DIVISION / 2; j++) {
+						stealing_table[id].insert(stealing_table[id].end(),
+								core_pool_table[j].begin(), core_pool_table[j].end());
 					}
 				}
 			}

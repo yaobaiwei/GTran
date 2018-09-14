@@ -302,7 +302,7 @@ public:
 		}
 	}
 
-	static void value_t2vec(value_t & v, vector<value_t>& vec)
+	static void value_t2vec(const value_t & v, vector<value_t>& vec)
 	{
 		string value = value_t2string(v);
 		vector<string> values;

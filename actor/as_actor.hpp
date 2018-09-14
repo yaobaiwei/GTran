@@ -23,7 +23,7 @@ class AsActor : public AbstractActor {
 public:
 	AsActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::AS) {}
 
-	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];
@@ -54,7 +54,7 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
-	void RecordHistory(int label_step_key, vector<pair<history_t, vector<value_t>>> & data) {	
+	void RecordHistory(int label_step_key, vector<pair<history_t, vector<value_t>>> & data) {
 		vector<pair<history_t, vector<value_t>>> newData;
 		map<value_t, int> value_pos;
 		int cnt;

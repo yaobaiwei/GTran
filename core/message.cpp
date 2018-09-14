@@ -115,7 +115,7 @@ obinstream& operator>>(obinstream& m, Message& msg)
 	return m;
 }
 
-void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, vector<Actor_Object>& actors, vector<Message>& vec)
+void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, const vector<Actor_Object>& actors, vector<Message>& vec)
 {
 	// assign receiver thread id
 	Meta m;
@@ -150,9 +150,9 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
 }
 
 
-void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec)
+void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec)
 {
-	timer::start_timer(meta.recver_tid + 4 * num_thread);
+	//timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
 
@@ -168,11 +168,11 @@ void Message::CreateNextMsg(vector<Actor_Object>& actors, vector<pair<history_t,
 	for(int i = count; i < vec.size(); i++){
 		vec[i].meta.msg_path += num;
 	}
-	timer::stop_timer(meta.recver_tid + 4 * num_thread);
+	//timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
-void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec){
-	timer::start_timer(meta.recver_tid + 4 * num_thread);
+void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>& steps, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec){
+	//timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 
 	// append steps num into msg path
@@ -233,11 +233,11 @@ void Message::CreateBranchedMsg(vector<Actor_Object>& actors, vector<int>& steps
 			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
 		}
 	}
-	timer::stop_timer(meta.recver_tid + 4 * num_thread);
+	//timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
-void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec){
-	timer::start_timer(meta.recver_tid + 4 * num_thread);
+void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec){
+	//timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 
 	// update branch info
@@ -289,7 +289,7 @@ void Message::CreateBranchedMsgWithHisLabel(vector<Actor_Object>& actors, vector
 			vec[j].meta.msg_path += "\t" + to_string(vec.size() - count);
 		}
 	}
-	timer::stop_timer(meta.recver_tid + 4 * num_thread);
+	//timer::stop_timer(meta.recver_tid + 4 * num_thread);
 }
 
 void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vector<Message>& vec){
@@ -313,7 +313,7 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 	}
 }
 
-void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec)
+void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec)
 {
 	Meta cm = m;
 	bool route_assigned = update_route(m, actors);
@@ -403,7 +403,7 @@ void Message::dispatch_data(Meta& m, vector<Actor_Object>& actors, vector<pair<h
 	}
 }
 
-bool Message::update_route(Meta& m, vector<Actor_Object>& actors){
+bool Message::update_route(Meta& m, const vector<Actor_Object>& actors){
 	int branch_depth = m.branch_infos.size() - 1;
 	// update recver route & msg_type
 	if(actors[m.step].IsBarrier()){
@@ -445,7 +445,7 @@ bool Message::update_route(Meta& m, vector<Actor_Object>& actors){
 		return false;
 	}
 }
-bool Message::update_collection_route(Meta& m, vector<Actor_Object>& actors){
+bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actors){
 	bool to_barrier = false;
 	// empty data should be send to:
 	// 1. barrier actor, msg_type = BARRIER

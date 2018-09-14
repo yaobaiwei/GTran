@@ -53,7 +53,7 @@ void RdmaMailbox::Sweep(int tid) {
 	}
 	bool success = false;	// for time measurement only
 
-	timer::start_timer(tid);
+	//timer::start_timer(tid);
 	for (auto it = pending_msgs[tid].begin(); it != pending_msgs[tid].end();){
         if (SendData(tid, *it)){
             it = pending_msgs[tid].erase(it);
@@ -63,7 +63,7 @@ void RdmaMailbox::Sweep(int tid) {
 		}
 	}
 	if(success){
-		timer::stop_timer(tid);
+		//timer::stop_timer(tid);
 	}
 }
 
@@ -72,9 +72,9 @@ int RdmaMailbox::Send(int tid, const Message & msg) {
 	data.dst_nid = msg.meta.recver_nid;
 	data.dst_tid = msg.meta.recver_tid;
 
-	timer::start_timer(tid + config_->global_num_threads);
+	//timer::start_timer(tid + config_->global_num_threads);
 	data.stream << msg;
-	timer::stop_timer(tid + config_->global_num_threads);
+	//timer::stop_timer(tid + config_->global_num_threads);
 
 	pending_msgs[tid].push_back(move(data));
 }
@@ -167,9 +167,9 @@ bool RdmaMailbox::TryRecv(int tid, Message & msg) {
 			FetchMsgFromRecvBuf(tid, machine_id, um);
 			pthread_spin_unlock(&recv_locks[tid]);
 
-			timer::start_timer(tid + config_->global_num_threads);
+			//timer::start_timer(tid + config_->global_num_threads);
 			um >> msg;
-			timer::stop_timer(tid + config_->global_num_threads);
+			//timer::stop_timer(tid + config_->global_num_threads);
 			return true;
 		}
 	}
@@ -235,7 +235,7 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 		lmeta->head += 2 * sizeof(uint64_t) + ceil(pop_msg_size, sizeof(uint64_t));
 
 		// update heads of ring buffer to writer to help it detect overflow
-		timer::start_timer(tid);
+		//timer::start_timer(tid);
         const uint64_t threshold = rbf_sz / 16;
 		char *head = buffer_->GetLocalHeadBuf(tid, nid);
         if (lmeta->head - *(uint64_t *)head > threshold) {
@@ -251,6 +251,6 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 				pthread_spin_unlock(&rmeta->lock);
             }
         }
-		timer::stop_timer(tid);
+		//timer::stop_timer(tid);
 	}
 }

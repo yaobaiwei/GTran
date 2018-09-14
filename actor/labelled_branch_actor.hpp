@@ -37,7 +37,7 @@ class LabelledBranchActorBase :  public AbstractActor{
 
 public:
 	LabelledBranchActorBase(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity, msg_id_alloc* allocator): AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
-	void process(int t_id, vector<Actor_Object> & actors,  Message & msg){
+	void process(int t_id, const vector<Actor_Object> & actors,  Message & msg){
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			uint64_t msg_id = send_branch_msg(t_id, actors, msg);
 
@@ -84,11 +84,11 @@ protected:
 	virtual void process_spawn(Message & msg, typename BranchDataTable::accessor& ac) = 0;
 
 	// Child class process message with type = BRANCH
-	virtual void process_branch(int t_id, vector<Actor_Object> & actors, Message & msg, typename BranchDataTable::accessor& ac, bool isReady) = 0;
+	virtual void process_branch(int t_id, const vector<Actor_Object> & actors, Message & msg, typename BranchDataTable::accessor& ac, bool isReady) = 0;
 
 	// get sub steps of branch actor
-	virtual void get_steps(Actor_Object & actor, vector<int>& steps) = 0;
-	virtual int get_steps_count(Actor_Object & actor) = 0;
+	virtual void get_steps(const Actor_Object & actor, vector<int>& steps) = 0;
+	virtual int get_steps_count(const Actor_Object & actor) = 0;
 
 private:
 	// assign unique msg id
@@ -97,7 +97,7 @@ private:
 	BranchDataTable data_table_;
 
 	// send out msg with history label to indicate each input traverser
-	uint64_t send_branch_msg(int t_id, vector<Actor_Object> & actors, Message & msg)
+	uint64_t send_branch_msg(int t_id, const vector<Actor_Object> & actors, Message & msg)
 	{
 		uint64_t msg_id;
 		id_allocator_->AssignId(msg_id);
@@ -197,7 +197,7 @@ private:
 		ac->second.data = move(msg.data);
 	}
 
-	void process_branch(int t_id, vector<Actor_Object> & actors, Message & msg, BranchDataTable::accessor& ac, bool isReady)
+	void process_branch(int t_id, const vector<Actor_Object> & actors, Message & msg, BranchDataTable::accessor& ac, bool isReady)
 	{
 		auto &counter =  ac->second.counter;
 
@@ -229,7 +229,7 @@ private:
 
 		if(isReady){
 			// get actor info
-			Actor_Object& actor = actors[msg.meta.step];
+			const Actor_Object& actor = actors[msg.meta.step];
 			int num_of_branch = ac->second.branch_counter.first;
 			Filter_T filter_type = (Filter_T)Tool::value_t2int(actor.params[0]);
 
@@ -261,7 +261,7 @@ private:
 		}
 	}
 
-	void get_steps(Actor_Object & actor, vector<int>& steps)
+	void get_steps(const Actor_Object & actor, vector<int>& steps)
 	{
 		vector<value_t> params = actor.params;
 		assert(params.size() > 1);
@@ -270,7 +270,7 @@ private:
 		}
 	}
 
-	int get_steps_count(Actor_Object & actor)
+	int get_steps_count(const Actor_Object & actor)
 	{
 		return actor.params.size() - 1;
 	}

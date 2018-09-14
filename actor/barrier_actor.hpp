@@ -27,7 +27,7 @@ class BarrierActorBase :  public AbstractActor{
 public:
 	BarrierActorBase(int id, DataStore* data_store, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity){}
 
-	void process(int t_id, vector<Actor_Object> & actors, Message & msg){
+	void process(int t_id, const vector<Actor_Object> & actors, Message & msg){
 		// get msg info
 		mkey_t key;
 		string end_path;
@@ -60,7 +60,7 @@ public:
 	}
 
 protected:
-	virtual void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, typename BarrierDataTable::accessor& ac, bool isReady) = 0;
+	virtual void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, typename BarrierDataTable::accessor& ac, bool isReady) = 0;
 	// get labelled branch key if in branch
 	static int get_branch_key(Meta & m){
 		// check if count actor in branch
@@ -93,7 +93,7 @@ protected:
 		return branch_value;
 	}
 
-	static inline bool is_next_barrier(vector<Actor_Object> actors, int step){
+	static inline bool is_next_barrier(const vector<Actor_Object>& actors, int step){
 		int next = actors[step].next_actor;
 		return next < actors.size() && actors[next].IsBarrier();
 	}
@@ -274,7 +274,7 @@ private:
 	AbstractMailbox * mailbox_;
 	int num_nodes_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data = ac->second.result;
 
 		// move msg data to data table
@@ -313,7 +313,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& agg_data = ac->second.agg_data;
 		auto& msg_data = ac->second.msg_data;
 
@@ -331,7 +331,7 @@ private:
 
 		// all msg are collected
 		if(isReady){
-			Actor_Object& actor = actors[msg.meta.step];
+			const Actor_Object& actor = actors[msg.meta.step];
 			assert(actor.params.size() == 1);
 			int key = Tool::value_t2int(actor.params[0]);
 
@@ -364,10 +364,10 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		// all msg are collected
 		if(isReady){
-			Actor_Object& actor = actors[msg.meta.step];
+			const Actor_Object& actor = actors[msg.meta.step];
 			vector<pair<history_t, vector<value_t>>> msg_data;
 			msg_data.emplace_back(history_t(), vector<value_t>());
 
@@ -440,7 +440,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -501,14 +501,14 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		auto& dedup_his_map = ac->second.dedup_his_map;
 		auto& dedup_val_map = ac->second.dedup_val_map;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
-		Actor_Object& actor = actors[msg.meta.step];
+		const Actor_Object& actor = actors[msg.meta.step];
 		set<int> key_set;
 		for(auto& param : actor.params){
 			key_set.insert(Tool::value_t2int(param));
@@ -609,12 +609,12 @@ private:
 	Config* config_;
 	ActorCache cache_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
-		Actor_Object& actor = actors[msg.meta.step];
+		const Actor_Object& actor = actors[msg.meta.step];
 		assert(actor.params.size() == 4);
 		Element_T element_type = (Element_T)Tool::value_t2int(actor.params[1]);
 		int keyProjection = Tool::value_t2int(actor.params[2]);
@@ -746,13 +746,13 @@ private:
 	ActorCache cache_;
 	Config* config_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		auto& data_set = ac->second.data_set;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
-		Actor_Object& actor = actors[msg.meta.step];
+		const Actor_Object& actor = actors[msg.meta.step];
 		assert(actor.params.size() == 3);
 		Element_T element_type = (Element_T)Tool::value_t2int(actor.params[0]);
 		int keyProjection = Tool::value_t2int(actor.params[1]);
@@ -866,12 +866,12 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
-		Actor_Object& actor = actors[msg.meta.step];
+		const Actor_Object& actor = actors[msg.meta.step];
 		assert(actor.params.size() == 2);
 		int start = Tool::value_t2int(actor.params[0]);
 		int end = Tool::value_t2int(actor.params[1]);
@@ -972,12 +972,12 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
 		// get actor params
-		Actor_Object& actor = actors[msg.meta.step];
+		const Actor_Object& actor = actors[msg.meta.step];
 		assert(actor.params.size() == 1);
 		Math_T math_type = (Math_T)Tool::value_t2int(actor.params[0]);
 		void (*op)(BarrierData::math_meta_t&, value_t&);

@@ -32,7 +32,7 @@ public:
 
 	void AddParam(int key);
 	bool AddParam(string s);
-	bool IsBarrier();
+	bool IsBarrier() const;
 
 	string DebugString();
 };

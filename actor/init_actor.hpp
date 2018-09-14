@@ -27,7 +27,7 @@ public:
 
     virtual ~InitActor(){}
 
-    void process(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+    void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
 		if(actor_objs[msg.meta.step].params.size() == 1){
 			InitWithoutIndex(tid, actor_objs, msg);
 		}else{
@@ -167,9 +167,9 @@ private:
 		edge_data_count.push_back(move(msg_data));
     }
 
-	void InitWithIndex(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+	void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
         Meta m = msg.meta;
-        Actor_Object& actor_obj = actor_objs[m.step];
+        const Actor_Object& actor_obj = actor_objs[m.step];
 
 		// store all predicate
 		vector<pair<int, PredicateValue>> pred_chain;
@@ -203,7 +203,7 @@ private:
         }
 	}
 
-	void InitWithoutIndex(int tid, vector<Actor_Object> & actor_objs, Message & msg){
+	void InitWithoutIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
 		if(! is_ready_){
 			if(thread_mutex_.try_lock()){
 				InitData();
@@ -216,7 +216,7 @@ private:
 			}
 		}
         Meta m = msg.meta;
-        Actor_Object& actor_obj = actor_objs[m.step];
+        const Actor_Object& actor_obj = actor_objs[m.step];
 
 		// Get init element type
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));

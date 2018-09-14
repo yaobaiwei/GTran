@@ -24,7 +24,7 @@ public:
 	ValuesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity, Config* config) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::VALUES) {}
 
 	// inType, [key]+
-	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];
 

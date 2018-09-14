@@ -31,7 +31,7 @@ public:
 	// 	e.g. g.V().as('a'),,,.where(neq('a'))
 	// 	 	 g.V().as('a'),,,.as('b').,,,.where('a', neq('b'))
 	//
-	void process(int tid, vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
 		// Get Actor_Object
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];
