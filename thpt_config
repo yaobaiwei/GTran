@@ -1,4 +1,4 @@
-5	50
+5	100
 3
 g.V().has("title","$RAND")	title
 g.V().hasKey("imUrl").hasLabel("product").has("brand","$RAND")	brand

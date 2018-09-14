@@ -14,7 +14,11 @@ class Throughput_Monitor {
 public:
 	Throughput_Monitor() : is_emu_(false){}
 	void StartEmu(){
-		stats_.clear();
+		{
+			unique_lock<mutex> lock(thread_mutex_);
+			stats_.clear();
+		}
+
 		num_completed_ = 0;
 		num_recorded_ = 0;
 		last_cnt_ = 0;
@@ -31,31 +35,27 @@ public:
 	// Set the start time of emu command
 	void SetEmuStartTime(uint64_t qid){
 		num_recorded_++;
-		thread_mutex_.lock();
+		unique_lock<mutex> lock(thread_mutex_);
 		stats_[qid].second = start_time_;
-		thread_mutex_.unlock();
 	}
 
 	// Set the start time of normal query
 	void RecordStart(uint64_t qid, int query_type = -1){
 		num_recorded_++;
-		thread_mutex_.lock();
-		stats_[qid].first = query_type;
-		stats_[qid].second = timer::get_usec();
-		thread_mutex_.unlock();
+		unique_lock<mutex> lock(thread_mutex_);
+		stats_[qid] = make_pair(query_type, timer::get_usec());
 	}
 
 	// Record latency of query
 	uint64_t RecordEnd(uint64_t qid){
 		num_completed_ ++;
+		unique_lock<mutex> lock(thread_mutex_);
 		uint64_t latency = timer::get_usec() - stats_[qid].second;
-		thread_mutex_.lock();
 		if(!is_emu_){
 			stats_.erase(qid);
 		}else{
-			stats_[qid].second = latency;
+			stats_.at(qid).second = latency;
 		}
-		thread_mutex_.unlock();
 		return latency;
 	}
 
@@ -69,6 +69,7 @@ public:
 		for(auto & latency : stats_){
 			m[latency.second.first].push_back(latency.second.second);
 		}
+		unique_lock<mutex> lock(thread_mutex_);
 		stats_.clear();
 	}
 

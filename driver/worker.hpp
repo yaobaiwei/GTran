@@ -169,12 +169,10 @@ public:
 
 		thpt_monitor_->StartEmu();
 		uint64_t start = timer::get_usec();
-        uint64_t get_query_time = 0;
 		while(timer::get_usec() - start < test_time){
 			if(thpt_monitor_->WorksRemaining() > parrellfactor){
 				continue;
 			}
-            uint64_t start_time = timer::get_usec();
 			// pick random query type
 			int query_type = rand() % n_type;
 
@@ -191,7 +189,6 @@ public:
 			}
 
 			query_temp = regex_replace(query_temp, match, rand_value);
-			get_query_time += timer::get_usec() - start_time;
             // run query
             ParseAndSendQuery(query_temp, emu_host, query_type);
 			commited_queries.push_back(move(query_temp));
