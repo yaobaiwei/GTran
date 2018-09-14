@@ -104,6 +104,33 @@ void Parser::LoadMapping(){
 	hdfsDisconnect(fs);
 }
 
+int Parser::GetPid(Element_T type, string& property){
+	if(property == "label"){
+		return 0;
+	}else{
+		map<string, uint32_t>::iterator itr;
+		if(type == Element_T::VERTEX){
+			itr = str2vpk.find(property);
+			if(itr == str2vpk.end()){
+				cout << "wrong property : " << property << endl;
+				return -1;
+			}
+		}else{
+			itr = str2epk.find(property);
+			if(itr == str2epk.end()){
+				cout << "wrong property : " << property << endl;
+				return -1;
+			}
+		}
+
+		if(! index_store_->IsIndexEnabled(type, itr->second)){
+			cout << "Property is not enabled: " << property << endl;
+			return -1;
+		}
+		return itr->second;
+	}
+}
+
 bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error_msg)
 {
 	Clear();
@@ -129,6 +156,7 @@ bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error
 		error_msg = "1. Execute query with 'g.V()' or 'g.E()'\n";
 		error_msg += "2. Set up index by BuildIndex(V/E, propertyname)\n";
 		error_msg += "3. Change config by SetConfig(config_name, t/f)\n";
+		error_msg += "4. Run emulator mode with 'emu <file>'";
 		return false;
 	}
 
@@ -1005,7 +1033,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		PredicateValue pred(pred_type, actor.params[size - 1]);
 
 		uint64_t count = 0;
-		bool enabled = index_store_->IsIndexEnabled(element_type, key, pred, count);
+		bool enabled = index_store_->IsIndexEnabled(element_type, key, &pred, &count);
 
 		if(enabled && count / index_ratio < min_count_)
 		{
@@ -1078,7 +1106,7 @@ void Parser::ParseHasLabel(const vector<string>& params)
 		PredicateValue pred(pred_type, pred_params);
 
 		uint64_t count = 0;
-		if(index_store_->IsIndexEnabled(element_type, 0, pred, count)){
+		if(index_store_->IsIndexEnabled(element_type, 0, &pred, &count)){
 			actors_.erase(actors_.end() - 1);
 
 			value_t v;

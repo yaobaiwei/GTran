@@ -150,6 +150,8 @@ public:
 
 	Parser(Config *config, IndexStore* index_store): config_(config), index_store_(index_store){};
 
+	int GetPid(Element_T type, string& property);
+
 	// load property and label mapping
 	void LoadMapping();
 

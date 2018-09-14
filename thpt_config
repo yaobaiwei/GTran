@@ -1,0 +1,5 @@
+5	50
+3
+g.V().has("title","$RAND")	title
+g.V().hasKey("imUrl").hasLabel("product").has("brand","$RAND")	brand
+g.V().has("title","$RAND").and(out("bought_together").values("price").min().is(gt(300)),in("reviewed").count().is(gt(10))).values("reviewerName")	title

@@ -18,7 +18,7 @@ public:
 	IndexStore(Config * config) : config_(config){}
 
 	const static double ratio = 0.2;
-	bool IsIndexEnabled(Element_T type, int pid, PredicateValue& pred, uint64_t& count){
+	bool IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL){
 		if(config_->global_enable_indexing){
 			unordered_map<int, index_>* m;
 			if(type == Element_T::VERTEX){
@@ -38,11 +38,14 @@ public:
 
 			index_ &idx = itr->second;
 			if(idx.isEnabled){
-				uint64_t threshold = idx.total * ratio;
-				count = get_count_by_predicate(type, pid, pred);
-				cout << "Count : " << count << ", threshold: " << threshold << endl;
-				if(count >= threshold){
-					return false;
+				if(pred != NULL){
+					uint64_t threshold = idx.total * ratio;
+					*count = get_count_by_predicate(type, pid, *pred);
+					if(*count >= threshold){
+						return false;
+					}else{
+						return true;
+					}
 				}else{
 					return true;
 				}
@@ -74,8 +77,9 @@ public:
 				set<value_t> temp(std::make_move_iterator(item.second.begin()), std::make_move_iterator(item.second.end()));
 				uint64_t count = temp.size();
 				sum += count;
-				idx.index_map[item.first] = move(temp);
+				auto itr = idx.index_map.insert(idx.index_map.end(), {move(item.first), move(temp)});
 				idx.count_map[item.first] = count;
+                idx.values.push_back(&(itr->first));
 			}
 
 			idx.no_key = set<value_t>(make_move_iterator(no_key_vec.begin()),make_move_iterator(no_key_vec.end()));
@@ -132,6 +136,31 @@ public:
 		}
 	}
 
+	bool GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str){
+		unordered_map<int, index_>* m;
+		if(type == Element_T::VERTEX){
+			m = &vtx_index;
+		}else{
+			m = &edge_index;
+		}
+
+		auto itr = m->find(pid);
+		if(itr == m->end()){
+			return false;
+		}
+
+		index_ &idx = itr->second;
+		int size = idx.values.size();
+		if(size == 0){
+			return false;
+		}
+
+		// get value string
+        value_t v = *idx.values[rand_seed % size];
+		value_str = Tool::DebugString(v);
+		return true;
+	}
+
 private:
 	Config * config_;
 
@@ -143,6 +172,7 @@ private:
 		map<value_t, set<value_t>> index_map;
 		set<value_t> no_key;
 		map<value_t, uint64_t> count_map;
+        vector<const value_t *> values;
 	};
 
 	unordered_map<int, index_> vtx_index;

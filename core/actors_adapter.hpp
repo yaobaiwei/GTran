@@ -12,6 +12,7 @@
 #include <vector>
 #include <atomic>
 #include <thread>
+#include <tbb/concurrent_hash_map.h>
 
 #include "actor/abstract_actor.hpp"
 #include "actor/as_actor.hpp"
@@ -96,61 +97,76 @@ public:
 	void execute(int tid, Message & msg){
 		Meta & m = msg.meta;
 		if(m.msg_type == MSG_T::INIT){
-			msg_logic_table_[m.qid] = move(m.actors);
+			// acquire write lock for insert
+			accessor ac;
+			msg_logic_table_.insert(ac, m.qid);
+			ac->second = move(m.actors);
 		}else if(m.msg_type == MSG_T::FEED){
 			assert(msg.data.size() == 1);
 			agg_t agg_key(m.qid, m.step);
 			data_store_->InsertAggData(agg_key, msg.data[0].second);
 			return ;
 		}else if(m.msg_type == MSG_T::EXIT){
-			msg_logic_table_.erase(m.qid);
-			// TODO: erase aggregate data
+			const_accessor ac;
+			msg_logic_table_.find(ac, m.qid);
+
+			// erase aggregate result
+			int i = 0;
+			for(auto& act : ac->second){
+				if(act.actor_type == ACTOR_T::AGGREGATE){
+					agg_t agg_key(m.qid, i);
+					data_store_->DeleteAggData(agg_key);
+				}
+				i ++;
+			}
+
+			// earse only after query with qid is done
+			msg_logic_table_.erase(ac);
 
 			// Print time
-			timer::stop_timer(tid + 2 * num_thread_);
-			double exec = 0;
-			double recv = 0;
-			double send = 0;
-			double serialization = 0;
-			double create_msg = 0;
-			vector<double> actors_time(actors_.size());
-
-			for(int i = 0; i < num_thread_; i++){
-				send += timer::get_timer(i);
-				serialization += timer::get_timer(i + num_thread_);
-				exec += timer::get_timer(i + 2 *num_thread_);
-				recv += timer::get_timer(i + 3 * num_thread_);
-				create_msg += timer::get_timer(i + 4 * num_thread_);
-
-				for(int j = 0; j < actors_.size(); j++){
-					actors_time[j] += timer::get_timer(i + (timer_offset + j) * num_thread_);
-				}
-			}
-			timer::reset_timers();
-
-			string ofname = "timer" + to_string(m.recver_nid) + ".txt";
-			std::ofstream ofs(ofname.c_str(), std::ofstream::out);
-			ofs << "Exec: " << exec << "ms" << endl;
-
-			for(auto& act : actors_){
-				double t = actors_time[act.second->GetActorId()];
-				if(t != 0){
-					ofs << "\t" << std::left << setw(15) << string(ActorType[static_cast<int>(act.first)]) << ": " << t << "ms" << endl;
-				}
-			}
-			ofs << endl;
-
-			ofs << "Send: " << send << "ms" << endl;
-			ofs << "Recv: " << recv << "ms" << endl;
-			ofs << "Serialize: " << serialization << "ms" << endl;
-			ofs << "Create Msg: " << create_msg << "ms" << endl;
+			//timer::stop_timer(tid + 2 * num_thread_);
+			// double exec = 0;
+			// double recv = 0;
+			// double send = 0;
+			// double serialization = 0;
+			// double create_msg = 0;
+			// vector<double> actors_time(actors_.size());
+			//
+			// for(int i = 0; i < num_thread_; i++){
+			// 	send += timer::get_timer(i);
+			// 	serialization += timer::get_timer(i + num_thread_);
+			// 	exec += timer::get_timer(i + 2 *num_thread_);
+			// 	recv += timer::get_timer(i + 3 * num_thread_);
+			// 	create_msg += timer::get_timer(i + 4 * num_thread_);
+			//
+			// 	for(int j = 0; j < actors_.size(); j++){
+			// 		actors_time[j] += timer::get_timer(i + (timer_offset + j) * num_thread_);
+			// 	}
+			// }
+			// timer::reset_timers();
+			//
+			// string ofname = "timer" + to_string(m.recver_nid) + ".txt";
+			// std::ofstream ofs(ofname.c_str(), std::ofstream::out);
+			// ofs << "Exec: " << exec << "ms" << endl;
+			//
+			// for(auto& act : actors_){
+			// 	double t = actors_time[act.second->GetActorId()];
+			// 	if(t != 0){
+			// 		ofs << "\t" << std::left << setw(15) << string(ActorType[static_cast<int>(act.first)]) << ": " << t << "ms" << endl;
+			// 	}
+			// }
+			// ofs << endl;
+			//
+			// ofs << "Send: " << send << "ms" << endl;
+			// ofs << "Recv: " << recv << "ms" << endl;
+			// ofs << "Serialize: " << serialization << "ms" << endl;
+			// ofs << "Create Msg: " << create_msg << "ms" << endl;
 			return;
 		}
 
-		auto msg_logic_table_iter = msg_logic_table_.find(m.qid);
-
+		const_accessor ac;
 		// qid not found
-		if(msg_logic_table_iter == msg_logic_table_.end()){
+		if(! msg_logic_table_.find(ac, m.qid)){
 			// throw msg to the same thread as init msg
 			msg.meta.recver_tid = msg.meta.parent_tid;
 			mailbox_->Send(tid, msg);
@@ -160,12 +176,12 @@ public:
 		int current_step;
 		do{
 			current_step = msg.meta.step;
-			ACTOR_T next_actor = msg_logic_table_iter->second[current_step].actor_type;
-			int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
+			ACTOR_T next_actor = ac->second[current_step].actor_type;
+			//int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
 
-			timer::start_timer(tid + offset);
-			actors_[next_actor]->process(tid, msg_logic_table_iter->second, msg);
-			timer::stop_timer(tid + offset);
+			//timer::start_timer(tid + offset);
+			actors_[next_actor]->process(tid, ac->second, msg);
+			//timer::stop_timer(tid + offset);
 		}while(current_step != msg.meta.step);	// process next actor directly if step is modified
 	}
 
@@ -175,37 +191,38 @@ public:
 			core_affinity_->BindToCore(tid);
 		}
 
+		vector<int> steal_list;
+		core_affinity_->GetStealList(tid, steal_list);
+
 	    while (true) {
-			timer::start_timer(tid + 2 * num_thread_);
+			//timer::start_timer(tid + 2 * num_thread_);
 			mailbox_->Sweep(tid);
 
 	        Message recv_msg;
-			timer::start_timer(tid + 3 * num_thread_);
+			//timer::start_timer(tid + 3 * num_thread_);
 	        bool success = mailbox_->TryRecv(tid, recv_msg);
 	        times_[tid] = timer::get_usec();
 	        if(success){
-				timer::stop_timer(tid + 3 * num_thread_);
+				//timer::stop_timer(tid + 3 * num_thread_);
 	        	execute(tid, recv_msg);
 	        	times_[tid] = timer::get_usec();
-				timer::stop_timer(tid + 2 * num_thread_);
+				//timer::stop_timer(tid + 2 * num_thread_);
 	        } else {
 				//TODO work stealing
 				if (!config_->global_enable_workstealing)
 					continue;
 
-				vector<int> steal_list;
-				core_affinity_->GetStealList(tid, steal_list);
 				for (auto itr = steal_list.begin(); itr != steal_list.end(); itr++) {
 					if(times_[tid] < times_[*itr] + STEALTIMEOUT)
 							continue;
 
-					timer::start_timer(tid + 2 * num_thread_);
-					timer::start_timer(tid + 3 * num_thread_);
+					//timer::start_timer(tid + 2 * num_thread_);
+					//timer::start_timer(tid + 3 * num_thread_);
 					success = mailbox_->TryRecv(*itr, recv_msg);
 					if(success){
-						timer::stop_timer(tid + 3 * num_thread_);
+						//timer::stop_timer(tid + 3 * num_thread_);
 						execute(tid, recv_msg);
-						timer::stop_timer(tid + 2 * num_thread_);
+						//timer::stop_timer(tid + 2 * num_thread_);
 						break;
 					}
 				}
@@ -229,8 +246,9 @@ private:
 
 	//global map to record the vec<actor_obj> of query
 	//avoid repeatedly transfer vec<actor_obj> for message
-	hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
-
+	tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
+	typedef tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>>::accessor accessor;
+	typedef tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>>::const_accessor const_accessor;
 	// Thread pool
 	vector<thread> thread_pool_;
 
