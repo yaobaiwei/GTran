@@ -144,7 +144,9 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
         uint64_t sz = ASSOCIATIVITY * sizeof(ikey_t);
 
         RDMA &rdma = RDMA::get_rdma();
+		//timer::start_timer(tid);
         rdma.dev->RdmaRead(tid, dst_nid, buffer, sz, off);
+		//timer::stop_timer(tid);
 
         ikey_t * keys = (ikey_t *)buffer;
         for (int i = 0; i < ASSOCIATIVITY; i++) {
@@ -211,11 +213,11 @@ void VKVStore::init(vector<Node> & nodes) {
 		requesters.resize(config_->global_num_machines);
 		for (int nid = 0; nid < config_->global_num_machines; nid++) {
 			Node & r_node = GetNodeById(nodes, nid + 1);
-			string hostname = r_node.hostname;
+			string ibname = r_node.ibname;
 
 			requesters[nid] = new zmq::socket_t(context, ZMQ_REQ);
 			char addr[64] = "";
-			sprintf(addr, "tcp://%s:%d", hostname.c_str(), r_node.tcp_port + 1 + config_->global_num_threads);
+			sprintf(addr, "tcp://%s:%d", ibname.c_str(), r_node.tcp_port + 1 + config_->global_num_threads);
 			requesters[nid]->connect(addr);
 		}
     	pthread_spin_init(&req_lock, 0);
@@ -267,7 +269,9 @@ void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t &
 		uint64_t r_sz = key.ptr.size;
 
 		RDMA &rdma = RDMA::get_rdma();
+		//timer::start_timer(tid);
 		rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
+		//timer::stop_timer(tid);
 
 		// type : char to uint8_t
 		val.type = buffer[0];

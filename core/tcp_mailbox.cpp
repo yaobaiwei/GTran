@@ -33,14 +33,14 @@ void TCPMailbox::Init(vector<Node> & nodes) {
 
 	for (int nid = 0; nid < config_->global_num_machines; nid++) {
 		Node & r_node = GetNodeById(nodes, nid + 1);
-		string hostname = r_node.hostname;
+		string ibname = r_node.ibname;
 
 		for (int tid = 0; tid < config_->global_num_threads; tid++) {
 			int pcode = port_code(nid, tid);
 
 			senders_[pcode] = new zmq::socket_t(context, ZMQ_PUSH);
 			char addr[64] = "";
-			sprintf(addr, "tcp://%s:%d", hostname.c_str(), r_node.tcp_port + 1 + tid);
+			sprintf(addr, "tcp://%s:%d", ibname.c_str(), r_node.tcp_port + 1 + tid);
 			// FIXME: check return value
 			senders_[pcode]->connect(addr);
 		}
