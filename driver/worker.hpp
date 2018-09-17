@@ -115,7 +115,7 @@ public:
 	        cout << "file not found: " << file_name << endl;
 	        return;
 	    }
-		uint64_t test_time, parrellfactor;
+		uint64_t test_time, parrellfactor, ratio;
 		ifs >> test_time >> parrellfactor;
 
 		test_time *= 1000000;
@@ -125,11 +125,13 @@ public:
 
 		vector<string> queries;
 		vector<pair<Element_T, int>> query_infos;
+		vector<int> ratios;
 		for(int i = 0; i < n_type; i++){
 			string query;
 			string property_key;
-
-			ifs >> query >> property_key;
+			int ratio;
+			ifs >> query >> property_key >> ratio;
+			ratios.push_back(ratio);
 			Element_T e_type;
 			if(query.find("g.V()") == 0){
 				e_type = Element_T::VERTEX;
@@ -174,7 +176,7 @@ public:
 				continue;
 			}
 			// pick random query type
-			int query_type = rand() % n_type;
+			int query_type = mymath::get_distribution(rand(), ratios);
 
 			// get query info
 			string query_temp = queries[query_type];

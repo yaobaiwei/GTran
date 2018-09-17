@@ -66,12 +66,16 @@ void DataStore::Shuffle()
 	}
 	all_to_all(node_, false, vtx_parts);
 	vertices.clear();
+	if(node_.get_local_rank() == 0){
+		cout << "Shuffle vertex done" << endl;
+	}
 
 	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		vertices.insert(vertices.end(), vtx_parts[i].begin(), vtx_parts[i].end());
 	}
 	vtx_parts.clear();
+	vector<vector<Vertex*>>().swap(vtx_parts);
 
 	//edges
 	vector<vector<Edge*>> edges_parts;
@@ -83,6 +87,9 @@ void DataStore::Shuffle()
 	}
 
 	all_to_all(node_, false, edges_parts);
+	if(node_.get_local_rank() == 0){
+		cout << "Shuffle edge done" << endl;
+	}
 
 	edges.clear();
 	for (int i = 0; i < node_.get_local_size(); i++)
@@ -90,6 +97,7 @@ void DataStore::Shuffle()
 		edges.insert(edges.end(), edges_parts[i].begin(), edges_parts[i].end());
 	}
 	edges_parts.clear();
+	vector<vector<Edge*>>().swap(edges_parts);
 
 	//VProperty
 	vector<vector<VProperty*>> vp_parts;
@@ -109,6 +117,11 @@ void DataStore::Shuffle()
 		delete vp;
 	}
 	all_to_all(node_, false, vp_parts);
+
+	if(node_.get_local_rank() == 0){
+		cout << "Shuffle vp done" << endl;
+	}
+
 	vplist.clear();
 
 	for (int i = 0; i < node_.get_local_size(); i++)
@@ -116,6 +129,7 @@ void DataStore::Shuffle()
 		vplist.insert(vplist.end(), vp_parts[i].begin(), vp_parts[i].end());
 	}
 	vp_parts.clear();
+	vector<vector<VProperty*>>().swap(vp_parts);
 
 	//EProperty
 	vector<vector<EProperty*>> ep_parts;
@@ -137,12 +151,17 @@ void DataStore::Shuffle()
 
 	all_to_all(node_, false, ep_parts);
 
+	if(node_.get_local_rank() == 0){
+		cout << "Shuffle ep done" << endl;
+	}
+
 	eplist.clear();
 	for (int i = 0; i < node_.get_local_size(); i++)
 	{
 		eplist.insert(eplist.end(), ep_parts[i].begin(), ep_parts[i].end());
 	}
 	ep_parts.clear();
+	vector<vector<EProperty*>>().swap(ep_parts);
 
 	//vp_lists
 	vector<vector<vp_list*>> vpl_parts;
@@ -154,6 +173,9 @@ void DataStore::Shuffle()
 	}
 
 	all_to_all(node_, false, vpl_parts);
+	if(node_.get_local_rank() == 0){
+		cout << "Shuffle vp list done" << endl;
+	}
 
 	vp_buf.clear();
 	for (int i = 0; i < node_.get_local_size(); i++)
@@ -161,6 +183,7 @@ void DataStore::Shuffle()
 		vp_buf.insert(vp_buf.end(), vpl_parts[i].begin(), vpl_parts[i].end());
 	}
 	vpl_parts.clear();
+	vector<vector<vp_list*>>().swap(vpl_parts);
 }
 
 
