@@ -190,6 +190,7 @@ private:
 			pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
 		}
 
+		msg.max_data_size = max_data_size_;
 		msg.data.clear();
 		msg.data.emplace_back(history_t(), vector<value_t>());
 		index_store_->GetElements(inType, pred_chain, msg.data[0].second);
