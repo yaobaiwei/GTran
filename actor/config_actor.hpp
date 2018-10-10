@@ -51,6 +51,10 @@ public:
 			if(!enable){
 				config_->global_enable_actor_division = enable;
 			}
+		}else if(config_name == "data_size"){
+			int i = Tool::value_t2int(actor_obj.params[1]);
+			cout << i<<endl;
+			config_->max_data_size = i;
 		}else{
 			s = "Config name should be: ";
 			s += "1. caching\n";
@@ -59,6 +63,7 @@ public:
 			s += "4. step_reorder\n";
 			s += "5. indexing\n";
 			s += "6. stealing\n";
+			s += "7. data_size\n";
 		}
 
 		s += "\n";
@@ -68,7 +73,7 @@ public:
 		s += "StepReorder : " + string(config_->global_enable_step_reorder ? "True" : "False") + "\n";
 		s += "Indexing : " + string(config_->global_enable_indexing ? "True" : "False") + "\n";
 		s += "Stealing : " + string(config_->global_enable_workstealing ? "True" : "False") + "\n";
-
+		s += "Max Data Size: " + to_string(config_->max_data_size) + "\n";
 		if(m.recver_nid == m.parent_nid){
 			value_t v;
 			Tool::str2str(s, v);

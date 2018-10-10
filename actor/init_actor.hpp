@@ -22,7 +22,7 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes, int max_data_size) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), max_data_size_(max_data_size), type_(ACTOR_T::INIT), is_ready_(false) {
+    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes, Config * config) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), config_(config), type_(ACTOR_T::INIT), is_ready_(false) {
 	}
 
     virtual ~InitActor(){}
@@ -39,8 +39,9 @@ private:
 	// Number of threads
 	int num_thread_;
 	int num_nodes_;
-	int max_data_size_;
 	bool is_ready_;
+
+	Config * config_;
 
 	// Actor type
 	ACTOR_T type_;
@@ -101,7 +102,7 @@ private:
 		vector<Message> vtx_msgs;
 		do{
 			Message msg(m);
-			msg.max_data_size = max_data_size_;
+			msg.max_data_size = config_->max_data_size;
 			msg.InsertData(data);
 			vtx_msgs.push_back(move(msg));
 		}
@@ -116,7 +117,7 @@ private:
 		}
 
 		Message count_msg(m);
-		count_msg.max_data_size = max_data_size_;
+		count_msg.max_data_size = config_->max_data_size;
 		value_t v;
 		Tool::str2int(to_string(count), v);
 		count_msg.data.emplace_back(history_t(), vector<value_t>{v});
@@ -143,7 +144,7 @@ private:
 		vector<Message> edge_msgs;
 		do{
 			Message msg(m);
-			msg.max_data_size = max_data_size_;
+			msg.max_data_size = config_->max_data_size;
 			msg.InsertData(data);
 			edge_msgs.push_back(move(msg));
 		}
@@ -158,7 +159,7 @@ private:
 		}
 
 		Message count_msg(m);
-		count_msg.max_data_size = max_data_size_;
+		count_msg.max_data_size = config_->max_data_size;
 		value_t v;
 		Tool::str2int(to_string(count), v);
 		count_msg.data.emplace_back(history_t(), vector<value_t>{v});
@@ -190,7 +191,7 @@ private:
 			pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
 		}
 
-		msg.max_data_size = max_data_size_;
+		msg.max_data_size = config_->max_data_size;
 		msg.data.clear();
 		msg.data.emplace_back(history_t(), vector<value_t>());
 		index_store_->GetElements(inType, pred_chain, msg.data[0].second);

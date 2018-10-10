@@ -339,22 +339,29 @@ void Parser::ParseSetConfig(const string& param){
 	Tool::trim(params[1], "\"");
 	Tool::trim(params[2], "\"");
 
+	value_t v;
+	Tool::str2str(params[1], v);
+	actor.params.push_back(v);
+
 	bool enable;
 	if(params[2] == "enable"
 		|| params[2][0] == 'y'
 		|| params[2][0] == 't'){
 			enable = true;
+			actor.AddParam(enable);
 	}else if(params[2] == "disable"
 		|| params[2][0] == 'n'
 		|| params[2][0] == 'f'){
 			enable = false;
+			actor.AddParam(enable);
+	}else if(Tool::checktype(params[2]) == 1){
+		v.content.clear();
+		Tool::str2int(params[2], v);
+		actor.params.push_back(v);
 	}else{
 		throw ParserException("expect 'enable' or 'y' or 't'");
 	}
-	value_t v;
-	Tool::str2str(params[1], v);
-	actor.params.push_back(v);
-	actor.AddParam(enable);
+
 	AppendActor(actor);
 }
 
