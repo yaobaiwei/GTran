@@ -1,6 +1,7 @@
 include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
 
 file(GLOB base-src-files
+    cpuinfo_util.cpp
 	rdma.cpp
 	node_util.cpp
 	type.cpp

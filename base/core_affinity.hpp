@@ -14,6 +14,8 @@
 #include "utils/global.hpp"
 #include "utils/timer.hpp"
 
+#include "cpuinfo_util.hpp"
+
 using namespace std;
 
 /*
@@ -36,6 +38,8 @@ class CoreAffinity {
 public:
 
 	CoreAffinity (Config * config) : config_(config) {}
+
+	CPUInfoUtil& cpuinfo_ = CPUInfoUtil::GetInstance();
 
 	void Init() {
 		load_node_topo();
