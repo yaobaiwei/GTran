@@ -14,7 +14,9 @@
 #include "utils/global.hpp"
 #include "utils/timer.hpp"
 
-#include "cpuinfo_util.hpp"
+#include "base/cpuinfo_util.hpp"
+
+#include "base/node.hpp"
 
 using namespace std;
 
@@ -39,8 +41,11 @@ public:
 
 	CoreAffinity (Config * config) : config_(config) {}
 
+	Node node_;
+
 
 	void Init() {
+		node_ = Node::StaticInstance();
 		//
 		init_potential_core_pool();
 
@@ -161,10 +166,10 @@ private:
 		//init potential pool via cpuinfo
 		for(int i = 0; i < NUM_THREAD_DIVISION; i++)
 		{
-			cur_step += division_numerator_[i] * division_denominator_;
+			cur_step += division_numerator_[i] * core_cnt;
 
-			int cur_div = cur_step / core_cnt;
-			int cur_core_cnt = cur_div / division_denominator_;
+			int cur_div = cur_step / division_denominator_;
+			int cur_core_cnt = cur_div - last_div;
 
 			//guarantee that at least one core will be given
 			if(cur_core_cnt == 0)
@@ -175,14 +180,49 @@ private:
 
 			for(int j = last_div; j < cur_div; j++)
 				potential_core_pool_[i].push_back(j);
+
+			last_div = cur_div;
 		}
 		
 		//the thread pool will be initialed after the core pool initialized
 		//the loop sequence must be so.
 		for(int j = 0; j < cpuinfo_.GetThreadPerCore(); j++)
 		for(int i = 0; i < NUM_THREAD_DIVISION; i++)
+		for(auto core_id : potential_core_pool_[i])
 		{
-			potential_thread_pool_[i].push_back(cpuinfo_.GetCoreThreads(i)[j]);
+			potential_thread_pool_[i].push_back(cpuinfo_.GetCoreThreads(core_id)[j]);
+		}
+
+		//local_rank_ == 0  node 0: cores: 
+		//[ 0 1 2 3], [ 4 5], [ 6 7], [ 8 9], [ 10 11 12], [ 13 14 15],  
+		//threads: 
+		//[ 0 2 4 6 16 18 20 22], [ 8 10 24 26], [ 12 14 28 30], [ 1 3 17 19], [ 5 7 9 21 23 25], [ 11 13 15 27 29 31], 
+
+
+		//debug
+		{
+			std::stringstream ss;
+			ss<<"node "<<node_.get_local_rank()<<": cores: ";
+			for(auto cores : potential_core_pool_)
+			{
+				ss<<"[";
+				for(auto core : cores)
+				{
+					ss<<" "<<core;
+				}
+				ss<<"], ";
+			}
+			ss<<" threads: ";
+			for(auto threads : potential_thread_pool_)
+			{
+				ss<<"[";
+				for(auto thread : threads)
+				{
+					ss<<" "<<thread;
+				}
+				ss<<"], ";
+			}
+			node_.LocalSequentialDebugPrint(ss.str());
 		}
 	}
 

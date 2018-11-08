@@ -3,6 +3,7 @@
  *
  *  Created on: May 10, 2018
  *      Author: Hongzhi Chen
+ *  Modified on Nov 2018, by Chenghuan Huang
  */
 //
 #ifndef NODE_HPP_
@@ -13,10 +14,11 @@
 
 #include <mpi.h>
 #include "base/serialization.hpp"
+#include <iostream>
 
 using namespace std;
 
-struct Node {
+class Node {
 public:
 	MPI_Comm local_comm;
 	string hostname;
@@ -84,12 +86,46 @@ public:
 		return ss.str();
 	}
 
+	////<Nov 2018, Chenghuan Huang>
+	//if not parameter are given, then it do not modify the static instance
+	//yet another deep dark fantasy of magical C++
+	static Node StaticInstance(Node* p = NULL)
+	{
+		static Node* static_instance_p_ = NULL;
+		if(p)
+		{
+			if(static_instance_p_)
+				delete static_instance_p_;
+			static_instance_p_ = new Node;
+			*static_instance_p_ = *p;
+		}
+			
+		assert(static_instance_p_ != NULL);
+		return *static_instance_p_;
+	}
+
+	//sequential debug print among local_comm
+	void LocalSequentialDebugPrint(string s)
+	{
+		for(int i = 0; i < local_size_; i++)
+		{
+			if(i == local_rank_)
+			{
+				cout<<"local_rank_ == "<<local_rank_<<"  "<<s<<endl;
+				fflush(stdout);
+			}
+			MPI_Barrier(local_comm);
+		}
+	}
+	////</Nov 2018, Chenghuan Huang>
+
 private:
 	int world_rank_;
 	int world_size_;
 	int local_rank_;
 	int local_size_;
 	int color_;
+	
 };
 
 #endif /* NODE_HPP_ */

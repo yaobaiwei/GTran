@@ -35,6 +35,8 @@ int main(int argc, char* argv[])
 	cout << my_node.DebugString();
 	nodes.erase(nodes.begin()); //delete the master info in nodes (array) for rdma init
 
+	//set my_node as the shared static Node instance
+	Node::StaticInstance(&my_node);
 
 	Config * config = new Config();
 	config->Init();
