@@ -77,6 +77,8 @@ CPUInfoUtil::CPUInfoUtil()
         }
     }
 
+    fclose(fp);
+
     //check avail
     for(auto _val : siblings_)
         assert(_val = siblings_val);
@@ -110,11 +112,17 @@ CPUInfoUtil::CPUInfoUtil()
         core_in_socket_mapping_.push_back(core_id_map_[core_id]);
 
     //construct core_in_global_mapping_
-
     for(int i = 0; i < core_in_socket_mapping_.size(); i++)
     {
         core_in_global_mapping_.push_back(socket_mapping_[i] * core_per_socket_ + core_in_socket_mapping_[i]);
     }
 
-    fclose(fp);
+    //build core_to_tid_map_
+    core_to_tid_map_.resize(total_core_cnt_);
+    // for(auto global_core_id : core_in_global_mapping_)
+    for(int i = 0; i < total_thread_cnt_; i++)
+    {
+        int global_core_id = core_in_global_mapping_[i];
+        core_to_tid_map_[global_core_id].push_back(i);
+    }
 }

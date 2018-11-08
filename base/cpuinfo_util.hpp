@@ -46,8 +46,11 @@ private:
     //notice that core_id_ is not the "real" core_id. eg: 0~5, 9~12
     //keys may not be continual, but values will be continual
     std::map<int, int> core_id_map_;
+    //how much tid associated with a physical id
     std::map<int, int> physical_id_map_;
 
+    //the core, to what tid. rely on core_in_global_mapping_
+    std::vector<std::vector<int>> core_to_tid_map_;
     
     CPUInfoUtil(const CPUInfoUtil&);//not to def
     CPUInfoUtil& operator=(const CPUInfoUtil&);//not to def
@@ -76,6 +79,7 @@ public:
     const std::vector<int>& GetCoreIdVector() const{return core_id_;}
     const std::vector<int>& GetPhysicalIdVector() const{return physical_id_;}
     const std::vector<int>& GetProcessorVector() const{return processor_;}
+    const std::vector<int>& GetCoreThreads(int core_id) const{return core_to_tid_map_[core_id];}
 
     int GetSocketMappingVector(int pos) const{return socket_mapping_[pos];}
     int GetCoreInSocketMappingVector(int pos) const{return core_in_socket_mapping_[pos];}

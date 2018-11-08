@@ -39,9 +39,11 @@ public:
 
 	CoreAffinity (Config * config) : config_(config) {}
 
-	CPUInfoUtil& cpuinfo_ = CPUInfoUtil::GetInstance();
 
 	void Init() {
+		//
+		init_potential_core_pool();
+
 		load_node_topo();
 		// Calculate Number of threads for each thread division
 		get_num_thread_for_each_division(config_->global_num_threads);
@@ -97,10 +99,12 @@ private:
 	// bool enable_binding = false;
 	vector<int> core_bindings;
 
+	CPUInfoUtil& cpuinfo_ = CPUInfoUtil::GetInstance();
+
 	// Full core_id for each division
-	// use once
+	//on 2 * 8 core
 	/*
-	int PotentialCorePool[6][6] = {
+	int potential_thread_pool_[6][6] = {
 		{0, 12, 2, 14, 4, 16},
 		{6, 18, 8, 20},
 		{10, 22},
@@ -108,14 +112,26 @@ private:
 		{5, 17, 7, 19},
 		{9, 21, 11, 23}
 	};*/
-	int PotentialCorePool[6][8] = {
-		{0, 16, 2, 18, 4, 20, 6, 22},
-		{8, 24, 10, 26},
-		{12, 28, 14, 30},
-		{1, 17, 3, 19, 5, 21},
-		{7, 23, 9, 25, 11, 27},
-		{13, 29, 15, 31}
-	};
+
+	vector<int> potential_core_pool_[NUM_THREAD_DIVISION];
+	vector<int> potential_thread_pool_[NUM_THREAD_DIVISION];
+	//this will be initialed via cpuinfo_
+
+	//this is a const array, implemented from the last line of type.hpp
+
+	//{the sum of numerator} / {denominator} == 1
+	const int division_numerator_[NUM_THREAD_DIVISION] = {3, 2, 1, 2, 2, 2};
+	const int division_denominator_ = 12;
+
+	//on 2 * 8 core
+	// int potential_thread_pool_[6][8] = {
+	// 	{0, 16, 2, 18, 4, 20, 6, 22},
+	// 	{8, 24, 10, 26},
+	// 	{12, 28, 14, 30},
+	// 	{1, 17, 3, 19, 5, 21},
+	// 	{7, 23, 9, 25, 11, 27},
+	// 	{13, 29, 15, 31}
+	// };
 
 	// stealing list for each thread
 	map<int, vector<int>> stealing_table;
@@ -130,6 +146,45 @@ private:
 
 	map<int, int> core_to_thread_map;
 	map<int, int> thread_to_core_map;
+
+	//to do:
+	//	to consider NUMA when assigning cores
+	//	thread level assignment if core count is insufficient
+	void init_potential_core_pool()
+	{
+		//first, try to divide via core
+		int cur_step = 0;
+		int last_div = 0;//last division core
+
+		int core_cnt = cpuinfo_.GetTotalCoreCount();
+
+		//init potential pool via cpuinfo
+		for(int i = 0; i < NUM_THREAD_DIVISION; i++)
+		{
+			cur_step += division_numerator_[i] * division_denominator_;
+
+			int cur_div = cur_step / core_cnt;
+			int cur_core_cnt = cur_div / division_denominator_;
+
+			//guarantee that at least one core will be given
+			if(cur_core_cnt == 0)
+			{
+				cur_step = (last_div + 1) * core_cnt;
+				cur_div = cur_step / core_cnt;
+			}
+
+			for(int j = last_div; j < cur_div; j++)
+				potential_core_pool_[i].push_back(j);
+		}
+		
+		//the thread pool will be initialed after the core pool initialized
+		//the loop sequence must be so.
+		for(int j = 0; j < cpuinfo_.GetThreadPerCore(); j++)
+		for(int i = 0; i < NUM_THREAD_DIVISION; i++)
+		{
+			potential_thread_pool_[i].push_back(cpuinfo_.GetCoreThreads(i)[j]);
+		}
+	}
 
 	void load_actor_division()
 	{
@@ -274,8 +329,9 @@ private:
 
 	void get_core_id_for_each_division() {
 		for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
+			//it will crash if not enough logical core to assign
 			for (int j = 0; j < num_threads[i]; j++) {
-				core_pool_table[i].push_back(PotentialCorePool[i][j]);
+				core_pool_table[i].push_back(potential_thread_pool_[i][j]);
 			}
 		}
 
