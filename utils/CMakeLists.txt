@@ -6,6 +6,7 @@ file(GLOB utils-src-files
     global.cpp
     hdfs_core.cpp
 	timer.cpp
+    console_util.cpp
     )
 
 add_library(utils-objs OBJECT ${utils-src-files})

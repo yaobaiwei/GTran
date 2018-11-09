@@ -153,8 +153,14 @@ void Client::run_console(string query_fname) {
   while (true) {
 next:
     string cmd;
-    cout << "GQuery> ";
-    std::getline(std::cin, cmd);
+
+    ConsoleUtil& console = ConsoleUtil::GetInstance();
+
+
+    // cout << "GQuery> ";
+    // std::getline(std::cin, cmd);
+
+    cmd = console.TryConsoleInput("GQuery> ");
 
     // Timer
     uint64_t enter_t = timer::get_usec();

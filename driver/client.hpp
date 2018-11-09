@@ -28,6 +28,8 @@
 
 #include "glog/logging.h"
 
+#include "utils/console_util.hpp"
+
 class Client{
 public:
     Client(string cfg_fname);
