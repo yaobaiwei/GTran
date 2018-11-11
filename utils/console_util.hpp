@@ -45,6 +45,7 @@ private:
     int cur_line_no_ = 0;
     int cur_line_ptr_no_ = 0;//always == cur_line_no_ % BUFFER_LINE
     int cur_line_len_;
+    int cur_line_pos_;//the cursor position. from 0 to cur_line_len
 
     int cur_roll_no_; //the distance of buffered line
 
@@ -54,6 +55,8 @@ private:
     char line_bfs_[BUFFER_LINE][BUFFER_SIZE];
     int line_length_[BUFFER_LINE];
     char buffer_[BUFFER_SIZE];//the actual line being edited
+    char tmp_buffer_[BUFFER_SIZE];//tmp
+
     // char** line_bfs_;
 
     std::list<int> line_identifer_;
@@ -80,6 +83,7 @@ private:
 
         // signal(SIGINT, (__sighandler_t {aka void (*)(int)})ConsoleUtil::signal_ctrlc); 
         signal(SIGINT, ConsoleUtil::signal_ctrlc); 
+        printf("overwriten SIGINT (ctrl + c) with exit(0)\n");
     }
 
     static void signal_ctrlc(int sig)
@@ -87,18 +91,44 @@ private:
         exit(0);
     }
 
+    //thanks bro @ https://stackoverflow.com/questions/33025599/move-the-cursor-in-a-c-program
+    int Getch();
     int GetKey();
-    void ClearLine();
+    int KBHit();
+    int KBEsc();//27
+
+    void SimpleRefreshLine();
+    void MoveCursorLeft(int len);
+    void MoveCursorRight(int len);
     void LoadHistory();
 
     void OnKeyUp();
     void OnKeyDown();
     void OnKeyLeft();
     void OnKeyRight();
+    void OnKeyBackspace();
+    void OnKeyDelete();
+
+    void UpdateCursorPosition();
+    void OnPrintableKey(int key);
 
     std::string FetchConsoleResult();
 
     std::string line_head_;
+
+    enum KBESC
+    {
+        KEY_ESCAPE    = 0x001b, 
+        KEY_ENTER     = 0x000a,
+        KEY_UP        = 0x0105,
+        KEY_DOWN      = 0x0106,
+        KEY_LEFT      = 0x0107,
+        KEY_RIGHT     = 0x0108,
+        KEY_BACKSPACE = 0x0008,
+        KEY_HOME      = 0x0109,//???
+        KEY_END       = 0x0110,
+        KEY_DELETE    = 0x0111
+    };
 
 public:
     static ConsoleUtil& GetInstance()

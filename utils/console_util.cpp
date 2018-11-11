@@ -12,17 +12,90 @@ using namespace std;
 
 // ConsoleUtil& icurwen4uvkfsjdev = ConsoleUtil::GetInstance();
 
+int ConsoleUtil::Getch()
+{
+    struct termios term, ori_term;
+    int c = 0;
+    tcgetattr(0, &ori_term);
+    memcpy(&term, &ori_term, sizeof(term));
+    term.c_lflag &= ~(ICANON | ECHO);
+    term.c_cc[VMIN] = 1;
+    term.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW, &term);
+    c = getchar();
+    tcsetattr(0, TCSANOW, &ori_term);
+    return c;
+}
+
+int ConsoleUtil::KBHit()
+{
+    struct termios term, ori_term;
+    int c = 0;
+
+    tcgetattr(0, &ori_term);
+    memcpy(&term, &ori_term, sizeof(term));
+    term.c_lflag &= ~(ICANON | ECHO);
+    term.c_cc[VMIN] = 0;
+    term.c_cc[VTIME] = 1;
+    tcsetattr(0, TCSANOW, &term);
+    c = getchar();
+    tcsetattr(0, TCSANOW, &ori_term);
+    if (c != -1) ungetc(c, stdin);
+    return ((c != -1) ? 1 : 0);
+}
+
+int ConsoleUtil::KBEsc()
+{
+    int c;
+
+    if (!KBHit()) return KEY_ESCAPE;
+    c = Getch();
+    if (c == '[')
+    {
+        switch (Getch())
+        {
+            case 'A':
+                c = KEY_UP;
+                break;
+            case 'B':
+                c = KEY_DOWN;
+                break;
+            case 'C':
+                c = KEY_RIGHT;
+                break;
+            case 'D':
+                c = KEY_LEFT;
+                break;
+            case 49:
+                c = KEY_HOME;
+                Getch();
+                break;
+            case 52:
+                c = KEY_END;
+                Getch();
+                break;
+            case 51:
+                c = KEY_DELETE;
+                Getch();
+                break;
+            default:
+                c = 0;
+                break;
+        }
+    } else 
+    {
+        c = 0;
+    }
+    if (c == 0) while (KBHit()) Getch();
+    return c;
+}
+
 int ConsoleUtil::GetKey()
 {
-    termios oldattr, newattr;
-    int ch;
-    tcgetattr( STDIN_FILENO, &oldattr );
-    newattr = oldattr;
-    newattr.c_lflag &= ~( ICANON | ECHO );
-    tcsetattr( STDIN_FILENO, TCSANOW, &newattr );
-    ch = getchar();
-    tcsetattr( STDIN_FILENO, TCSANOW, &oldattr );
-    return ch;
+    int c;
+
+    c = Getch();
+    return (c == KEY_ESCAPE) ? KBEsc() : c;
 }
 
 void ConsoleUtil::SetColor(out_colors cl)
@@ -69,8 +142,9 @@ void ConsoleUtil::LoadHistory()
     //fetch the line into the buffer
     memcpy((void*)buffer_, (void*)line_bfs_[actual_line_no], BUFFER_SIZE);
     cur_line_len_ = line_length_[actual_line_no];
+    cur_line_pos_ = cur_line_len_;
 
-    ClearLine();
+    SimpleRefreshLine();
 }
 
 void ConsoleUtil::OnKeyUp()
@@ -117,16 +191,37 @@ void ConsoleUtil::OnKeyDown()
     LoadHistory();
 }
 
+void ConsoleUtil::MoveCursorLeft(int len)
+{
+    if(len > 0)
+        printf("\033[%dD", len);
+}
+
+void ConsoleUtil::MoveCursorRight(int len)
+{
+    if(len > 0)
+        printf("\033[%dC", len);
+}
+
 void ConsoleUtil::OnKeyLeft()
 {
     // printf("\nvoid ConsoleUtil::OnKeyLeft()\n");
-
+    if(cur_line_pos_ > 0)
+    {
+        MoveCursorLeft(1);
+        cur_line_pos_--;
+    }
 }
 
 void ConsoleUtil::OnKeyRight()
 {
     // printf("\nvoid ConsoleUtil::OnKeyRight()\n");
-
+    if(cur_line_pos_ < cur_line_len_)
+    {
+        MoveCursorRight(1);
+        cur_line_pos_++;
+    }
+    
 }
 
 string ConsoleUtil::FetchConsoleResult()
@@ -149,7 +244,7 @@ string ConsoleUtil::FetchConsoleResult()
     return s;
 }
 
-void ConsoleUtil::ClearLine()
+void ConsoleUtil::SimpleRefreshLine()
 {
     cout << '\r';//this moves the cursor to the head of the line
     printf("%c[2K", 27);//this clears the line
@@ -157,117 +252,154 @@ void ConsoleUtil::ClearLine()
     printf("%s", buffer_);
 }
 
+void ConsoleUtil::OnPrintableKey(int key)
+{
+    //do nothing if too long
+    if(cur_line_len_ == BUFFER_SIZE)
+        return;
+
+    if(cur_line_pos_ == cur_line_len_)
+    {
+        //native print and append
+        printf("%c", key);
+        sprintf(&buffer_[cur_line_len_++], "%c", key);
+        cur_line_pos_++;
+    }
+    else
+    {
+        //clear the line, print the content, then move back the cursor
+        int len_to_backup = cur_line_len_ - cur_line_pos_;
+        memcpy((void*)tmp_buffer_, (void*)(&buffer_[cur_line_pos_]), len_to_backup);
+        buffer_[cur_line_pos_] = key;
+        memcpy((void*)(&buffer_[cur_line_pos_ + 1]), (void*)tmp_buffer_, len_to_backup);
+        SimpleRefreshLine();
+
+        MoveCursorLeft(len_to_backup);
+        cur_line_pos_++;
+        cur_line_len_++;
+    }
+}
+
+void ConsoleUtil::OnKeyDelete()
+{
+    //do not move the cursor
+
+    if(cur_line_pos_ == cur_line_len_ || cur_line_len_ == 0)
+        return;
+
+    if(cur_line_pos_ == cur_line_len_ - 1)
+    {
+        //simply erase the last character
+        buffer_[cur_line_len_ - 1] = 0;
+        cur_line_len_--;
+        SimpleRefreshLine();
+    }
+    else
+    {
+        int len_to_backup = cur_line_len_ - cur_line_pos_ - 1;
+        memcpy((void*)tmp_buffer_, (void*)(&buffer_[cur_line_pos_ + 1]), len_to_backup);
+        memcpy((void*)(&buffer_[cur_line_pos_]), (void*)tmp_buffer_, len_to_backup);
+        buffer_[cur_line_len_ - 1] = 0;
+        SimpleRefreshLine();
+
+        MoveCursorLeft(len_to_backup);
+        cur_line_len_--;
+    }
+}
+
+void ConsoleUtil::OnKeyBackspace()
+{
+    if(cur_line_pos_ == cur_line_len_)
+    {
+        //cursor at the end of line
+        if(cur_line_len_ > 0)
+        {
+            buffer_[--cur_line_len_] = 0;
+            cur_line_pos_--;
+            SimpleRefreshLine();
+        }
+    }
+    else
+    {
+        if(cur_line_pos_ != 0)
+        {
+            int len_to_backup = cur_line_len_ - cur_line_pos_;
+            memcpy((void*)tmp_buffer_, (void*)(&buffer_[cur_line_pos_]), len_to_backup);
+            memcpy((void*)(&buffer_[cur_line_pos_ - 1]), (void*)tmp_buffer_, len_to_backup);
+            buffer_[cur_line_len_ - 1] = 0;
+            SimpleRefreshLine();
+
+            MoveCursorLeft(len_to_backup);
+            cur_line_pos_--;
+            cur_line_len_--;
+        }
+    }
+}
+
 string ConsoleUtil::TryConsoleInput(string line_head)
 {
     cur_roll_no_ = 0;
     cur_line_len_ = 0;
+    cur_line_pos_ = 0;
 
     line_head_ = line_head;
-    ClearLine();
+    SimpleRefreshLine();
 
-    const int ESC_KEY = 27;
-    const int ENTER = 13;
-    const int CTRLC = 3;
-    const int CTRLD = 4;
-    const int BACKSPACE_KEY = 8;
-
-    const int DOWN_KEY = 258;
-    const int UP_KEY = 259;
-    const int LEFT_KEY = 260;
-    const int RIGHT_KEY = 261;
-
-    const int HOME_KEY = 262;
-    
     int c, i = 0;
 
     while(true)
     {
         int key = GetKey();
+
+        // cout<<"<< "<<key<<" >>"<<endl;
+        // continue;
+
         if(isprint(key))
         {
-            printf("%c", key);
-            sprintf(&buffer_[cur_line_len_++], "%c", key);
+            OnPrintableKey(key);
         }
         else
         {
-            // printf("\n%s", buffer_);
-
             //The coding philosophy of The Scroll Of Taiwu.
-            if(key == 8)//backspace
+            if(key == KEY_RIGHT)
             {
-                if(cur_line_len_ > 0)
-                    buffer_[--cur_line_len_] = 0;
-                // tcflush(0, TCOFLUSH);//failed
-                ClearLine();
+                OnKeyRight();
             }
-            else if(key == 10)//enter
+            else if(key == KEY_LEFT)
             {
-                // *line_identifer_.begin();
-
-                //todo: only legal argument will be pushed to the history
+                OnKeyLeft();
+            }
+            else if(key == KEY_UP)
+            {
+                OnKeyUp();
+            }
+            else if(key == KEY_DOWN)
+            {
+                OnKeyDown();
+            }
+            else if(key == KEY_ENTER)
+            {
                 return FetchConsoleResult();
             }
-            else if(key == 27)
+            else if(key == KEY_BACKSPACE)//delete to the left of current cursor
             {
-                int key2 = GetKey();
-                if(key2 == 91)
-                {
-                    int key3 = GetKey();
-                    if(key3 == 65)//up
-                    {
-                        OnKeyUp();
-                    }
-                    else if(key3 == 66)//down
-                    {
-                        OnKeyDown();
-                    }
-                    else if(key3 == 67)//right
-                    {
-                        OnKeyRight();
-                    }
-                    else if(key3 == 68)//left
-                    {
-                        OnKeyLeft();
-                    }
-                    else if(key3 == 49)
-                    {
-                        int key4 = GetKey();
-                        if(key4 == 126)//home
-                        {
-
-                        }
-                    }
-                    else if(key3 == 52)
-                    {
-                        int key4 = GetKey();
-                        if(key4 == 126)//end
-                        {
-                            
-                        }
-                    }
-                    else if(key3 == 51)
-                    {
-                        int key4 = GetKey();
-                        if(key4 == 126)//delete
-                        {
-                            
-                        }
-                    }
-                }
+                OnKeyBackspace();
+            }
+            else if(key == KEY_HOME)
+            {
+                MoveCursorLeft(cur_line_pos_);
+                cur_line_pos_ = 0;
+            }
+            else if(key == KEY_END)
+            {
+                MoveCursorRight(cur_line_len_ - cur_line_pos_);
+                cur_line_pos_ = cur_line_len_;
+            }
+            else if(key == KEY_DELETE)//delete current cursor position
+            {
+                OnKeyDelete();
             }
         }
-
-        // cout<<"<< "<<key<<" >>"<<endl;
-        // << 27 >><< 91 >><< 65 >> up
-        // << 27 >><< 91 >><< 68 >> left
-        // << 27 >><< 91 >><< 66 >> down
-        // << 27 >><< 91 >><< 67 >> right
-        // << 27 >><< 91 >><< 49 >><< 126 >> home
-        // << 27 >><< 91 >><< 52 >><< 126 >> end
-        // << 27 >><< 91 >><< 51 >><< 126 >> delete
-        // << 27 >> Esc //it is so bad :(
-        // << 8 >> backspace
-        // << 10 >> enter
     }
 
     return string(buffer_);
