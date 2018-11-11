@@ -17,6 +17,7 @@
 #include <iostream>
 #include <list>
 #include <memory.h>
+#include <signal.h>
 // #include <stdarg.h>
 // #include <ncurses.h>
 
@@ -61,14 +62,30 @@ private:
     //when 
     // char buffer_;
 
+    termios ori_term_attr_;
     ConsoleUtil(const ConsoleUtil&);//not to def
     ConsoleUtil& operator=(const ConsoleUtil&);//not to def
     ~ConsoleUtil()
     {
-
+        printf("ConsoleUtil::~ConsoleUtil()\n");
+        fflush(stdout);
+        tcsetattr( STDIN_FILENO, TCSANOW, &ori_term_attr_ );
     }
-    ConsoleUtil();
+    ConsoleUtil()
+    {
+        printf("ConsoleUtil::ConsoleUtil()\n");
+        memset(line_length_, 0, sizeof(int) * BUFFER_LINE);
+        tcgetattr( STDIN_FILENO, &ori_term_attr_ );
+        ori_term_attr_.c_lflag |= ICANON | ECHO;
 
+        // signal(SIGINT, (__sighandler_t {aka void (*)(int)})ConsoleUtil::signal_ctrlc); 
+        signal(SIGINT, ConsoleUtil::signal_ctrlc); 
+    }
+
+    static void signal_ctrlc(int sig)
+    {
+        exit(0);
+    }
 
     int GetKey();
     void ClearLine();
@@ -96,3 +113,4 @@ public:
     void SetColor(out_colors);
     void ResetColor();
 };
+

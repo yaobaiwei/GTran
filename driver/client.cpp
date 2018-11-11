@@ -155,12 +155,12 @@ next:
     string cmd;
 
     ConsoleUtil& console = ConsoleUtil::GetInstance();
+    cmd = console.TryConsoleInput("GQuery> ");
 
 
     // cout << "GQuery> ";
     // std::getline(std::cin, cmd);
 
-    cmd = console.TryConsoleInput("GQuery> ");
 
     // Timer
     uint64_t enter_t = timer::get_usec();
@@ -299,6 +299,7 @@ failed:
 //prog node-config-fname_path host-fname_path
 int main(int argc, char* argv[])
 {
+  // cout<<"int main(int argc, char* argv[])"<<endl;
     if(argc != 2 && argc != 3){
         cout << "1 or 2 params required" <<endl;
         return 0;

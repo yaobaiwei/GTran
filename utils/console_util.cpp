@@ -10,9 +10,11 @@
 
 using namespace std;
 
+// ConsoleUtil& icurwen4uvkfsjdev = ConsoleUtil::GetInstance();
+
 int ConsoleUtil::GetKey()
 {
-    struct termios oldattr, newattr;
+    termios oldattr, newattr;
     int ch;
     tcgetattr( STDIN_FILENO, &oldattr );
     newattr = oldattr;
@@ -56,11 +58,6 @@ void ConsoleUtil::SetColor(out_colors cl)
 void ConsoleUtil::ResetColor()
 {
     fputs("\x1B[0m", stdout);
-}
-
-ConsoleUtil::ConsoleUtil()
-{
-    memset(line_length_, 0, sizeof(int) * BUFFER_LINE);
 }
 
 void ConsoleUtil::LoadHistory()
