@@ -203,16 +203,16 @@ struct Config{
 			exit(-1);
 		}
 
-		// [SYSTEM]
-		val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
-		if(val!=val_not_found) global_num_machines=val;
-		else
-		{
-			fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
-			exit(-1);
-		}
+		// // [SYSTEM]
+		// val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
+		// if(val!=val_not_found) global_num_machines=val;
+		// else
+		// {
+		// 	fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
+		// 	exit(-1);
+		// }
 
-		// global_num_machines = node.get_local_size();
+		global_num_machines = node.get_local_size();
 
 		val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
 		if(val!=val_not_found) global_num_threads=val;
