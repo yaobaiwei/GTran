@@ -203,7 +203,7 @@ struct Config{
 			exit(-1);
 		}
 
-		[SYSTEM]
+		// [SYSTEM]
 		val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
 		if(val!=val_not_found) global_num_machines=val;
 		else
