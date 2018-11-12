@@ -22,7 +22,9 @@ using namespace std;
 
 class InitActor : public AbstractActor {
 public:
-    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes, Config * config) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), config_(config), type_(ACTOR_T::INIT), is_ready_(false) {
+    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), type_(ACTOR_T::INIT), is_ready_(false) 
+    {
+    	config_ = &Config::GetInstance();
 	}
 
     virtual ~InitActor(){}

@@ -26,9 +26,25 @@ extern "C" {
 
 using namespace std;
 
-struct Config{
+class Config{
 	//immutable_config
 	//============================HDFS Parameters==========================
+
+private:
+	Config(const Config&);//not to def
+	Config& operator=(const Config&);//not to def
+
+	Config(){}
+
+public:
+
+	//real single instance, not like Node, like ConsoleUtil and CPUInfoUtil
+	static Config& GetInstance()
+    {
+        static Config config_single_instance;
+        return config_single_instance;
+    }
+
 	string HDFS_HOST_ADDRESS;
 	int HDFS_PORT;
 	string HDFS_INPUT_PATH;

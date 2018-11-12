@@ -21,7 +21,10 @@
 
 class ValuesActor : public AbstractActor {
 public:
-	ValuesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity, Config* config) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::VALUES) {}
+	ValuesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::VALUES) 
+	{
+		config_ = &Config::GetInstance();
+	}
 
 	// inType, [key]+
 	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {

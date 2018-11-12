@@ -612,7 +612,10 @@ namespace BarrierData{
 class GroupActor : public BarrierActorBase<BarrierData::group_data>
 {
 public:
-	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), config_(config){}
+	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox)
+	{
+		config_ = &Config::GetInstance();
+	}
 
 private:
 	int num_thread_;
@@ -749,7 +752,10 @@ namespace BarrierData{
 class OrderActor : public BarrierActorBase<BarrierData::order_data>
 {
 public:
-	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, Config* config) : BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), config_(config){}
+	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox)
+	{
+		config_ = &Config::GetInstance();
+	}
 
 private:
 	int num_thread_;

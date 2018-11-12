@@ -38,17 +38,21 @@ int main(int argc, char* argv[])
 	//set my_node as the shared static Node instance
 	Node::StaticInstance(&my_node);
 
-	Config * config = new Config();
-	config->Init();
+	// Config * config = new Config();
+	// config->Init();
+
+	Config& config = Config::GetInstance();
+	config.Init();
+
 	cout  << "DONE -> Config->Init()" << endl;
 
 	if(my_node.get_world_rank() == MASTER_RANK){
-		Master master(my_node, config);
+		Master master(my_node);
 		master.Init();
 
 		master.Start();
 	}else{
-		Worker worker(my_node, config, nodes);
+		Worker worker(my_node, nodes);
 		worker.Init();
 		worker.Start();
 

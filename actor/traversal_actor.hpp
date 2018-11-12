@@ -26,7 +26,10 @@ using namespace std::placeholders;
 
 class TraversalActor : public AbstractActor {
 public:
-	TraversalActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity, Config * config) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), config_(config), type_(ACTOR_T::TRAVERSAL) {}
+	TraversalActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::TRAVERSAL) 
+	{
+		config_ = &Config::GetInstance();
+	}
 
 	// TraversalActorObject->Params;
 	//  inType--outType--dir--lid
