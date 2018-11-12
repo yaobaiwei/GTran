@@ -36,7 +36,7 @@ using __gnu_cxx::hash_set;
 
 class DataStore {
 public:
-	DataStore(Node & node, Config * config, AbstractIdMapper * id_mapper, Buffer * buf);
+	DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf);
 
 	~DataStore();
 

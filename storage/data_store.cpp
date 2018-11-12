@@ -7,7 +7,9 @@
 
 #include "storage/data_store.hpp"
 
-DataStore::DataStore(Node & node, Config * config, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), config_(config), id_mapper_(id_mapper), buffer_(buf){
+DataStore::DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), id_mapper_(id_mapper), buffer_(buf)
+{
+	config_ = &Config::GetInstance();
 	vpstore_ = NULL;
 	epstore_ = NULL;
 	tcp_helper = NULL;
@@ -19,8 +21,8 @@ DataStore::~DataStore(){
 }
 
 void DataStore::Init(vector<Node> & nodes){
-	vpstore_ = new VKVStore(config_, buffer_);
-	epstore_ = new EKVStore(config_, buffer_);
+	vpstore_ = new VKVStore(buffer_);
+	epstore_ = new EKVStore(buffer_);
 	vpstore_->init(nodes);
 	epstore_->init(nodes);
 

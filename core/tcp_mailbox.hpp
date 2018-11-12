@@ -38,7 +38,10 @@ private:
 
 public:
 
-    TCPMailbox(Node & my_node, Config * config) : my_node_(my_node), config_(config), context(1) {}
+    TCPMailbox(Node & my_node) : my_node_(my_node), context(1) 
+    {
+        config_ = &Config::GetInstance();
+    }
 
 	~TCPMailbox();
 

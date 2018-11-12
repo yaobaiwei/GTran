@@ -39,7 +39,10 @@ using namespace std;
 class CoreAffinity {
 public:
 
-	CoreAffinity (Config * config) : config_(config) {}
+	CoreAffinity ()
+	{
+		config_ = &Config::GetInstance();
+	}
 
 	Node node_;
 

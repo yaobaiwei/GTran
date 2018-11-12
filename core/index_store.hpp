@@ -15,7 +15,10 @@
 
 class IndexStore {
 public:
-	IndexStore(Config * config) : config_(config){}
+	IndexStore()
+	{
+		config_ = &Config::GetInstance();
+	}
 
 	const static double ratio = 0.2;
 	bool IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL){

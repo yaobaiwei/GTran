@@ -28,8 +28,10 @@
 
 class RdmaMailbox : public AbstractMailbox {
 public:
-    RdmaMailbox(Node & node, Config* config, Buffer * buffer) :
-        node_(node), config_(config), buffer_(buffer) {
+    RdmaMailbox(Node & node, Buffer * buffer) :
+        node_(node), buffer_(buffer) 
+    {
+        config_ = &Config::GetInstance();
     }
 
     virtual ~RdmaMailbox() {}

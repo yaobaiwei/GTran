@@ -37,7 +37,9 @@ struct Pack{
 
 class Worker{
 public:
-	Worker(Node & my_node, Config * config, vector<Node> & workers): my_node_(my_node), config_(config), workers_(workers){
+	Worker(Node & my_node, vector<Node> & workers): my_node_(my_node), workers_(workers)
+	{
+		config_ = &Config::GetInstance();
 		num_query = 0;
 		is_emu_mode_ = false;
 	}
@@ -55,8 +57,8 @@ public:
 	}
 
 	void Init(){
-		index_store_ = new IndexStore(config_);
-		parser_ = new Parser(config_, index_store_);
+		index_store_ = new IndexStore();
+		parser_ = new Parser(index_store_);
 		receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
 		w_listener_ = new zmq::socket_t(context_, ZMQ_REP);
 		thpt_monitor_ = new Throughput_Monitor();
@@ -356,27 +358,27 @@ public:
 	void Start(){
 
 		//===================prepare stage=================
-		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_, config_);
+		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
 
 		//init core affinity
-		CoreAffinity * core_affinity = new CoreAffinity(config_);
+		CoreAffinity * core_affinity = new CoreAffinity();
 		core_affinity->Init();
 		cout << "DONE -> Init Core Affinity" << endl;
 
 		//set the in-memory layout for RDMA buf
-		Buffer * buf = new Buffer(my_node_, config_);
+		Buffer * buf = new Buffer(my_node_);
 		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
 
 		AbstractMailbox * mailbox;
 		if (config_->global_use_rdma)
-			mailbox = new RdmaMailbox(my_node_, config_, buf);
+			mailbox = new RdmaMailbox(my_node_, buf);
 		else
-			mailbox = new TCPMailbox(my_node_, config_);
+			mailbox = new TCPMailbox(my_node_);
 		mailbox->Init(workers_);
 
 		cout << "DONE -> Mailbox->Init()" << endl;
 
-		DataStore * datastore = new DataStore(my_node_, config_, id_mapper, buf);
+		DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
 		datastore->Init(workers_);
 
 		cout << "DONE -> DataStore->Init()" << endl;
@@ -409,7 +411,7 @@ public:
 		monitor->Start();
 
 		//actor driver starts
-		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, config_, rc_, mailbox, datastore, core_affinity, index_store_);
+		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
 		actor_adapter->Start();
 		cout << "DONE -> actor_adapter->Start()" << endl;
 

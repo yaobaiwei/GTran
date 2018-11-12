@@ -148,7 +148,10 @@ public:
 	// Parse query string
 	bool Parse(const string& query, vector<Actor_Object>& vec, string& error_msg);
 
-	Parser(Config *config, IndexStore* index_store): config_(config), index_store_(index_store){};
+	Parser(IndexStore* index_store): index_store_(index_store)
+	{
+		config_ = &Config::GetInstance();
+	}
 
 	int GetPid(Element_T type, string& property);
 

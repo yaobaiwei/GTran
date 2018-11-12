@@ -166,8 +166,9 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
     }
 }
 
-VKVStore::VKVStore(Config * config, Buffer * buf) : config_(config), buf_(buf)
+VKVStore::VKVStore(Buffer * buf) : buf_(buf)
 {
+    config_ = &Config::GetInstance();
 	mem = config_->kvstore;
 	mem_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
     offset = config_->kvstore_offset;

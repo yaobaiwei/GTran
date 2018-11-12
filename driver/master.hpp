@@ -36,7 +36,8 @@ struct Progress
 
 class Master{
 public:
-	Master(Node & node, Config * config): node_(node), config_(config){
+	Master(Node & node): node_(node){
+		config_ = &Config::GetInstance();
 		is_end_ = false;
 		client_num = 0;
 	}

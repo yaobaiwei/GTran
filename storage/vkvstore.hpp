@@ -34,7 +34,7 @@ public:
     //         head region is a cluster chaining hash-table (with associativity)
     //         entry region is a varying-size array
     // For Vertex-Properties
-    VKVStore(Config * config, Buffer * buf);
+    VKVStore(Buffer * buf);
 
     void init(vector<Node> & nodes);
 

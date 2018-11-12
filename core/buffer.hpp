@@ -18,7 +18,8 @@
 
 class Buffer {
 public:
-    Buffer(Node & node, Config * config) : node_(node), config_(config){
+    Buffer(Node & node) : node_(node){
+        config_ = &Config::GetInstance();
 		if (config_->global_use_rdma) {
 			buffer_ = new char[config_->buffer_sz];
 			memset(buffer_, 0, config_->buffer_sz);
