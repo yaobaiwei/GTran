@@ -121,6 +121,8 @@ struct Config{
 		int val, val_not_found = -1;
 		char *str, *str_not_found = "null";
 
+		Node node = Node::StaticInstance();
+
 		const char* GQUERY_HOME = getenv("GQUERY_HOME");
 		if(GQUERY_HOME == NULL)
 		{
@@ -201,7 +203,7 @@ struct Config{
 			exit(-1);
 		}
 
-		//[SYSTEM]
+		[SYSTEM]
 		val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
 		if(val!=val_not_found) global_num_machines=val;
 		else
@@ -209,6 +211,8 @@ struct Config{
 			fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
 			exit(-1);
 		}
+
+		// global_num_machines = node.get_local_size();
 
 		val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
 		if(val!=val_not_found) global_num_threads=val;

@@ -38,6 +38,18 @@ class LabelledBranchActorBase :  public AbstractActor{
 public:
 	LabelledBranchActorBase(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity, msg_id_alloc* allocator): AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
 	void process(int t_id, const vector<Actor_Object> & actors,  Message & msg){
+
+		#ifdef ACTOR_PROCESS_PRINT
+		//in MT & MP model, printf is better than cout
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "LabelledBranchActorBase", node.get_local_rank(), t_id);
+		#ifdef ACTOR_PROCESS_SLEEP
+		timespec time_sleep;
+		time_sleep.tv_nsec = 500000000L;
+		nanosleep(&time_sleep, NULL); 
+		#endif
+		#endif
+
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			uint64_t msg_id = send_branch_msg(t_id, actors, msg);
 

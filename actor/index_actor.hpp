@@ -26,6 +26,18 @@ public:
 	IndexActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), index_store_(index_store), type_(ACTOR_T::HAS) {}
 
 	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
+
+		#ifdef ACTOR_PROCESS_PRINT
+		//in MT & MP model, printf is better than cout
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "IndexActor", node.get_local_rank(), tid);
+		#ifdef ACTOR_PROCESS_SLEEP
+		timespec time_sleep;
+		time_sleep.tv_nsec = 500000000L;
+		nanosleep(&time_sleep, NULL); 
+		#endif
+		#endif
+
 		// Get Actor_Object
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];

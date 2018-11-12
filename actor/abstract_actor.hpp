@@ -15,6 +15,9 @@
 #include "core/message.hpp"
 #include "storage/data_store.hpp"
 
+#define ACTOR_PROCESS_PRINT
+// #define ACTOR_PROCESS_SLEEP //only with print, did sleep matters
+
 class AbstractActor {
 public:
 	AbstractActor(int id, DataStore* data_store, CoreAffinity* core_affinity):id_(id), data_store_(data_store), core_affinity_(core_affinity){}

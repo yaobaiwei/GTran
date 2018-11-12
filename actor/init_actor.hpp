@@ -28,6 +28,18 @@ public:
     virtual ~InitActor(){}
 
     void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
+
+		#ifdef ACTOR_PROCESS_PRINT
+		//in MT & MP model, printf is better than cout
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "InitActor", node.get_local_rank(), tid);
+		#ifdef ACTOR_PROCESS_SLEEP
+		timespec time_sleep;
+		time_sleep.tv_nsec = 500000000L;
+		nanosleep(&time_sleep, NULL); 
+		#endif
+		#endif
+
 		if(actor_objs[msg.meta.step].params.size() == 1){
 			InitWithoutIndex(tid, actor_objs, msg);
 		}else{
