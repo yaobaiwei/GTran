@@ -15,7 +15,7 @@
 #include "core/message.hpp"
 #include "storage/data_store.hpp"
 
-#define ACTOR_PROCESS_PRINT
+// #define ACTOR_PROCESS_PRINT
 // #define ACTOR_PROCESS_SLEEP //only with print, did sleep matters
 
 class AbstractActor {
