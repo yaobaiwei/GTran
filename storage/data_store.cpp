@@ -6,6 +6,7 @@
  */
 
 #include "storage/data_store.hpp"
+#include "utils/mpi_profiler.hpp"
 
 DataStore::DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), id_mapper_(id_mapper), buffer_(buf)
 {
@@ -45,12 +46,21 @@ void DataStore::Init(vector<Node> & nodes){
  */
 
 void DataStore::LoadDataFromHDFS(){
+	MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", node_.local_comm);
+	pf->STPF("get_string_indexes");
 	get_string_indexes();
+	pf->EDPF("get_string_indexes");
+	pf->STPF("get_vertices");
 	get_vertices();
+	pf->EDPF("get_vertices");
 	cout << "Node " << node_.get_local_rank() << " Get_vertices() DONE !" << endl;
+	pf->STPF("get_vplist");
 	get_vplist();
+	pf->EDPF("get_vplist");
 	cout << "Node " << node_.get_local_rank() << " Get_vplist() DONE !" << endl;
+	pf->STPF("get_eplist");
 	get_eplist();
+	pf->EDPF("get_eplist");
 	cout << "Node " << node_.get_local_rank() << " Get_eplist() DONE !" << endl;
 	vtx_pty_key_to_type.clear();
 	edge_pty_key_to_type.clear();

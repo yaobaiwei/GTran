@@ -30,6 +30,8 @@
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
 
+#include "utils/mpi_profiler.hpp"
+
 struct Pack{
 	qid_t id;
 	vector<Actor_Object> actors;
@@ -357,6 +359,19 @@ public:
 
 	void Start(){
 
+		MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", my_node_.local_comm);
+		pf->InsertLabel("rdma_mem");
+		pf->InsertLabel("mailbox");
+		pf->InsertLabel("datastore");
+		pf->InsertLabel("get_string_indexes");
+		pf->InsertLabel("get_vertices");
+		pf->InsertLabel("get_vplist");
+		pf->InsertLabel("get_eplist");
+		pf->InsertLabel("shuffle");
+		pf->InsertLabel("data_converter");
+		pf->InsertLabel("load_mapping");
+		pf->InsertLabel("post_others");
+
 		//===================prepare stage=================
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
 
@@ -366,20 +381,26 @@ public:
 		cout << "DONE -> Init Core Affinity" << endl;
 
 		//set the in-memory layout for RDMA buf
+		pf->STPF("rdma_mem");
 		Buffer * buf = new Buffer(my_node_);
 		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
+		pf->EDPF("rdma_mem");
 
+		pf->STPF("mailbox");
 		AbstractMailbox * mailbox;
 		if (config_->global_use_rdma)
 			mailbox = new RdmaMailbox(my_node_, buf);
 		else
 			mailbox = new TCPMailbox(my_node_);
 		mailbox->Init(workers_);
+		pf->EDPF("mailbox");
 
 		cout << "DONE -> Mailbox->Init()" << endl;
 
+		pf->STPF("datastore");
 		DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
 		datastore->Init(workers_);
+		pf->EDPF("datastore");
 
 		cout << "DONE -> DataStore->Init()" << endl;
 
@@ -387,18 +408,25 @@ public:
 		worker_barrier(my_node_);
 
 		//=======data shuffle==========
+		pf->STPF("shuffle");
 		datastore->Shuffle();
+		pf->EDPF("shuffle");
 		cout << "DONE -> DataStore->Shuffle()" << endl;
 		//=======data shuffle==========
 
+		pf->STPF("data_converter");
 		datastore->DataConverter();
+		pf->EDPF("data_converter");
 		worker_barrier(my_node_);
 
 		cout << "DONE -> Datastore->DataConverter()" << endl;
 
+		pf->STPF("load_mapping");
 		parser_->LoadMapping();
+		pf->EDPF("load_mapping");
 		cout << "DONE -> Parser_->LoadMapping()" << endl;
 
+		pf->STPF("post_others");
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
 
@@ -414,6 +442,10 @@ public:
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
 		actor_adapter->Start();
 		cout << "DONE -> actor_adapter->Start()" << endl;
+		pf->EDPF("post_others");
+
+		pf->PrintSummary();
+
 
 		//pop out the query result from collector, automatically block when it's empty and wait
 		//fake, should find a way to stop
