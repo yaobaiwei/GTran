@@ -88,6 +88,7 @@ namespace std
         #endif
 
         map<string, int> pf_map_;
+        vector<string> pf_label_;
         vector<pf_type> pfs_;
         vector<pf_type> tmp_pfs_;
         string instance_name_;

@@ -28,19 +28,20 @@ void MPIProfiler::InsertLabel(string label)
     pf_map_.insert(std::make_pair(label, pfs_.size()));
     pfs_.emplace_back(0);
     tmp_pfs_.emplace_back(0);
+    pf_label_.emplace_back(label);
 }
 
 void MPIProfiler::PrintSummary()
 {
     string header = "my_rank_";
-    for(auto lb_kv : pf_map_)
+    for(auto lb : pf_label_)
     {
-        header += ", " + lb_kv.first;
+        header += ", " + lb;
     }
 
     //print the header
     //file name?
-    string fn = instance_name_ + "_pf_result.csv";
+    string fn = instance_name_ + "_pf_result_" + to_string(comm_sz_) + ".csv";
     ofstream of_header(fn);
     of_header << header << endl;
     of_header.close();
