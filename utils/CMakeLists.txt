@@ -7,6 +7,7 @@ file(GLOB utils-src-files
     hdfs_core.cpp
 	timer.cpp
     console_util.cpp
+    mpi_profiler.cpp
     )
 
 add_library(utils-objs OBJECT ${utils-src-files})
