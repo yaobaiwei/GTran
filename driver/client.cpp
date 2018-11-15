@@ -150,11 +150,15 @@ void Client::run_console(string query_fname) {
   // Timer:
   // 1. Whole time for user
   // 2. Touch Worker to Get result 
+
+  ConsoleUtil& console = ConsoleUtil::GetInstance();
+  console.SetConsoleHistory("history_gquery.log");
+  console.SetOnQuitWrite("history_gquery.log");
+
   while (true) {
 next:
     string cmd;
 
-    ConsoleUtil& console = ConsoleUtil::GetInstance();
     cmd = console.TryConsoleInput("GQuery> ");
 
 

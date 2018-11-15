@@ -73,6 +73,7 @@ private:
         printf("ConsoleUtil::~ConsoleUtil()\n");
         fflush(stdout);
         tcsetattr( STDIN_FILENO, TCSANOW, &ori_term_attr_ );
+        WriteConsoleHistory(on_quit_write_path_);
     }
     ConsoleUtil()
     {
@@ -82,7 +83,7 @@ private:
         ori_term_attr_.c_lflag |= ICANON | ECHO;
 
         // signal(SIGINT, (__sighandler_t {aka void (*)(int)})ConsoleUtil::signal_ctrlc); 
-        signal(SIGINT, ConsoleUtil::signal_ctrlc); 
+        signal(SIGINT, ConsoleUtil::signal_ctrlc);
         printf("overwriten SIGINT (ctrl + c) with exit(0)\n");
     }
 
@@ -130,6 +131,9 @@ private:
         KEY_DELETE    = 0x0111
     };
 
+    bool on_quit_write_ = false;
+    std::string on_quit_write_path_;
+
 public:
     static ConsoleUtil& GetInstance()
     {
@@ -142,5 +146,12 @@ public:
     enum out_colors { K_RED, K_GREEN, K_BLUE, K_YELLOW, K_CYAN, K_MAGENTA, K_WHITE, K_NONE };
     void SetColor(out_colors);
     void ResetColor();
+
+    void SetConsoleHistory(std::string path);
+    void WriteConsoleHistory(std::string path);
+
+    //if the process of the program is not controllable
+    //can write history on the destructor
+    void SetOnQuitWrite(std::string path);
 };
 
