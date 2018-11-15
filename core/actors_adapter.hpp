@@ -43,6 +43,10 @@
 #include "utils/config.hpp"
 #include "utils/timer.hpp"
 
+#include <omp.h>
+
+#include "utils/tid_mapper.hpp"
+
 using namespace std;
 
 class ActorAdapter {
@@ -88,8 +92,25 @@ public:
 
 	void Start(){
 		Init();
+		TidMapper& tmp = TidMapper::GetInstance();//in case of initial in parallel region
+
 		for(int i = 0; i < num_thread_; ++i)
 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
+
+		//this is useless.
+		// #pragma omp parallel num_threads(num_thread_)
+		// {
+		// 	int tid = omp_get_thread_num();
+
+		// 	for(int i = 0; i < num_thread_; i++)
+		// 	{
+		// 		if(i == tid)
+		// 		{
+		// 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, tid);
+		// 		}
+		// 		#pragma omp barrier
+		// 	}
+		// }
 	}
 
 	void Stop(){
@@ -183,12 +204,13 @@ public:
 			//int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
 
 			//timer::start_timer(tid + offset);
-			actors_[next_actor]->process(tid, ac->second, msg);
+			actors_[next_actor]->process(ac->second, msg);
 			//timer::stop_timer(tid + offset);
 		}while(current_step != msg.meta.step);	// process next actor directly if step is modified
 	}
 
 	void ThreadExecutor(int tid) {
+		TidMapper::GetInstance().Register(tid);
 		// bind thread to core
 		if (config_->global_enable_core_binding) {
 			core_affinity_->BindToCore(tid);

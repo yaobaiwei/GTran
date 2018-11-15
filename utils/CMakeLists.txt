@@ -8,6 +8,7 @@ file(GLOB utils-src-files
 	timer.cpp
     console_util.cpp
     mpi_profiler.cpp
+    tid_mapper.cpp
     )
 
 add_library(utils-objs OBJECT ${utils-src-files})

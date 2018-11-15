@@ -44,7 +44,9 @@ public:
 	// HasKey(params) : keys -> [key = pid; pred = ANY; pred_params = -1]
 	//
 	// TODO : Indexing
-	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+
+		int tid = TidMapper::GetInstance().GetTid();
 
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout

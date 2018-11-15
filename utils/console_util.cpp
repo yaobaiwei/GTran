@@ -7,6 +7,7 @@
 -----------------------------------------------------*/
 
 #include "console_util.hpp"
+#include <fstream>
 
 using namespace std;
 
@@ -403,4 +404,58 @@ string ConsoleUtil::TryConsoleInput(string line_head)
     }
 
     return string(buffer_);
+}
+
+void ConsoleUtil::SetConsoleHistory(string path)
+{
+    ifstream of(path);
+
+    //the current buffer
+    //and the line pointed by 
+    if(of.is_open())
+    {
+        char buffer[BUFFER_SIZE];
+        while(of.getline(buffer, 20480))
+        {
+            int len = strlen(buffer);
+            if(len == 0)
+                break;
+
+            memcpy(line_bfs_[cur_line_ptr_no_], buffer, len);
+            line_bfs_[cur_line_ptr_no_][len + 1] = 0;
+
+            cur_line_no_++;
+            cur_line_ptr_no_ = cur_line_no_ % BUFFER_LINE;
+        }
+
+        of.close();
+    }
+}
+
+void ConsoleUtil::WriteConsoleHistory(string path)
+{
+    int line_to_write = BUFFER_LINE - 1;
+
+    if(cur_line_no_ < BUFFER_LINE - 1)
+        line_to_write = cur_line_no_;
+
+    if(cur_line_no_ == 0)
+        return;
+
+    ofstream of(path);
+
+    for(int i = 0; i < line_to_write; i++)
+    {
+        int fake_iter = line_to_write - 1 - i;
+        of << string(line_bfs_[(cur_line_no_ - fake_iter - 1) % BUFFER_LINE]) << endl;
+    }
+
+    of.close();
+}
+
+void ConsoleUtil::SetOnQuitWrite(string path)
+{
+    if(path.size() > 0)
+    on_quit_write_ = true;
+    on_quit_write_path_ = path;
 }

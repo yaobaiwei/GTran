@@ -14,6 +14,7 @@
 #include "base/core_affinity.hpp"
 #include "core/message.hpp"
 #include "storage/data_store.hpp"
+#include "utils/tid_mapper.hpp"
 
 // #define ACTOR_PROCESS_PRINT
 // #define ACTOR_PROCESS_SLEEP //only with print, did sleep matters
@@ -28,7 +29,7 @@ public:
 	const int GetActorId(){return id_;}
 
 
-	virtual void process(int t_id, const vector<Actor_Object> & actors, Message & msg) = 0;
+	virtual void process(const vector<Actor_Object> & actors, Message & msg) = 0;
 
 protected:
 	// Data Store

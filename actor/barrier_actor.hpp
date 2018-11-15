@@ -27,12 +27,14 @@ class BarrierActorBase :  public AbstractActor{
 public:
 	BarrierActorBase(int id, DataStore* data_store, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity){}
 
-	void process(int t_id, const vector<Actor_Object> & actors, Message & msg){
+	void process(const vector<Actor_Object> & actors, Message & msg){
+
+		int tid = TidMapper::GetInstance().GetTid();
 
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "BarrierActorBase", node.get_local_rank(), t_id);
+		printf("ACTOR = %s, node = %d, tid = %d\n", "BarrierActorBase", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
 		timespec time_sleep;
 		time_sleep.tv_nsec = 500000000L;
@@ -50,7 +52,7 @@ public:
 
 		bool isReady = IsReady(ac, msg.meta, end_path);
 
-		do_work(t_id, actors, msg, ac, isReady);
+		do_work(tid, actors, msg, ac, isReady);
 
 		if(isReady){
 			data_table_.erase(ac);
@@ -72,7 +74,7 @@ public:
 	}
 
 protected:
-	virtual void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, typename BarrierDataTable::accessor& ac, bool isReady) = 0;
+	virtual void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, typename BarrierDataTable::accessor& ac, bool isReady) = 0;
 	// get labelled branch key if in branch
 	static int get_branch_key(Meta & m){
 		// check if count actor in branch
@@ -286,7 +288,7 @@ private:
 	AbstractMailbox * mailbox_;
 	int num_nodes_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data = ac->second.result;
 
 		// move msg data to data table
@@ -302,7 +304,7 @@ private:
 			vector<Message> vec;
 			msg.CreateExitMsg(num_nodes_, vec);
 			for(auto& m : vec){
-				mailbox_->Send(t_id, m);
+				mailbox_->Send(tid, m);
 			}
 		}
 	}
@@ -325,7 +327,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& agg_data = ac->second.agg_data;
 		auto& msg_data = ac->second.msg_data;
 
@@ -361,7 +363,7 @@ private:
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 			}
 			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+				mailbox_->Send(tid, m);
 			}
 		}
 	}
@@ -376,7 +378,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		// all msg are collected
 		if(isReady){
 			const Actor_Object& actor = actors[msg.meta.step];
@@ -426,7 +428,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
@@ -452,7 +454,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -487,7 +489,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
@@ -513,7 +515,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		auto& dedup_his_map = ac->second.dedup_his_map;
 		auto& dedup_val_map = ac->second.dedup_val_map;
@@ -592,7 +594,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
@@ -624,7 +626,7 @@ private:
 	Config* config_;
 	ActorCache cache_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -667,10 +669,10 @@ private:
 			for(auto& val : p.second){
 				value_t k = val;
 				value_t v = val;
-				if(! kp(t_id, k, keyProjection, data_store_, cache)){
+				if(! kp(tid, k, keyProjection, data_store_, cache)){
 					continue;
 				}
-				if(! vp(t_id, v, valueProjection, data_store_, cache)){
+				if(! vp(tid, v, valueProjection, data_store_, cache)){
 					continue;
 				}
 				string key = Tool::DebugString(k);
@@ -729,7 +731,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
@@ -764,7 +766,7 @@ private:
 	ActorCache cache_;
 	Config* config_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		auto& data_set = ac->second.data_set;
 		int branch_key = get_branch_key(msg.meta);
@@ -813,7 +815,7 @@ private:
 
 				for(auto& val : p.second){
 					value_t key = val;
-					if(! kp(t_id, key, keyProjection, data_store_, cache)){
+					if(! kp(tid, key, keyProjection, data_store_, cache)){
 						continue;
 					}
 					map_[key].insert(move(val));
@@ -858,7 +860,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
@@ -884,7 +886,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -961,7 +963,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
@@ -990,7 +992,7 @@ private:
 	int num_thread_;
 	AbstractMailbox * mailbox_;
 
-	void do_work(int t_id, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -1045,7 +1047,7 @@ private:
 				vector<Message> v;
 				msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
 				for(auto& m : v){
-					mailbox_->Send(t_id, m);
+					mailbox_->Send(tid, m);
 				}
 			}
 		}
