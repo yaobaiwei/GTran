@@ -37,12 +37,14 @@ class LabelledBranchActorBase :  public AbstractActor{
 
 public:
 	LabelledBranchActorBase(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity, msg_id_alloc* allocator): AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
-	void process(int t_id, const vector<Actor_Object> & actors,  Message & msg){
+	void process(const vector<Actor_Object> & actors,  Message & msg){
+
+		int tid = TidMapper::GetInstance().GetTid();
 
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "LabelledBranchActorBase", node.get_local_rank(), t_id);
+		printf("ACTOR = %s, node = %d, tid = %d\n", "LabelledBranchActorBase", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
 		timespec time_sleep;
 		time_sleep.tv_nsec = 500000000L;
@@ -51,7 +53,7 @@ public:
 		#endif
 
 		if(msg.meta.msg_type == MSG_T::SPAWN){
-			uint64_t msg_id = send_branch_msg(t_id, actors, msg);
+			uint64_t msg_id = send_branch_msg(tid, actors, msg);
 
 			// set up data for sub branch collection
 			int index = 0;
@@ -78,7 +80,7 @@ public:
 
 			bool isReady = IsReady(ac, msg.meta, end_path);
 
-			process_branch(t_id, actors, msg, ac, isReady);
+			process_branch(tid, actors, msg, ac, isReady);
 
 			if(isReady){
 				data_table_.erase(ac);
@@ -96,7 +98,7 @@ protected:
 	virtual void process_spawn(Message & msg, typename BranchDataTable::accessor& ac) = 0;
 
 	// Child class process message with type = BRANCH
-	virtual void process_branch(int t_id, const vector<Actor_Object> & actors, Message & msg, typename BranchDataTable::accessor& ac, bool isReady) = 0;
+	virtual void process_branch(int tid, const vector<Actor_Object> & actors, Message & msg, typename BranchDataTable::accessor& ac, bool isReady) = 0;
 
 	// get sub steps of branch actor
 	virtual void get_steps(const Actor_Object & actor, vector<int>& steps) = 0;
@@ -109,7 +111,7 @@ private:
 	BranchDataTable data_table_;
 
 	// send out msg with history label to indicate each input traverser
-	uint64_t send_branch_msg(int t_id, const vector<Actor_Object> & actors, Message & msg)
+	uint64_t send_branch_msg(int tid, const vector<Actor_Object> & actors, Message & msg)
 	{
 		uint64_t msg_id;
 		id_allocator_->AssignId(msg_id);
@@ -120,7 +122,7 @@ private:
 		vector<Message> msg_vec;
 		msg.CreateBranchedMsgWithHisLabel(actors, step_vec, msg_id, num_thread_, data_store_, core_affinity_, msg_vec);
 		for (auto& msg : msg_vec){
-			mailbox_->Send(t_id, msg);
+			mailbox_->Send(tid, msg);
 		}
 
 		return msg_id;
@@ -209,7 +211,7 @@ private:
 		ac->second.data = move(msg.data);
 	}
 
-	void process_branch(int t_id, const vector<Actor_Object> & actors, Message & msg, BranchDataTable::accessor& ac, bool isReady)
+	void process_branch(int tid, const vector<Actor_Object> & actors, Message & msg, BranchDataTable::accessor& ac, bool isReady)
 	{
 		auto &counter =  ac->second.counter;
 
@@ -268,7 +270,7 @@ private:
 			vector<Message> v;
 			msg.CreateNextMsg(actors, data, num_thread_, data_store_, core_affinity_, v);
 			for(auto& m : v){
-				mailbox_->Send(t_id, m);
+				mailbox_->Send(tid, m);
 			}
 		}
 	}

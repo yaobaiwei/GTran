@@ -25,7 +25,9 @@ class IndexActor : public AbstractActor {
 public:
 	IndexActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), index_store_(index_store), type_(ACTOR_T::HAS) {}
 
-	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+
+		int tid = TidMapper::GetInstance().GetTid();
 
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout

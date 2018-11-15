@@ -38,7 +38,9 @@ public:
 	//                   INE/OUTE/BOTHE
 	//             Edge: INV/OUTV/BOTHV
 	//  lid: label_id (e.g. g.V().out("created"))
-	void process(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
+	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+
+		int tid = TidMapper::GetInstance().GetTid();
 
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout

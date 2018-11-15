@@ -104,6 +104,12 @@ public:
 		return *static_instance_p_;
 	}
 
+	//debug usage trap
+	static void SingleTrap(string s)
+	{
+		printf("SingleTrap from local_rank_ %d, %s\n", StaticInstance().local_rank_, s.c_str());
+	}
+
 	//sequential debug print among local_comm
 	void LocalSequentialDebugPrint(string s)
 	{

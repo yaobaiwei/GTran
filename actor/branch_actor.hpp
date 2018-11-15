@@ -14,12 +14,14 @@
 class BranchActor : public AbstractActor{
 public:
 	BranchActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
-	void process(int t_id, const vector<Actor_Object> & actors,  Message & msg){
+	void process(const vector<Actor_Object> & actors,  Message & msg){
+
+		int tid = TidMapper::GetInstance().GetTid();
 
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "BranchActor", node.get_local_rank(), t_id);
+		printf("ACTOR = %s, node = %d, tid = %d\n", "BranchActor", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
 		timespec time_sleep;
 		time_sleep.tv_nsec = 500000000L;
@@ -35,7 +37,7 @@ public:
 			msg.CreateBranchedMsg(actors, step_vec, num_thread_, data_store_, core_affinity_, msg_vec);
 
 			for (auto& m : msg_vec){
-				mailbox_->Send(t_id, m);
+				mailbox_->Send(tid, m);
 			}
 		}else{
 			cout << "Unexpected msg type in branch actor." << endl;
