@@ -56,6 +56,9 @@ public:
 	string HDFS_EP_SUBFOLDER;
 
 	string HDFS_OUTPUT_PATH;
+
+	string SNAPSHOT_PATH;//if can be left to blank
+
 	//==========================System Parameters==========================
 	int global_num_machines;
 	int global_num_threads;
@@ -343,6 +346,15 @@ public:
 			exit(-1);
 		}
 
+		str = iniparser_getstring(ini, "SYSTEM:SNAPSHOT_PATH", str_not_found);
+		if(strcmp(str, str_not_found)!=0) SNAPSHOT_PATH=str;
+		else
+		{
+			// fprintf(stderr, "must enter the SNAPSHOT_PATH. exits.\n");
+			// exit(-1);
+			SNAPSHOT_PATH = "";
+		}
+
 		iniparser_freedict(ini);
 
 
@@ -380,6 +392,7 @@ public:
     	ss << "HDFS_VP_SUBFOLDER : " << HDFS_VP_SUBFOLDER << endl;
     	ss << "HDFS_EP_SUBFOLDER : " << HDFS_EP_SUBFOLDER << endl;
     	ss << "HDFS_OUTPUT_PATH : " << HDFS_OUTPUT_PATH << endl;
+    	ss << "SNAPSHOT_PATH : " << SNAPSHOT_PATH << endl;
 
     	ss << "global_num_machines : " << global_num_machines << endl;
     	ss << "global_num_threads : " << global_num_threads << endl;

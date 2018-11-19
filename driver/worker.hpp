@@ -368,6 +368,23 @@ public:
 		pf->InsertLabel("get_vplist");
 		pf->InsertLabel("get_eplist");
 		pf->InsertLabel("shuffle");
+
+		pf->InsertLabel("v_local1");
+		pf->InsertLabel("v_alltoall");
+		pf->InsertLabel("v_local2");
+		pf->InsertLabel("e_local1");
+		pf->InsertLabel("e_alltoall");
+		pf->InsertLabel("e_local2");
+		pf->InsertLabel("vp_local1");
+		pf->InsertLabel("vp_alltoall");
+		pf->InsertLabel("vp_local2");
+		pf->InsertLabel("ep_local1");
+		pf->InsertLabel("ep_alltoall");
+		pf->InsertLabel("ep_local2");
+		pf->InsertLabel("vp_lists_local1");
+		pf->InsertLabel("vp_lists_alltoall");
+		pf->InsertLabel("vp_lists_local2");
+
 		pf->InsertLabel("data_converter");
 		pf->InsertLabel("load_mapping");
 		pf->InsertLabel("post_others");
@@ -399,6 +416,7 @@ public:
 
 		pf->STPF("datastore");
 		DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
+		DataStore::StaticInstanceP(datastore);
 		datastore->Init(workers_);
 		pf->EDPF("datastore");
 

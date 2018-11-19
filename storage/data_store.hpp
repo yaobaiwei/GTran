@@ -87,6 +87,23 @@ public:
 	// For TCP use
 	TCPHelper * tcp_helper;
 
+	//single ptr instance
+	//diff from Node
+	static DataStore* StaticInstanceP(DataStore* p = NULL)
+	{
+		static DataStore* static_instance_p_ = NULL;
+		if(p)
+		{
+			// if(static_instance_p_)
+			// 	delete static_instance_p_;
+			// static_instance_p_ = new DataStore;
+			static_instance_p_ = p;
+		}
+			
+		assert(static_instance_p_ != NULL);
+		return static_instance_p_;
+	}
+
 private:
 
 	Buffer * buffer_;

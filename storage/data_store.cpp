@@ -68,7 +68,10 @@ void DataStore::LoadDataFromHDFS(){
 
 void DataStore::Shuffle()
 {
+	MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", node_.local_comm);
+	
 	//vertices
+	pf->STPF("v_local1");
 	vector<vector<Vertex*>> vtx_parts;
 	vtx_parts.resize(node_.get_local_size());
 	for (int i = 0; i < vertices.size(); i++)
@@ -76,7 +79,11 @@ void DataStore::Shuffle()
 		Vertex* v = vertices[i];
 		vtx_parts[id_mapper_->GetMachineIdForVertex(v->id)].push_back(v);
 	}
+	pf->EDPF("v_local1");
+	pf->STPF("v_alltoall");
 	all_to_all(node_, false, vtx_parts);
+	pf->EDPF("v_alltoall");
+	pf->STPF("v_local2");
 	vertices.clear();
 	if(node_.get_local_rank() == 0){
 		cout << "Shuffle vertex done" << endl;
@@ -88,8 +95,10 @@ void DataStore::Shuffle()
 	}
 	vtx_parts.clear();
 	vector<vector<Vertex*>>().swap(vtx_parts);
+	pf->EDPF("v_local2");
 
 	//edges
+	pf->STPF("e_local1");
 	vector<vector<Edge*>> edges_parts;
 	edges_parts.resize(node_.get_local_size());
 	for (int i = 0; i < edges.size(); i++)
@@ -97,8 +106,12 @@ void DataStore::Shuffle()
 		Edge* e = edges[i];
 		edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
 	}
+	pf->EDPF("e_local1");
 
+	pf->STPF("e_alltoall");
 	all_to_all(node_, false, edges_parts);
+	pf->EDPF("e_alltoall");
+	pf->STPF("e_local2");
 	if(node_.get_local_rank() == 0){
 		cout << "Shuffle edge done" << endl;
 	}
@@ -110,8 +123,10 @@ void DataStore::Shuffle()
 	}
 	edges_parts.clear();
 	vector<vector<Edge*>>().swap(edges_parts);
+	pf->EDPF("e_local2");
 
 	//VProperty
+	pf->STPF("vp_local1");
 	vector<vector<VProperty*>> vp_parts;
 	vp_parts.resize(node_.get_local_size());
 	for (int i = 0; i < vplist.size(); i++)
@@ -128,8 +143,12 @@ void DataStore::Shuffle()
 		}
 		delete vp;
 	}
+	pf->EDPF("vp_local1");
+	pf->STPF("vp_alltoall");
 	all_to_all(node_, false, vp_parts);
+	pf->EDPF("vp_alltoall");
 
+	pf->STPF("vp_local2");
 	if(node_.get_local_rank() == 0){
 		cout << "Shuffle vp done" << endl;
 	}
@@ -142,8 +161,10 @@ void DataStore::Shuffle()
 	}
 	vp_parts.clear();
 	vector<vector<VProperty*>>().swap(vp_parts);
+	pf->EDPF("vp_local2");
 
 	//EProperty
+	pf->STPF("ep_local1");
 	vector<vector<EProperty*>> ep_parts;
 	ep_parts.resize(node_.get_local_size());
 	for (int i = 0; i < eplist.size(); i++)
@@ -160,9 +181,13 @@ void DataStore::Shuffle()
 		}
 		delete ep;
 	}
+	pf->EDPF("ep_local1");
 
+	pf->STPF("ep_alltoall");
 	all_to_all(node_, false, ep_parts);
+	pf->EDPF("ep_alltoall");
 
+	pf->STPF("ep_local2");
 	if(node_.get_local_rank() == 0){
 		cout << "Shuffle ep done" << endl;
 	}
@@ -174,8 +199,10 @@ void DataStore::Shuffle()
 	}
 	ep_parts.clear();
 	vector<vector<EProperty*>>().swap(ep_parts);
+	pf->EDPF("ep_local2");
 
 	//vp_lists
+	pf->STPF("vp_lists_local1");
 	vector<vector<vp_list*>> vpl_parts;
 	vpl_parts.resize(node_.get_local_size());
 	for (int i = 0; i < vp_buf.size(); i++)
@@ -183,8 +210,12 @@ void DataStore::Shuffle()
 		vp_list* vp = vp_buf[i];
 		vpl_parts[id_mapper_->GetMachineIdForVertex(vp->vid)].push_back(vp);
 	}
+	pf->EDPF("vp_lists_local1");
 
+	pf->STPF("vp_lists_alltoall");
 	all_to_all(node_, false, vpl_parts);
+	pf->EDPF("vp_lists_alltoall");
+	pf->STPF("vp_lists_local2");
 	if(node_.get_local_rank() == 0){
 		cout << "Shuffle vp list done" << endl;
 	}
@@ -196,6 +227,7 @@ void DataStore::Shuffle()
 	}
 	vpl_parts.clear();
 	vector<vector<vp_list*>>().swap(vpl_parts);
+	pf->EDPF("vp_lists_local2");
 }
 
 
