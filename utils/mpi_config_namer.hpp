@@ -33,9 +33,6 @@ private:
 
     std::string hn_cat_;
 
-    unsigned long GetHash(std::string s);
-    std::string ultos(unsigned long ul);
-
     std::string hashed_str_;
 
 public:
@@ -51,6 +48,12 @@ public:
         return config_namer_single_instance;
     }
 
+    MPI_Comm GetComm() const {return comm_;}
+    int GetCommRank() const {return my_rank_;}
+    int GetCommSize() const {return comm_sz_;}
+
     void AppendHash(std::string to_append);//extend the file name
+    unsigned long GetHash(std::string s);
+    std::string ultos(unsigned long ul);
     std::string ExtractHash();
 };

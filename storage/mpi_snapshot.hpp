@@ -71,7 +71,7 @@ private:
 
 public:
     //Watashi Wa Tensai ⑨
-    static MPISnapshot* GetInstanceP(string path)
+    static MPISnapshot* GetInstanceP(string path = "")
     {
         static MPISnapshot* snapshot_single_instance = NULL;
 
