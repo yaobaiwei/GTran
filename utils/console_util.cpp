@@ -423,6 +423,7 @@ void ConsoleUtil::SetConsoleHistory(string path)
 
             memcpy(line_bfs_[cur_line_ptr_no_], buffer, len);
             line_bfs_[cur_line_ptr_no_][len + 1] = 0;
+            line_length_[cur_line_ptr_no_] = len;
 
             cur_line_no_++;
             cur_line_ptr_no_ = cur_line_no_ % BUFFER_LINE;
