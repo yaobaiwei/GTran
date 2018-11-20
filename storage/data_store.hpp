@@ -59,6 +59,8 @@ public:
 	void Shuffle();
 	void DataConverter();
 
+	void ReadSnapshot();
+	void WriteSnapshot();
 
 	Vertex* GetVertex(vid_t v_id);
 	Edge* GetEdge(eid_t e_id);
@@ -119,8 +121,8 @@ private:
 	unordered_map<agg_t, vector<value_t>> agg_data_table;
 	mutex agg_mutex;
 
-    VKVStore * vpstore_;
-    EKVStore * epstore_;
+	VKVStore * vpstore_;
+	EKVStore * epstore_;
 
 	//=========tmp usage=========
 	vector<Vertex*> vertices;  //x

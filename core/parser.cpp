@@ -40,20 +40,38 @@ void Parser::WriteSnapshot()
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 	if(!snapshot->TestRead("parser_str2vl"))
+	{
+		//printf("write 1\n");
 		snapshot->WriteData("parser_str2vl", str2vl);
+	}
 
 	if(!snapshot->TestRead("parser_str2vpk"))
+	{
+		//printf("write 2\n");
 		snapshot->WriteData("parser_str2vpk", str2vpk);
+	}
 	if(!snapshot->TestRead("parser_vpk2vptype"))
+	{
+		//printf("write 3\n");
 		snapshot->WriteData("parser_vpk2vptype", vpk2vptype);
+	}
 
 	if(!snapshot->TestRead("parser_str2el"))
+	{
+		//printf("write 4\n");
 		snapshot->WriteData("parser_str2el", str2el);
+	}
 
 	if(!snapshot->TestRead("parser_str2epk"))
+	{
+		//printf("write 5\n");
 		snapshot->WriteData("parser_str2epk", str2epk);
+	}
 	if(!snapshot->TestRead("parser_epk2eptype"))
+	{
+		//printf("write 6\n");
 		snapshot->WriteData("parser_epk2eptype", epk2eptype);
+	}
 }
 
 void Parser::LoadMapping(){

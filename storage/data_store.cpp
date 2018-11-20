@@ -66,6 +66,16 @@ void DataStore::LoadDataFromHDFS(){
 	edge_pty_key_to_type.clear();
 }
 
+void DataStore::ReadSnapshot()
+{
+	
+}
+
+void DataStore::WriteSnapshot()
+{
+	
+}
+
 void DataStore::Shuffle()
 {
 	MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", node_.local_comm);

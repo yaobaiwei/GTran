@@ -397,11 +397,7 @@ public:
 		//initial MPISnapshot
 		MPISnapshot* snapshot = MPISnapshot::GetInstanceP(config_->SNAPSHOT_PATH);
 
-		//read snapshot area
-		{
-			parser_->ReadSnapshot();
-			// datastore->ReadSnapshot();
-		}
+
 
 
 		//===================prepare stage=================
@@ -437,6 +433,14 @@ public:
 
 		cout << "DONE -> DataStore->Init()" << endl;
 
+		//read snapshot area
+		{
+			parser_->ReadSnapshot();
+			datastore->ReadSnapshot();
+			//to do:
+			//ep, vp store -> read snapshot
+		}
+
 		datastore->LoadDataFromHDFS();
 		worker_barrier(my_node_);
 
@@ -462,7 +466,7 @@ public:
 		//write snapshot area
 		{
 			parser_->WriteSnapshot();
-			// datastore->WriteSnapshot();
+			datastore->WriteSnapshot();
 		}
 
 		pf->STPF("post_others");
