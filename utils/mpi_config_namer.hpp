@@ -41,14 +41,14 @@ private:
 public:
     static MPIConfigNamer* GetInstanceP(MPI_Comm comm = MPI_COMM_WORLD)
     {
-        static MPIConfigNamer* snapshot_single_instance = NULL;
+        static MPIConfigNamer* config_namer_single_instance = NULL;
 
-        if(snapshot_single_instance == NULL)
+        if(config_namer_single_instance == NULL)
         {
-            snapshot_single_instance = new MPIConfigNamer(comm);
+            config_namer_single_instance = new MPIConfigNamer(comm);
         }
 
-        return snapshot_single_instance;
+        return config_namer_single_instance;
     }
 
     void AppendHash(std::string to_append);//extend the file name

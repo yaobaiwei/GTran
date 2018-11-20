@@ -6,6 +6,7 @@ file(GLOB store-src-files
     ekvstore.cpp
     vkvstore.cpp
 	tcp_helper.cpp
+    mpi_snapshot.cpp
     )
 
 add_library(store-objs OBJECT ${store-src-files})
