@@ -54,7 +54,9 @@ void MPIConfigNamer::GetHostsStr()
     tmp_hn_cat[total_len] = 0;
 
     string hn_cat(tmp_hn_cat);
-    hn_cat_ = hn_cat;
+    string rank_str = ultos(my_rank_);
+
+    hn_cat_ = rank_str + hn_cat;//make sure that different host has different dir name
 
     delete hn_lens;
     delete hn_displs;
@@ -84,7 +86,17 @@ void MPIConfigNamer::AppendHash(string to_append)
 
 string MPIConfigNamer::ExtractHash()
 {
+    // //debug
+    // for(int i = 0; i < comm_sz_; i++)
+    // {
+    //     if(i == my_rank_)
+    //     {
+    //         cout << hn_cat_ << "  " << hashed_str_ << endl;
+    //     }
+    //     MPI_Barrier(comm_);
+    // }
+
+
     return hashed_str_;
 }
-
 

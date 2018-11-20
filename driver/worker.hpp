@@ -31,6 +31,7 @@
 #include "storage/data_store.hpp"
 
 #include "utils/mpi_profiler.hpp"
+#include "storage/mpi_snapshot.hpp"
 
 struct Pack{
 	qid_t id;
@@ -388,6 +389,14 @@ public:
 		pf->InsertLabel("data_converter");
 		pf->InsertLabel("load_mapping");
 		pf->InsertLabel("post_others");
+
+		//initial MPIConfigNamer
+		MPIConfigNamer* p = MPIConfigNamer::GetInstanceP(my_node_.local_comm);
+		p->AppendHash(config_->HDFS_INDEX_PATH + config_->HDFS_VTX_SUBFOLDER + config_->HDFS_VP_SUBFOLDER + config_->HDFS_EP_SUBFOLDER);
+
+		//initial MPISnapshot
+		MPISnapshot* snapshot = MPISnapshot::GetInstanceP(config_->SNAPSHOT_PATH);
+
 
 		//===================prepare stage=================
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
