@@ -155,6 +155,9 @@ public:
 
 	int GetPid(Element_T type, string& property);
 
+	void ReadSnapshot();
+	void WriteSnapshot();
+
 	// load property and label mapping
 	void LoadMapping();
 

@@ -33,6 +33,8 @@ public:
         doge.write(m.get_buf(), m.size());
 
         doge.close();
+
+        write_map_[key] = true;
     }
 
 
@@ -45,7 +47,10 @@ public:
         ifstream doge(fn, ios::binary);
 
         if(!doge.is_open())
+        {
+            read_map_[key] = false;
             return false;
+        }
 
         int sz;
         doge >> sz;
@@ -58,13 +63,38 @@ public:
 
         m >> data;
 
+        read_map_[key] = true;
+
         return true;
     }
+    
+    //after read data of a specific key, this function will return true (for global usage)
+    bool TestRead(string key)
+    {
+        if(read_map_.count(key) == 0)
+            return false;//not found
+        if(read_map_[key])
+            return true;
+        return false;
+    }
+
+    bool TestWrite(string key)
+    {
+        if(write_map_.count(key) == 0)
+            return false;//not found
+        if(write_map_[key])
+            return true;
+        return false;
+    }
+
 
 private:
     //
     MPIConfigNamer* n_;//bad name
     string path_;
+
+    map<string, bool> read_map_;
+    map<string, bool> write_map_;
 
     MPISnapshot(string path);
 

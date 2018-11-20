@@ -397,6 +397,12 @@ public:
 		//initial MPISnapshot
 		MPISnapshot* snapshot = MPISnapshot::GetInstanceP(config_->SNAPSHOT_PATH);
 
+		//read snapshot area
+		{
+			parser_->ReadSnapshot();
+			// datastore->ReadSnapshot();
+		}
+
 
 		//===================prepare stage=================
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
@@ -452,6 +458,12 @@ public:
 		parser_->LoadMapping();
 		pf->EDPF("load_mapping");
 		cout << "DONE -> Parser_->LoadMapping()" << endl;
+
+		//write snapshot area
+		{
+			parser_->WriteSnapshot();
+			// datastore->WriteSnapshot();
+		}
 
 		pf->STPF("post_others");
 		thread recvreq(&Worker::RecvRequest, this);

@@ -2,13 +2,69 @@
 #include <iostream>
 #include "storage/mpi_snapshot.hpp"
 
+void Parser::ReadSnapshot()
+{
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+	bool ok1 = snapshot->ReadData("parser_str2vl", str2vl);
+
+	bool ok2 = snapshot->ReadData("parser_str2vpk", str2vpk);
+	bool ok3 = snapshot->ReadData("parser_vpk2vptype", vpk2vptype);
+
+	bool ok4 = snapshot->ReadData("parser_str2el", str2el);
+
+	bool ok5 = snapshot->ReadData("parser_str2epk", str2epk);
+	bool ok6 = snapshot->ReadData("parser_epk2eptype", epk2eptype);
+
+	int ok_cnt = 0;
+	if(ok1)
+		ok_cnt++;
+	if(ok2)
+		ok_cnt++;
+	if(ok3)
+		ok_cnt++;
+	if(ok4)
+		ok_cnt++;
+	if(ok5)
+		ok_cnt++;
+	if(ok6)
+		ok_cnt++;
+	printf("Parser::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+}
+
+
+void Parser::WriteSnapshot()
+{
+	//if read success, then do not write snapshot (for now readonly)
+
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+	if(!snapshot->TestRead("parser_str2vl"))
+		snapshot->WriteData("parser_str2vl", str2vl);
+
+	if(!snapshot->TestRead("parser_str2vpk"))
+		snapshot->WriteData("parser_str2vpk", str2vpk);
+	if(!snapshot->TestRead("parser_vpk2vptype"))
+		snapshot->WriteData("parser_vpk2vptype", vpk2vptype);
+
+	if(!snapshot->TestRead("parser_str2el"))
+		snapshot->WriteData("parser_str2el", str2el);
+
+	if(!snapshot->TestRead("parser_str2epk"))
+		snapshot->WriteData("parser_str2epk", str2epk);
+	if(!snapshot->TestRead("parser_epk2eptype"))
+		snapshot->WriteData("parser_epk2eptype", epk2eptype);
+}
+
 void Parser::LoadMapping(){
 	hdfsFS fs = get_hdfs_fs();
 
-	//try to snapshot vtx_label
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	//try to snapshot vtx_label
 
-	bool read_str2vl_snapshot_ok = snapshot->ReadData("parser_str2vl", str2vl);
+	bool read_str2vl_snapshot_ok = snapshot->TestRead("parser_str2vl");
+
+
 	if(!read_str2vl_snapshot_ok)
 	{
 		// load vertex label
@@ -35,15 +91,10 @@ void Parser::LoadMapping(){
 		hdfsCloseFile(fs, vl_file);
 
 		//write file to snapshot
-		snapshot->WriteData("parser_str2vl", str2vl);
-	}
-	else
-	{
-		printf("read parser_str2vl success\n");
 	}
 
-	bool read_str2vpk_snapshot_ok = snapshot->ReadData("parser_str2vpk", str2vpk);
-	bool read_vpk2vptype_snapshot_ok = snapshot->ReadData("parser_vpk2vptype", vpk2vptype);
+	bool read_str2vpk_snapshot_ok = snapshot->TestRead("parser_str2vpk");
+	bool read_vpk2vptype_snapshot_ok = snapshot->TestRead("parser_vpk2vptype");
 
 	if(!(read_str2vpk_snapshot_ok && read_vpk2vptype_snapshot_ok))
 	{
@@ -73,15 +124,9 @@ void Parser::LoadMapping(){
 		}
 		hdfsCloseFile(fs, vp_file);
 
-		snapshot->WriteData("parser_str2vpk", str2vpk);
-		snapshot->WriteData("parser_vpk2vptype", vpk2vptype);
-	}
-	else
-	{
-		printf("read parser_str2vpk parser_vpk2vptype success\n");
 	}
 
-	bool read_str2el_snapshot_ok = snapshot->ReadData("parser_str2el", str2el);
+	bool read_str2el_snapshot_ok = snapshot->TestRead("parser_str2el");
 
 	if(!read_str2el_snapshot_ok)
 	{
@@ -108,16 +153,10 @@ void Parser::LoadMapping(){
 		}
 		hdfsCloseFile(fs, el_file);
 
-		snapshot->WriteData("parser_str2el", str2el);
-	}
-	else
-	{
-		printf("read parser_str2el success\n");
 	}
 
-
-	bool read_str2epk_snapshot_ok = snapshot->ReadData("parser_str2epk", str2epk);
-	bool read_epk2eptype_snapshot_ok = snapshot->ReadData("parser_epk2eptype", epk2eptype);
+	bool read_str2epk_snapshot_ok = snapshot->TestRead("parser_str2epk");
+	bool read_epk2eptype_snapshot_ok = snapshot->TestRead("parser_epk2eptype");
 
 	if(!(read_str2epk_snapshot_ok && read_epk2eptype_snapshot_ok))
 	{
@@ -147,13 +186,8 @@ void Parser::LoadMapping(){
 		}
 		hdfsCloseFile(fs, ep_file);
 
-		snapshot->WriteData("parser_str2epk", str2epk);
-		snapshot->WriteData("parser_epk2eptype", epk2eptype);
 	}
-	else
-	{
-		printf("read parser_str2epk parser_epk2eptype success\n");
-	}
+	
 	hdfsDisconnect(fs);
 }
 
