@@ -72,9 +72,12 @@ void DataStore::ReadSnapshot()
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 	bool ok1 = snapshot->ReadData("datastore_vertices", vertices);
+	bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
 	int ok_cnt = 0;
 	if(ok1)
+		ok_cnt++;
+	if(ok2)
 		ok_cnt++;
 
 	printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
@@ -88,6 +91,11 @@ void DataStore::WriteSnapshot()
 	{
 		printf("DataStore::WriteSnapshot() write 1\n");
 		snapshot->WriteData("datastore_vertices", vertices);
+	}
+	if(!snapshot->TestRead("datastore_edges"))
+	{
+		printf("DataStore::WriteSnapshot() write 2\n");
+		snapshot->WriteData("datastore_edges", edges);
 	}
 }
 
