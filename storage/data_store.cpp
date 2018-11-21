@@ -69,34 +69,34 @@ void DataStore::LoadDataFromHDFS(){
 
 void DataStore::ReadSnapshot()
 {
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	// MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	bool ok1 = snapshot->ReadData("datastore_vertices", vertices);
-	bool ok2 = snapshot->ReadData("datastore_edges", edges);
+	// bool ok1 = snapshot->ReadData("datastore_vertices", vertices);
+	// bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
-	int ok_cnt = 0;
-	if(ok1)
-		ok_cnt++;
-	if(ok2)
-		ok_cnt++;
+	// int ok_cnt = 0;
+	// if(ok1)
+	// 	ok_cnt++;
+	// if(ok2)
+	// 	ok_cnt++;
 
-	printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+	// printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
 }
 
 void DataStore::WriteSnapshot()
 {
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	// MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	if(!snapshot->TestRead("datastore_vertices"))
-	{
-		printf("DataStore::WriteSnapshot() write 1\n");
-		snapshot->WriteData("datastore_vertices", vertices);
-	}
-	if(!snapshot->TestRead("datastore_edges"))
-	{
-		printf("DataStore::WriteSnapshot() write 2\n");
-		snapshot->WriteData("datastore_edges", edges);
-	}
+	// if(!snapshot->TestRead("datastore_vertices"))
+	// {
+	// 	printf("DataStore::WriteSnapshot() write 1\n");
+	// 	snapshot->WriteData("datastore_vertices", vertices);
+	// }
+	// if(!snapshot->TestRead("datastore_edges"))
+	// {
+	// 	printf("DataStore::WriteSnapshot() write 2\n");
+	// 	snapshot->WriteData("datastore_edges", edges);
+	// }
 }
 
 void DataStore::Shuffle()
@@ -605,7 +605,10 @@ void DataStore::get_string_indexes()
 
 void DataStore::get_vertices()
 {
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 	//break if the vtxs has already been finished.
+	if(snapshot->TestRead("datastore_vertices"))
+		return;
 
 	//check path + arrangement
 	const char * indir = config_->HDFS_VTX_SUBFOLDER.c_str();
