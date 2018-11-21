@@ -7,6 +7,7 @@
 
 #include "storage/data_store.hpp"
 #include "utils/mpi_profiler.hpp"
+#include "storage/mpi_snapshot.hpp"
 
 DataStore::DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), id_mapper_(id_mapper), buffer_(buf)
 {
@@ -68,12 +69,26 @@ void DataStore::LoadDataFromHDFS(){
 
 void DataStore::ReadSnapshot()
 {
-	
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+	bool ok1 = snapshot->ReadData("datastore_vertices", vertices);
+
+	int ok_cnt = 0;
+	if(ok1)
+		ok_cnt++;
+
+	printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
 }
 
 void DataStore::WriteSnapshot()
 {
-	
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+	if(!snapshot->TestRead("datastore_vertices"))
+	{
+		printf("DataStore::WriteSnapshot() write 1\n");
+		snapshot->WriteData("datastore_vertices", vertices);
+	}
 }
 
 void DataStore::Shuffle()
@@ -582,6 +597,8 @@ void DataStore::get_string_indexes()
 
 void DataStore::get_vertices()
 {
+	//break if the vtxs has already been finished.
+
 	//check path + arrangement
 	const char * indir = config_->HDFS_VTX_SUBFOLDER.c_str();
 
