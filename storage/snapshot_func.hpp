@@ -9,6 +9,9 @@
 //this file is designed to be isolated from MPISnapshot
 
 #include "base/serialization.hpp"
+#include <ext/hash_map>
+
+using __gnu_cxx::hash_map;
 
 //the most simple
 
@@ -58,50 +61,74 @@ static inline bool ReadSerImpl(string fn, T& data)
 }
 
 
-// template<typename T1,typename T2>
-// static inline bool WriteMapSerImpl(string fn, map<T1, T2>& data)
-// {
-//     ofstream doge(fn, ios::binary);
+template<typename T1,typename T2>
+static inline bool WriteHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
+{
+    ofstream doge(fn, ios::binary);
 
-//     if(!doge.is_open())
-//     {
-//         return false;
-//     }
+    if(!doge.is_open())
+    {
+        return false;
+    }
 
-//     ibinstream m;
-//     m << data;
+    //write data to the instream
+    ibinstream m;
 
-//     doge << m.size();
-//     doge.write(m.get_buf(), m.size());
+    for(auto kv : data)
+    {
+        //notice that kv.second is a pointer
+        //and the content of the pointer need to be written
 
-//     doge.close();
+        m << kv.first;//the key
+        m << *kv.second;//the value is a pointer
+    }
 
-//     return true;
-// }
+    int data_sz = data.size(), buf_sz = m.size();
 
-// template<typename T1,typename T2>
-// static inline bool ReadMapSerImpl(string fn, map<T1, T2>& data)
-// {
-//     ifstream doge(fn, ios::binary);
+    doge << data_sz;
+    doge << buf_sz;
+    doge.write(m.get_buf(), m.size());
 
-//     if(!doge.is_open())
-//     {
-//         return false;
-//     }
+    doge.close();
 
-//     int sz;
-//     doge >> sz;
-//     char* tmp_buf = new char[sz];
-//     doge.read(tmp_buf, sz);
-//     doge.close();
+    return true;
+}
 
-//     obinstream m;
-//     m.assign(tmp_buf, sz, 0);
+template<typename T1,typename T2>
+static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
+{
+    ifstream doge(fn, ios::binary);
 
-//     m >> data;
+    if(!doge.is_open())
+    {
+        return false;
+    }
 
-//     return true;
-// }
+    int buf_sz, data_sz;
+    doge >> data_sz;
+    doge >> buf_sz;
+
+    printf("data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
+
+    char* tmp_buf = new char[buf_sz];
+    doge.read(tmp_buf, buf_sz);
+    doge.close();
+
+    obinstream m;
+    m.assign(tmp_buf, buf_sz, 0);
+
+    for(int i = 0; i < data_sz; i++)
+    {
+        T1 key;
+        T2* value = new T2;
+
+        m >> key >> *value;
+
+        data[key] = value;
+    }
+
+    return true;
+}
 
 
 

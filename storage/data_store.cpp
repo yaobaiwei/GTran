@@ -8,6 +8,7 @@
 #include "storage/data_store.hpp"
 #include "utils/mpi_profiler.hpp"
 #include "storage/mpi_snapshot.hpp"
+#include "storage/snapshot_func.hpp"
 
 DataStore::DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), id_mapper_(id_mapper), buffer_(buf)
 {
@@ -69,81 +70,18 @@ void DataStore::LoadDataFromHDFS(){
 	edge_pty_key_to_type.clear();
 }
 
-template<typename T>
-bool WritePtrVectorSerImpl(string fn, vector<T*>& data)
-{
-    ofstream doge(fn, ios::binary);
-
-    if(!doge.is_open())
-    {
-        return false;
-    }
-
-    ibinstream m;
-
-    for(int i = 0; i < data.size(); i++)
-    	m << *(data[i]);
-
-    int data_sz = data.size(), buf_sz = m.size();
-
-    printf("data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
-
-    doge << data_sz;
-    doge << buf_sz;
-    doge.write(m.get_buf(), m.size());
-
-    doge.close();
-
-    return true;
-}
-
-
-template<typename T>
-bool ReadPtrVectorSerImpl(string fn, vector<T*>& data)
-{
-    ifstream doge(fn, ios::binary);
-
-    if(!doge.is_open())
-    {
-        return false;
-    }
-
-    int buf_sz, data_sz;
-    doge >> data_sz;
-    doge >> buf_sz;
-
-    printf("data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
-
-    char* tmp_buf = new char[buf_sz];
-    doge.read(tmp_buf, buf_sz);
-    doge.close();
-
-    obinstream m;
-    m.assign(tmp_buf, buf_sz, 0);
-
-    data.resize(data_sz);
-
-    for(int i = 0; i < data_sz; i++)
-    {
-    	data[i] = new T;
-    	m >> *(data[i]);
-    }
-
-    return true;
-}
-
 void DataStore::ReadSnapshot()
 {
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	// bool ok1 = snapshot->ReadData("datastore_vertices", vertices, ReadPtrVectorSerImpl);
-	// // bool ok2 = snapshot->ReadData("datastore_edges", edges);
+	// bool ok1 = snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
+	// // // bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
 	// int ok_cnt = 0;
 	// if(ok1)
 	// 	ok_cnt++;
-	// // if(ok2)
-	// // 	ok_cnt++;
+	// // // if(ok2)
+	// // // 	ok_cnt++;
 
 	// printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
 }
@@ -152,11 +90,11 @@ void DataStore::WriteSnapshot()
 {
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	// if(!snapshot->TestRead("datastore_vertices"))
-	// {
-	// 	printf("DataStore::WriteSnapshot() write 1, %d\n", vertices.size());
-	// 	snapshot->WriteData("datastore_vertices", vertices, WritePtrVectorSerImpl);
-	// }
+	if(!snapshot->TestRead("datastore_v_table"))
+	{
+		printf("DataStore::WriteSnapshot() write 1, %d\n", v_table.size());
+		snapshot->WriteData("datastore_v_table", v_table, WriteHashMapSerImpl);
+	}
 	// if(!snapshot->TestRead("datastore_edges"))
 	// {
 	// 	printf("DataStore::WriteSnapshot() write 2\n");
@@ -171,7 +109,7 @@ void DataStore::Shuffle()
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 	//break if the vtxs has already been finished.
-	if(!snapshot->TestRead("datastore_vertices"))
+	if(!snapshot->TestRead("datastore_v_table"))
 	{
 		//vertices
 		pf->STPF("v_local1");
@@ -681,7 +619,7 @@ void DataStore::get_vertices()
 {
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 	//break if the vtxs has already been finished.
-	if(snapshot->TestRead("datastore_vertices"))
+	if(snapshot->TestRead("datastore_v_table"))
 		return;
 
 	//check path + arrangement
