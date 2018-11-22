@@ -19,55 +19,32 @@ namespace std
 class MPISnapshot
 {
 public:
+    //to do: better use const reference.
+
     template<typename T>
-    void WriteData(string key, T& data)
+    bool WriteData(string key, T& data, bool(write_func)(string, T&))
     {
         //hash the key
         string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
 
-        ofstream doge(fn, ios::binary);
-        ibinstream m;
-        m << data;
-
-        doge << m.size();
-        doge.write(m.get_buf(), m.size());
-
-        doge.close();
+        write_func(fn, data);
 
         write_map_[key] = true;
-    }
-
-
-    template<typename T>
-    bool ReadData(string key, T& data)
-    {
-        //hash the key
-        string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
-
-        ifstream doge(fn, ios::binary);
-
-        if(!doge.is_open())
-        {
-            read_map_[key] = false;
-            return false;
-        }
-
-        int sz;
-        doge >> sz;
-        char* tmp_buf = new char[sz];
-        doge.read(tmp_buf, sz);
-        doge.close();
-
-        obinstream m;
-        m.assign(tmp_buf, sz, 0);
-
-        m >> data;
-
-        read_map_[key] = true;
 
         return true;
     }
-    
+
+    template<typename T>
+    bool ReadData(string key, T& data, bool(read_func)(string, T&))
+    {
+        //hash the key
+        string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
+
+        read_map_[key] = read_func(fn, data);
+
+        return read_map_[key];
+    }
+
     //after read data of a specific key, this function will return true (for global usage)
     bool TestRead(string key)
     {

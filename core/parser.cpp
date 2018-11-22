@@ -2,19 +2,64 @@
 #include <iostream>
 #include "storage/mpi_snapshot.hpp"
 
+template<typename T1,typename T2>
+bool WriteSerImpl(string fn, map<T1, T2>& data)
+{
+    ofstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    ibinstream m;
+    m << data;
+
+    doge << m.size();
+    doge.write(m.get_buf(), m.size());
+
+    doge.close();
+
+    return true;
+}
+
+template<typename T1,typename T2>
+bool ReadSerImpl(string fn, map<T1, T2>& data)
+{
+    ifstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    int sz;
+    doge >> sz;
+    char* tmp_buf = new char[sz];
+    doge.read(tmp_buf, sz);
+    doge.close();
+
+    obinstream m;
+    m.assign(tmp_buf, sz, 0);
+
+    m >> data;
+
+    return true;
+}
+
 void Parser::ReadSnapshot()
 {
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	bool ok1 = snapshot->ReadData("parser_str2vl", str2vl);
+	bool ok1 = snapshot->ReadData("parser_str2vl", str2vl, ReadSerImpl);
 
-	bool ok2 = snapshot->ReadData("parser_str2vpk", str2vpk);
-	bool ok3 = snapshot->ReadData("parser_vpk2vptype", vpk2vptype);
+	bool ok2 = snapshot->ReadData("parser_str2vpk", str2vpk, ReadSerImpl);
+	bool ok3 = snapshot->ReadData("parser_vpk2vptype", vpk2vptype, ReadSerImpl);
 
-	bool ok4 = snapshot->ReadData("parser_str2el", str2el);
+	bool ok4 = snapshot->ReadData("parser_str2el", str2el, ReadSerImpl);
 
-	bool ok5 = snapshot->ReadData("parser_str2epk", str2epk);
-	bool ok6 = snapshot->ReadData("parser_epk2eptype", epk2eptype);
+	bool ok5 = snapshot->ReadData("parser_str2epk", str2epk, ReadSerImpl);
+	bool ok6 = snapshot->ReadData("parser_epk2eptype", epk2eptype, ReadSerImpl);
 
 	int ok_cnt = 0;
 	if(ok1)
@@ -42,35 +87,35 @@ void Parser::WriteSnapshot()
 	if(!snapshot->TestRead("parser_str2vl"))
 	{
 		//printf("write 1\n");
-		snapshot->WriteData("parser_str2vl", str2vl);
+		snapshot->WriteData("parser_str2vl", str2vl, WriteSerImpl);
 	}
 
 	if(!snapshot->TestRead("parser_str2vpk"))
 	{
 		//printf("write 2\n");
-		snapshot->WriteData("parser_str2vpk", str2vpk);
+		snapshot->WriteData("parser_str2vpk", str2vpk, WriteSerImpl);
 	}
 	if(!snapshot->TestRead("parser_vpk2vptype"))
 	{
 		//printf("write 3\n");
-		snapshot->WriteData("parser_vpk2vptype", vpk2vptype);
+		snapshot->WriteData("parser_vpk2vptype", vpk2vptype, WriteSerImpl);
 	}
 
 	if(!snapshot->TestRead("parser_str2el"))
 	{
 		//printf("write 4\n");
-		snapshot->WriteData("parser_str2el", str2el);
+		snapshot->WriteData("parser_str2el", str2el, WriteSerImpl);
 	}
 
 	if(!snapshot->TestRead("parser_str2epk"))
 	{
 		//printf("write 5\n");
-		snapshot->WriteData("parser_str2epk", str2epk);
+		snapshot->WriteData("parser_str2epk", str2epk, WriteSerImpl);
 	}
 	if(!snapshot->TestRead("parser_epk2eptype"))
 	{
 		//printf("write 6\n");
-		snapshot->WriteData("parser_epk2eptype", epk2eptype);
+		snapshot->WriteData("parser_epk2eptype", epk2eptype, WriteSerImpl);
 	}
 }
 
