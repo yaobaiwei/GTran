@@ -46,6 +46,8 @@ void DataStore::Init(vector<Node> & nodes){
  *	unordered_map<label_t, string> vpk2str;
  */
 
+
+
 void DataStore::LoadDataFromHDFS(){
 	MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", node_.local_comm);
 	pf->STPF("get_string_indexes");
@@ -67,30 +69,93 @@ void DataStore::LoadDataFromHDFS(){
 	edge_pty_key_to_type.clear();
 }
 
+template<typename T>
+bool WritePtrVectorSerImpl(string fn, vector<T*>& data)
+{
+    ofstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    ibinstream m;
+
+    for(int i = 0; i < data.size(); i++)
+    	m << *(data[i]);
+
+    int data_sz = data.size(), buf_sz = m.size();
+
+    printf("data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
+
+    doge << data_sz;
+    doge << buf_sz;
+    doge.write(m.get_buf(), m.size());
+
+    doge.close();
+
+    return true;
+}
+
+
+template<typename T>
+bool ReadPtrVectorSerImpl(string fn, vector<T*>& data)
+{
+    ifstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    int buf_sz, data_sz;
+    doge >> data_sz;
+    doge >> buf_sz;
+
+    printf("data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
+
+    char* tmp_buf = new char[buf_sz];
+    doge.read(tmp_buf, buf_sz);
+    doge.close();
+
+    obinstream m;
+    m.assign(tmp_buf, buf_sz, 0);
+
+    data.resize(data_sz);
+
+    for(int i = 0; i < data_sz; i++)
+    {
+    	data[i] = new T;
+    	m >> *(data[i]);
+    }
+
+    return true;
+}
+
 void DataStore::ReadSnapshot()
 {
-	// MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	// bool ok1 = snapshot->ReadData("datastore_vertices", vertices);
-	// bool ok2 = snapshot->ReadData("datastore_edges", edges);
+	// bool ok1 = snapshot->ReadData("datastore_vertices", vertices, ReadPtrVectorSerImpl);
+	// // bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
 	// int ok_cnt = 0;
 	// if(ok1)
 	// 	ok_cnt++;
-	// if(ok2)
-	// 	ok_cnt++;
+	// // if(ok2)
+	// // 	ok_cnt++;
 
 	// printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
 }
 
 void DataStore::WriteSnapshot()
 {
-	// MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 	// if(!snapshot->TestRead("datastore_vertices"))
 	// {
-	// 	printf("DataStore::WriteSnapshot() write 1\n");
-	// 	snapshot->WriteData("datastore_vertices", vertices);
+	// 	printf("DataStore::WriteSnapshot() write 1, %d\n", vertices.size());
+	// 	snapshot->WriteData("datastore_vertices", vertices, WritePtrVectorSerImpl);
 	// }
 	// if(!snapshot->TestRead("datastore_edges"))
 	// {
@@ -103,32 +168,38 @@ void DataStore::Shuffle()
 {
 	MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", node_.local_comm);
 	
-	//vertices
-	pf->STPF("v_local1");
-	vector<vector<Vertex*>> vtx_parts;
-	vtx_parts.resize(node_.get_local_size());
-	for (int i = 0; i < vertices.size(); i++)
-	{
-		Vertex* v = vertices[i];
-		vtx_parts[id_mapper_->GetMachineIdForVertex(v->id)].push_back(v);
-	}
-	pf->EDPF("v_local1");
-	pf->STPF("v_alltoall");
-	all_to_all(node_, false, vtx_parts);
-	pf->EDPF("v_alltoall");
-	pf->STPF("v_local2");
-	vertices.clear();
-	if(node_.get_local_rank() == 0){
-		cout << "Shuffle vertex done" << endl;
-	}
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	for (int i = 0; i < node_.get_local_size(); i++)
+	//break if the vtxs has already been finished.
+	if(!snapshot->TestRead("datastore_vertices"))
 	{
-		vertices.insert(vertices.end(), vtx_parts[i].begin(), vtx_parts[i].end());
+		//vertices
+		pf->STPF("v_local1");
+		vector<vector<Vertex*>> vtx_parts;
+		vtx_parts.resize(node_.get_local_size());
+		for (int i = 0; i < vertices.size(); i++)
+		{
+			Vertex* v = vertices[i];
+			vtx_parts[id_mapper_->GetMachineIdForVertex(v->id)].push_back(v);
+		}
+		pf->EDPF("v_local1");
+		pf->STPF("v_alltoall");
+		all_to_all(node_, false, vtx_parts);
+		pf->EDPF("v_alltoall");
+		pf->STPF("v_local2");
+		vertices.clear();
+		if(node_.get_local_rank() == 0){
+			cout << "Shuffle vertex done" << endl;
+		}
+
+		for (int i = 0; i < node_.get_local_size(); i++)
+		{
+			vertices.insert(vertices.end(), vtx_parts[i].begin(), vtx_parts[i].end());
+		}
+		vtx_parts.clear();
+		vector<vector<Vertex*>>().swap(vtx_parts);
+		pf->EDPF("v_local2");
 	}
-	vtx_parts.clear();
-	vector<vector<Vertex*>>().swap(vtx_parts);
-	pf->EDPF("v_local2");
 
 	//edges
 	pf->STPF("e_local1");
@@ -269,7 +340,10 @@ void DataStore::DataConverter(){
 	for(int i = 0 ; i < vertices.size(); i++){
 		v_table[vertices[i]->id] = vertices[i];
 	}
+
+	printf("before swap, vtx sz = %d\n", vertices.size());
 	vector<Vertex*>().swap(vertices);
+	printf("after swap, vtx sz = %d\n", vertices.size());
 
 	for(int i = 0 ; i < vp_buf.size(); i++){
 		hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);

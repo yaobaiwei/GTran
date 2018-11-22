@@ -1,51 +1,7 @@
 #include "core/parser.hpp"
 #include <iostream>
 #include "storage/mpi_snapshot.hpp"
-
-template<typename T1,typename T2>
-bool WriteSerImpl(string fn, map<T1, T2>& data)
-{
-    ofstream doge(fn, ios::binary);
-
-    if(!doge.is_open())
-    {
-        return false;
-    }
-
-    ibinstream m;
-    m << data;
-
-    doge << m.size();
-    doge.write(m.get_buf(), m.size());
-
-    doge.close();
-
-    return true;
-}
-
-template<typename T1,typename T2>
-bool ReadSerImpl(string fn, map<T1, T2>& data)
-{
-    ifstream doge(fn, ios::binary);
-
-    if(!doge.is_open())
-    {
-        return false;
-    }
-
-    int sz;
-    doge >> sz;
-    char* tmp_buf = new char[sz];
-    doge.read(tmp_buf, sz);
-    doge.close();
-
-    obinstream m;
-    m.assign(tmp_buf, sz, 0);
-
-    m >> data;
-
-    return true;
-}
+#include "storage/snapshot_func.hpp"
 
 void Parser::ReadSnapshot()
 {
