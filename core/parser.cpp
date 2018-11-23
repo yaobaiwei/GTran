@@ -5,6 +5,7 @@
 
 void Parser::ReadSnapshot()
 {
+	// return;
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 	bool ok1 = snapshot->ReadData("parser_str2vl", str2vl, ReadSerImpl);

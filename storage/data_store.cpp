@@ -74,16 +74,16 @@ void DataStore::ReadSnapshot()
 {
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
-	// bool ok1 = snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
-	// // // bool ok2 = snapshot->ReadData("datastore_edges", edges);
+	bool ok1 = snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
+	// // bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
-	// int ok_cnt = 0;
-	// if(ok1)
-	// 	ok_cnt++;
-	// // // if(ok2)
-	// // // 	ok_cnt++;
+	int ok_cnt = 0;
+	if(ok1)
+		ok_cnt++;
+	// // if(ok2)
+	// // 	ok_cnt++;
 
-	// printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+	printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
 }
 
 void DataStore::WriteSnapshot()
@@ -273,15 +273,20 @@ void DataStore::Shuffle()
 }
 
 
-void DataStore::DataConverter(){
-
-	for(int i = 0 ; i < vertices.size(); i++){
-		v_table[vertices[i]->id] = vertices[i];
+void DataStore::DataConverter()
+{
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	if(!snapshot->TestRead("datastore_v_table"))
+	{
+		for(int i = 0 ; i < vertices.size(); i++)
+		{
+			v_table[vertices[i]->id] = vertices[i];
+		}
 	}
 
-	printf("before swap, vtx sz = %d\n", vertices.size());
+	// printf("before swap, vtx sz = %d\n", vertices.size());
 	vector<Vertex*>().swap(vertices);
-	printf("after swap, vtx sz = %d\n", vertices.size());
+	// printf("after swap, vtx sz = %d\n", vertices.size());
 
 	for(int i = 0 ; i < vp_buf.size(); i++){
 		hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);

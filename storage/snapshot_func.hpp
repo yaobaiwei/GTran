@@ -28,7 +28,10 @@ static inline bool WriteSerImpl(string fn, T& data)
     ibinstream m;
     m << data;
 
-    doge << m.size();
+    int buf_sz = m.size();
+    doge.write((char*)&buf_sz, sizeof(int));
+    // doge << m.size();
+
     doge.write(m.get_buf(), m.size());
 
     doge.close();
@@ -47,7 +50,9 @@ static inline bool ReadSerImpl(string fn, T& data)
     }
 
     int sz;
-    doge >> sz;
+    // doge >> sz;
+    doge.read((char*)&sz, sizeof(int));
+
     char* tmp_buf = new char[sz];
     doge.read(tmp_buf, sz);
     doge.close();
@@ -84,9 +89,12 @@ static inline bool WriteHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
     }
 
     int data_sz = data.size(), buf_sz = m.size();
+    printf("WriteHashMapSerImpl data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
 
-    doge << data_sz;
-    doge << buf_sz;
+    // doge << data_sz;
+    // doge << buf_sz;
+    doge.write((char*)&data_sz, sizeof(int));
+    doge.write((char*)&buf_sz, sizeof(int));
     doge.write(m.get_buf(), m.size());
 
     doge.close();
@@ -105,10 +113,12 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
     }
 
     int buf_sz, data_sz;
-    doge >> data_sz;
-    doge >> buf_sz;
+    // doge >> data_sz;
+    // doge >> buf_sz;
+    doge.read((char*)&data_sz, sizeof(int));
+    doge.read((char*)&buf_sz, sizeof(int));
 
-    printf("data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
+    printf("ReadHashMapSerImpl data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
 
     char* tmp_buf = new char[buf_sz];
     doge.read(tmp_buf, buf_sz);
