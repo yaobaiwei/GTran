@@ -7,6 +7,9 @@
 
 #include <assert.h>
 #include "storage/vkvstore.hpp"
+#include "storage/mpi_snapshot.hpp"
+#include "storage/snapshot_func.hpp"
+
 
 using namespace std;
 
@@ -17,7 +20,11 @@ void VKVStore::ReadSnapshot()
 
 void VKVStore::WriteSnapshot()
 {
-    
+    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+    auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+
+    snapshot->WriteData("vkvstore", tmp_tuple, WriteKVStoreImpl);
 }
 
 // ==================VKVStore=======================

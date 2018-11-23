@@ -7,6 +7,8 @@
 
 #include <assert.h>
 #include "storage/ekvstore.hpp"
+#include "storage/mpi_snapshot.hpp"
+#include "storage/snapshot_func.hpp"
 
 using namespace std;
 
@@ -17,7 +19,11 @@ void EKVStore::ReadSnapshot()
 
 void EKVStore::WriteSnapshot()
 {
-    
+    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+    auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+
+    snapshot->WriteData("ekvstore", tmp_tuple, WriteKVStoreImpl);
 }
 
 // ==================EKVStore=======================

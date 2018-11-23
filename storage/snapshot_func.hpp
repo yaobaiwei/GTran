@@ -160,7 +160,7 @@ static inline bool WriteKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>&
     uint64_t last_entry = get<0>(data), mem_sz = get<1>(data);
     char* mem = get<2>(data);
 
-    printf("WriteKVStoreImpl last_entry = %d, mem_sz = %d\n", last_entry, mem_sz);
+    printf("WriteKVStoreImpl last_entry = %lu, mem_sz = %lu\n", last_entry, mem_sz);
 
     doge.write((char*)&last_entry, sizeof(last_entry));
     doge.write((char*)&mem_sz, sizeof(mem_sz));
