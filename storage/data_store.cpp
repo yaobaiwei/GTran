@@ -76,7 +76,7 @@ void DataStore::ReadSnapshot()
 
 	bool ok1 = snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
 	bool ok2 = snapshot->ReadData("datastore_e_table", e_table, ReadHashMapSerImpl);
-	// // bool ok2 = snapshot->ReadData("datastore_edges", edges);
+	// bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
 	int ok_cnt = 0;
 	if(ok1)
@@ -84,7 +84,12 @@ void DataStore::ReadSnapshot()
 	if(ok2)
 		ok_cnt++;
 
+	//call the read snapshot in the kvstore
+
 	printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+
+	vpstore_->ReadSnapshot();
+	epstore_->ReadSnapshot();
 }
 
 void DataStore::WriteSnapshot()
@@ -101,6 +106,10 @@ void DataStore::WriteSnapshot()
 		printf("DataStore::WriteSnapshot() write 2, %d\n", e_table.size());
 		snapshot->WriteData("datastore_e_table", e_table, WriteHashMapSerImpl);
 	}
+
+
+	vpstore_->WriteSnapshot();
+	epstore_->WriteSnapshot();
 }
 
 void DataStore::Shuffle()

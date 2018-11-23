@@ -9,6 +9,8 @@
 //this file is designed to be isolated from MPISnapshot
 
 #include "base/serialization.hpp"
+//namespace std is used there
+
 #include <ext/hash_map>
 
 using __gnu_cxx::hash_map;
@@ -140,6 +142,62 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
     return true;
 }
 
+//
+static inline bool WriteKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& data)
+{
+    ofstream doge(fn, ios::binary);
 
+    if(!doge.is_open())
+    {
+        return false;
+    }
 
+    //write data to the instream
+    ibinstream m;
 
+    // auto [last_entry, mem_sz, mem] = data;?????? not support?
+
+    uint64_t last_entry = get<0>(data), mem_sz = get<1>(data);
+    char* mem = get<2>(data);
+
+    printf("WriteKVStoreImpl last_entry = %d, mem_sz = %d\n", last_entry, mem_sz);
+
+    doge.write((char*)&last_entry, sizeof(last_entry));
+    doge.write((char*)&mem_sz, sizeof(mem_sz));
+    doge.write(mem, mem_sz);
+
+    doge.close();
+
+    return true;
+}
+
+//
+static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& data)
+{
+    ifstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    //write data to the instream
+    obinstream m;
+
+    char* mem = get<2>(data);
+
+    uint64_t last_entry, mem_sz;
+
+    doge.read((char*)&last_entry, sizeof(last_entry));
+    doge.read((char*)&mem_sz, sizeof(mem_sz));
+
+    printf("ReadKVStoreImpl last_entry = %d, mem_sz = %d\n", last_entry, mem_sz);
+
+    doge.read(mem, mem_sz);
+
+    doge.close();
+
+    data = make_tuple(last_entry, mem_sz, mem);
+
+    return true;
+}

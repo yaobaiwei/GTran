@@ -10,6 +10,16 @@
 
 using namespace std;
 
+void EKVStore::ReadSnapshot()
+{
+
+}
+
+void EKVStore::WriteSnapshot()
+{
+    
+}
+
 // ==================EKVStore=======================
 uint64_t EKVStore::insert_id(uint64_t _pid) {
     // pid is already hashed

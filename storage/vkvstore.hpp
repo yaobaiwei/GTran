@@ -63,6 +63,9 @@ public:
     // analysis
     void print_mem_usage();
 
+    void ReadSnapshot();
+    void WriteSnapshot();
+
 private:
 
     Config * config_;

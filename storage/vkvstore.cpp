@@ -10,6 +10,16 @@
 
 using namespace std;
 
+void VKVStore::ReadSnapshot()
+{
+
+}
+
+void VKVStore::WriteSnapshot()
+{
+    
+}
+
 // ==================VKVStore=======================
 uint64_t VKVStore::insert_id(uint64_t _pid) {
 	// pid is not hashed
