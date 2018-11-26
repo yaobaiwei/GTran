@@ -14,17 +14,33 @@ using namespace std;
 
 void EKVStore::ReadSnapshot()
 {
-
-}
-
-void EKVStore::WriteSnapshot()
-{
-    return;
+    // return;
     MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
     auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
 
-    snapshot->WriteData("ekvstore", tmp_tuple, WriteKVStoreImpl);
+    bool ok = snapshot->ReadData("ekvstore", tmp_tuple, ReadKVStoreImpl);
+
+    int ok_cnt = 0;
+    if(ok)
+    {
+        ok_cnt++;
+        last_entry = get<0>(tmp_tuple);
+    }
+
+    printf("EKVStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+}
+
+void EKVStore::WriteSnapshot()
+{
+    // return;
+    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+    if(!snapshot->TestRead("vkvstore"))
+    {
+        auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+        snapshot->WriteData("ekvstore", tmp_tuple, WriteKVStoreImpl);
+    }
 }
 
 // ==================EKVStore=======================

@@ -15,7 +15,7 @@ using namespace std;
 
 void VKVStore::ReadSnapshot()
 {
-    return;
+    // return;
     MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
     auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
@@ -34,7 +34,7 @@ void VKVStore::ReadSnapshot()
 
 void VKVStore::WriteSnapshot()
 {
-    return;
+    // return;
     MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
     if(!snapshot->TestRead("vkvstore"))
