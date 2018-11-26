@@ -50,22 +50,37 @@ void DataStore::Init(vector<Node> & nodes){
 
 
 void DataStore::LoadDataFromHDFS(){
+
+	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+
 	MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", node_.local_comm);
 	pf->STPF("get_string_indexes");
 	get_string_indexes();
 	pf->EDPF("get_string_indexes");
+
+
 	pf->STPF("get_vertices");
 	get_vertices();
 	pf->EDPF("get_vertices");
 	cout << "Node " << node_.get_local_rank() << " Get_vertices() DONE !" << endl;
-	pf->STPF("get_vplist");
-	get_vplist();
-	pf->EDPF("get_vplist");
+
+	if(!snapshot->TestRead("vkvstore"))
+	{
+		pf->STPF("get_vplist");
+		get_vplist();
+		pf->EDPF("get_vplist");
+	}
 	cout << "Node " << node_.get_local_rank() << " Get_vplist() DONE !" << endl;
-	pf->STPF("get_eplist");
-	get_eplist();
-	pf->EDPF("get_eplist");
+
+	if(!snapshot->TestRead("ekvstore"))
+	{
+		pf->STPF("get_eplist");
+		get_eplist();
+		pf->EDPF("get_eplist");
+	}
 	cout << "Node " << node_.get_local_rank() << " Get_eplist() DONE !" << endl;
+	
 	vtx_pty_key_to_type.clear();
 	edge_pty_key_to_type.clear();
 }
@@ -184,109 +199,115 @@ void DataStore::Shuffle()
 		pf->EDPF("e_local2");
 	}
 
-	//VProperty
-	pf->STPF("vp_local1");
-	vector<vector<VProperty*>> vp_parts;
-	vp_parts.resize(node_.get_local_size());
-	for (int i = 0; i < vplist.size(); i++)
+	if(!snapshot->TestRead("vkvstore"))
 	{
-		VProperty* vp = vplist[i];
-		map<int, vector<V_KVpair>> node_map;
-		for(auto& kv_pair : vp->plist)
-			node_map[id_mapper_->GetMachineIdForVProperty(kv_pair.key)].push_back(kv_pair);
-		for(auto& item : node_map){
-			VProperty* vp_ = new VProperty();
-			vp_->id = vp->id;
-			vp_->plist = move(item.second);
-			vp_parts[item.first].push_back(vp_);
+		//VProperty
+		pf->STPF("vp_local1");
+		vector<vector<VProperty*>> vp_parts;
+		vp_parts.resize(node_.get_local_size());
+		for (int i = 0; i < vplist.size(); i++)
+		{
+			VProperty* vp = vplist[i];
+			map<int, vector<V_KVpair>> node_map;
+			for(auto& kv_pair : vp->plist)
+				node_map[id_mapper_->GetMachineIdForVProperty(kv_pair.key)].push_back(kv_pair);
+			for(auto& item : node_map){
+				VProperty* vp_ = new VProperty();
+				vp_->id = vp->id;
+				vp_->plist = move(item.second);
+				vp_parts[item.first].push_back(vp_);
+			}
+			delete vp;
 		}
-		delete vp;
-	}
-	pf->EDPF("vp_local1");
-	pf->STPF("vp_alltoall");
-	all_to_all(node_, false, vp_parts);
-	pf->EDPF("vp_alltoall");
+		pf->EDPF("vp_local1");
+		pf->STPF("vp_alltoall");
+		all_to_all(node_, false, vp_parts);
+		pf->EDPF("vp_alltoall");
 
-	pf->STPF("vp_local2");
-	if(node_.get_local_rank() == 0){
-		cout << "Shuffle vp done" << endl;
-	}
-
-	vplist.clear();
-
-	for (int i = 0; i < node_.get_local_size(); i++)
-	{
-		vplist.insert(vplist.end(), vp_parts[i].begin(), vp_parts[i].end());
-	}
-	vp_parts.clear();
-	vector<vector<VProperty*>>().swap(vp_parts);
-	pf->EDPF("vp_local2");
-
-	//EProperty
-	pf->STPF("ep_local1");
-	vector<vector<EProperty*>> ep_parts;
-	ep_parts.resize(node_.get_local_size());
-	for (int i = 0; i < eplist.size(); i++)
-	{
-		EProperty* ep = eplist[i];
-		map<int, vector<E_KVpair>> node_map;
-		for(auto& kv_pair : ep->plist)
-			node_map[id_mapper_->GetMachineIdForEProperty(kv_pair.key)].push_back(kv_pair);
-		for(auto& item : node_map){
-			EProperty* ep_ = new EProperty();
-			ep_->id = ep->id;
-			ep_->plist = move(item.second);
-			ep_parts[item.first].push_back(ep_);
+		pf->STPF("vp_local2");
+		if(node_.get_local_rank() == 0){
+			cout << "Shuffle vp done" << endl;
 		}
-		delete ep;
+
+		vplist.clear();
+
+		for (int i = 0; i < node_.get_local_size(); i++)
+		{
+			vplist.insert(vplist.end(), vp_parts[i].begin(), vp_parts[i].end());
+		}
+		vp_parts.clear();
+		vector<vector<VProperty*>>().swap(vp_parts);
+		pf->EDPF("vp_local2");
+
+		//vp_lists
+		pf->STPF("vp_lists_local1");
+		vector<vector<vp_list*>> vpl_parts;
+		vpl_parts.resize(node_.get_local_size());
+		for (int i = 0; i < vp_buf.size(); i++)
+		{
+			vp_list* vp = vp_buf[i];
+			vpl_parts[id_mapper_->GetMachineIdForVertex(vp->vid)].push_back(vp);
+		}
+		pf->EDPF("vp_lists_local1");
+
+		pf->STPF("vp_lists_alltoall");
+		all_to_all(node_, false, vpl_parts);
+		pf->EDPF("vp_lists_alltoall");
+		pf->STPF("vp_lists_local2");
+		if(node_.get_local_rank() == 0){
+			cout << "Shuffle vp list done" << endl;
+		}
+
+		vp_buf.clear();
+		for (int i = 0; i < node_.get_local_size(); i++)
+		{
+			vp_buf.insert(vp_buf.end(), vpl_parts[i].begin(), vpl_parts[i].end());
+		}
+		vpl_parts.clear();
+		vector<vector<vp_list*>>().swap(vpl_parts);
+		pf->EDPF("vp_lists_local2");
 	}
-	pf->EDPF("ep_local1");
 
-	pf->STPF("ep_alltoall");
-	all_to_all(node_, false, ep_parts);
-	pf->EDPF("ep_alltoall");
-
-	pf->STPF("ep_local2");
-	if(node_.get_local_rank() == 0){
-		cout << "Shuffle ep done" << endl;
-	}
-
-	eplist.clear();
-	for (int i = 0; i < node_.get_local_size(); i++)
+	if(!snapshot->TestRead("ekvstore"))
 	{
-		eplist.insert(eplist.end(), ep_parts[i].begin(), ep_parts[i].end());
-	}
-	ep_parts.clear();
-	vector<vector<EProperty*>>().swap(ep_parts);
-	pf->EDPF("ep_local2");
+		//EProperty
+		pf->STPF("ep_local1");
+		vector<vector<EProperty*>> ep_parts;
+		ep_parts.resize(node_.get_local_size());
+		for (int i = 0; i < eplist.size(); i++)
+		{
+			EProperty* ep = eplist[i];
+			map<int, vector<E_KVpair>> node_map;
+			for(auto& kv_pair : ep->plist)
+				node_map[id_mapper_->GetMachineIdForEProperty(kv_pair.key)].push_back(kv_pair);
+			for(auto& item : node_map){
+				EProperty* ep_ = new EProperty();
+				ep_->id = ep->id;
+				ep_->plist = move(item.second);
+				ep_parts[item.first].push_back(ep_);
+			}
+			delete ep;
+		}
+		pf->EDPF("ep_local1");
 
-	//vp_lists
-	pf->STPF("vp_lists_local1");
-	vector<vector<vp_list*>> vpl_parts;
-	vpl_parts.resize(node_.get_local_size());
-	for (int i = 0; i < vp_buf.size(); i++)
-	{
-		vp_list* vp = vp_buf[i];
-		vpl_parts[id_mapper_->GetMachineIdForVertex(vp->vid)].push_back(vp);
-	}
-	pf->EDPF("vp_lists_local1");
+		pf->STPF("ep_alltoall");
+		all_to_all(node_, false, ep_parts);
+		pf->EDPF("ep_alltoall");
 
-	pf->STPF("vp_lists_alltoall");
-	all_to_all(node_, false, vpl_parts);
-	pf->EDPF("vp_lists_alltoall");
-	pf->STPF("vp_lists_local2");
-	if(node_.get_local_rank() == 0){
-		cout << "Shuffle vp list done" << endl;
-	}
+		pf->STPF("ep_local2");
+		if(node_.get_local_rank() == 0){
+			cout << "Shuffle ep done" << endl;
+		}
 
-	vp_buf.clear();
-	for (int i = 0; i < node_.get_local_size(); i++)
-	{
-		vp_buf.insert(vp_buf.end(), vpl_parts[i].begin(), vpl_parts[i].end());
+		eplist.clear();
+		for (int i = 0; i < node_.get_local_size(); i++)
+		{
+			eplist.insert(eplist.end(), ep_parts[i].begin(), ep_parts[i].end());
+		}
+		ep_parts.clear();
+		vector<vector<EProperty*>>().swap(ep_parts);
+		pf->EDPF("ep_local2");
 	}
-	vpl_parts.clear();
-	vector<vector<vp_list*>>().swap(vpl_parts);
-	pf->EDPF("vp_lists_local2");
 }
 
 
