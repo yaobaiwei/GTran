@@ -72,11 +72,11 @@ void DataStore::LoadDataFromHDFS(){
 
 void DataStore::ReadSnapshot()
 {
+	// return;
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 	bool ok1 = snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
 	bool ok2 = snapshot->ReadData("datastore_e_table", e_table, ReadHashMapSerImpl);
-	// bool ok2 = snapshot->ReadData("datastore_edges", edges);
 
 	int ok_cnt = 0;
 	if(ok1)
@@ -106,7 +106,6 @@ void DataStore::WriteSnapshot()
 		printf("DataStore::WriteSnapshot() write 2, %d\n", e_table.size());
 		snapshot->WriteData("datastore_e_table", e_table, WriteHashMapSerImpl);
 	}
-
 
 	vpstore_->WriteSnapshot();
 	epstore_->WriteSnapshot();
@@ -148,34 +147,42 @@ void DataStore::Shuffle()
 		vector<vector<Vertex*>>().swap(vtx_parts);
 		pf->EDPF("v_local2");
 	}
+	else
+	{
+		printf("Shuffle snapshot->TestRead('datastore_v_table')\n");
+	}
 
 	//edges
-	pf->STPF("e_local1");
-	vector<vector<Edge*>> edges_parts;
-	edges_parts.resize(node_.get_local_size());
-	for (int i = 0; i < edges.size(); i++)
-	{
-		Edge* e = edges[i];
-		edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
-	}
-	pf->EDPF("e_local1");
 
-	pf->STPF("e_alltoall");
-	all_to_all(node_, false, edges_parts);
-	pf->EDPF("e_alltoall");
-	pf->STPF("e_local2");
-	if(node_.get_local_rank() == 0){
-		cout << "Shuffle edge done" << endl;
-	}
-
-	edges.clear();
-	for (int i = 0; i < node_.get_local_size(); i++)
+	if(!snapshot->TestRead("datastore_e_table"))
 	{
-		edges.insert(edges.end(), edges_parts[i].begin(), edges_parts[i].end());
+		pf->STPF("e_local1");
+		vector<vector<Edge*>> edges_parts;
+		edges_parts.resize(node_.get_local_size());
+		for (int i = 0; i < edges.size(); i++)
+		{
+			Edge* e = edges[i];
+			edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
+		}
+		pf->EDPF("e_local1");
+
+		pf->STPF("e_alltoall");
+		all_to_all(node_, false, edges_parts);
+		pf->EDPF("e_alltoall");
+		pf->STPF("e_local2");
+		if(node_.get_local_rank() == 0){
+			cout << "Shuffle edge done" << endl;
+		}
+
+		edges.clear();
+		for (int i = 0; i < node_.get_local_size(); i++)
+		{
+			edges.insert(edges.end(), edges_parts[i].begin(), edges_parts[i].end());
+		}
+		edges_parts.clear();
+		vector<vector<Edge*>>().swap(edges_parts);
+		pf->EDPF("e_local2");
 	}
-	edges_parts.clear();
-	vector<vector<Edge*>>().swap(edges_parts);
-	pf->EDPF("e_local2");
 
 	//VProperty
 	pf->STPF("vp_local1");
@@ -292,47 +299,65 @@ void DataStore::DataConverter()
 		{
 			v_table[vertices[i]->id] = vertices[i];
 		}
-	}
 
-	// printf("before swap, vtx sz = %d\n", vertices.size());
-	vector<Vertex*>().swap(vertices);
-	// printf("after swap, vtx sz = %d\n", vertices.size());
-
-	for(int i = 0 ; i < vp_buf.size(); i++){
-		hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);
-		if(vIter == v_table.end()){
-			cout << "ERROR: FAILED TO MATCH ONE ELEMENT in vp_buf" << endl;
-			exit(-1);
+		for(int i = 0 ; i < vp_buf.size(); i++){
+			hash_map<vid_t, Vertex*>::iterator vIter = v_table.find(vp_buf[i]->vid);
+			if(vIter == v_table.end()){
+				cout << "ERROR: FAILED TO MATCH ONE ELEMENT in vp_buf" << endl;
+				exit(-1);
+			}
+			Vertex * v = vIter->second;
+			v->vp_list.insert(v->vp_list.end(), vp_buf[i]->pkeys.begin(), vp_buf[i]->pkeys.end());
+	//		cout << v->DebugString(); //TEST
 		}
-		Vertex * v = vIter->second;
-		v->vp_list.insert(v->vp_list.end(), vp_buf[i]->pkeys.begin(), vp_buf[i]->pkeys.end());
-//		cout << v->DebugString(); //TEST
+		//clean the vp_buf
+		for(int i = 0 ; i < vp_buf.size(); i++) delete vp_buf[i];
+		vector<vp_list*>().swap(vp_buf);
+		vector<Vertex*>().swap(vertices);
 	}
-	//clean the vp_buf
-	for(int i = 0 ; i < vp_buf.size(); i++) delete vp_buf[i];
-	vector<vp_list*>().swap(vp_buf);
+	else
+	{
+		printf("DataConverter snapshot->TestRead('datastore_v_table')\n");
+	}
 
-
-	for(int i = 0 ; i < edges.size(); i++){
-		e_table[edges[i]->id] = edges[i];
+	if(!snapshot->TestRead("datastore_e_table"))
+	{
+		for(int i = 0 ; i < edges.size(); i++){
+			e_table[edges[i]->id] = edges[i];
+		}
 	}
 	vector<Edge*>().swap(edges);
 
-	vpstore_->insert_vertex_properties(vplist);
-	//clean the vp_list
-	for(int i = 0 ; i < vplist.size(); i++){
-//		cout << vplist[i]->DebugString(); //TEST
-		delete vplist[i];
+	if(!snapshot->TestRead("vkvstore"))
+	{
+		vpstore_->insert_vertex_properties(vplist);
+		//clean the vp_list
+		for(int i = 0 ; i < vplist.size(); i++){
+	//		cout << vplist[i]->DebugString(); //TEST
+			delete vplist[i];
+		}
+		vector<VProperty*>().swap(vplist);
 	}
-	vector<VProperty*>().swap(vplist);
+	else
+	{
+		printf("DataConverter snapshot->TestRead('vkvstore')\n");
+	}
 
-	epstore_->insert_edge_properties(eplist);
-	//clean the ep_list
-	for(int i = 0 ; i < eplist.size(); i++){
-//		cout << eplist[i]->DebugString();  //TEST
-		delete eplist[i];
+	if(!snapshot->TestRead("ekvstore"))
+	{
+		epstore_->insert_edge_properties(eplist);
+		//clean the ep_list
+		for(int i = 0 ; i < eplist.size(); i++){
+	//		cout << eplist[i]->DebugString();  //TEST
+			delete eplist[i];
+		}
+		vector<EProperty*>().swap(eplist);
 	}
-	vector<EProperty*>().swap(eplist);
+	else
+	{
+		printf("DataConverter snapshot->TestRead('ekvstore')\n");
+	}
+
 }
 
 Vertex* DataStore::GetVertex(vid_t v_id){
@@ -635,7 +660,10 @@ void DataStore::get_vertices()
 	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 	//break if the vtxs has already been finished.
 	if(snapshot->TestRead("datastore_v_table"))
+	{
+		printf("get_vertices snapshot->TestRead('datastore_v_table')\n");
 		return;
+	}
 
 	//check path + arrangement
 	const char * indir = config_->HDFS_VTX_SUBFOLDER.c_str();

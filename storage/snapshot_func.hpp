@@ -162,8 +162,8 @@ static inline bool WriteKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>&
 
     printf("WriteKVStoreImpl last_entry = %lu, mem_sz = %lu\n", last_entry, mem_sz);
 
-    doge.write((char*)&last_entry, sizeof(last_entry));
-    doge.write((char*)&mem_sz, sizeof(mem_sz));
+    doge.write((char*)&last_entry, sizeof(uint64_t));
+    doge.write((char*)&mem_sz, sizeof(uint64_t));
     doge.write(mem, mem_sz);
 
     doge.close();
@@ -188,10 +188,10 @@ static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& 
 
     uint64_t last_entry, mem_sz;
 
-    doge.read((char*)&last_entry, sizeof(last_entry));
-    doge.read((char*)&mem_sz, sizeof(mem_sz));
+    doge.read((char*)&last_entry, sizeof(uint64_t));
+    doge.read((char*)&mem_sz, sizeof(uint64_t));
 
-    printf("ReadKVStoreImpl last_entry = %d, mem_sz = %d\n", last_entry, mem_sz);
+    printf("ReadKVStoreImpl last_entry = %d, mem_sz = %lu\n", last_entry, mem_sz);
 
     doge.read(mem, mem_sz);
 

@@ -15,16 +15,33 @@ using namespace std;
 
 void VKVStore::ReadSnapshot()
 {
-
-}
-
-void VKVStore::WriteSnapshot()
-{
+    return;
     MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
     auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
 
-    snapshot->WriteData("vkvstore", tmp_tuple, WriteKVStoreImpl);
+    bool ok = snapshot->ReadData("vkvstore", tmp_tuple, ReadKVStoreImpl);
+
+    int ok_cnt = 0;
+    if(ok)
+    {
+        ok_cnt++;
+        last_entry = get<0>(tmp_tuple);
+    }
+
+    printf("VKVStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+}
+
+void VKVStore::WriteSnapshot()
+{
+    return;
+    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+    if(!snapshot->TestRead("vkvstore"))
+    {
+        auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+        snapshot->WriteData("vkvstore", tmp_tuple, WriteKVStoreImpl);
+    }
 }
 
 // ==================VKVStore=======================
@@ -244,8 +261,18 @@ void VKVStore::init(vector<Node> & nodes) {
 
 // Insert a list of Vertex properties
 void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
-    for (int i = 0; i < vplist.size(); i++){
-    	insert_single_vertex_property(vplist.at(i));
+
+    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+    if(!snapshot->TestRead("vkvstore"))
+    {
+        printf("(!snapshot->TestRead('vkvstore'))\n");
+        for (int i = 0; i < vplist.size(); i++){
+            insert_single_vertex_property(vplist.at(i));
+        }
+    }
+    else
+    {
+        printf("(snapshot->TestRead('vkvstore'))\n");
     }
 }
 

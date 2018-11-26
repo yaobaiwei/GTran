@@ -19,6 +19,7 @@ void EKVStore::ReadSnapshot()
 
 void EKVStore::WriteSnapshot()
 {
+    return;
     MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
     auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
