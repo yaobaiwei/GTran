@@ -392,7 +392,13 @@ public:
 
 		//initial MPIConfigNamer
 		MPIConfigNamer* p = MPIConfigNamer::GetInstanceP(my_node_.local_comm);
-		p->AppendHash(config_->HDFS_INDEX_PATH + config_->HDFS_VTX_SUBFOLDER + config_->HDFS_VP_SUBFOLDER + config_->HDFS_EP_SUBFOLDER);
+		p->AppendHash(config_->HDFS_INDEX_PATH + 
+					  config_->HDFS_VTX_SUBFOLDER + 
+					  config_->HDFS_VP_SUBFOLDER + 
+					  config_->HDFS_EP_SUBFOLDER + 
+					  p->ultos(config_->key_value_ratio_in_rdma) + 
+					  p->ultos(config_->global_vertex_property_kv_sz_gb) + 
+					  p->ultos(config_->global_edge_property_kv_sz_gb));
 
 		//initial MPISnapshot
 		MPISnapshot* snapshot = MPISnapshot::GetInstanceP(config_->SNAPSHOT_PATH);
