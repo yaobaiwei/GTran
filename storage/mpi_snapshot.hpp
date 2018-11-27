@@ -24,6 +24,9 @@ public:
     template<typename T>
     bool WriteData(string key, T& data, bool(write_func)(string, T&))
     {
+        if(!write_enabled_)
+            return false;
+
         //hash the key
         string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
 
@@ -37,6 +40,9 @@ public:
     template<typename T>
     bool ReadData(string key, T& data, bool(read_func)(string, T&))
     {
+        if(!read_enabled_)
+            return false;
+
         //hash the key
         string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
 
@@ -64,6 +70,9 @@ public:
         return false;
     }
 
+    bool DisableRead(){read_enabled_ = false;}
+    bool DisableWrite(){write_enabled_ = false;}
+
 
 private:
     //
@@ -72,6 +81,10 @@ private:
 
     map<string, bool> read_map_;
     map<string, bool> write_map_;
+
+    //by default, it is enabled
+    bool read_enabled_ = true;
+    bool write_enabled_ = true;
 
     MPISnapshot(string path);
 

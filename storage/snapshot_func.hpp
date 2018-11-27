@@ -30,8 +30,8 @@ static inline bool WriteSerImpl(string fn, T& data)
     ibinstream m;
     m << data;
 
-    int buf_sz = m.size();
-    doge.write((char*)&buf_sz, sizeof(int));
+    uint64_t buf_sz = m.size();
+    doge.write((char*)&buf_sz, sizeof(uint64_t));
     // doge << m.size();
 
     doge.write(m.get_buf(), m.size());
@@ -51,9 +51,9 @@ static inline bool ReadSerImpl(string fn, T& data)
         return false;
     }
 
-    int sz;
+    uint64_t sz;
     // doge >> sz;
-    doge.read((char*)&sz, sizeof(int));
+    doge.read((char*)&sz, sizeof(uint64_t));
 
     char* tmp_buf = new char[sz];
     doge.read(tmp_buf, sz);
@@ -90,13 +90,13 @@ static inline bool WriteHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
         m << *kv.second;//the value is a pointer
     }
 
-    int data_sz = data.size(), buf_sz = m.size();
+    uint64_t data_sz = data.size(), buf_sz = m.size();
     printf("WriteHashMapSerImpl data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
 
     // doge << data_sz;
     // doge << buf_sz;
-    doge.write((char*)&data_sz, sizeof(int));
-    doge.write((char*)&buf_sz, sizeof(int));
+    doge.write((char*)&data_sz, sizeof(uint64_t));
+    doge.write((char*)&buf_sz, sizeof(uint64_t));
     doge.write(m.get_buf(), m.size());
 
     doge.close();
@@ -114,11 +114,11 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
         return false;
     }
 
-    int buf_sz, data_sz;
+    uint64_t buf_sz, data_sz;
     // doge >> data_sz;
     // doge >> buf_sz;
-    doge.read((char*)&data_sz, sizeof(int));
-    doge.read((char*)&buf_sz, sizeof(int));
+    doge.read((char*)&data_sz, sizeof(uint64_t));
+    doge.read((char*)&buf_sz, sizeof(uint64_t));
 
     printf("ReadHashMapSerImpl data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
 
@@ -129,7 +129,7 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
     obinstream m;
     m.assign(tmp_buf, buf_sz, 0);
 
-    for(int i = 0; i < data_sz; i++)
+    for(uint64_t i = 0; i < data_sz; i++)
     {
         T1 key;
         T2* value = new T2;

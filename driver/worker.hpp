@@ -397,7 +397,7 @@ public:
 		//initial MPISnapshot
 		MPISnapshot* snapshot = MPISnapshot::GetInstanceP(config_->SNAPSHOT_PATH);
 
-
+		// snapshot->DisableRead();
 
 
 		//===================prepare stage=================

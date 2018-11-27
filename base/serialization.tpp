@@ -155,7 +155,7 @@ obinstream& operator>>(obinstream& m, map<KeyT, ValT>& v)
 	v.clear();
 	size_t size;
 	m >> size;
-	for (int i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++)
 	{
 		KeyT key;
 		m >> key;
@@ -170,7 +170,7 @@ obinstream& operator>>(obinstream& m, hash_map<KeyT, ValT>& v)
 	v.clear();
 	size_t size;
 	m >> size;
-	for (int i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++)
 	{
 		KeyT key;
 		m >> key;
@@ -185,7 +185,7 @@ obinstream& operator>>(obinstream& m, hash_set<T>& v)
 	v.clear();
 	size_t size;
 	m >> size;
-	for (int i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++)
 	{
 		T key;
 		m >> key;
@@ -200,7 +200,7 @@ obinstream& operator>>(obinstream& m, hash_set<T, _HashFcn, _EqualKey>& v)
 	v.clear();
 	size_t size;
 	m >> size;
-	for (int i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++)
 	{
 		T key;
 		m >> key;
