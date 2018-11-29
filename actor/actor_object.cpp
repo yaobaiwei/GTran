@@ -36,6 +36,7 @@ bool Actor_Object::IsBarrier() const
 	case ACTOR_T::MATH:
 	case ACTOR_T::ORDER:
 	case ACTOR_T::RANGE:
+	case ACTOR_T::COIN:
 	case ACTOR_T::END:
 		return true;
 	default:
