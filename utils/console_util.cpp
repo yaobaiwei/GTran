@@ -380,6 +380,10 @@ string ConsoleUtil::TryConsoleInput(string line_head)
             }
             else if(key == KEY_ENTER)
             {
+                //if the line is empty, just do nothing.
+                if(cur_line_len_ == 0)
+                    continue;
+                
                 return FetchConsoleResult();
             }
             else if(key == KEY_BACKSPACE)//delete to the left of current cursor
