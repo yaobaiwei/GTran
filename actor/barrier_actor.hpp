@@ -999,12 +999,9 @@ private:
 
         // get actor params
         const Actor_Object& actor = actors[msg.meta.step];
-        assert(actor.params.size() == 2);
-        int start = Tool::value_t2int(actor.params[0]);
-        int end = Tool::value_t2int(actor.params[1]);
-        if(end == -1){
-            end = INT_MAX;
-        }
+
+        assert(actor.params.size() == 1);
+        double rate = Tool::value_t2double(actor.params[0]);
 
         // process msg data
         for(auto& p : msg.data){
@@ -1022,10 +1019,6 @@ private:
             // check vector<data_pair>
             if(counter_pair.second.size() != 0)
             {
-                // skip when exceed limit
-                if(counter_pair.first > end)
-                    continue;
-
                 if(counter_pair.second[0].second.size() == 0){
                     // clear useless history with empty data
                     counter_pair.second.clear();
@@ -1045,14 +1038,8 @@ private:
             }
 
             for(auto& val : p.second){
-                if(counter_pair.first > end){
-                    break;
-                }
-                // insert value when start <= count <= end
-                if(counter_pair.first >= start){
-                    itr_vec->second.push_back(move(val));
-                }
-                (counter_pair.first) ++;
+            	if(rand() * 1.0 / RAND_MAX < rate)
+            		itr_vec->second.push_back(move(val));
             }
         }
 

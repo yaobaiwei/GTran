@@ -1502,44 +1502,31 @@ void Parser::ParseCoin(const vector<string>& params)
 	Actor_Object actor(ACTOR_T::COIN);
 
 	vector<int> vec;
-	for (string param : params){
-		if (Tool::checktype(param) != 1){
-			throw ParserException("expect number but get: " + param);
-		}
-		vec.push_back(atoi(param.c_str()));
+
+	if(params.size() != 1)
+	{
+		throw ParserException("one parameter in range of [0, 1] of coin step is needed");
 	}
 
-	int start = 0;
-	int end = -1;
-	//tmp
+	//check if [0, 1]
+	string param = params[0];
 
+	double val = atof(param.c_str());
 
-	// switch (type)
-	// {
-	// case Step_T::RANGE:
-	// 	if (params.size() != 2){
-	// 		throw ParserException("expect two parameters for range");
-	// 	}
-	// 	start = vec[0];
-	// 	end = vec[1];
-	// 	break;
-	// case Step_T::LIMIT:
-	// 	if (params.size() != 1){
-	// 		throw ParserException("expect one parameter for limit");
-	// 	}
-	// 	end = vec[0] - 1;
-	// 	break;
-	// case Step_T::SKIP:
-	// 	if (params.size() != 1){
-	// 		throw ParserException("expect one parameter for skip");
-	// 	}
-	// 	start = vec[0];
-	// 	break;
-	// default: throw ParserException("unexpected error");
-	// }
+	if(!(val >= 0.0 && val <= 1.0))
+	{
+		throw ParserException("expected a value in range [0.0, 1.0]");
+	}
+	
+	//find floating point
+	if(param.find(".") == string::npos)
+	{
+		//a integer, 0 or 1
+		param += ".0";
+	}
 
-	actor.AddParam(start);
-	actor.AddParam(end);
+	actor.AddParam(param);
+
 	actor.send_remote = IsElement();
 	AppendActor(actor);
 }
