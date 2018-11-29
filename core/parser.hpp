@@ -23,7 +23,7 @@ private:
 	enum Step_T{
 		IN, OUT, BOTH, INE, OUTE, BOTHE, INV, OUTV, BOTHV, AND, AGGREGATE, AS, CAP, COUNT, DEDUP,
 		GROUP, GROUPCOUNT, HAS, HASLABEL, HASKEY, HASVALUE, HASNOT, IS, KEY, LABEL, LIMIT, MAX,
-		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE
+		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE, COIN
 	};
 
 	//for debug usage
@@ -144,6 +144,7 @@ private:
 	void ParseOrder(const vector<string>& params);
 	void ParseProperties(const vector<string>& params);
 	void ParseRange(const vector<string>& params, Step_T type);
+	void ParseCoin(const vector<string>& params);
 	void ParseSelect(const vector<string>& params);
 	void ParseTraversal(const vector<string>& params, Step_T type);
 	void ParseValues(const vector<string>& params);

@@ -379,11 +379,11 @@ obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
 	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, CONFIG, COUNT, DEDUP, GROUP, HAS, HASLABEL, INDEX,
-	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, END
+	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, COIN, END
 };
 
 static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "CONFIG", "COUNT", "DEDUP", "GROUP", "HAS",
-"HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE", "END"};
+"HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE" , "COIN", "END"};
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
@@ -538,7 +538,7 @@ namespace std {
 // Cache_Barrier : GroupActor, OrderActor [1/6 #threads]
 // TRAVERSAL : TraversalActor [1/12 #threads]
 // Normal_Barrier : CountActor, AggregateActor, CapActor, DedupActor, MathActor [1/6 #threads]
-// Normal_Branch : RangeActor, BranchFilterActor, BranchActor [1/6 #threads]
+// Normal_Branch : RangeActor, CoinActor, BranchFilterActor, BranchActor [1/6 #threads]
 // Normal_Sequential : AsActor, SelectActor, WhereActor, IsActor [1/6 #threads]
 enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
 enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };

@@ -983,6 +983,101 @@ private:
 	}
 };
 
+
+class CoinActor : public BarrierActorBase<BarrierData::range_data>
+{
+public:
+    CoinActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::range_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
+
+private:
+    int num_thread_;
+    AbstractMailbox * mailbox_;
+
+    void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+        auto& counter_map = ac->second.counter_map;
+        int branch_key = get_branch_key(msg.meta);
+
+        // get actor params
+        const Actor_Object& actor = actors[msg.meta.step];
+        assert(actor.params.size() == 2);
+        int start = Tool::value_t2int(actor.params[0]);
+        int end = Tool::value_t2int(actor.params[1]);
+        if(end == -1){
+            end = INT_MAX;
+        }
+
+        // process msg data
+        for(auto& p : msg.data){
+            int branch_value = get_branch_value(p.first, branch_key, false);
+
+            // get <counter, vector<data_pair>> pair by branch_value
+            auto itr_cp = counter_map.find(branch_value);
+            if(itr_cp == counter_map.end()){
+                itr_cp = counter_map.insert(itr_cp,{branch_value, {0, vector<pair<history_t, vector<value_t>>>()}});
+            }
+            auto& counter_pair = itr_cp->second;
+
+            // get vector<data_pair>
+            vector<pair<history_t, vector<value_t>>>::iterator itr_vec;
+            // check vector<data_pair>
+            if(counter_pair.second.size() != 0)
+            {
+                // skip when exceed limit
+                if(counter_pair.first > end)
+                    continue;
+
+                if(counter_pair.second[0].second.size() == 0){
+                    // clear useless history with empty data
+                    counter_pair.second.clear();
+                    itr_vec = counter_pair.second.end();
+                }else{
+                    // find if current history already added
+                    itr_vec = find_if( counter_pair.second.begin(), counter_pair.second.end(),
+                        [&p](const pair<history_t, vector<value_t>>& element){ return element.first == p.first;});
+                }
+            }else{
+                itr_vec = counter_pair.second.end();
+            }
+
+            // insert new history
+            if(itr_vec == counter_pair.second.end()){
+                itr_vec = counter_pair.second.insert(itr_vec, {move(p.first), vector<value_t>()});
+            }
+
+            for(auto& val : p.second){
+                if(counter_pair.first > end){
+                    break;
+                }
+                // insert value when start <= count <= end
+                if(counter_pair.first >= start){
+                    itr_vec->second.push_back(move(val));
+                }
+                (counter_pair.first) ++;
+            }
+        }
+
+
+        // all msg are collected
+        if(isReady){
+            vector<pair<history_t, vector<value_t>>> msg_data;
+            for(auto& p : counter_map){
+                msg_data.insert(msg_data.end(), make_move_iterator(p.second.second.begin()), make_move_iterator(p.second.second.end()));
+            }
+
+            if(is_next_barrier(actors, msg.meta.step)){
+                msg.data = move(msg_data);
+            }else{
+                vector<Message> v;
+                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                for(auto& m : v){
+                    mailbox_->Send(tid, m);
+                }
+            }
+        }
+    }
+};
+
+
 namespace BarrierData{
 	struct math_meta_t{
 		int count;
