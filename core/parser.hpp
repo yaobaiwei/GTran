@@ -26,6 +26,11 @@ private:
 		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE
 	};
 
+	//for debug usage
+	string TokenToStr(pair<Step_T, string> token);
+	string TokensToStr(vector<pair<Step_T, string>> tokens);
+	string StepToStr(int step);
+
 	enum IO_T { EDGE, VERTEX, INT, DOUBLE, CHAR, STRING, COLLECTION };
 
 	// In/out data type

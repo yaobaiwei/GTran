@@ -873,7 +873,20 @@ namespace BarrierData{
 		// pair:
 		//		int: counter, record num of incoming data
 		//		vec: record data in given range
-		unordered_map<int, pair<int, vector<pair<history_t, vector<value_t>>>>> counter_map;
+		unordered_map<
+						int, 
+						pair<
+							 int, 
+							 vector<
+									pair<
+										 history_t, 
+										 vector<
+										 		value_t
+										 	   >
+										 >
+									>
+							>
+					> counter_map;
 	};
 }
 

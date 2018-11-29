@@ -125,6 +125,11 @@ public:
 	}
 	////</Nov 2018, Chenghuan Huang>
 
+	void LocalSingleDebugPrint(string s)
+	{
+		printf("node single dbg from local_rank_ %d, str = \"%s\"", s.c_str());
+	}
+
 private:
 	int world_rank_;
 	int world_size_;

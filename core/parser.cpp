@@ -472,8 +472,46 @@ void Parser::ParseSetConfig(const string& param){
 	AppendActor(actor);
 }
 
+
+string Parser::TokenToStr(pair<Step_T, string> token)
+{
+	string str = "";
+	str += "<";
+	str += StepToStr(get<0>(token)) + "  " + get<1>(token);
+	str += ">, ";
+
+	return str;
+}
+
+string Parser::TokensToStr(vector<pair<Step_T, string>> tokens)
+{
+	string str = "[ ";
+
+	for(auto doge : tokens)
+	{
+		str += TokenToStr(doge);
+	}
+
+	str += "]";
+
+	return str;
+}
+
+string Parser::StepToStr(int step)
+{
+	map<int, string> step_str_map;
+
+	step_str_map[IN] = "IN"; step_str_map[OUT] = "OUT"; step_str_map[BOTH] = "BOTH"; step_str_map[INE] = "INE"; step_str_map[OUTE] = "OUTE"; step_str_map[BOTHE] = "BOTHE"; step_str_map[INV] = "INV"; step_str_map[OUTV] = "OUTV"; step_str_map[BOTHV] = "BOTHV"; step_str_map[AND] = "AND"; step_str_map[AGGREGATE] = "AGGREGATE"; step_str_map[AS] = "AS"; step_str_map[CAP] = "CAP"; step_str_map[COUNT] = "COUNT"; step_str_map[DEDUP] = "DEDUP";
+	step_str_map[GROUP] = "GROUP"; step_str_map[GROUPCOUNT] = "GROUPCOUNT"; step_str_map[HAS] = "HAS"; step_str_map[HASLABEL] = "HASLABEL"; step_str_map[HASKEY] = "HASKEY"; step_str_map[HASVALUE] = "HASVALUE"; step_str_map[HASNOT] = "HASNOT"; step_str_map[IS] = "IS"; step_str_map[KEY] = "KEY"; step_str_map[LABEL] = "LABEL"; step_str_map[LIMIT] = "LIMIT"; step_str_map[MAX] = "MAX";
+	step_str_map[MEAN] = "MEAN"; step_str_map[MIN] = "MIN"; step_str_map[NOT] = "NOT"; step_str_map[OR] = "OR"; step_str_map[ORDER] = "ORDER"; step_str_map[PROPERTIES] = "PROPERTIES"; step_str_map[RANGE] = "RANGE"; step_str_map[SELECT] = "SELECT"; step_str_map[SKIP] = "SKIP"; step_str_map[SUM] = "SUM"; step_str_map[UNION] = "UNION"; step_str_map[VALUES] = "VALUES"; step_str_map[WHERE] = "WHERE"; 
+
+	return step_str_map[step];
+}
+
 void Parser::DoParse(const string& query)
 {
+	printf("Parser::DoParse \"%s\"\n", query.c_str());
+
 	vector<pair<Step_T, string>> tokens;
 	// extract steps from query
 	GetSteps(query, tokens);
@@ -584,6 +622,8 @@ bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type)
 
 void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 {
+	printf("start of Parser::GetSteps \"%s\", %s\n", query.c_str(), TokensToStr(tokens).c_str());
+
 	int lbpos = 0;	// pos of left bracket
 	int pos = 0;
 	int parentheses = 0;
@@ -635,9 +675,14 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 	if (pos != length){
 		throw ParserException("unexpected words at the end: '" + query.substr(pos - 1) + "'");
 	}
+
+	printf("end of Parser::GetSteps \"%s\", %s\n", query.c_str(), TokensToStr(tokens).c_str());
 }
 
 void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
+
+	printf("start of Parser::ReOrderSteps %s\n", TokensToStr(tokens).c_str());
+
 	if(config_->global_enable_step_reorder){
 		for(int i = 1; i < tokens.size(); i ++){
 			int priority = GetStepPriority(tokens[i].first);
@@ -674,13 +719,23 @@ void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 			}
 		}
 	}
+	printf("end of Parser::ReOrderSteps %s\n", TokensToStr(tokens).c_str());
 }
 
 void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
+
+	printf("start of Parser::ParseSteps %s\n", TokensToStr(tokens).c_str());
+
 	for (auto stepToken : tokens){
 		Step_T type = stepToken.first;
 		vector<string> params;
 		SplitParam(stepToken.second, params);
+
+		for(int i = 0; i < params.size(); i++)
+		{
+			printf("token %s, param %d is %s\n", TokenToStr(stepToken).c_str(), i, params[i].c_str());
+		}
+
 		switch (type){
 		//AggregateActor
 		case AGGREGATE:
@@ -748,6 +803,7 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		default:throw ParserException("Unexpected step");
 		}
 	}
+	printf("end of Parser::ParseSteps %s\n", TokensToStr(tokens).c_str());
 }
 
 void Parser::ParseSub(const vector<string>& params, int current, bool filterBranch)

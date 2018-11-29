@@ -334,7 +334,7 @@ public:
 
 			um >> client_host; //get the client hostname for returning results.
 			um >> query;
-			cout << "Worker" << my_node_.get_world_rank() << " gets one QUERY: " << query << endl;
+			cout << "Worker" << my_node_.get_world_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
 
 			if(query.find("emu") == 0){
 				RunEMU(query, client_host);
