@@ -134,6 +134,8 @@ private:
     bool on_quit_write_ = false;
     std::string on_quit_write_path_;
 
+    bool history_append_dedup_ = true;
+
 public:
     static ConsoleUtil& GetInstance()
     {
@@ -149,6 +151,7 @@ public:
 
     void SetConsoleHistory(std::string path);
     void WriteConsoleHistory(std::string path);
+    void SetHistoryDedup(bool on = true){history_append_dedup_ = on;}
 
     //if the process of the program is not controllable
     //can write history on the destructor

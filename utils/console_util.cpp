@@ -230,16 +230,35 @@ string ConsoleUtil::FetchConsoleResult()
     //generate result
     string s(buffer_);
 
-    //copy into the history
-    memcpy((void*)line_bfs_[cur_line_ptr_no_], (void*)buffer_, BUFFER_SIZE);
-    line_length_[cur_line_ptr_no_] = cur_line_len_;
-    // printf("memcpy(line_bfs_[%d], buffer_)\n", cur_line_no_);
+    bool copy_into_history_ = true;
 
-    //increase the seq
-    cur_line_no_++;
-    cur_line_ptr_no_ = cur_line_no_ % BUFFER_LINE;
+    if(history_append_dedup_)
+    {
+        //if this line is the same with the last line, the buffer won't be written into the history
+        //of course, need to check if there is a history line
+        if(cur_line_no_ != 0 && BUFFER_LINE != 0)
+        {
+            //load the history line
+            int history_line_pos = (cur_line_no_ - 1) % BUFFER_LINE;
 
-    //disable the current 
+            if(line_bfs_[history_line_pos] == s)
+                copy_into_history_ = false;
+        }
+    }
+
+    if(copy_into_history_)
+    {
+        ////copy into the history and increase the seq
+        //copy into the history
+        memcpy((void*)line_bfs_[cur_line_ptr_no_], (void*)buffer_, BUFFER_SIZE);
+        line_length_[cur_line_ptr_no_] = cur_line_len_;
+        // printf("memcpy(line_bfs_[%d], buffer_)\n", cur_line_no_);
+        //increase the seq
+        cur_line_no_++;
+        cur_line_ptr_no_ = cur_line_no_ % BUFFER_LINE;
+    }
+
+    //disable the buffer 
     memset(buffer_, 0, BUFFER_SIZE);
 
     return s;
@@ -383,7 +402,7 @@ string ConsoleUtil::TryConsoleInput(string line_head)
                 //if the line is empty, just do nothing.
                 if(cur_line_len_ == 0)
                     continue;
-                
+
                 return FetchConsoleResult();
             }
             else if(key == KEY_BACKSPACE)//delete to the left of current cursor
