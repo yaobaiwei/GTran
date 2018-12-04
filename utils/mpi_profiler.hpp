@@ -122,6 +122,7 @@ namespace std
 
         //get instance via a map
         //be careful with the MPI_COMM
+        //not thread safe
         static MPIProfiler* GetInstance(string instance_name, MPI_Comm comm = MPI_COMM_WORLD)
         {
             static map<string, MPIProfiler*> instance_map;

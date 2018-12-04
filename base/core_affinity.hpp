@@ -18,6 +18,8 @@
 
 #include "base/node.hpp"
 
+#include "utils/ugly_thread_safe_map.hpp"
+
 using namespace std;
 
 /*
@@ -71,12 +73,46 @@ public:
 
 	bool BindToCore(int tid)
 	{
+		//notice that this function is called in 
+		//void ThreadExecutor(int tid) {
+		//	if (config_->global_enable_core_binding) {
+		//		core_affinity_->BindToCore(tid);
+
 		size_t core = (size_t)thread_to_core_map[tid];
 		cpu_set_t mask;
 		CPU_ZERO(&mask);
 		CPU_SET(core, &mask);
 		if (sched_setaffinity(0, sizeof(mask), &mask) != 0)
 			cout << "Failed to set affinity (core: " << core << ")" << endl;
+		else
+		{
+			//check the shi yong ji shu
+
+			int global_core = cpuinfo_.GetCoreInGlobalMappingVector(core);
+
+			vector<int> counter = core_counter_.GetAndLock(global_core);
+			int counter_sz = counter.size();
+
+			//too dangerous!
+			if(counter_sz != 0)
+			{
+				printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n", global_core, counter_sz, counter[0]);
+			}
+			else
+			{
+				if(node_.get_local_rank() == 0)
+				{
+					printf("bind fine, t = %d, c = %d\n", core, global_core);
+				}
+			}
+
+			counter.push_back(core);//not global core
+
+			core_counter_.SetAndUnlock(global_core, counter);
+		}
+
+		//to insert into a map
+		// core_counter_
 	}
 
 	void GetStealList (int tid, vector<int> & list) {
@@ -155,6 +191,8 @@ private:
 	map<int, int> core_to_thread_map;
 	map<int, int> thread_to_core_map;
 
+	UglyThreadSafeMap<int, vector<int>> core_counter_;//this is implemented in case of bad affinity implementation
+
 	//to do:
 	//	to consider NUMA when assigning cores
 	//	thread level assignment if core count is insufficient
@@ -165,6 +203,11 @@ private:
 		int last_div = 0;//last division core
 
 		int core_cnt = cpuinfo_.GetTotalCoreCount();
+
+		for(int i = 0; i < core_cnt; i++)
+		{
+			core_counter_.Set(i, vector<int>());//initial
+		}
 
 		//init potential pool via cpuinfo
 		for(int i = 0; i < NUM_THREAD_DIVISION; i++)
