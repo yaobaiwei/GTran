@@ -13,6 +13,37 @@
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
+#include <mkl_vsl.h>
+
+//this function is just to test if MKL works
+
+void MKLTest()
+{
+	double r[1000]; /* buffer for random numbers */
+	double s; /* average */
+	VSLStreamStatePtr stream;
+	int i, j;
+
+	/* Initializing */        
+	s = 0.0;
+	vslNewStream( &stream, VSL_BRNG_MT19937, 777 );
+
+	/* Generating */        
+	for ( i=0; i<10; i++ ) {
+		vdRngGaussian( VSL_RNG_METHOD_GAUSSIAN_ICDF, stream, 1000, r, 5.0, 2.0 );
+		for ( j=0; j<1000; j++ ) {
+			s += r[j];
+		}
+	}
+	s /= 10000.0;
+
+	/* Deleting the stream */        
+	vslDeleteStream( &stream );
+
+	/* Printing results */        
+	printf( "Sample mean of normal distribution = %f\n", s );
+}
+
 namespace BarrierData{
 	struct barrier_data_base{
 		map<string, int> path_counter;

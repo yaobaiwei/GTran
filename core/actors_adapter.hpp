@@ -142,7 +142,7 @@ public:
 					agg_t agg_key(m.qid, i);
 					data_store_->DeleteAggData(agg_key);
 				}
-				i ++;
+				i++;
 			}
 
 			// earse only after query with qid is done
