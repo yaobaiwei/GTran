@@ -865,19 +865,26 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 	SplitPredicate(param, pred_type, pred_params);
 
 	if (toKey){
-		map<string, int> *map;
+		map<string, int> *key_map;
 		if (pred_type == Predicate_T::WITHIN || pred_type == Predicate_T::WITHOUT){
-			map = &str2se;
+			key_map = &str2se;
 		}
 		else{
-			map = &str2ls;
+			key_map = &str2ls;
 		}
+
 		// Parse string to key
 		for (int i = 0; i < pred_params.size(); i++){
-			if (map->count(pred_params[i]) != 1){
-				throw ParserException("unexpected key: " + pred_params[i]);
+			if (key_map->count(pred_params[i]) != 1){
+				//aggregate avail key
+				string keys_str;
+				for(auto map_kv : *key_map)
+				{
+					keys_str += map_kv.first + " ";
+				}
+				throw ParserException("unexpected key: " + pred_params[i] + ", avail is " + keys_str);
 			}
-			pred_params[i] = to_string(map->at(pred_params[i]));
+			pred_params[i] = to_string(key_map->at(pred_params[i]));
 		}
 	}
 

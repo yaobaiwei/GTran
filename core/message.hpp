@@ -18,7 +18,10 @@
 #include "actor/actor_object.hpp"
 #include "storage/data_store.hpp"
 
+#include "base/node.hpp"
+
 #define TEN_MB 1048576
+
 
 struct Branch_Info{
 	// parent route
@@ -79,6 +82,8 @@ typedef vector<pair<int, value_t>> history_t;
 bool operator==(const history_t& l, const history_t& r);
 
 class Message {
+	// Node node_;// = Node::StaticInstance();
+
 public:
 	Meta meta;
 

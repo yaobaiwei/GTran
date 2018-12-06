@@ -7,6 +7,10 @@
 
 #include "core/message.hpp"
 
+
+#define MSG_DBG 0
+#define MSG_DBG_PRINTF(Format...) {if(MSG_DBG) {printf(Format);}}
+
 ibinstream& operator<<(ibinstream& m, const Branch_Info& info)
 {
 	m << info.node_id;
@@ -118,6 +122,7 @@ obinstream& operator>>(obinstream& m, Message& msg)
 void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, const vector<Actor_Object>& actors, vector<Message>& vec)
 {
 	// assign receiver thread id
+
 	Meta m;
 	m.qid = qid;
 	m.step = 0;
@@ -128,6 +133,9 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
 	m.msg_type = MSG_T::INIT;
 	m.msg_path = to_string(nodes_num);
 	m.actors = actors;
+
+	MSG_DBG_PRINTF("node %d, Message::CreateInitMsg, qid = %lu, parent_node = %d, recv_tid = %d, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), qid, parent_node, recv_tid, m.msg_path.c_str());
 
 	for(int i = 0; i < nodes_num; i++){
 		Message msg;
@@ -142,6 +150,11 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
 	m.qid = this->meta.qid;
 	m.msg_type = MSG_T::EXIT;
 	m.recver_tid = this->meta.parent_tid;
+
+
+	MSG_DBG_PRINTF("node %d, Message::CreateExitMsg, qid = %lu, recver_tid = %d, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.recver_tid, m.msg_path.c_str());
+
 	for(int i = 0; i < nodes_num; i ++){
 		m.recver_nid = i;
 		Message msg(m);
@@ -152,6 +165,7 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
 
 void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec)
 {
+
 	//timer::start_timer(meta.recver_tid + 4 * num_thread);
 	Meta m = this->meta;
 	m.step = actors[this->meta.step].next_actor;
@@ -164,6 +178,9 @@ void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<hist
 	if(meta.msg_path != ""){
 		num = "\t" + num;
 	}
+
+	MSG_DBG_PRINTF("node %d, Message::CreateNextMsg, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
 
 	for(int i = count; i < vec.size(); i++){
 		vec[i].meta.msg_path += num;
@@ -214,6 +231,10 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
 	//  msg_path = "3\t2\t5\t4"
 	m.msg_path = info.msg_path + tail;
 
+
+	MSG_DBG_PRINTF("node %d, Message::CreateBranchedMsg, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
+
 	// copy labeled data to each step
 	for(int i = 0; i < steps.size(); i ++){
 		Meta step_meta = m;
@@ -247,6 +268,10 @@ void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, 
 	info.key = m.step;
 	info.msg_path = m.msg_path;
 	info.msg_id = msg_id;
+
+
+	MSG_DBG_PRINTF("node %d, Message::CreateBranchedMsgWithHisLabel, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
 
 	// label each data with unique id
 	vector<pair<history_t, vector<value_t>>> labeled_data;
@@ -301,6 +326,9 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 
 	auto temp_data = make_pair(history_t(), data);
 
+	MSG_DBG_PRINTF("node %d, Message::CreateFeedMsg, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
+
 	for(int i = 0; i < nodes_num; i++){
 		// skip parent node
 		if(i == meta.parent_nid){
@@ -315,6 +343,10 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 
 void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec)
 {
+	
+	MSG_DBG_PRINTF("node %d, Message::dispatch_data, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
+	
 	Meta cm = m;
 	bool route_assigned = update_route(m, actors);
 	bool empty_to_barrier = update_collection_route(cm, actors);
@@ -404,6 +436,10 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
 }
 
 bool Message::update_route(Meta& m, const vector<Actor_Object>& actors){
+
+	MSG_DBG_PRINTF("node %d, Message::update_route, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
+
 	int branch_depth = m.branch_infos.size() - 1;
 	// update recver route & msg_type
 	if(actors[m.step].IsBarrier()){
@@ -446,6 +482,10 @@ bool Message::update_route(Meta& m, const vector<Actor_Object>& actors){
 	}
 }
 bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actors){
+
+	MSG_DBG_PRINTF("node %d, Message::update_collection_route, qid = %lu, m.msg_path = %s\n",
+			Node::StaticInstance().get_local_rank(), m.qid, m.msg_path.c_str());
+
 	bool to_barrier = false;
 	// empty data should be send to:
 	// 1. barrier actor, msg_type = BARRIER
