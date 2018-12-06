@@ -308,6 +308,16 @@ public:
 		if(success){
 			Pack pkg;
 			pkg.id = qid;
+
+			//a debug function is needed
+			printf("parse success! from id %d, actor cnt = %d\n"
+				, my_node_.get_local_rank(), actors.size());
+
+			for(int i = 0; i < actors.size(); i++)
+			{
+				printf("i = %d,  %s\n", i, actors[i].DebugString().c_str());
+			}
+
 			pkg.actors = move(actors);
 
 			queue_.Push(pkg);

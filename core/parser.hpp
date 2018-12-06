@@ -67,6 +67,12 @@ private:
 	map<string, uint32_t> str2epk;
 	map<string, uint32_t> str2el;
 
+	//after the above 4 key map, a vector of keys will be implemented.
+
+	vector<string> vpks, vlks, epks, elks;
+
+	string vpks_str, vlks_str, epks_str, elks_str;
+
 	// id to value type
 	map<uint32_t, uint8_t> vpk2vptype;
 	map<uint32_t, uint8_t> epk2eptype;
@@ -118,6 +124,9 @@ private:
 
 	// mapping string to label key or property key
 	bool ParseKeyId(string key, bool isLabel, int& id, uint8_t* type = NULL);
+
+	//error message for unexpected key
+	string ExpectedKey(bool isLabel);
 
 	// Parse sub-query for branching actors
 	void ParseSub(const vector<string>& params, int current_step, bool checkType);

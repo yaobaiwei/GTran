@@ -19,6 +19,9 @@
 // #define ACTOR_PROCESS_PRINT
 // #define ACTOR_PROCESS_SLEEP //only with print, did sleep matters
 
+#define ACTOR_DBG 1
+#define ACTOR_DBG_PRINTF(Format...) {if(ACTOR_DBG) {printf(Format);}}
+
 class AbstractActor {
 public:
 	AbstractActor(int id, DataStore* data_store, CoreAffinity* core_affinity):id_(id), data_store_(data_store), core_affinity_(core_affinity){}

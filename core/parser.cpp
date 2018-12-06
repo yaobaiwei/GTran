@@ -209,6 +209,30 @@ void Parser::LoadMapping(){
 	}
 	
 	hdfsDisconnect(fs);
+
+	//after load mapping, write to the set of keys
+
+	for(auto vpk_pair : str2vpk)
+	{
+		vpks.push_back(vpk_pair.first);
+		vpks_str += vpk_pair.first + " ";
+	}
+	for(auto epk_pair : str2epk)
+	{
+		epks.push_back(epk_pair.first);
+		epks_str += epk_pair.first + " ";
+	}
+
+	for(auto vlk_pair : str2vl)
+	{
+		vlks.push_back(vlk_pair.first);
+		vlks_str += vlk_pair.first + " ";
+	}
+	for(auto elk_pair : str2el)
+	{
+		elks.push_back(elk_pair.first);
+		elks_str += elk_pair.first + " ";
+	}
 }
 
 int Parser::GetPid(Element_T type, string& property){
@@ -426,7 +450,7 @@ void Parser::ParseIndex(const string& param){
 	int property_key = 0;
 	Tool::trim(params[2], "\"");
 	if(params[2] != "label" && !ParseKeyId(params[2], false, property_key)){
-		throw ParserException("unexpected property key: " + params[2]);
+		throw ParserException("unexpected property key: " + params[2] + ", expected is " + ExpectedKey(false));
 	}
 
 	actor.AddParam(type);
@@ -618,6 +642,32 @@ bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type)
 		*type = vmap->at(id);
 	}
 	return true;
+}
+
+string Parser::ExpectedKey(bool isLabel)
+{
+	string ret;
+
+	if (io_type_ == VERTEX)
+	{
+		if(isLabel)
+			ret = vlks_str;
+		else
+			ret = vpks_str;
+	}
+	else if (io_type_ == EDGE)
+	{
+		if(isLabel)
+			ret = elks_str;
+		else
+			ret = epks_str;
+	}
+	else
+	{
+		ret = "Parser::ExpectedKey()::HeiRenWenHao";
+	}
+
+	return ret;
 }
 
 void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
@@ -1094,7 +1144,7 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type)
 		{
 			if (!ParseKeyId(param, false, key))
 			{
-				throw ParserException("no such property key:" + param);
+				throw ParserException("no such property key: " + param + ", expected is " + ExpectedKey(false));
 			}
 		}
 		actor.AddParam(key);
@@ -1146,7 +1196,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 
 		if (!ParseKeyId(params[0], false, key, &vtype))
 		{
-			throw ParserException("Unexpected key: " + params[0]);
+			throw ParserException("Unexpected key: " + params[0] + ", expected is " + ExpectedKey(false));
 		}
 		if (params.size() == 2){
 			pred_param = params[1];
@@ -1180,7 +1230,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		}
 
 		if (!ParseKeyId(params[0], false, key)){
-			throw ParserException("unexpected key in hasNot : " + params[0]);
+			throw ParserException("unexpected key in hasNot : " + params[0] + ", expected is " + ExpectedKey(false));
 		}
 		actor.AddParam(key);
 		actor.AddParam(Predicate_T::NONE);
@@ -1196,7 +1246,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 			throw ParserException("expect at most two params for hasKey");
 		}
 		if (!ParseKeyId(params[0], false, key)){
-			throw ParserException("unexpected key in hasKey : " + params[0]);
+			throw ParserException("unexpected key in hasKey : " + params[0] + ", expected is " + ExpectedKey(false));
 		}
 
 		actor.AddParam(key);
@@ -1272,7 +1322,7 @@ void Parser::ParseHasLabel(const vector<string>& params)
 	int lid;
 	for(auto& param : params){
 		if (!ParseKeyId(param, true, lid)){
-			throw ParserException("unexpected label in hasLabel : " + param);
+			throw ParserException("unexpected label in hasLabel : " + param + ", expected is " + ExpectedKey(true));
 		}
 		actor.AddParam(lid);
 	}
@@ -1417,7 +1467,7 @@ void Parser::ParseOrder(const vector<string>& params)
 			{
 				if (!ParseKeyId(param, false, key))
 				{
-					throw ParserException("no such property key:" + param);
+					throw ParserException("no such property key:" + param + ", expected is " + ExpectedKey(false));
 				}
 			}else{
 				key = 0;
@@ -1447,7 +1497,7 @@ void Parser::ParseProperties(const vector<string>& params)
 	int key;
 	for (string param : params){
 		if (!ParseKeyId(param, false, key)){
-			throw ParserException("unexpected key: " + param);
+			throw ParserException("unexpected key in ParseProperties: " + param + ", expected is " + ExpectedKey(false));
 		}
 		actor.AddParam(key);
 	}
@@ -1631,7 +1681,7 @@ void Parser::ParseTraversal(const vector<string>& params, Step_T type)
 	if (params.size() == 1){
 		io_type_ = IO_T::EDGE;
 		if (! ParseKeyId(params[0], true, lid)){
-			throw ParserException("unexpected label: " + params[0]);
+			throw ParserException("unexpected label: " + params[0] + ", expected is " + ExpectedKey(true));
 		}
 	}
 
@@ -1663,7 +1713,7 @@ void Parser::ParseValues(const vector<string>& params)
 	bool first = true;
 	for (string param : params){
 		if (!ParseKeyId(param, false, key, &vtype)){
-			throw ParserException("unexpected key: " + param);
+			throw ParserException("unexpected key in ParseValues: " + param + ", expected is " + ExpectedKey(false));
 		}
 		if (first){
 			outType = vtype;
