@@ -496,6 +496,8 @@ public:
 
 		Monitor * monitor = new Monitor(my_node_);
 		monitor->Start();
+		
+		worker_barrier(my_node_);
 
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
