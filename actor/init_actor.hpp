@@ -18,6 +18,10 @@
 #include "utils/tool.hpp"
 #include "utils/timer.hpp"
 
+
+#include "storage/mpi_snapshot.hpp"
+#include "storage/snapshot_func.hpp"
+
 using namespace std;
 
 class InitActor : public AbstractActor {
@@ -25,6 +29,40 @@ public:
     InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), type_(ACTOR_T::INIT), is_ready_(false) 
     {
     	config_ = &Config::GetInstance();
+
+    	//read snapshot here
+    	//write snapshot @ InitData
+
+		MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+
+		bool ok1 = snapshot->ReadData("init_actor_vtx_data", vtx_data, ReadMailboxDataImpl);
+		bool ok2 = snapshot->ReadData("init_actor_edge_data", edge_data, ReadMailboxDataImpl);
+		bool ok3 = snapshot->ReadData("init_actor_vtx_data_count", vtx_data_count, ReadMailboxDataImpl);
+		bool ok4 = snapshot->ReadData("init_actor_edge_data_count", edge_data_count, ReadMailboxDataImpl);
+
+
+		int ok_cnt = 0;
+		if(ok1)
+			ok_cnt++;
+		if(ok2)
+			ok_cnt++;
+		if(ok3)
+			ok_cnt++;
+		if(ok4)
+			ok_cnt++;
+
+		if(ok_cnt == 4)
+			is_ready_ = true;
+		else
+		{
+			//all fail
+			vtx_data.resize(0);
+			edge_data.resize(0);
+			vtx_data_count.resize(0);
+			edge_data_count.resize(0);
+		}
+
+		printf("InitActor::InitActor(), ok_cnt = %d\n", ok_cnt);
 	}
 
     virtual ~InitActor(){}
@@ -83,6 +121,7 @@ private:
 		if(is_ready_){
 			return;
 		}
+		MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
 
 		// convert id to msg
 		Meta m;
@@ -90,12 +129,17 @@ private:
 		m.msg_path = to_string(num_nodes_);
 
 		uint64_t start_t = timer::get_usec();
+
 		InitVtxData(m);
+		snapshot->WriteData("init_actor_vtx_data", vtx_data, WriteMailboxDataImpl);
+		snapshot->WriteData("init_actor_vtx_data_count", vtx_data_count, WriteMailboxDataImpl);
 		uint64_t end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
 
 		start_t = timer::get_usec();
 		InitEdgeData(m);
+		snapshot->WriteData("init_actor_edge_data", edge_data, WriteMailboxDataImpl);
+		snapshot->WriteData("init_actor_edge_data_count", edge_data_count, WriteMailboxDataImpl);
 		end_t = timer::get_usec();
 		cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
 	}

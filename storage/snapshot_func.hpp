@@ -9,6 +9,8 @@
 //this file is designed to be isolated from MPISnapshot
 
 #include "base/serialization.hpp"
+#include "core/abstract_mailbox.hpp"
+
 //namespace std is used there
 
 #include <ext/hash_map>
@@ -128,6 +130,7 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
 
     obinstream m;
     m.assign(tmp_buf, buf_sz, 0);
+    //do not free
 
     for(uint64_t i = 0; i < data_sz; i++)
     {
@@ -151,11 +154,6 @@ static inline bool WriteKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>&
     {
         return false;
     }
-
-    //write data to the instream
-    ibinstream m;
-
-    // auto [last_entry, mem_sz, mem] = data;?????? not support?
 
     uint64_t last_entry = get<0>(data), mem_sz = get<1>(data);
     char* mem = get<2>(data);
@@ -181,9 +179,6 @@ static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& 
         return false;
     }
 
-    //write data to the instream
-    obinstream m;
-
     char* mem = get<2>(data);
 
     uint64_t last_entry, mem_sz;
@@ -201,3 +196,85 @@ static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& 
 
     return true;
 }
+
+
+
+// struct mailbox_data_t{
+//     ibinstream stream;
+//     int dst_nid;
+//     int dst_tid;
+// };
+static inline bool WriteMailboxDataImpl(string fn, vector<AbstractMailbox::mailbox_data_t>& data)
+{
+    ofstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    //write data to the instream
+
+    uint64_t vec_len = data.size();
+    doge.write((char*)&vec_len, sizeof(uint64_t));
+
+    for(auto data_val : data)
+    {
+        ibinstream& m = data_val.stream;
+
+        uint64_t buf_sz = m.size();
+
+        doge.write((char*)&buf_sz, sizeof(uint64_t));
+        doge.write(m.get_buf(), m.size());
+        doge.write((char*)&data_val.dst_nid, sizeof(int));
+        doge.write((char*)&data_val.dst_tid, sizeof(int));
+    }
+
+    printf("WriteMailboxDataImpl vec_len = %lu\n", vec_len);
+
+    doge.close();
+
+    return true;
+}
+
+static inline bool ReadMailboxDataImpl(string fn, vector<AbstractMailbox::mailbox_data_t>& data)
+{
+    ifstream doge(fn, ios::binary);
+
+    if(!doge.is_open())
+    {
+        return false;
+    }
+
+    //write data to the instream
+
+    uint64_t vec_len;
+
+    doge.read((char*)&vec_len, sizeof(uint64_t));
+    data.resize(vec_len);
+
+    for(int i = 0; i < vec_len; i++)
+    {
+        auto& data_val = data[i];
+        ibinstream& m = data_val.stream;
+
+        uint64_t buf_sz = m.size();
+
+        doge.read((char*)&buf_sz, sizeof(uint64_t));
+
+        char* tmp_buf = new char[buf_sz];
+        doge.read(tmp_buf, buf_sz);
+        m.raw_bytes(tmp_buf, buf_sz);
+        delete[] tmp_buf;
+
+        doge.read((char*)&data_val.dst_nid, sizeof(int));
+        doge.read((char*)&data_val.dst_tid, sizeof(int));
+    }
+
+    printf("ReadMailboxDataImpl vec_len = %lu\n", vec_len);
+
+    doge.close();
+
+    return true;
+}
+
