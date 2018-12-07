@@ -372,6 +372,23 @@ public:
 			return temp;
 		}
 	}
+
+	static string int64_to_2int32_str(uint64_t val)
+	{
+		int a, b;
+
+		a = val & 0xFFFFFFFF;
+		b = val >> 32;
+
+		char tmp[64];
+
+		int pos = 0;
+
+		pos += sprintf(tmp + pos, "%d ", b);//higher
+		pos += sprintf(tmp + pos, "%d", a);//higher
+
+		return string(tmp);
+	}
 };
 
 

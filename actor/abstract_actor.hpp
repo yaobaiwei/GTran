@@ -10,14 +10,16 @@
 
 #include <string>
 #include <vector>
+#include <thread>
+#include <chrono>
 
 #include "base/core_affinity.hpp"
 #include "core/message.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tid_mapper.hpp"
 
-// #define ACTOR_PROCESS_PRINT
-// #define ACTOR_PROCESS_SLEEP //only with print, did sleep matters
+#define ACTOR_PROCESS_PRINT
+#define ACTOR_PROCESS_SLEEP 1000000000L //only with print, did sleep matters
 
 #define ACTOR_DBG 1
 #define ACTOR_DBG_PRINTF(Format...) {if(ACTOR_DBG) {printf(Format);}}

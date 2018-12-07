@@ -44,11 +44,9 @@ public:
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "LabelledBranchActorBase", node.get_local_rank(), tid);
+		printf("ACTOR = %s, node = %d, tid = %d\n", "LabelledBranchActorBase::process", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
-		timespec time_sleep;
-		time_sleep.tv_nsec = 500000000L;
-		nanosleep(&time_sleep, NULL); 
+		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif
 		#endif
 
@@ -208,11 +206,22 @@ public:
 private:
 	void process_spawn(Message & msg, BranchDataTable::accessor& ac)
 	{
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		int tid = TidMapper::GetInstance().GetTid();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "BranchFilterActor::process_spawn", node.get_local_rank(), tid);
+		#endif
+
 		ac->second.data = move(msg.data);
 	}
 
 	void process_branch(int tid, const vector<Actor_Object> & actors, Message & msg, BranchDataTable::accessor& ac, bool isReady)
 	{
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "BranchFilterActor::process_branch", node.get_local_rank(), tid);
+		#endif
+
 		auto &counter =  ac->second.counter;
 
 		// get branch infos

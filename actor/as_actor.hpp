@@ -30,11 +30,9 @@ public:
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "AsActor", node.get_local_rank(), tid);
+		printf("ACTOR = %s, node = %d, tid = %d\n", "AsActor::process", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
-		timespec time_sleep;
-		time_sleep.tv_nsec = 500000000L;
-		nanosleep(&time_sleep, NULL); 
+		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif
 		#endif
 
@@ -68,6 +66,7 @@ private:
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
 
+	//write into side effect
 	void RecordHistory(int label_step_key, vector<pair<history_t, vector<value_t>>> & data) {
 		vector<pair<history_t, vector<value_t>>> newData;
 		map<value_t, int> value_pos;

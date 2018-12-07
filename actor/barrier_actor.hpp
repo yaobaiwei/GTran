@@ -65,11 +65,9 @@ public:
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "BarrierActorBase", node.get_local_rank(), tid);
+		printf("ACTOR = %s, node = %d, tid = %d\n", "BarrierActorBase::process", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
-		timespec time_sleep;
-		time_sleep.tv_nsec = 500000000L;
-		nanosleep(&time_sleep, NULL); 
+		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif
 		#endif
 
@@ -320,6 +318,13 @@ private:
 	int num_nodes_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+
+
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "EndActor::do_work", node.get_local_rank(), tid);
+		#endif
+
 		auto& data = ac->second.result;
 
 		// move msg data to data table
@@ -359,6 +364,11 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "AggregateActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& agg_data = ac->second.agg_data;
 		auto& msg_data = ac->second.msg_data;
 
@@ -410,6 +420,11 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "CapActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		// all msg are collected
 		if(isReady){
 			const Actor_Object& actor = actors[msg.meta.step];
@@ -486,6 +501,11 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "CountActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -547,6 +567,11 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "DedupActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& data_map = ac->second.data_map;
 		auto& dedup_his_map = ac->second.dedup_his_map;
 		auto& dedup_val_map = ac->second.dedup_val_map;
@@ -658,6 +683,11 @@ private:
 	ActorCache cache_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "GroupActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -798,6 +828,11 @@ private:
 	Config* config_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "OrderActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& data_map = ac->second.data_map;
 		auto& data_set = ac->second.data_set;
 		int branch_key = get_branch_key(msg.meta);
@@ -931,6 +966,11 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "RangeActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -1025,6 +1065,11 @@ private:
     AbstractMailbox * mailbox_;
 
     void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "CoinActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
         auto& counter_map = ac->second.counter_map;
         int branch_key = get_branch_key(msg.meta);
 
@@ -1119,6 +1164,11 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
+		#ifdef ACTOR_PROCESS_PRINT
+		Node node = Node::StaticInstance();
+		printf("ACTOR = %s, node = %d, tid = %d\n", "MathActor::do_work", node.get_local_rank(), tid);
+		#endif
+		
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
