@@ -29,7 +29,7 @@ void Client::RequestWorker(){
     cc_.Recv(MASTER_RANK, um);
     um >> id;
     um >> handler;
-    cout << "[Client] Client " << id << " recvs a REP: get available worker" << handler << endl << endl;
+    cout << "[Client] Client " << id << " recvs a REP: get available worker_node" << handler - 1 << endl << endl;
 }
 
 string Client::CommitQuery(string query){
@@ -42,7 +42,7 @@ string Client::CommitQuery(string query){
     m << host_str;
     m << query;
     cc_.Send(handler, m);
-    cout << "[Client] Client posts the query to worker" << handler << endl << endl;
+    cout << "[Client] Client posts the query to worker_node" << handler - 1 << endl << endl;
 
     cc_.Recv(handler, um);
 

@@ -86,7 +86,10 @@ public:
 			}
 		}
 		if (min_index != -1)
+		{
+			printf("Master min_index != -1, %d\n", min_index);
 			return min_index;
+		}
 		return rand() % (node_.get_world_size() - 1) + 1;
 	}
 

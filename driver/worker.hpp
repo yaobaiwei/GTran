@@ -344,7 +344,7 @@ public:
 
 			um >> client_host; //get the client hostname for returning results.
 			um >> query;
-			cout << "Worker" << my_node_.get_world_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
+			cout << "worker_node" << my_node_.get_local_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
 
 			if(query.find("emu") == 0){
 				RunEMU(query, client_host);
@@ -531,7 +531,7 @@ public:
 				//port calculation is based on our self-defined protocol
 				sprintf(addr, "tcp://%s:%d", re.hostname.c_str(), workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
 				sender.connect(addr);
-				cout << "Worker" << my_node_.get_world_rank() << " sends the results to Client " << re.hostname << endl;
+				cout << "worker_node" << my_node_.get_local_rank() << " sends the results to Client " << re.hostname << endl;
 				sender.send(msg);
 
 				monitor->IncreaseCounter(1);
