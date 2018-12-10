@@ -134,8 +134,8 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
 	m.msg_path = to_string(nodes_num);
 	m.actors = actors;
 
-	MSG_DBG_PRINTF("node %d, Message::CreateInitMsg, qid = %s, parent_node = %d, recv_tid = %d, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(qid).c_str(), parent_node, recv_tid, m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::CreateInitMsg, qid = %s, parent_node = %d, recv_tid = %d, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(qid).c_str(), parent_node, recv_tid, m.msg_path.c_str());
 
 	for(int i = 0; i < nodes_num; i++){
 		Message msg;
@@ -152,8 +152,8 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec){
 	m.recver_tid = this->meta.parent_tid;
 
 
-	MSG_DBG_PRINTF("node %d, Message::CreateExitMsg, qid = %s, recver_tid = %d, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.recver_tid, m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::CreateExitMsg, qid = %s, recver_tid = %d, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.recver_tid, m.msg_path.c_str());
 
 	for(int i = 0; i < nodes_num; i ++){
 		m.recver_nid = i;
@@ -179,8 +179,8 @@ void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<hist
 		num = "\t" + num;
 	}
 
-	MSG_DBG_PRINTF("node %d, Message::CreateNextMsg, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::CreateNextMsg, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 	for(int i = count; i < vec.size(); i++){
 		vec[i].meta.msg_path += num;
@@ -232,8 +232,8 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
 	m.msg_path = info.msg_path + tail;
 
 
-	MSG_DBG_PRINTF("node %d, Message::CreateBranchedMsg, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::CreateBranchedMsg, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 	// copy labeled data to each step
 	for(int i = 0; i < steps.size(); i ++){
@@ -270,8 +270,8 @@ void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, 
 	info.msg_id = msg_id;
 
 
-	MSG_DBG_PRINTF("node %d, Message::CreateBranchedMsgWithHisLabel, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::CreateBranchedMsgWithHisLabel, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 	// label each data with unique id
 	vector<pair<history_t, vector<value_t>>> labeled_data;
@@ -326,8 +326,8 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 
 	auto temp_data = make_pair(history_t(), data);
 
-	MSG_DBG_PRINTF("node %d, Message::CreateFeedMsg, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::CreateFeedMsg, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 	for(int i = 0; i < nodes_num; i++){
 		// skip parent node
@@ -344,8 +344,8 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data, int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec)
 {
 	
-	MSG_DBG_PRINTF("node %d, Message::dispatch_data, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::dispatch_data, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 	
 	Meta cm = m;
 	bool route_assigned = update_route(m, actors);
@@ -437,8 +437,8 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
 
 bool Message::update_route(Meta& m, const vector<Actor_Object>& actors){
 
-	MSG_DBG_PRINTF("node %d, Message::update_route, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::update_route, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 	int branch_depth = m.branch_infos.size() - 1;
 	// update recver route & msg_type
@@ -483,8 +483,8 @@ bool Message::update_route(Meta& m, const vector<Actor_Object>& actors){
 }
 bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actors){
 
-	MSG_DBG_PRINTF("node %d, Message::update_collection_route, qid = %s, m.msg_path = %s\n",
-			Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+	MSG_DBG_PRINTF("%f, node %d, Message::update_collection_route, qid = %s, m.msg_path = %s\n",
+			Node::StaticInstance().WtimeSinceStart(), Node::StaticInstance().get_local_rank(), Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 	bool to_barrier = false;
 	// empty data should be send to:

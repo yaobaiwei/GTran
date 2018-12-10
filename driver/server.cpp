@@ -36,6 +36,9 @@ int main(int argc, char* argv[])
 	nodes.erase(nodes.begin()); //delete the master info in nodes (array) for rdma init
 
 	//set my_node as the shared static Node instance
+
+	my_node.InitialLocalWtime();
+
 	Node::StaticInstance(&my_node);
 
 	// Config * config = new Config();

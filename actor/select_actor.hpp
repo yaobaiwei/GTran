@@ -30,7 +30,7 @@ public:
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "SelectActor::process", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "SelectActor::process", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
 		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif

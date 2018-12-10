@@ -65,7 +65,7 @@ public:
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "BarrierActorBase::process", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "BarrierActorBase::process", node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
 		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif
@@ -322,7 +322,7 @@ private:
 
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "EndActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "EndActor::do_work", node.get_local_rank(), tid);
 		#endif
 
 		auto& data = ac->second.result;
@@ -366,7 +366,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "AggregateActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "AggregateActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& agg_data = ac->second.agg_data;
@@ -422,7 +422,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "CapActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "CapActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		// all msg are collected
@@ -503,7 +503,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "CountActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "CountActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& counter_map = ac->second.counter_map;
@@ -569,7 +569,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "DedupActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "DedupActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
@@ -685,7 +685,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "GroupActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "GroupActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
@@ -830,7 +830,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "OrderActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "OrderActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
@@ -968,7 +968,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "RangeActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "RangeActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& counter_map = ac->second.counter_map;
@@ -1067,7 +1067,7 @@ private:
     void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "CoinActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "CoinActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
         auto& counter_map = ac->second.counter_map;
@@ -1166,7 +1166,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("ACTOR = %s, node = %d, tid = %d\n", "MathActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "MathActor::do_work", node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
