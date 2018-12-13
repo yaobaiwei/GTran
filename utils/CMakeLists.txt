@@ -10,6 +10,7 @@ file(GLOB utils-src-files
     mpi_profiler.cpp
     tid_mapper.cpp
     mpi_config_namer.cpp
+    mkl_util.cpp
     )
 
 add_library(utils-objs OBJECT ${utils-src-files})
