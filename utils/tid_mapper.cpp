@@ -1,7 +1,7 @@
 /*-----------------------------------------------------
 
        @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
+              Last modified : 2018-12
   Author(s) : Chenghuan Huang(entityless@gmail.com)
 :)
 -----------------------------------------------------*/
@@ -27,10 +27,12 @@ void TidMapper::Register(int tid)
 
 int TidMapper::GetTid()
 {
+    assert(manual_tid_map_.count(pthread_self()) != 0);
     return manual_tid_map_[pthread_self()];
 }
 
 int TidMapper::GetTidUnique()
 {
+    assert(unique_tid_map_.count(pthread_self()) != 0);
     return unique_tid_map_[pthread_self()];
 }
