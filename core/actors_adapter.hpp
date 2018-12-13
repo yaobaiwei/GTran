@@ -49,6 +49,10 @@
 
 using namespace std;
 
+
+#define ADAPTER_DBG 1
+#define ADAPTER_DBG_PRINTF(Format...) {if(ADAPTER_DBG) {printf(Format);}}
+
 class ActorAdapter {
 public:
 	ActorAdapter(Node & node, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) 
@@ -97,21 +101,6 @@ public:
 
 		for(int i = 0; i < num_thread_; ++i)
 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
-
-		//this is useless.
-		// #pragma omp parallel num_threads(num_thread_)
-		// {
-		// 	int tid = omp_get_thread_num();
-
-		// 	for(int i = 0; i < num_thread_; i++)
-		// 	{
-		// 		if(i == tid)
-		// 		{
-		// 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, tid);
-		// 		}
-		// 		#pragma omp barrier
-		// 	}
-		// }
 	}
 
 	void Stop(){
@@ -130,6 +119,9 @@ public:
 			assert(msg.data.size() == 1);
 			agg_t agg_key(m.qid, m.step);
 			data_store_->InsertAggData(agg_key, msg.data[0].second);
+			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, InsertAggData, qid = %s, m.msg_path = %s\n",
+				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+
 			return ;
 		}else if(m.msg_type == MSG_T::EXIT){
 			const_accessor ac;
@@ -148,44 +140,9 @@ public:
 			// earse only after query with qid is done
 			msg_logic_table_.erase(ac);
 
-			// Print time
-			//timer::stop_timer(tid + 2 * num_thread_);
-			// double exec = 0;
-			// double recv = 0;
-			// double send = 0;
-			// double serialization = 0;
-			// double create_msg = 0;
-			// vector<double> actors_time(actors_.size());
-			//
-			// for(int i = 0; i < num_thread_; i++){
-			// 	send += timer::get_timer(i);
-			// 	serialization += timer::get_timer(i + num_thread_);
-			// 	exec += timer::get_timer(i + 2 *num_thread_);
-			// 	recv += timer::get_timer(i + 3 * num_thread_);
-			// 	create_msg += timer::get_timer(i + 4 * num_thread_);
-			//
-			// 	for(int j = 0; j < actors_.size(); j++){
-			// 		actors_time[j] += timer::get_timer(i + (timer_offset + j) * num_thread_);
-			// 	}
-			// }
-			// timer::reset_timers();
-			//
-			// string ofname = "timer" + to_string(m.recver_nid) + ".txt";
-			// std::ofstream ofs(ofname.c_str(), std::ofstream::out);
-			// ofs << "Exec: " << exec << "ms" << endl;
-			//
-			// for(auto& act : actors_){
-			// 	double t = actors_time[act.second->GetActorId()];
-			// 	if(t != 0){
-			// 		ofs << "\t" << std::left << setw(15) << string(ActorType[static_cast<int>(act.first)]) << ": " << t << "ms" << endl;
-			// 	}
-			// }
-			// ofs << endl;
-			//
-			// ofs << "Send: " << send << "ms" << endl;
-			// ofs << "Recv: " << recv << "ms" << endl;
-			// ofs << "Serialize: " << serialization << "ms" << endl;
-			// ofs << "Create Msg: " << create_msg << "ms" << endl;
+			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, msg_logic_table_.erase, qid = %s, m.msg_path = %s\n",
+				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
+
 			return;
 		}
 
@@ -194,9 +151,14 @@ public:
 		if(! msg_logic_table_.find(ac, m.qid)){
 			// throw msg to the same thread as init msg
 			msg.meta.recver_tid = msg.meta.parent_tid;
+			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, !msg_logic_table_.find(ac, m.qid), qid = %s, m.msg_path = %s\n",
+				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 			mailbox_->Send(tid, msg);
 			return;
 		}
+
+		ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, start of do while, qid = %s, m.msg_path = %s\n",
+				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 		int current_step;
 		do{
@@ -205,9 +167,12 @@ public:
 			//int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
 
 			//timer::start_timer(tid + offset);
-			actors_[next_actor]->process(ac->second, msg);
+			actors_[next_actor]->process(ac->second, msg);//this will modify msg??
 			//timer::stop_timer(tid + offset);
 		}while(current_step != msg.meta.step);	// process next actor directly if step is modified
+
+		ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, end of do while, qid = %s, m.msg_path = %s\n",
+				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 	}
 
 	void ThreadExecutor(int tid) {

@@ -19,7 +19,7 @@
 #include "utils/tid_mapper.hpp"
 
 #define ACTOR_PROCESS_PRINT
-#define ACTOR_PROCESS_SLEEP 1000000000L //only with print, did sleep matters
+#define ACTOR_PROCESS_SLEEP 100000000L //only with print, did sleep matters
 
 #define ACTOR_DBG 1
 #define ACTOR_DBG_PRINTF(Format...) {if(ACTOR_DBG) {printf(Format);}}
