@@ -29,6 +29,26 @@ noted by Hongzhi CHEN
 os.system("source runtime_environment.sh; export GQUERY_HOME=${PWD}; mpirun -n " + str(nnodes) + " -f manual-nodes.cfg ./release/server manual_conf")
 ```
 
+### gq-hfs.txt
+
+每行是一个数字。比如：
+
+```
+30
+29
+28
+27
+26
+25
+24
+23
+22
+21
+
+```
+
+如果python server-manual.py -n 3的话，w30就会作为master，w29和w28作为client。
+
 ### small.sh
 
 ```
