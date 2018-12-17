@@ -1,2 +1,2 @@
-source runtime_environment.sh
+source ./runtime_environment.sh
 ./release/client ./manual_conf
