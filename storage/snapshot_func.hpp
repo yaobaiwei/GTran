@@ -51,6 +51,7 @@ static inline bool ReadSerImpl(string fn, T& data)
 
     if(!doge.is_open())
     {
+        printf("ReadSerImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
@@ -115,6 +116,7 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
 
     if(!doge.is_open())
     {
+        printf("ReadHashMapSerImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
@@ -179,6 +181,7 @@ static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& 
 
     if(!doge.is_open())
     {
+        printf("ReadKVStoreImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
@@ -247,6 +250,7 @@ static inline bool ReadMailboxDataImpl(string fn, vector<AbstractMailbox::mailbo
 
     if(!doge.is_open())
     {
+        printf("ReadMailboxDataImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 

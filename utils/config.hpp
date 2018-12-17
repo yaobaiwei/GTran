@@ -347,13 +347,34 @@ public:
 		}
 
 		str = iniparser_getstring(ini, "SYSTEM:SNAPSHOT_PATH", str_not_found);
-		if(strcmp(str, str_not_found)!=0) SNAPSHOT_PATH=str;
+		if(strcmp(str, str_not_found)!=0)
+		{
+			//analyse snapshot_path to absolute path
+
+			string ori_str = str;
+			string str_to_process = str;
+
+			if(str_to_process[0] == '~')
+			{
+				string sub = str_to_process.substr(1);
+
+        		str_to_process = string(getenv("HOME")) + sub;
+			}
+
+			// SNAPSHOT_PATH = string(realpath(str_to_process.c_str(), NULL));
+			//throw null pointer to a directory that do not exists
+
+			SNAPSHOT_PATH = str_to_process;
+
+			printf("world_rank = %d, given SNAPSHOT_PATH = %s, processed = %s\n", node.get_world_rank(), ori_str.c_str(), SNAPSHOT_PATH.c_str());
+		} 
 		else
 		{
 			// fprintf(stderr, "must enter the SNAPSHOT_PATH. exits.\n");
 			// exit(-1);
 			SNAPSHOT_PATH = "";
 		}
+
 
 		iniparser_freedict(ini);
 
