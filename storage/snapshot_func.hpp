@@ -26,6 +26,7 @@ static inline bool WriteSerImpl(string fn, T& data)
 
     if(!doge.is_open())
     {
+        printf("WriteSerImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
@@ -77,6 +78,7 @@ static inline bool WriteHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
 
     if(!doge.is_open())
     {
+        printf("WriteHashMapSerImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
@@ -152,6 +154,7 @@ static inline bool WriteKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>&
 
     if(!doge.is_open())
     {
+        printf("WriteKVStoreImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
@@ -210,6 +213,7 @@ static inline bool WriteMailboxDataImpl(string fn, vector<AbstractMailbox::mailb
 
     if(!doge.is_open())
     {
+        printf("WriteMailboxDataImpl, fail to open %s\n", fn.c_str());
         return false;
     }
 
