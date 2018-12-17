@@ -1,5 +1,0 @@
-5	100
-3
-g.V().has("title","$RAND")	title	6
-g.V().hasKey("imUrl").hasLabel("product").has("brand","$RAND")	brand	3
-g.V().has("title","$RAND").and(out("bought_together").values("price").min().is(gt(300)),in("reviewed").count().is(gt(10))).values("reviewerName")	title	1
