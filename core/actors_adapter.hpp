@@ -49,8 +49,8 @@
 
 using namespace std;
 
-
 #define ADAPTER_DBG 0
+
 #define ADAPTER_DBG_PRINTF(Format...) {if(ADAPTER_DBG) {printf(Format);}}
 
 class ActorAdapter {

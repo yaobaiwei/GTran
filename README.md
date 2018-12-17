@@ -1,7 +1,7 @@
 # GQuery
 Distributed Online Property Graph Query System
 
-This is the actors branch!
+This is the master branch!
 
 Please never push your commits into master branch, instead using pull request to contribute your code!
 
@@ -111,5 +111,3 @@ no dependency
 ### UglyThreadSafeMap
 
 no dependency
-
-

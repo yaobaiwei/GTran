@@ -513,6 +513,7 @@ public:
 		while(1){
 			reply re;
 			rc_->Pop(re);
+
 			// Node::SingleTrap("rc_->Pop(re);");
 
 			uint64_t time_ = thpt_monitor_->RecordEnd(re.qid);

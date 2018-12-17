@@ -3,7 +3,6 @@
 #include "storage/mpi_snapshot.hpp"
 #include "storage/snapshot_func.hpp"
 
-
 void Parser::ReadSnapshot()
 {
 	// return;
@@ -535,6 +534,7 @@ string Parser::StepToStr(int step)
 
 void Parser::DoParse(const string& query)
 {
+
 	PARSER_DBG_PRINTF("Parser::DoParse \"%s\"\n", query.c_str());
 
 	vector<pair<Step_T, string>> tokens;
@@ -774,7 +774,6 @@ void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 }
 
 void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
-
 	PARSER_DBG_PRINTF("start of Parser::ParseSteps %s\n", TokensToStr(tokens).c_str());
 
 	for (auto stepToken : tokens){

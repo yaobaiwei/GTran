@@ -7,8 +7,8 @@
 
 #include "core/message.hpp"
 
-
 #define MSG_DBG 0
+
 #define MSG_DBG_PRINTF(Format...) {if(MSG_DBG) {printf(Format);}}
 
 ibinstream& operator<<(ibinstream& m, const Branch_Info& info)

@@ -347,6 +347,7 @@ public:
 		}
 
 		str = iniparser_getstring(ini, "SYSTEM:SNAPSHOT_PATH", str_not_found);
+
 		if(strcmp(str, str_not_found)!=0)
 		{
 			//analyse snapshot_path to absolute path
@@ -374,7 +375,6 @@ public:
 			// exit(-1);
 			SNAPSHOT_PATH = "";
 		}
-
 
 		iniparser_freedict(ini);
 

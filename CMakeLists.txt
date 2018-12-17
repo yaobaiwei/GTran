@@ -25,7 +25,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmkl_blas95_lp64 -lmkl_lapack95_lp64 -l
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/data/miao/lib/hwloc-1.11.7/include")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/miao/lib/hwloc-1.11.7/lib")
 
-
 set(COMMON_LINK_LIBS "-lrt")
 
 # Please source tbbvars.sh first
