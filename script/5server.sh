@@ -1,1 +1,0 @@
-mpiexec -n 5 -f ${GQ_HOME}/5machine.cfg ${GQ_HOME}/release/server ${GQ_HOME}/5ib_conf

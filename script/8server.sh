@@ -1,1 +1,0 @@
-mpiexec -n 8 -f ${GQ_HOME}/8machine.cfg ${GQ_HOME}/release/server ${GQ_HOME}/8ib_conf
