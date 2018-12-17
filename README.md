@@ -26,7 +26,7 @@ noted by Hongzhi CHEN
 
 最后执行命令
 ``` python
-os.system("source runtime_environment.sh; export GQUERY_HOME=${PWD}; mpirun -n " + str(nnodes) + " -f manual-nodes.cfg ./release/server manual_conf")
+os.system("export GQUERY_HOME=${PWD}; mpirun -n " + str(nnodes) + " -f manual-nodes.cfg ./release/server manual_conf")
 ```
 
 ### gq-hfs.txt
@@ -49,9 +49,10 @@ os.system("source runtime_environment.sh; export GQUERY_HOME=${PWD}; mpirun -n "
 
 如果python server-manual.py -n 3的话，w30就会作为master，w29和w28作为client。
 
-### small.sh
+### start-server-small-amazon-7-nodes.sh
 
 ```
+source runtime_environment.sh
 ./script/use_small.sh
 python server-manual.py -n 7
 ```
@@ -61,6 +62,13 @@ python server-manual.py -n 7
 ```
 rm gquery-conf.ini
 ln -s small.gquery-conf.ini gquery-conf.ini
+```
+
+### client_manual.sh
+
+```
+#使用刚刚生成的manual_conf来运行client
+./release/client ./manual_conf
 ```
 
 ## Optimization
