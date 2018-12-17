@@ -9,7 +9,6 @@ import subprocess
 import io
 import time
 
-#这个脚本的意义是减少节点的冲突。
 #tatiana w1~w10
 #liujie  w11~w15
 #zzxx    w21~w30
@@ -47,5 +46,5 @@ if __name__ == "__main__":
 
     #execute the command
 
-    os.system("mpirun -n " + str(nnodes) + " -f manual-nodes.cfg ${GQ_HOME}/release/server manual_conf")
+    os.system("export GQUERY_HOME=${PWD}; mpirun -n " + str(nnodes) + " -f manual-nodes.cfg ./release/server manual_conf")
 
