@@ -82,7 +82,7 @@ private:
 		}
 	};
 
-	static const int NUM_CACHE = 1000000;
+	// static const int NUM_CACHE = 1000000;
 	static const int NUM_CACHE = ACTOR_NUM_CACHE;
 	CacheItem items[NUM_CACHE];
 
