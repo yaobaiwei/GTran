@@ -64,21 +64,52 @@ rm gquery-conf.ini
 ln -s small.gquery-conf.ini gquery-conf.ini
 ```
 
-### client_manual.sh
+### start_client.sh
 
 ```
 #使用刚刚生成的manual_conf来运行client
+source runtime_environment.sh
 ./release/client ./manual_conf
 ```
 
 ## Optimization
 
+### ActorCache
+
+depend on core/message.hpp
+
 ### MKLUtil
+
+depend on TidMapper and UglyThreadSafeMap
+
+### MPISnapshot
+
+depend on MPIConfigNamer and base/serialization.hpp
 
 ## Basic Utilization
 
 ### TidMapper
 
-## Debug
+no dependency
+
+### CPUInfoUtil
+
+no dependency
+
+### ConsoleUtil
+
+no dependency
+
+### MPIConfigNamer
+
+no dependency
+
+### MPIProfiler
+
+no dependency
+
+### UglyThreadSafeMap
+
+no dependency
 
 
