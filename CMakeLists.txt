@@ -21,6 +21,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/cghuan/ps2017u7/compilers_and_li
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux/compiler/lib/intel64_lin")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmkl_blas95_lp64 -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core ")
 
+# HWLOC
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/data/miao/lib/hwloc-1.11.7/include")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/miao/lib/hwloc-1.11.7/lib")
+
+
 set(COMMON_LINK_LIBS "-lrt")
 
 # Please source tbbvars.sh first
