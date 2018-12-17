@@ -1,0 +1,1 @@
+mpiexec -n 4 -f ${GQ_HOME}/4machine.cfg ${GQ_HOME}/release/server ${GQ_HOME}/4ib_conf

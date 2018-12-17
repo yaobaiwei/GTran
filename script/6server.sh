@@ -1,0 +1,1 @@
+mpiexec -n 6 -f ${GQ_HOME}/6machine.cfg ${GQ_HOME}/release/server ${GQ_HOME}/6ib_conf

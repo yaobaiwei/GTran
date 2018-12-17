@@ -1,0 +1,1 @@
+mpiexec -n 7 -f ${GQ_HOME}/7machine.cfg ${GQ_HOME}/release/server ${GQ_HOME}/7ib_conf

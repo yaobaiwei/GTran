@@ -1,0 +1,12 @@
+include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
+ 
+file(GLOB core-src-files
+	message.cpp
+    rdma_mailbox.cpp
+    tcp_mailbox.cpp
+	parser.cpp
+    )
+
+add_library(core-objs OBJECT ${core-src-files})
+
+#target_link_libraries(core-objs ${GQUERY_EXTERNAL_LIBRARIES})

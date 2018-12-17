@@ -1,0 +1,1 @@
+mpiexec -n 10 -f ${GQ_HOME}/10machine.cfg ${GQ_HOME}/release/server ${GQ_HOME}/10ib_conf
