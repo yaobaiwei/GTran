@@ -62,7 +62,7 @@ public:
 			edge_data_count.resize(0);
 		}
 
-		printf("InitActor::InitActor(), ok_cnt = %d\n", ok_cnt);
+		printf("InitActor::InitActor(), Snapshot read %d of 4\n", ok_cnt);
 	}
 
     virtual ~InitActor(){}

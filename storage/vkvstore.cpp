@@ -29,7 +29,7 @@ void VKVStore::ReadSnapshot()
         last_entry = get<0>(tmp_tuple);
     }
 
-    printf("VKVStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+    printf("VKVStore::ReadSnapshot(), Snapshot read %d of 1\n", ok_cnt);
 }
 
 void VKVStore::WriteSnapshot()

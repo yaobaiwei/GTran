@@ -32,7 +32,7 @@ void Parser::ReadSnapshot()
 		ok_cnt++;
 	if(ok6)
 		ok_cnt++;
-	printf("Parser::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+	printf("Parser::ReadSnapshot(), Snapshot read %d of 6\n", ok_cnt);
 }
 
 

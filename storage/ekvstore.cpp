@@ -28,7 +28,7 @@ void EKVStore::ReadSnapshot()
         last_entry = get<0>(tmp_tuple);
     }
 
-    printf("EKVStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+    printf("EKVStore::ReadSnapshot(), Snapshot read %d of 1\n", ok_cnt);
 }
 
 void EKVStore::WriteSnapshot()

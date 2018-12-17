@@ -101,7 +101,7 @@ void DataStore::ReadSnapshot()
 
 	//call the read snapshot in the kvstore
 
-	printf("DataStore::ReadSnapshot(), ok_cnt = %d\n", ok_cnt);
+	printf("DataStore::ReadSnapshot(), Snapshot read %d of 2\n", ok_cnt);
 
 	vpstore_->ReadSnapshot();
 	epstore_->ReadSnapshot();
