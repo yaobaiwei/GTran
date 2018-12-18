@@ -16,7 +16,7 @@
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
 
-#define PARSER_DBG 0
+#define PARSER_DBG 1
 #define PARSER_DBG_PRINTF(Format...) {if(PARSER_DBG) {printf(Format);}}
 
 using namespace std;

@@ -34,7 +34,7 @@ public:
 	bool AddParam(string s);
 	bool IsBarrier() const;
 
-	string DebugString();
+	string DebugString() const;
 };
 
 ibinstream& operator<<(ibinstream& m, const Actor_Object& msg);

@@ -41,16 +41,18 @@ public:
 
 		int tid = TidMapper::GetInstance().GetTid();
 
-		#ifdef ACTOR_PROCESS_PRINT
-		//in MT & MP model, printf is better than cout
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "LabelledBranchActorBase::process", node.get_local_rank(), tid);
-		#ifdef ACTOR_PROCESS_SLEEP
-		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
-		#endif
-		#endif
-
 		if(msg.meta.msg_type == MSG_T::SPAWN){
+
+			#ifdef ACTOR_PROCESS_PRINT
+			//in MT & MP model, printf is better than cout
+			Node node = Node::StaticInstance();
+			printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
+				node.WtimeSinceStart(), "LabelledBranchActorBase::process MSG_T::SPAWN", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
+			#ifdef ACTOR_PROCESS_SLEEP
+			this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
+			#endif
+			#endif
+
 			uint64_t msg_id = send_branch_msg(tid, actors, msg);
 
 			// set up data for sub branch collection
@@ -68,6 +70,17 @@ public:
 			process_spawn(msg, ac);
 		}
 		else if(msg.meta.msg_type == MSG_T::BRANCH){
+
+			#ifdef ACTOR_PROCESS_PRINT
+			//in MT & MP model, printf is better than cout
+			Node node = Node::StaticInstance();
+			printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n",
+			 node.WtimeSinceStart(), "LabelledBranchActorBase::process MSG_T::BRANCH", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
+			#ifdef ACTOR_PROCESS_SLEEP
+			this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
+			#endif
+			#endif
+
 			// get branch message key
 			mkey_t key;
 			string end_path;
@@ -209,7 +222,8 @@ private:
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
 		int tid = TidMapper::GetInstance().GetTid();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "BranchFilterActor::process_spawn", node.get_local_rank(), tid);
+		printf("%f, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
+			node.WtimeSinceStart(), "BranchFilterActor::process_spawn", msg.meta.step, node.get_local_rank(), tid);
 		#endif
 
 		ac->second.data = move(msg.data);
@@ -219,7 +233,8 @@ private:
 	{
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "BranchFilterActor::process_branch", node.get_local_rank(), tid);
+		printf("%f, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
+			node.WtimeSinceStart(), "BranchFilterActor::process_branch", msg.meta.step, node.get_local_rank(), tid);
 		#endif
 
 		auto &counter =  ac->second.counter;

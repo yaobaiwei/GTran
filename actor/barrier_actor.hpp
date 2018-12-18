@@ -67,7 +67,8 @@ public:
 		#ifdef ACTOR_PROCESS_PRINT
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "BarrierActorBase::process", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
+			node.WtimeSinceStart(), "BarrierActorBase::process", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
 		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif
@@ -324,7 +325,7 @@ private:
 
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "EndActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "EndActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 
 		auto& data = ac->second.result;
@@ -368,7 +369,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "AggregateActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "AggregateActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& agg_data = ac->second.agg_data;
@@ -424,7 +425,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "CapActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "CapActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		// all msg are collected
@@ -505,7 +506,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "CountActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "CountActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& counter_map = ac->second.counter_map;
@@ -571,7 +572,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "DedupActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "DedupActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
@@ -687,7 +688,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "GroupActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "GroupActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
@@ -832,7 +833,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "OrderActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "OrderActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
@@ -970,7 +971,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "RangeActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "RangeActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& counter_map = ac->second.counter_map;
@@ -1069,7 +1070,7 @@ private:
     void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "CoinActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "CoinActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
         auto& counter_map = ac->second.counter_map;
@@ -1189,7 +1190,7 @@ private:
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		#ifdef ACTOR_PROCESS_PRINT
 		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, node = %d, tid = %d\n", node.WtimeSinceStart(), "MathActor::do_work", node.get_local_rank(), tid);
+		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "MathActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
 		#endif
 		
 		auto& data_map = ac->second.data_map;
