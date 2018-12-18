@@ -128,7 +128,8 @@ private:
         KEY_BACKSPACE = 0x0008,
         KEY_HOME      = 0x0109,//???
         KEY_END       = 0x0110,
-        KEY_DELETE    = 0x0111
+        KEY_DELETE    = 0x0111,
+        KEY_DIRECT_BACKSPACE = 0x07F
     };
 
     bool on_quit_write_ = false;
