@@ -534,7 +534,7 @@ string Parser::StepToStr(int step)
 
 void Parser::DoParse(const string& query)
 {
-
+	IndentedPrinter::IndentWrapper __indent_wrapper;
 	PARSER_DBG_PRINTF("Parser::DoParse \"%s\"\n", query.c_str());
 
 	vector<pair<Step_T, string>> tokens;
@@ -673,6 +673,7 @@ string Parser::ExpectedKey(bool isLabel)
 
 void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 {
+	IndentedPrinter::IndentWrapper __indent_wrapper;
 	PARSER_DBG_PRINTF("start of Parser::GetSteps \"%s\", %s\n", query.c_str(), TokensToStr(tokens).c_str());
 
 	int lbpos = 0;	// pos of left bracket
@@ -732,6 +733,7 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 
 void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 
+	IndentedPrinter::IndentWrapper __indent_wrapper;
 	PARSER_DBG_PRINTF("start of Parser::ReOrderSteps %s\n", TokensToStr(tokens).c_str());
 
 	if(config_->global_enable_step_reorder){
@@ -774,6 +776,7 @@ void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 }
 
 void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
+	IndentedPrinter::IndentWrapper __indent_wrapper;
 	PARSER_DBG_PRINTF("start of Parser::ParseSteps %s\n", TokensToStr(tokens).c_str());
 
 	for (auto stepToken : tokens){
