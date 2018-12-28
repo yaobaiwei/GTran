@@ -25,6 +25,7 @@ int ConsoleUtil::Getch()
     tcsetattr(0, TCSANOW, &term);
     c = getchar();
     tcsetattr(0, TCSANOW, &ori_term);
+
     return c;
 }
 
@@ -405,7 +406,7 @@ string ConsoleUtil::TryConsoleInput(string line_head)
 
                 return FetchConsoleResult();
             }
-            else if(key == KEY_BACKSPACE)//delete to the left of current cursor
+            else if(key == KEY_BACKSPACE || key == KEY_DIRECT_BACKSPACE)//delete to the left of current cursor
             {
                 OnKeyBackspace();
             }
