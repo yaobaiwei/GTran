@@ -905,7 +905,7 @@ void DataStore::load_eplist(const char* inpath)
 }
 
 //Format
-//in-v[\t] out-v[\t] label[\t] [kid:value,kid:value,...]
+//out-v[\t] in-v[\t] label[\t] [kid:value,kid:value,...]
 void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 {
 	Edge * e = new Edge;
@@ -914,9 +914,9 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	uint64_t atoi_time = timer::get_usec();
 	char * pch;
 	pch = strtok(line, "\t");
-	int in_v = atoi(pch);
-	pch = strtok(NULL, "\t");
 	int out_v = atoi(pch);
+	pch = strtok(NULL, "\t");
+	int in_v = atoi(pch);
 
 	eid_t eid(in_v, out_v);
 	e->id = eid;
