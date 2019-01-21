@@ -50,10 +50,6 @@
 
 using namespace std;
 
-#define ADAPTER_DBG 0
-
-#define ADAPTER_DBG_PRINTF(Format...) {if(ADAPTER_DBG) {printf(Format);}}
-
 class ActorAdapter {
 public:
 	ActorAdapter(Node & node, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) 
@@ -121,8 +117,6 @@ public:
 			assert(msg.data.size() == 1);
 			agg_t agg_key(m.qid, m.step);
 			data_store_->InsertAggData(agg_key, msg.data[0].second);
-			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, InsertAggData, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 			return ;
 		}else if(m.msg_type == MSG_T::EXIT){
@@ -142,9 +136,6 @@ public:
 			// earse only after query with qid is done
 			msg_logic_table_.erase(ac);
 
-			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, msg_logic_table_.erase, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
-
 			return;
 		}
 
@@ -153,14 +144,10 @@ public:
 		if(! msg_logic_table_.find(ac, m.qid)){
 			// throw msg to the same thread as init msg
 			msg.meta.recver_tid = msg.meta.parent_tid;
-			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, !msg_logic_table_.find(ac, m.qid), qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 			mailbox_->Send(tid, msg);
 			return;
 		}
 
-		ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, start of do while, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 		int current_step;
 		do{
@@ -173,8 +160,6 @@ public:
 			//timer::stop_timer(tid + offset);
 		}while(current_step != msg.meta.step);	// process next actor directly if step is modified
 
-		ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, end of do while, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 	}
 
 	void ThreadExecutor(int tid) {

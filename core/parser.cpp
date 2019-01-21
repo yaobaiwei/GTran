@@ -534,8 +534,6 @@ string Parser::StepToStr(int step)
 
 void Parser::DoParse(const string& query)
 {
-	IndentedPrinter::IndentWrapper __indent_wrapper;
-	PARSER_DBG_PRINTF("Parser::DoParse \"%s\"\n", query.c_str());
 
 	vector<pair<Step_T, string>> tokens;
 	// extract steps from query
@@ -665,7 +663,7 @@ string Parser::ExpectedKey(bool isLabel)
 	}
 	else
 	{
-		ret = "Parser::ExpectedKey()::HeiRenWenHao";
+		ret = "Parser::ExpectedKey() no io_type";
 	}
 
 	return ret;
@@ -673,8 +671,6 @@ string Parser::ExpectedKey(bool isLabel)
 
 void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 {
-	IndentedPrinter::IndentWrapper __indent_wrapper;
-	PARSER_DBG_PRINTF("start of Parser::GetSteps \"%s\", %s\n", query.c_str(), TokensToStr(tokens).c_str());
 
 	int lbpos = 0;	// pos of left bracket
 	int pos = 0;
@@ -728,13 +724,10 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 		throw ParserException("unexpected words at the end: '" + query.substr(pos - 1) + "'");
 	}
 
-	PARSER_DBG_PRINTF("end of Parser::GetSteps \"%s\", %s\n", query.c_str(), TokensToStr(tokens).c_str());
 }
 
 void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 
-	IndentedPrinter::IndentWrapper __indent_wrapper;
-	PARSER_DBG_PRINTF("start of Parser::ReOrderSteps %s\n", TokensToStr(tokens).c_str());
 
 	if(config_->global_enable_step_reorder){
 		for(int i = 1; i < tokens.size(); i ++){
@@ -772,12 +765,9 @@ void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
 			}
 		}
 	}
-	PARSER_DBG_PRINTF("end of Parser::ReOrderSteps %s\n", TokensToStr(tokens).c_str());
 }
 
 void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
-	IndentedPrinter::IndentWrapper __indent_wrapper;
-	PARSER_DBG_PRINTF("start of Parser::ParseSteps %s\n", TokensToStr(tokens).c_str());
 
 	for (auto stepToken : tokens){
 		Step_T type = stepToken.first;
@@ -786,7 +776,6 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 
 		for(int i = 0; i < params.size(); i++)
 		{
-			PARSER_DBG_PRINTF("token %s, param %d is %s\n", TokenToStr(stepToken).c_str(), i, params[i].c_str());
 		}
 
 		switch (type){
@@ -862,7 +851,6 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		default:throw ParserException("Unexpected step");
 		}
 	}
-	PARSER_DBG_PRINTF("end of Parser::ParseSteps %s\n", TokensToStr(tokens).c_str());
 }
 
 void Parser::ParseSub(const vector<string>& params, int current, bool filterBranch)

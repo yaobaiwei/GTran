@@ -18,16 +18,6 @@ public:
 
 		int tid = TidMapper::GetInstance().GetTid();
 
-		#ifdef ACTOR_PROCESS_PRINT
-		//in MT & MP model, printf is better than cout
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
-			node.WtimeSinceStart(), "RepeatActor::process", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.WtimeSinceStart(), node.get_local_rank(), tid);
-		#ifdef ACTOR_PROCESS_SLEEP
-    	this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
-		#endif
-		#endif
-
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			vector<int> step_vec;
 			get_steps(actors[msg.meta.step], step_vec);

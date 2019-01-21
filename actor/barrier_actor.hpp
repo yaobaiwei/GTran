@@ -19,33 +19,6 @@
 
 //this function is just to test if MKL works
 
-void MKLTest()
-{
-	double r[1000]; /* buffer for random numbers */
-	double s; /* average */
-	VSLStreamStatePtr stream;
-	int i, j;
-
-	/* Initializing */        
-	s = 0.0;
-	vslNewStream( &stream, VSL_BRNG_MT19937, 777 );
-
-	/* Generating */        
-	for ( i=0; i<10; i++ ) {
-		vdRngGaussian( VSL_RNG_METHOD_GAUSSIAN_ICDF, stream, 1000, r, 5.0, 2.0 );
-		for ( j=0; j<1000; j++ ) {
-			s += r[j];
-		}
-	}
-	s /= 10000.0;
-
-	/* Deleting the stream */        
-	vslDeleteStream( &stream );
-
-	/* Printing results */        
-	printf( "Sample mean of normal distribution = %f\n", s );
-}
-
 namespace BarrierData{
 	struct barrier_data_base{
 		map<string, int> path_counter;
@@ -63,16 +36,6 @@ public:
 	void process(const vector<Actor_Object> & actors, Message & msg){
 
 		int tid = TidMapper::GetInstance().GetTid();
-
-		#ifdef ACTOR_PROCESS_PRINT
-		//in MT & MP model, printf is better than cout
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
-			node.WtimeSinceStart(), "BarrierActorBase::process", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#ifdef ACTOR_PROCESS_SLEEP
-		this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
-		#endif
-		#endif
 
 		// get msg info
 		mkey_t key;
@@ -367,11 +330,6 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "AggregateActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		auto& agg_data = ac->second.agg_data;
 		auto& msg_data = ac->second.msg_data;
 
@@ -423,11 +381,6 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "CapActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		// all msg are collected
 		if(isReady){
 			const Actor_Object& actor = actors[msg.meta.step];
@@ -504,11 +457,6 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "CountActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -570,11 +518,6 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "DedupActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		auto& data_map = ac->second.data_map;
 		auto& dedup_his_map = ac->second.dedup_his_map;
 		auto& dedup_val_map = ac->second.dedup_val_map;
@@ -686,11 +629,6 @@ private:
 	ActorCache cache_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "GroupActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -831,11 +769,6 @@ private:
 	Config* config_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "OrderActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		auto& data_map = ac->second.data_map;
 		auto& data_set = ac->second.data_set;
 		int branch_key = get_branch_key(msg.meta);
@@ -969,11 +902,6 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "RangeActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
 		auto& counter_map = ac->second.counter_map;
 		int branch_key = get_branch_key(msg.meta);
 
@@ -1068,11 +996,7 @@ private:
     AbstractMailbox * mailbox_;
 
     void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "CoinActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
+
         auto& counter_map = ac->second.counter_map;
         int branch_key = get_branch_key(msg.meta);
 
@@ -1188,11 +1112,7 @@ private:
 	AbstractMailbox * mailbox_;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
-		#ifdef ACTOR_PROCESS_PRINT
-		Node node = Node::StaticInstance();
-		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", node.WtimeSinceStart(), "MathActor::do_work", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.get_local_rank(), tid);
-		#endif
-		
+
 		auto& data_map = ac->second.data_map;
 		int branch_key = get_branch_key(msg.meta);
 

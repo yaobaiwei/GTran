@@ -18,14 +18,6 @@
 #include "storage/data_store.hpp"
 #include "utils/tid_mapper.hpp"
 
-
-#define ACTOR_PROCESS_PRINT
-#define ACTOR_PROCESS_SLEEP 100000000L //only with print, did sleep matters
-
-#define ACTOR_DBG 0
-
-#define ACTOR_DBG_PRINTF(Format...) {if(ACTOR_DBG) {printf(Format);}}
-
 class AbstractActor {
 public:
 	AbstractActor(int id, DataStore* data_store, CoreAffinity* core_affinity):id_(id), data_store_(data_store), core_affinity_(core_affinity){}

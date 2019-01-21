@@ -7,7 +7,6 @@ file(GLOB utils-src-files
     hdfs_core.cpp
 	timer.cpp
     console_util.cpp
-    mpi_profiler.cpp
     tid_mapper.cpp
     mpi_config_namer.cpp
     mkl_util.cpp

@@ -16,11 +16,6 @@
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
 
-#include "utils/indented_printer.hpp"
-
-#define PARSER_DBG 1
-#define PARSER_DBG_PRINTF(Format...) {if(PARSER_DBG) {IndentedPrinter::GetInstance().Printf(Format);}}
-
 using namespace std;
 
 class Parser
