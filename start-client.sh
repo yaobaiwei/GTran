@@ -1,2 +1,3 @@
+#$1 ib_conf
 source script/runtime_environment.sh
-./release/client ib_conf
+./release/client $1
