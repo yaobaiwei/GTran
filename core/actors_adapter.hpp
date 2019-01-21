@@ -32,6 +32,7 @@
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
 #include "actor/where_actor.hpp"
+#include "actor/repeat_actor.hpp"
 
 #include "base/node.hpp"
 #include "base/type.hpp"
@@ -86,6 +87,7 @@ public:
 		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
+		actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));

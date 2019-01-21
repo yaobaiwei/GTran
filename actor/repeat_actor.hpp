@@ -1,8 +1,8 @@
 /*
- * branch_actor.hpp
+ * repeat_actor.hpp
  *
- *  Created on: July 13, 2018
- *      Author: Nick Fang
+ *  Created on: December 19, 2018
+ *      Author: Chenghuan Huang
  */
 
 #pragma once
@@ -11,9 +11,9 @@
 
 // Branch Actor
 // Copy incoming data to sub branches
-class BranchActor : public AbstractActor{
+class RepeatActor : public AbstractActor{
 public:
-	BranchActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
+	RepeatActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 	void process(const vector<Actor_Object> & actors,  Message & msg){
 
 		int tid = TidMapper::GetInstance().GetTid();
@@ -22,7 +22,7 @@ public:
 		//in MT & MP model, printf is better than cout
 		Node node = Node::StaticInstance();
 		printf("%f, ACTOR = %s, %s, msg.meta.step = %d, node = %d, tid = %d\n", 
-			node.WtimeSinceStart(), "BranchActor::process", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.WtimeSinceStart(), node.get_local_rank(), tid);
+			node.WtimeSinceStart(), "RepeatActor::process", actors[msg.meta.step].DebugString().c_str(), msg.meta.step, node.WtimeSinceStart(), node.get_local_rank(), tid);
 		#ifdef ACTOR_PROCESS_SLEEP
     	this_thread::sleep_for(chrono::nanoseconds(ACTOR_PROCESS_SLEEP));
 		#endif
@@ -39,7 +39,7 @@ public:
 				mailbox_->Send(tid, m);
 			}
 		}else{
-			cout << "Unexpected msg type in branch actor." << endl;
+			cout << "Unexpected msg type in repeat actor." << endl;
 			exit(-1);
 		}
 	}

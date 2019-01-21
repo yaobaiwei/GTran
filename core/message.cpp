@@ -7,7 +7,7 @@
 
 #include "core/message.hpp"
 
-#define MSG_DBG 0
+#define MSG_DBG 1
 
 #define MSG_DBG_PRINTF(Format...) {if(MSG_DBG) {printf(Format);}}
 
@@ -460,7 +460,7 @@ bool Message::update_route(Meta& m, const vector<Actor_Object>& actors){
 		// to branch parent
 		assert(branch_depth >= 0);
 
-		if(actors[m.step].actor_type == ACTOR_T::BRANCH){
+		if(actors[m.step].actor_type == ACTOR_T::BRANCH || actors[m.step].actor_type == ACTOR_T::REPEAT){
 			// don't need to send msg back to parent branch step
 			// go to next actor of parent
 			m.step = actors[m.step].next_actor;
@@ -497,7 +497,7 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
 			to_barrier = true;
 			break;
 		}
-		else if(actors[m.step].actor_type == ACTOR_T::BRANCH){
+		else if(actors[m.step].actor_type == ACTOR_T::BRANCH || actors[m.step].actor_type == ACTOR_T::REPEAT){
 			if(m.step <= this->meta.step){
 				// to branch parent, pop back one branch info
 				// as barrier actor is not founded in sub branch, continue to search

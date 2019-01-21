@@ -527,7 +527,7 @@ string Parser::StepToStr(int step)
 
 	step_str_map[IN] = "IN"; step_str_map[OUT] = "OUT"; step_str_map[BOTH] = "BOTH"; step_str_map[INE] = "INE"; step_str_map[OUTE] = "OUTE"; step_str_map[BOTHE] = "BOTHE"; step_str_map[INV] = "INV"; step_str_map[OUTV] = "OUTV"; step_str_map[BOTHV] = "BOTHV"; step_str_map[AND] = "AND"; step_str_map[AGGREGATE] = "AGGREGATE"; step_str_map[AS] = "AS"; step_str_map[CAP] = "CAP"; step_str_map[COUNT] = "COUNT"; step_str_map[DEDUP] = "DEDUP";
 	step_str_map[GROUP] = "GROUP"; step_str_map[GROUPCOUNT] = "GROUPCOUNT"; step_str_map[HAS] = "HAS"; step_str_map[HASLABEL] = "HASLABEL"; step_str_map[HASKEY] = "HASKEY"; step_str_map[HASVALUE] = "HASVALUE"; step_str_map[HASNOT] = "HASNOT"; step_str_map[IS] = "IS"; step_str_map[KEY] = "KEY"; step_str_map[LABEL] = "LABEL"; step_str_map[LIMIT] = "LIMIT"; step_str_map[MAX] = "MAX";
-	step_str_map[MEAN] = "MEAN"; step_str_map[MIN] = "MIN"; step_str_map[NOT] = "NOT"; step_str_map[OR] = "OR"; step_str_map[ORDER] = "ORDER"; step_str_map[PROPERTIES] = "PROPERTIES"; step_str_map[RANGE] = "RANGE"; step_str_map[SELECT] = "SELECT"; step_str_map[SKIP] = "SKIP"; step_str_map[SUM] = "SUM"; step_str_map[UNION] = "UNION"; step_str_map[VALUES] = "VALUES"; step_str_map[WHERE] = "WHERE"; step_str_map[COIN] = "COIN"; 
+	step_str_map[MEAN] = "MEAN"; step_str_map[MIN] = "MIN"; step_str_map[NOT] = "NOT"; step_str_map[OR] = "OR"; step_str_map[ORDER] = "ORDER"; step_str_map[PROPERTIES] = "PROPERTIES"; step_str_map[RANGE] = "RANGE"; step_str_map[SELECT] = "SELECT"; step_str_map[SKIP] = "SKIP"; step_str_map[SUM] = "SUM"; step_str_map[UNION] = "UNION"; step_str_map[VALUES] = "VALUES"; step_str_map[WHERE] = "WHERE"; step_str_map[COIN] = "COIN"; step_str_map[REPEAT] = "REPEAT";
 
 	return step_str_map[step];
 }
@@ -844,6 +844,9 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		//Coin Actor
 		case COIN:
 			ParseCoin(params); break;
+		//Repeat Actor
+		case REPEAT:
+			ParseRepeat(params); break;
 		//Select Actor
 		case SELECT:
 			ParseSelect(params); break;
@@ -1591,6 +1594,22 @@ void Parser::ParseCoin(const vector<string>& params)
 	AppendActor(actor);
 }
 
+void Parser::ParseRepeat(const vector<string>& params)
+{
+	//@ Act just as union
+	Actor_Object actor(ACTOR_T::REPEAT);
+	// Actor_Object actor(ACTOR_T::BRANCH);
+	if (params.size() < 1){
+		throw ParserException("expect at least one parameter for branch");
+	}
+
+	int current = actors_.size();
+	AppendActor(actor);
+
+	// Parse sub query
+	ParseSub(params, current, false);
+}
+
 void Parser::ParseSelect(const vector<string>& params)
 {
 	//@ SelectActor params: ([int label_step_key, string label_step_string]..)
@@ -1820,7 +1839,8 @@ const map<string, Parser::Step_T> Parser::str2step = {
 	{ "union", UNION },
 	{ "values", VALUES },
 	{ "where", WHERE },
-	{ "coin", COIN }
+	{ "coin", COIN },
+	{ "repeat", REPEAT }
 };
 
 const map<string, Predicate_T> Parser::str2pred = {
