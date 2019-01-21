@@ -30,7 +30,6 @@
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
 
-#include "utils/mpi_profiler.hpp"
 #include "storage/mpi_snapshot.hpp"
 
 struct Pack{
@@ -310,13 +309,6 @@ public:
 			pkg.id = qid;
 
 			//a debug function is needed
-			// printf("parse success! from id %d, actor cnt = %d\n"
-			// 	, my_node_.get_local_rank(), actors.size());
-
-			// for(int i = 0; i < actors.size(); i++)
-			// {
-			// 	printf("i = %d,  %s\n", i, actors[i].DebugString().c_str());
-			// }
 
 			pkg.actors = move(actors);
 
@@ -370,37 +362,6 @@ public:
 	}
 
 	void Start(){
-
-		MPIProfiler* pf = MPIProfiler::GetInstance("gq_worker_initial", my_node_.local_comm);
-		pf->InsertLabel("rdma_mem");
-		pf->InsertLabel("mailbox");
-		pf->InsertLabel("datastore");
-		pf->InsertLabel("get_string_indexes");
-		pf->InsertLabel("get_vertices");
-		pf->InsertLabel("get_vplist");
-		pf->InsertLabel("get_eplist");
-		pf->InsertLabel("shuffle");
-
-		pf->InsertLabel("v_local1");
-		pf->InsertLabel("v_alltoall");
-		pf->InsertLabel("v_local2");
-		pf->InsertLabel("e_local1");
-		pf->InsertLabel("e_alltoall");
-		pf->InsertLabel("e_local2");
-		pf->InsertLabel("vp_local1");
-		pf->InsertLabel("vp_alltoall");
-		pf->InsertLabel("vp_local2");
-		pf->InsertLabel("ep_local1");
-		pf->InsertLabel("ep_alltoall");
-		pf->InsertLabel("ep_local2");
-		pf->InsertLabel("vp_lists_local1");
-		pf->InsertLabel("vp_lists_alltoall");
-		pf->InsertLabel("vp_lists_local2");
-
-		pf->InsertLabel("data_converter");
-		pf->InsertLabel("load_mapping");
-		pf->InsertLabel("post_others");
-
 		//initial MPIConfigNamer
 		MPIConfigNamer* p = MPIConfigNamer::GetInstanceP(my_node_.local_comm);
 		p->AppendHash(config_->HDFS_INDEX_PATH + 
@@ -426,27 +387,21 @@ public:
 		cout << "DONE -> Init Core Affinity" << endl;
 
 		//set the in-memory layout for RDMA buf
-		pf->STPF("rdma_mem");
 		Buffer * buf = new Buffer(my_node_);
 		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
-		pf->EDPF("rdma_mem");
 
-		pf->STPF("mailbox");
 		AbstractMailbox * mailbox;
 		if (config_->global_use_rdma)
 			mailbox = new RdmaMailbox(my_node_, buf);
 		else
 			mailbox = new TCPMailbox(my_node_);
 		mailbox->Init(workers_);
-		pf->EDPF("mailbox");
 
 		cout << "DONE -> Mailbox->Init()" << endl;
 
-		pf->STPF("datastore");
 		DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
 		DataStore::StaticInstanceP(datastore);
 		datastore->Init(workers_);
-		pf->EDPF("datastore");
 
 		cout << "DONE -> DataStore->Init()" << endl;
 
@@ -462,22 +417,16 @@ public:
 		worker_barrier(my_node_);
 
 		//=======data shuffle==========
-		pf->STPF("shuffle");
 		datastore->Shuffle();
-		pf->EDPF("shuffle");
 		cout << "DONE -> DataStore->Shuffle()" << endl;
 		//=======data shuffle==========
 
-		pf->STPF("data_converter");
 		datastore->DataConverter();
-		pf->EDPF("data_converter");
 		worker_barrier(my_node_);
 
 		cout << "DONE -> Datastore->DataConverter()" << endl;
 
-		pf->STPF("load_mapping");
 		parser_->LoadMapping();
-		pf->EDPF("load_mapping");
 		cout << "DONE -> Parser_->LoadMapping()" << endl;
 
 		//write snapshot area
@@ -486,7 +435,6 @@ public:
 			datastore->WriteSnapshot();
 		}
 
-		pf->STPF("post_others");
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
 
@@ -504,9 +452,7 @@ public:
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
 		actor_adapter->Start();
 		cout << "DONE -> actor_adapter->Start()" << endl;
-		pf->EDPF("post_others");
 
-		pf->PrintSummary();
 
 
 		//pop out the query result from collector, automatically block when it's empty and wait

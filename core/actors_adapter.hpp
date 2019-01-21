@@ -32,6 +32,7 @@
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
 #include "actor/where_actor.hpp"
+#include "actor/repeat_actor.hpp"
 
 #include "base/node.hpp"
 #include "base/type.hpp"
@@ -48,10 +49,6 @@
 #include "utils/tid_mapper.hpp"
 
 using namespace std;
-
-#define ADAPTER_DBG 0
-
-#define ADAPTER_DBG_PRINTF(Format...) {if(ADAPTER_DBG) {printf(Format);}}
 
 class ActorAdapter {
 public:
@@ -86,6 +83,7 @@ public:
 		actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
+		actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
 		actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
@@ -119,8 +117,6 @@ public:
 			assert(msg.data.size() == 1);
 			agg_t agg_key(m.qid, m.step);
 			data_store_->InsertAggData(agg_key, msg.data[0].second);
-			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, InsertAggData, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 			return ;
 		}else if(m.msg_type == MSG_T::EXIT){
@@ -140,9 +136,6 @@ public:
 			// earse only after query with qid is done
 			msg_logic_table_.erase(ac);
 
-			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, msg_logic_table_.erase, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
-
 			return;
 		}
 
@@ -151,14 +144,10 @@ public:
 		if(! msg_logic_table_.find(ac, m.qid)){
 			// throw msg to the same thread as init msg
 			msg.meta.recver_tid = msg.meta.parent_tid;
-			ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, !msg_logic_table_.find(ac, m.qid), qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 			mailbox_->Send(tid, msg);
 			return;
 		}
 
-		ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, start of do while, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 
 		int current_step;
 		do{
@@ -171,8 +160,6 @@ public:
 			//timer::stop_timer(tid + offset);
 		}while(current_step != msg.meta.step);	// process next actor directly if step is modified
 
-		ADAPTER_DBG_PRINTF("%f, node %d, thread %d, ActorAdapter::execute, end of do while, qid = %s, m.msg_path = %s\n",
-				node_.WtimeSinceStart(), node_.get_local_rank(), tid, Tool::int64_to_2int32_str(m.qid).c_str(), m.msg_path.c_str());
 	}
 
 	void ThreadExecutor(int tid) {

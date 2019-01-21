@@ -96,7 +96,10 @@ public:
 			//too dangerous!
 			if(counter_sz != 0)
 			{
-				printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n", global_core, counter_sz, counter[0]);
+				if(node_.get_local_rank() == 0)
+				{
+					printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n", global_core, counter_sz, counter[0]);
+				}
 			}
 			else
 			{

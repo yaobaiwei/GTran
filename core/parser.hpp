@@ -16,9 +16,6 @@
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
 
-#define PARSER_DBG 0
-#define PARSER_DBG_PRINTF(Format...) {if(PARSER_DBG) {printf(Format);}}
-
 using namespace std;
 
 class Parser
@@ -27,7 +24,7 @@ private:
 	enum Step_T{
 		IN, OUT, BOTH, INE, OUTE, BOTHE, INV, OUTV, BOTHV, AND, AGGREGATE, AS, CAP, COUNT, DEDUP,
 		GROUP, GROUPCOUNT, HAS, HASLABEL, HASKEY, HASVALUE, HASNOT, IS, KEY, LABEL, LIMIT, MAX,
-		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE, COIN
+		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE, COIN, REPEAT
 	};
 
 	//for debug usage
@@ -158,6 +155,7 @@ private:
 	void ParseProperties(const vector<string>& params);
 	void ParseRange(const vector<string>& params, Step_T type);
 	void ParseCoin(const vector<string>& params);
+	void ParseRepeat(const vector<string>& params);
 	void ParseSelect(const vector<string>& params);
 	void ParseTraversal(const vector<string>& params, Step_T type);
 	void ParseValues(const vector<string>& params);
@@ -181,7 +179,7 @@ public:
 	void LoadMapping();
 
 	//parsing exception
-	struct ParserException {
+	struct ParserException{
 		string message;
 
 		ParserException(const std::string &message) : message(message){}

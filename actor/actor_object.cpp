@@ -44,7 +44,7 @@ bool Actor_Object::IsBarrier() const
 	}
 }
 
-string Actor_Object::DebugString()
+string Actor_Object::DebugString() const
 {
 	string s = "Actortype: " + string(ActorType[static_cast<int>(actor_type)]);
 	s += ", params: ";

@@ -127,7 +127,6 @@ public:
             MPI_Barrier(local_comm);
         }
     }
-    ////</Nov 2018, Chenghuan Huang>
 
     void LocalSingleDebugPrint(string s)
     {
@@ -139,6 +138,7 @@ public:
         return omp_get_wtime() - start_wtime_;
     }
 
+    //sync wtime between workers
     void InitialLocalWtime()
     {
         for(int i = 0; i < 50; i++)

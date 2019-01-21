@@ -96,7 +96,7 @@ static inline bool WriteHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
     }
 
     uint64_t data_sz = data.size(), buf_sz = m.size();
-    printf("WriteHashMapSerImpl data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
+    printf("WriteHashMapSerImpl data_sz = %lu, buf_sz = %lu\n", data_sz, buf_sz);
 
     // doge << data_sz;
     // doge << buf_sz;
@@ -126,7 +126,7 @@ static inline bool ReadHashMapSerImpl(string fn, hash_map<T1, T2*>& data)
     doge.read((char*)&data_sz, sizeof(uint64_t));
     doge.read((char*)&buf_sz, sizeof(uint64_t));
 
-    printf("ReadHashMapSerImpl data_sz = %d, buf_sz = %d\n", data_sz, buf_sz);
+    printf("ReadHashMapSerImpl data_sz = %lu, buf_sz = %lu\n", data_sz, buf_sz);
 
     char* tmp_buf = new char[buf_sz];
     doge.read(tmp_buf, buf_sz);
@@ -192,7 +192,7 @@ static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& 
     doge.read((char*)&last_entry, sizeof(uint64_t));
     doge.read((char*)&mem_sz, sizeof(uint64_t));
 
-    printf("ReadKVStoreImpl last_entry = %d, mem_sz = %lu\n", last_entry, mem_sz);
+    printf("ReadKVStoreImpl last_entry = %lu, mem_sz = %lu\n", last_entry, mem_sz);
 
     doge.read(mem, mem_sz);
 
