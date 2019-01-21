@@ -11,25 +11,31 @@ Don't forget pull the lastest master branch before you want to PR to me!
 
 noted by Hongzhi CHEN
 
-# How to run
+# Build & Run
 
-## before running
+## Before
 
 Set environment variable GQUERY_HOME. If you are in the working directory, you can run:
 ```
 export GQUERT_HOME=$PWD
 ```
 
+## Build
+
+```
+mkdir build; cd build; cmake ..; make -j;
+```
+
 ## run server
 
 ```
-sh start-server.sh
+sh start-server.sh $Process_NUM $Name_of_Machine.cfg $Name_of_IB.cfg
 ```
 
 ## run client
 
 ```
-sh start-client.sh
+sh start-client.sh $Name_of_IB.cfg
 ```
 
 # other files
