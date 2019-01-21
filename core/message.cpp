@@ -122,7 +122,6 @@ obinstream& operator>>(obinstream& m, Message& msg)
 void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, const vector<Actor_Object>& actors, vector<Message>& vec)
 {
 	// assign receiver thread id
-
 	Meta m;
 	m.qid = qid;
 	m.step = 0;
@@ -598,6 +597,7 @@ std::string Message::DebugString() const {
 	return ss.str();
 }
 
+
 bool operator == (const history_t& l, const history_t& r){
 	if(l.size() != r.size()){
 		return false;
@@ -617,10 +617,12 @@ size_t MemSize(const int& i)
 	return sizeof(int);
 }
 
+
 size_t MemSize(const char& c)
 {
 	return sizeof(char);
 }
+
 
 size_t MemSize(const value_t& data)
 {

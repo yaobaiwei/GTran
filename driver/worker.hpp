@@ -344,6 +344,7 @@ public:
 
 			um >> client_host; //get the client hostname for returning results.
 			um >> query;
+
 			cout << "worker_node" << my_node_.get_local_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
 
 			if(query.find("emu") == 0){
