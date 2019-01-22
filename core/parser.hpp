@@ -167,7 +167,7 @@ public:
 
 	Parser(IndexStore* index_store): index_store_(index_store)
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	int GetPid(Element_T type, string& property);

@@ -1,12 +1,12 @@
-/*-----------------------------------------------------
+/*
+ * mpi_unique_namer.cpp
+ *
+ *  Created on: Nov 15, 2018
+ *      Author: Chenghuan Huang
+ */
 
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
 
-#include "mpi_config_namer.hpp"
+#include "mpi_unique_namer.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +22,7 @@
 
 using namespace std;
 
-void MPIConfigNamer::GetHostsStr()
+void MPIUniqueNamer::GetHostsStr()
 {
     char tmp_hn[1000];
     int hn_len;
@@ -56,27 +56,27 @@ void MPIConfigNamer::GetHostsStr()
     string hn_cat(tmp_hn_cat);
     string rank_str = ultos(my_rank_);
 
-    hn_cat_ = rank_str + hn_cat;//make sure that different host has different dir name
+    hn_cat_ = rank_str + hn_cat;//make sure that different host has different dir name, which enables debug on NFS
 
     delete hn_lens;
     delete hn_displs;
     delete tmp_hn_cat;
 }
 
-unsigned long MPIConfigNamer::GetHash(string s)
+unsigned long MPIUniqueNamer::GetHash(string s)
 {
     hash<string> str_hash;
     return str_hash(s);
 }
 
-string MPIConfigNamer::ultos(unsigned long ul)
+string MPIUniqueNamer::ultos(unsigned long ul)
 {
     char c[50];
     sprintf(c, "%lu", ul);
     return string(c);
 }
 
-void MPIConfigNamer::AppendHash(string to_append)
+void MPIUniqueNamer::AppendHash(string to_append)
 {
     if(hashed_str_.size() != 0)
         hashed_str_ = hashed_str_ + "_";
@@ -84,7 +84,7 @@ void MPIConfigNamer::AppendHash(string to_append)
     hashed_str_ += ultos(GetHash(to_append));
 }
 
-string MPIConfigNamer::ExtractHash()
+string MPIUniqueNamer::ExtractHash()
 {
     // //debug
     // for(int i = 0; i < comm_sz_; i++)

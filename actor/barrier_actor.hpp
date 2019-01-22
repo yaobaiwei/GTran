@@ -3,6 +3,7 @@
  *
  *  Created on: July 16, 2018
  *      Author: Nick Fang
+ *  Modified on Nov, 2018 by Chenghuan Huang 
  */
 #pragma once
 #include <limits.h>
@@ -16,8 +17,6 @@
 #include <mkl_vsl.h>
 
 #include "utils/mkl_util.hpp"
-
-//this function is just to test if MKL works
 
 namespace BarrierData{
 	struct barrier_data_base{
@@ -35,7 +34,7 @@ public:
 
 	void process(const vector<Actor_Object> & actors, Message & msg){
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		// get msg info
 		mkey_t key;
@@ -618,7 +617,7 @@ class GroupActor : public BarrierActorBase<BarrierData::group_data>
 public:
 	GroupActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox)
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 private:
@@ -758,7 +757,7 @@ class OrderActor : public BarrierActorBase<BarrierData::order_data>
 public:
 	OrderActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox)
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 private:
@@ -875,20 +874,7 @@ namespace BarrierData{
 		// pair:
 		//		int: counter, record num of incoming data
 		//		vec: record data in given range
-		unordered_map<
-						int, 
-						pair<
-							 int, 
-							 vector<
-									pair<
-										 history_t, 
-										 vector<
-										 		value_t
-										 	   >
-										 >
-									>
-							>
-					> counter_map;
+		unordered_map<int, pair<int, vector<pair<history_t, vector<value_t>>>>> counter_map;
 	};
 }
 

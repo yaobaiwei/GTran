@@ -1,10 +1,10 @@
-/*-----------------------------------------------------
+/*
+ * simple_thread_safe_map.hpp
+ *
+ *  Created on: Nov 12, 2018
+ *      Author: Chenghuan Huang
+ */
 
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-12
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
 
 #pragma once
 
@@ -26,15 +26,15 @@ namespace std
     //do not try to implement a single instance map here
     //this is just a abstract implementation
     template <typename __KEY_T, typename __VALUE_T>
-    class UglyThreadSafeMap
+    class SimpleThreadSafeMap
     {
     private:
         map<__KEY_T, pair<pthread_spinlock_t, __VALUE_T>> base_map_;
         pthread_spinlock_t comm_lock_;
 
     public:
-        UglyThreadSafeMap(){pthread_spin_init(&comm_lock_, 0);};
-        ~UglyThreadSafeMap(){};
+        SimpleThreadSafeMap(){pthread_spin_init(&comm_lock_, 0);};
+        ~SimpleThreadSafeMap(){};
 
 
         //this can only guarantee that 
@@ -90,73 +90,6 @@ namespace std
             pthread_spin_unlock(&comm_lock_);
         }
 
-    };
-
-    class UglyInstanceManager
-    {
-    private:
-        // static pthread_spinlock_t lock_;//super super low performance
-        //not needed at all, actually.
-
-        // UglyInstanceRefManager(){pthread_spin_init(&lock_, 0);};
-
-        // template <typename T>
-        // UglyThreadSafeMap<string, T> doge;
-
-        UglyInstanceManager();
-
-    public:
-        //to utilize the insane property of template
-
-        // ugly_thread_safe_map.o: In function `_GLOBAL__sub_I_(int0_t, l, long, int0_t, int0_t)':
-        // ugly_thread_safe_map.cpp:(.text.startup+0x25): undefined reference to `std::UglyInstanceManager::lock_'
-        // collect2: error: ld returned 1 exit status
-        // static int InitialLock()
-        // {
-        //     pthread_spin_init(&UglyInstanceManager::lock_, 0);//
-        //     printf("UglyInstanceManager::InitialLock\n");
-        //     return 0;
-        // }
-
-        template <typename T>
-        static T* GetInstanceP(string instance_name, T* ptr_outer = nullptr)
-        {
-            static UglyThreadSafeMap<string, T*> instance_map;
-
-            if(ptr_outer != nullptr)
-            {
-                //replace the value
-                instance_map.Set(instance_name, ptr_outer);
-            }
-
-            T* ret_val;
-
-            if(instance_map.Count(instance_name) == 0)
-            {
-                ret_val = nullptr;
-            }
-            else
-            {
-                ret_val = instance_map.Get(instance_name);
-            }
-
-            return ret_val;
-        }
-
-        template <typename T>
-        static void PrintInstance(string instance_name)
-        {
-            T* ptr = GetInstanceP<T>(instance_name);
-
-            if(ptr == nullptr)
-            {
-                printf("PrintInstance nullptr\n");
-            }
-            else
-            {
-                cout << "key is "<< instance_name << ", value is " << *ptr << endl;
-            }
-        }
     };
 };
 

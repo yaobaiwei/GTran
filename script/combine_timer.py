@@ -2,8 +2,6 @@ import sys
 import re
 from datetime import datetime
 
-#USAGE： To collect the profile info of each query step from all nodes to a new created file "timer_XXX.txt"
-
 l = {}
 d = {}
 mind = {}

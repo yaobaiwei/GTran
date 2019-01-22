@@ -39,7 +39,7 @@ public:
 	LabelledBranchActorBase(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity, msg_id_alloc* allocator): AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), id_allocator_(allocator){}
 	void process(const vector<Actor_Object> & actors,  Message & msg){
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 

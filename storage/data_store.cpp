@@ -11,7 +11,7 @@
 
 DataStore::DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf): node_(node), id_mapper_(id_mapper), buffer_(buf)
 {
-	config_ = &Config::GetInstance();
+	config_ = Config::GetInstance();
 	vpstore_ = NULL;
 	epstore_ = NULL;
 	tcp_helper = NULL;
@@ -50,7 +50,7 @@ void DataStore::Init(vector<Node> & nodes){
 
 void DataStore::LoadDataFromHDFS(){
 
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
 	get_string_indexes();
 	cout << "Node " << node_.get_local_rank() << " get_string_indexes() DONE !" << endl;
@@ -77,21 +77,10 @@ void DataStore::LoadDataFromHDFS(){
 
 void DataStore::ReadSnapshot()
 {
-	// return;
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-	bool ok1 = snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
-	bool ok2 = snapshot->ReadData("datastore_e_table", e_table, ReadHashMapSerImpl);
-
-	int ok_cnt = 0;
-	if(ok1)
-		ok_cnt++;
-	if(ok2)
-		ok_cnt++;
-
-	//call the read snapshot in the kvstore
-
-	printf("DataStore::ReadSnapshot(), Snapshot read %d of 2\n", ok_cnt);
+	snapshot->ReadData("datastore_v_table", v_table, ReadHashMapSerImpl);
+	snapshot->ReadData("datastore_e_table", e_table, ReadHashMapSerImpl);
 
 	vpstore_->ReadSnapshot();
 	epstore_->ReadSnapshot();
@@ -99,18 +88,10 @@ void DataStore::ReadSnapshot()
 
 void DataStore::WriteSnapshot()
 {
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-	if(!snapshot->TestRead("datastore_v_table"))
-	{
-		printf("DataStore::WriteSnapshot() write 1, %d\n", v_table.size());
-		snapshot->WriteData("datastore_v_table", v_table, WriteHashMapSerImpl);
-	}
-	if(!snapshot->TestRead("datastore_e_table"))
-	{
-		printf("DataStore::WriteSnapshot() write 2, %d\n", e_table.size());
-		snapshot->WriteData("datastore_e_table", e_table, WriteHashMapSerImpl);
-	}
+	snapshot->WriteData("datastore_v_table", v_table, WriteHashMapSerImpl);
+	snapshot->WriteData("datastore_e_table", e_table, WriteHashMapSerImpl);
 
 	vpstore_->WriteSnapshot();
 	epstore_->WriteSnapshot();
@@ -118,9 +99,8 @@ void DataStore::WriteSnapshot()
 
 void DataStore::Shuffle()
 {
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-	//break if the vtxs has already been finished.
 	if(!snapshot->TestRead("datastore_v_table"))
 	{
 		//vertices
@@ -143,10 +123,6 @@ void DataStore::Shuffle()
 		}
 		vtx_parts.clear();
 		vector<vector<Vertex*>>().swap(vtx_parts);
-	}
-	else
-	{
-		printf("Shuffle snapshot->TestRead('datastore_v_table')\n");
 	}
 
 	//edges
@@ -229,6 +205,11 @@ void DataStore::Shuffle()
 		vpl_parts.clear();
 		vector<vector<vp_list*>>().swap(vpl_parts);
 	}
+	else
+	{
+		if(node_.get_local_rank() == MASTER_RANK)
+			printf("Shuffle snapshot->TestRead('vkvstore')\n");
+	}
 
 	if(!snapshot->TestRead("ekvstore"))
 	{
@@ -264,12 +245,17 @@ void DataStore::Shuffle()
 		ep_parts.clear();
 		vector<vector<EProperty*>>().swap(ep_parts);
 	}
+	else
+	{
+		if(node_.get_local_rank() == MASTER_RANK)
+			printf("Shuffle snapshot->TestRead('ekvstore')\n");
+	}
 }
 
 
 void DataStore::DataConverter()
 {
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 	if(!snapshot->TestRead("datastore_v_table"))
 	{
 		for(int i = 0 ; i < vertices.size(); i++)
@@ -294,7 +280,8 @@ void DataStore::DataConverter()
 	}
 	else
 	{
-		printf("DataConverter snapshot->TestRead('datastore_v_table')\n");
+		if(node_.get_local_rank() == MASTER_RANK)
+			printf("DataConverter snapshot->TestRead('datastore_v_table')\n");
 	}
 
 	if(!snapshot->TestRead("datastore_e_table"))
@@ -315,10 +302,6 @@ void DataStore::DataConverter()
 		}
 		vector<VProperty*>().swap(vplist);
 	}
-	else
-	{
-		printf("DataConverter snapshot->TestRead('vkvstore')\n");
-	}
 
 	if(!snapshot->TestRead("ekvstore"))
 	{
@@ -330,11 +313,6 @@ void DataStore::DataConverter()
 		}
 		vector<EProperty*>().swap(eplist);
 	}
-	else
-	{
-		printf("DataConverter snapshot->TestRead('ekvstore')\n");
-	}
-
 }
 
 Vertex* DataStore::GetVertex(vid_t v_id){
@@ -634,11 +612,12 @@ void DataStore::get_string_indexes()
 
 void DataStore::get_vertices()
 {
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 	//break if the vtxs has already been finished.
 	if(snapshot->TestRead("datastore_v_table"))
 	{
-		printf("get_vertices snapshot->TestRead('datastore_v_table')\n");
+		if (node_.get_local_rank() == MASTER_RANK)
+			printf("get_vertices snapshot->TestRead('datastore_v_table')\n");
 		return;
 	}
 
@@ -861,7 +840,7 @@ void DataStore::load_eplist(const char* inpath)
 }
 
 //Format
-//out-v[\t] in-v[\t] label[\t] [kid:value,kid:value,...]
+//in-v[\t] out-v[\t] label[\t] [kid:value,kid:value,...]
 void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 {
 	Edge * e = new Edge;
@@ -870,9 +849,9 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	uint64_t atoi_time = timer::get_usec();
 	char * pch;
 	pch = strtok(line, "\t");
-	int out_v = atoi(pch);
-	pch = strtok(NULL, "\t");
 	int in_v = atoi(pch);
+	pch = strtok(NULL, "\t");
+	int out_v = atoi(pch);
 
 	eid_t eid(in_v, out_v);
 	e->id = eid;

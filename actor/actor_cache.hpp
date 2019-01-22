@@ -3,8 +3,7 @@
  *
  *  Created on: July 23, 2018
  *      Author: Aaron LI 
- *  Modified on: October & November, 2018
- *      Author: Chenghuan Huang 
+ *  Modified on Nov, 2018 by Chenghuan Huang 
  */
 #ifndef ACTOR_CACHE_HPP_
 #define ACTOR_CACHE_HPP_
@@ -162,13 +161,13 @@ private:
 
 #ifdef NATIVE_ARRANGE_LRU
 #warning "NATIVE_ARRANGE_LRU defined"
-                //do not need to run when id in the newest place
+                //shuffle the block to archive LRU feature inside the block
                 if((i + 1) % BLOCK_KEY_SIZE != blocks[key].pos)
                 {
                     int mod_pos = i, mod_pos_next;
                     while(true)
                     {
-                        mod_pos_next = (mod_pos + 1) % BLOCK_KEY_SIZE;//可以减少一次取余数的运算
+                        mod_pos_next = (mod_pos + 1) % BLOCK_KEY_SIZE;
 
                         if(mod_pos_next == blocks[key].pos)
                             break;
@@ -181,7 +180,6 @@ private:
                     blocks[key].id_block[mod_pos] = id;
                 }
 #endif
-
                 pthread_spin_unlock(&(blocks[key].lock));
                 return true;
             }
@@ -192,21 +190,9 @@ private:
         return false;
     }
 
-    //if it returns >0, then it means that 
-    //now ring buffer has been realized
-    //however, I still fail to utilize the feature of LRU
-    // int insert(uint64_t id, value_t & val) {
     void insert(uint64_t id, value_t & val) {
         int key = mymath::hash_u64(id) % NUM_CACHE;
         pthread_spin_lock(&(blocks[key].lock));
-
-        //if insert or replace needed to be recorded, then the return value can be used
-        // int ret;
-        // if(blocks[key].id_block[blocks[key].pos] == 0xFFFFFFFFFFFFFFFF)
-        //     ret = 0;
-        // else
-        //     ret = 1;
-
         //insert into the key map
         blocks[key].id_block[blocks[key].pos] = id;
         //insert into the value map
@@ -215,7 +201,6 @@ private:
         blocks[key].pos = (blocks[key].pos + 1) % BLOCK_KEY_SIZE;
 
         pthread_spin_unlock(&(blocks[key].lock));
-        // return ret;
     }
 
 #endif

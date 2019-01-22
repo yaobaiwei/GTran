@@ -3,6 +3,7 @@
  *
  *  Created on: Jun 21, 2018
  *      Author: Hongzhi Chen
+ *  Modified on Jan 2019, by Chenghuan Huang
  */
 
 #ifndef WORKER_HPP_
@@ -41,7 +42,7 @@ class Worker{
 public:
 	Worker(Node & my_node, vector<Node> & workers): my_node_(my_node), workers_(workers)
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 		num_query = 0;
 		is_emu_mode_ = false;
 	}
@@ -336,7 +337,6 @@ public:
 
 			um >> client_host; //get the client hostname for returning results.
 			um >> query;
-
 			cout << "worker_node" << my_node_.get_local_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
 
 			if(query.find("emu") == 0){
@@ -362,8 +362,9 @@ public:
 	}
 
 	void Start(){
-		//initial MPIConfigNamer
-		MPIConfigNamer* p = MPIConfigNamer::GetInstanceP(my_node_.local_comm);
+
+		//initial MPIUniqueNamer
+		MPIUniqueNamer* p = MPIUniqueNamer::GetInstance(my_node_.local_comm);
 		p->AppendHash(config_->HDFS_INDEX_PATH + 
 					  config_->HDFS_VTX_SUBFOLDER + 
 					  config_->HDFS_VP_SUBFOLDER + 
@@ -373,10 +374,12 @@ public:
 					  p->ultos(config_->global_edge_property_kv_sz_gb));
 
 		//initial MPISnapshot
-		MPISnapshot* snapshot = MPISnapshot::GetInstanceP(config_->SNAPSHOT_PATH);
+		MPISnapshot* snapshot = MPISnapshot::GetInstance(config_->SNAPSHOT_PATH);
 
+    	// you can use this if you want to overwrite snapshot (e.g., the file is damaged.)
 		// snapshot->DisableRead();
-
+    	// you can use this if you are test on a tiny dataset to avoid write snapshot
+		// snapshot->DisableWrite();
 
 		//===================prepare stage=================
 		NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
@@ -453,6 +456,13 @@ public:
 		actor_adapter->Start();
 		cout << "DONE -> actor_adapter->Start()" << endl;
 
+		//for better stdout visualizability
+		worker_barrier(my_node_);
+		fflush(stdout);
+		worker_barrier(my_node_);
+
+		if(my_node_.get_local_rank() == MASTER_RANK)
+			cout << "DONE (all workers) -> actor_adapter->Start()" << endl;
 
 
 		//pop out the query result from collector, automatically block when it's empty and wait

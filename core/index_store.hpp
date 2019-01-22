@@ -17,7 +17,7 @@ class IndexStore {
 public:
 	IndexStore()
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	const static double ratio = 0.2;

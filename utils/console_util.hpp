@@ -1,9 +1,10 @@
-/*-----------------------------------------------------
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * console_util.hpp
+ *
+ *  Created on: Nov 10, 2018
+ *      Author: Chenghuan Huang
+ */
+
 #pragma once
 
 
@@ -23,6 +24,7 @@
 
 // #include "conio.h"
 
+// TODO: colorful console
 #define BLUE COLOR_BLUE
 #define RED COLOR_RED
 #define WHITE COLOR_WHITE
@@ -70,21 +72,21 @@ private:
     ConsoleUtil& operator=(const ConsoleUtil&);//not to def
     ~ConsoleUtil()
     {
-        printf("ConsoleUtil::~ConsoleUtil()\n");
-        fflush(stdout);
+        // printf("ConsoleUtil::~ConsoleUtil()\n");
+        // fflush(stdout);
         tcsetattr( STDIN_FILENO, TCSANOW, &ori_term_attr_ );
         WriteConsoleHistory(on_quit_write_path_);
     }
     ConsoleUtil()
     {
-        printf("ConsoleUtil::ConsoleUtil()\n");
+        // printf("ConsoleUtil::ConsoleUtil()\n");
         memset(line_length_, 0, sizeof(int) * BUFFER_LINE);
         tcgetattr( STDIN_FILENO, &ori_term_attr_ );
         ori_term_attr_.c_lflag |= ICANON | ECHO;
 
         // signal(SIGINT, (__sighandler_t {aka void (*)(int)})ConsoleUtil::signal_ctrlc); 
         signal(SIGINT, ConsoleUtil::signal_ctrlc);
-        printf("overwriten SIGINT (ctrl + c) with exit(0)\n");
+        // printf("overwriten SIGINT (ctrl + c) with exit(0)\n");
     }
 
     static void signal_ctrlc(int sig)
@@ -138,10 +140,10 @@ private:
     bool history_append_dedup_ = true;
 
 public:
-    static ConsoleUtil& GetInstance()
+    static ConsoleUtil* GetInstance()
     {
         static ConsoleUtil console_single_instance;
-        return console_single_instance;
+        return &console_single_instance;
     }
 
     std::string TryConsoleInput(std::string line_head = "");

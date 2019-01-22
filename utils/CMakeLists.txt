@@ -8,7 +8,7 @@ file(GLOB utils-src-files
 	timer.cpp
     console_util.cpp
     tid_mapper.cpp
-    mpi_config_namer.cpp
+    mpi_unique_namer.cpp
     mkl_util.cpp
     )
 

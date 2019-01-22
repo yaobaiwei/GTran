@@ -1,18 +1,19 @@
-/*-----------------------------------------------------
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * mpi_snapshot.hpp
+ *
+ *  Created on: Nov 20, 2018
+ *      Author: Chenghuan Huang
+ */
+
 #pragma once
 
-#include "utils/mpi_config_namer.hpp"
+#include "utils/mpi_unique_namer.hpp"
 #include <unistd.h>
 #include <fstream>
 #include "base/serialization.hpp"
 
 //make sure that the snapshot path exists
-//when this instance is called, make sure that MPIConfigNamer is initialed.
+//when this instance is called, make sure that MPIUniqueNamer is initialed.
 
 namespace std
 {
@@ -22,15 +23,18 @@ public:
     //to do: better use const reference.
 
     template<typename T>
-    bool WriteData(string key, T& data, bool(write_func)(string, T&))
+    bool WriteData(string key, T& data, bool(WriteFunc)(string, T&))
     {
         if(!write_enabled_)
             return false;
 
-        //hash the key
-        string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
+        if(TestRead(key))
+            return true;
 
-        write_func(fn, data);
+        //hash the key
+        string fn = path_ + "/" + unique_namer_->ultos(unique_namer_->GetHash(key));//dirty code
+
+        WriteFunc(fn, data);
 
         write_map_[key] = true;
 
@@ -38,15 +42,15 @@ public:
     }
 
     template<typename T>
-    bool ReadData(string key, T& data, bool(read_func)(string, T&))
+    bool ReadData(string key, T& data, bool(ReadFunc)(string, T&))
     {
         if(!read_enabled_)
             return false;
 
         //hash the key
-        string fn = path_ + "/" + n_->ultos(n_->GetHash(key));//dirty code
+        string fn = path_ + "/" + unique_namer_->ultos(unique_namer_->GetHash(key));//dirty code
 
-        read_map_[key] = read_func(fn, data);
+        read_map_[key] = ReadFunc(fn, data);
 
         return read_map_[key];
     }
@@ -70,13 +74,13 @@ public:
         return false;
     }
 
+    //use this if you want to overwrite snapshot (e.g., the file is damaged.)
     bool DisableRead(){read_enabled_ = false;}
+    //you can use this if you are test on a tiny dataset to avoid write snapshot
     bool DisableWrite(){write_enabled_ = false;}
 
-
 private:
-    //
-    MPIConfigNamer* n_;//bad name
+    MPIUniqueNamer* unique_namer_;
     string path_;
 
     map<string, bool> read_map_;
@@ -87,11 +91,10 @@ private:
     bool write_enabled_ = true;
 
     MPISnapshot(string path);
-
+    // TODO: briefly show the statistics of snapshot reading
 
 public:
-    //Watashi Wa Tensai ⑨
-    static MPISnapshot* GetInstanceP(string path = "")
+    static MPISnapshot* GetInstance(string path = "")
     {
         static MPISnapshot* snapshot_single_instance = NULL;
 

@@ -24,7 +24,7 @@ class NaiveIdMapper : public AbstractIdMapper {
 public:
 	NaiveIdMapper(Node & node) : my_node_(node)
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	bool IsVertex(uint64_t v_id) {

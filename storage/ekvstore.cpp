@@ -15,32 +15,22 @@ using namespace std;
 void EKVStore::ReadSnapshot()
 {
     // return;
-    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+    MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-    auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+    auto snapshot_tmp_tuple = make_tuple(last_entry, mem_sz, mem);
 
-    bool ok = snapshot->ReadData("ekvstore", tmp_tuple, ReadKVStoreImpl);
-
-    int ok_cnt = 0;
-    if(ok)
+    if(snapshot->ReadData("ekvstore", snapshot_tmp_tuple, ReadKVStoreImpl))
     {
-        ok_cnt++;
-        last_entry = get<0>(tmp_tuple);
+        last_entry = get<0>(snapshot_tmp_tuple);
     }
-
-    printf("EKVStore::ReadSnapshot(), Snapshot read %d of 1\n", ok_cnt);
 }
 
 void EKVStore::WriteSnapshot()
 {
-    // return;
-    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+    MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-    if(!snapshot->TestRead("vkvstore"))
-    {
-        auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
-        snapshot->WriteData("ekvstore", tmp_tuple, WriteKVStoreImpl);
-    }
+    auto snapshot_tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+    snapshot->WriteData("ekvstore", snapshot_tmp_tuple, WriteKVStoreImpl);
 }
 
 // ==================EKVStore=======================
@@ -199,7 +189,7 @@ void EKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
 
 EKVStore::EKVStore(Buffer * buf) : buf_(buf)
 {
-    config_ = &Config::GetInstance();
+    config_ = Config::GetInstance();
 	mem = config_->kvstore + GiB2B(config_->global_vertex_property_kv_sz_gb);
 	mem_sz = GiB2B(config_->global_edge_property_kv_sz_gb);
     offset = config_->kvstore_offset + GiB2B(config_->global_vertex_property_kv_sz_gb);

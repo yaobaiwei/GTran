@@ -28,48 +28,39 @@ class InitActor : public AbstractActor {
 public:
     InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), type_(ACTOR_T::INIT), is_ready_(false) 
     {
-    	config_ = &Config::GetInstance();
+    	config_ = Config::GetInstance();
 
     	//read snapshot here
     	//write snapshot @ InitData
 
-		MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+		MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-		bool ok1 = snapshot->ReadData("init_actor_vtx_data", vtx_data, ReadMailboxDataImpl);
-		bool ok2 = snapshot->ReadData("init_actor_edge_data", edge_data, ReadMailboxDataImpl);
-		bool ok3 = snapshot->ReadData("init_actor_vtx_data_count", vtx_data_count, ReadMailboxDataImpl);
-		bool ok4 = snapshot->ReadData("init_actor_edge_data_count", edge_data_count, ReadMailboxDataImpl);
+		int snapshot_read_cnt = 0;
 
+		snapshot_read_cnt += ((snapshot->ReadData("init_actor_vtx_data", vtx_data, ReadMailboxDataImpl)) ? 1 : 0);
+		snapshot_read_cnt += ((snapshot->ReadData("init_actor_edge_data", edge_data, ReadMailboxDataImpl)) ? 1 : 0);
+		snapshot_read_cnt += ((snapshot->ReadData("init_actor_vtx_data_count", vtx_data_count, ReadMailboxDataImpl)) ? 1 : 0);
+		snapshot_read_cnt += ((snapshot->ReadData("init_actor_edge_data_count", edge_data_count, ReadMailboxDataImpl)) ? 1 : 0);
 
-		int ok_cnt = 0;
-		if(ok1)
-			ok_cnt++;
-		if(ok2)
-			ok_cnt++;
-		if(ok3)
-			ok_cnt++;
-		if(ok4)
-			ok_cnt++;
-
-		if(ok_cnt == 4)
+		if(snapshot_read_cnt == 4)
+		{
 			is_ready_ = true;
+		}
 		else
 		{
-			//all fail
+			//atomic, all fail
 			vtx_data.resize(0);
 			edge_data.resize(0);
 			vtx_data_count.resize(0);
 			edge_data_count.resize(0);
 		}
-
-		printf("InitActor::InitActor(), Snapshot read %d of 4\n", ok_cnt);
 	}
 
     virtual ~InitActor(){}
 
     void process(const vector<Actor_Object> & actor_objs, Message & msg){
 
-    	int tid = TidMapper::GetInstance().GetTid();
+    	int tid = TidMapper::GetInstance()->GetTid();
 
 		if(actor_objs[msg.meta.step].params.size() == 1){
 			InitWithoutIndex(tid, actor_objs, msg);
@@ -110,7 +101,7 @@ private:
 		if(is_ready_){
 			return;
 		}
-		MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+		MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
 		// convert id to msg
 		Meta m;

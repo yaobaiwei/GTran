@@ -1,10 +1,9 @@
-/*-----------------------------------------------------
-
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-12
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * tid_mapper.cpp
+ *
+ *  Created on: Nov 14, 2018
+ *      Author: Chenghuan Huang
+ */
 
 #include "tid_mapper.hpp"
 

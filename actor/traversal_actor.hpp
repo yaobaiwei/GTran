@@ -28,7 +28,7 @@ class TraversalActor : public AbstractActor {
 public:
 	TraversalActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::TRAVERSAL) 
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	// TraversalActorObject->Params;
@@ -40,7 +40,7 @@ public:
 	//  lid: label_id (e.g. g.V().out("created"))
 	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		// Get Actor_Object
 		Meta & m = msg.meta;
@@ -115,7 +115,7 @@ private:
 					for (auto & in_nb : vtx->in_nbs) { // in_nb : vid_t
 						// Get edge_id
 						if (lid > 0) {
-							eid_t e_id(cur_vtx_id.value(), in_nb.value());
+							eid_t e_id(in_nb.value(), cur_vtx_id.value());
 							label_t label;
 							get_label_for_edge(tid, e_id, label);
 
@@ -132,7 +132,7 @@ private:
 				if (dir != Direction_T::IN) {
 					for (auto & out_nb : vtx->out_nbs) {
 						if (lid > 0) {
-							eid_t e_id(out_nb.value(), cur_vtx_id.value());
+							eid_t e_id(cur_vtx_id.value(), out_nb.value());
 							label_t label;
 							get_label_for_edge(tid, e_id, label);
 
@@ -166,7 +166,7 @@ private:
 				if (dir != Direction_T::OUT) {
 					for (auto & in_nb : vtx->in_nbs) { // in_nb : vid_t
 						// Get edge_id
-						eid_t e_id(cur_vtx_id.value(), in_nb.value());
+						eid_t e_id(in_nb.value(), cur_vtx_id.value());
 						if (lid > 0) {
 							label_t label;
 							get_label_for_edge(tid, e_id, label);
@@ -183,7 +183,7 @@ private:
 				if (dir != Direction_T::IN) {
 					for (auto & out_nb : vtx->out_nbs) {
 						// Get edge_id
-						eid_t e_id(out_nb.value(), cur_vtx_id.value());
+						eid_t e_id(cur_vtx_id.value(), out_nb.value());
 						if (lid > 0) {
 							label_t label;
 							get_label_for_edge(tid, e_id, label);

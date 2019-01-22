@@ -39,13 +39,14 @@ int main(int argc, char* argv[])
 
 	my_node.InitialLocalWtime();
 
+	//set this as 
 	Node::StaticInstance(&my_node);
 
 	// Config * config = new Config();
 	// config->Init();
 
-	Config& config = Config::GetInstance();
-	config.Init();
+	Config* config = Config::GetInstance();
+	config->Init();
 
 	cout  << "DONE -> Config->Init()" << endl;
 

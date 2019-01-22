@@ -73,7 +73,6 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta);
 
 obinstream& operator>>(obinstream& m, Meta& meta);
 
-
 // update route info of meta in ibinstream
 // ignoring msg_path, branch_infos and actors
 void update_route(ibinstream& m, const Meta& meta);

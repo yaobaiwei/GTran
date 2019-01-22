@@ -26,7 +26,7 @@ public:
 	// [pred_T , pred_params]...
 	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		// Get Actor_Object
 		Meta & m = msg.meta;

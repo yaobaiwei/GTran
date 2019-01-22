@@ -31,7 +31,7 @@ public:
     RdmaMailbox(Node & node, Buffer * buffer) :
         node_(node), buffer_(buffer) 
     {
-        config_ = &Config::GetInstance();
+        config_ = Config::GetInstance();
     }
 
     virtual ~RdmaMailbox() {}

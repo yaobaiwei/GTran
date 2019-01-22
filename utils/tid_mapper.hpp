@@ -1,10 +1,9 @@
-/*-----------------------------------------------------
-
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-12
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * tid_mapper.hpp
+ *
+ *  Created on: Nov 14, 2018
+ *      Author: Chenghuan Huang
+ */
 
 #pragma once
 
@@ -18,8 +17,8 @@
 #include <assert.h>
 #include <pthread.h>
 
-//the only usage of this class is to record the numerical tid of any thread (from 0)
-//suppose that any thread is supported by pthread
+//used to obtain the thread id of a thread itself without parameter passing
+//suppose that any thread is supported by pthread (or, POSIX)
 namespace std
 {
     class TidMapper
@@ -38,10 +37,10 @@ namespace std
 
     public:
 
-        static TidMapper& GetInstance()
+        static TidMapper* GetInstance()
         {
             static TidMapper thread_mapper_single_instance;
-            return thread_mapper_single_instance;
+            return &thread_mapper_single_instance;
         }
 
         void Register(int tid);

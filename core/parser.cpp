@@ -5,85 +5,37 @@
 
 void Parser::ReadSnapshot()
 {
-	// return;
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	// TODO: find a more elegant way to write these code
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-	bool ok1 = snapshot->ReadData("parser_str2vl", str2vl, ReadSerImpl);
-
-	bool ok2 = snapshot->ReadData("parser_str2vpk", str2vpk, ReadSerImpl);
-	bool ok3 = snapshot->ReadData("parser_vpk2vptype", vpk2vptype, ReadSerImpl);
-
-	bool ok4 = snapshot->ReadData("parser_str2el", str2el, ReadSerImpl);
-
-	bool ok5 = snapshot->ReadData("parser_str2epk", str2epk, ReadSerImpl);
-	bool ok6 = snapshot->ReadData("parser_epk2eptype", epk2eptype, ReadSerImpl);
-
-	int ok_cnt = 0;
-	if(ok1)
-		ok_cnt++;
-	if(ok2)
-		ok_cnt++;
-	if(ok3)
-		ok_cnt++;
-	if(ok4)
-		ok_cnt++;
-	if(ok5)
-		ok_cnt++;
-	if(ok6)
-		ok_cnt++;
-	printf("Parser::ReadSnapshot(), Snapshot read %d of 6\n", ok_cnt);
+	snapshot->ReadData("parser_str2vl", str2vl, ReadSerImpl);
+	snapshot->ReadData("parser_str2vpk", str2vpk, ReadSerImpl);
+	snapshot->ReadData("parser_vpk2vptype", vpk2vptype, ReadSerImpl);
+	snapshot->ReadData("parser_str2el", str2el, ReadSerImpl);
+	snapshot->ReadData("parser_str2epk", str2epk, ReadSerImpl);
+	snapshot->ReadData("parser_epk2eptype", epk2eptype, ReadSerImpl);
 }
 
 
 void Parser::WriteSnapshot()
 {
-	//if read success, then do not write snapshot (for now readonly)
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
-
-	if(!snapshot->TestRead("parser_str2vl"))
-	{
-		//printf("write 1\n");
-		snapshot->WriteData("parser_str2vl", str2vl, WriteSerImpl);
-	}
-
-	if(!snapshot->TestRead("parser_str2vpk"))
-	{
-		//printf("write 2\n");
-		snapshot->WriteData("parser_str2vpk", str2vpk, WriteSerImpl);
-	}
-	if(!snapshot->TestRead("parser_vpk2vptype"))
-	{
-		//printf("write 3\n");
-		snapshot->WriteData("parser_vpk2vptype", vpk2vptype, WriteSerImpl);
-	}
-
-	if(!snapshot->TestRead("parser_str2el"))
-	{
-		//printf("write 4\n");
-		snapshot->WriteData("parser_str2el", str2el, WriteSerImpl);
-	}
-
-	if(!snapshot->TestRead("parser_str2epk"))
-	{
-		//printf("write 5\n");
-		snapshot->WriteData("parser_str2epk", str2epk, WriteSerImpl);
-	}
-	if(!snapshot->TestRead("parser_epk2eptype"))
-	{
-		//printf("write 6\n");
-		snapshot->WriteData("parser_epk2eptype", epk2eptype, WriteSerImpl);
-	}
+	snapshot->WriteData("parser_str2vl", str2vl, WriteSerImpl);
+	snapshot->WriteData("parser_str2vpk", str2vpk, WriteSerImpl);
+	snapshot->WriteData("parser_vpk2vptype", vpk2vptype, WriteSerImpl);
+	snapshot->WriteData("parser_str2el", str2el, WriteSerImpl);
+	snapshot->WriteData("parser_str2epk", str2epk, WriteSerImpl);
+	snapshot->WriteData("parser_epk2eptype", epk2eptype, WriteSerImpl);
 }
 
 void Parser::LoadMapping(){
 	hdfsFS fs = get_hdfs_fs();
 
-	MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+	MPISnapshot* snapshot = MPISnapshot::GetInstance();
 	//try to snapshot vtx_label
 
 	bool read_str2vl_snapshot_ok = snapshot->TestRead("parser_str2vl");
-
 
 	if(!read_str2vl_snapshot_ok)
 	{
@@ -205,13 +157,11 @@ void Parser::LoadMapping(){
 				break;
 		}
 		hdfsCloseFile(fs, ep_file);
-
 	}
 	
 	hdfsDisconnect(fs);
 
-	//after load mapping, write to the set of keys
-
+	//these *_str will be used when given error key in a query (return to the client as error message)
 	for(auto vpk_pair : str2vpk)
 	{
 		vpks.push_back(vpk_pair.first);
@@ -511,9 +461,9 @@ string Parser::TokensToStr(vector<pair<Step_T, string>> tokens)
 {
 	string str = "[ ";
 
-	for(auto doge : tokens)
+	for(auto token : tokens)
 	{
-		str += TokenToStr(doge);
+		str += TokenToStr(token);
 	}
 
 	str += "]";

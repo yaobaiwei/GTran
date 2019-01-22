@@ -1,10 +1,9 @@
-/*-----------------------------------------------------
-
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * cpuinfo_util.cpp
+ *
+ *  Created on: Nov 10, 2018
+ *      Author: Chenghuan Huang
+ */
 
 #include "cpuinfo_util.hpp"
 
@@ -81,9 +80,9 @@ CPUInfoUtil::CPUInfoUtil()
 
     //check avail
     for(auto _val : siblings_)
-        assert(_val = siblings_val);
+        assert(_val == siblings_val);
     for(auto _val : cpu_cores_)
-        assert(_val = cpu_cores_val);
+        assert(_val == cpu_cores_val);
 
     //get constant
     total_thread_cnt_ = processor_.size();
