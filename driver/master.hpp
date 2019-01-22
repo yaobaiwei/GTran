@@ -37,7 +37,7 @@ struct Progress
 class Master{
 public:
 	Master(Node & node): node_(node){
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 		is_end_ = false;
 		client_num = 0;
 	}
@@ -87,7 +87,7 @@ public:
 		}
 		if (min_index != -1)
 		{
-			printf("Master min_index != -1, %d\n", min_index);
+			// printf("Master min_index != -1, %d\n", min_index);
 			return min_index;
 		}
 		return rand() % (node_.get_world_size() - 1) + 1;

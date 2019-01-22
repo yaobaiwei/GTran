@@ -37,12 +37,10 @@ private:
 	Config(){}
 
 public:
-
-	//real single instance, not like Node, like ConsoleUtil and CPUInfoUtil
-	static Config& GetInstance()
+	static Config* GetInstance()
     {
         static Config config_single_instance;
-        return config_single_instance;
+        return &config_single_instance;
     }
 
 	string HDFS_HOST_ADDRESS;
@@ -351,7 +349,6 @@ public:
 		if(strcmp(str, str_not_found)!=0)
 		{
 			//analyse snapshot_path to absolute path
-
 			string ori_str = str;
 			string str_to_process = str;
 
@@ -364,10 +361,10 @@ public:
 
 			// SNAPSHOT_PATH = string(realpath(str_to_process.c_str(), NULL));
 			//throw null pointer to a directory that do not exists
-
 			SNAPSHOT_PATH = str_to_process;
 
-			printf("world_rank = %d, given SNAPSHOT_PATH = %s, processed = %s\n", node.get_world_rank(), ori_str.c_str(), SNAPSHOT_PATH.c_str());
+			if(node.get_world_rank() == 0)
+				printf("given SNAPSHOT_PATH = %s, processed = %s\n", ori_str.c_str(), SNAPSHOT_PATH.c_str());
 		} 
 		else
 		{

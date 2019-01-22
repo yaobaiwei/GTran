@@ -1,3 +1,11 @@
+/*
+ * actor_cache.hpp
+ *
+ *  Created on: July 23, 2018
+ *      Author: Aaron LI 
+ *  Modified on Nov, 2018 by Chenghuan Huang 
+ */
+
 #ifndef CORE_AFFINITY_HPP_
 #define CORE_AFFINITY_HPP_
 
@@ -18,7 +26,7 @@
 
 #include "base/node.hpp"
 
-#include "utils/ugly_thread_safe_map.hpp"
+#include "utils/simple_thread_safe_map.hpp"
 
 using namespace std;
 
@@ -43,7 +51,7 @@ public:
 
 	CoreAffinity ()
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	Node node_;
@@ -86,28 +94,26 @@ public:
 			cout << "Failed to set affinity (core: " << core << ")" << endl;
 		else
 		{
-			//check the shi yong ji shu
-
-			int global_core = cpuinfo_.GetCoreInGlobalMappingVector(core);
+			int global_core = cpuinfo_->GetCoreInGlobalMappingVector(core);
 
 			vector<int> counter = core_counter_.GetAndLock(global_core);
 			int counter_sz = counter.size();
 
-			//too dangerous!
-			if(counter_sz != 0)
-			{
-				if(node_.get_local_rank() == 0)
-				{
-					printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n", global_core, counter_sz, counter[0]);
-				}
-			}
-			else
-			{
-				if(node_.get_local_rank() == 0)
-				{
-					printf("bind fine, t = %d, c = %d\n", core, global_core);
-				}
-			}
+			// if you are worry that "two thread on the same physical core" reduces the performance, you can uncomment the code below
+			// if(counter_sz != 0)
+			// {
+			// 	if(node_.get_local_rank() == 0)
+			// 	{
+			// 		printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n", global_core, counter_sz, counter[0]);
+			// 	}
+			// }
+			// else
+			// {
+			// 	if(node_.get_local_rank() == 0)
+			// 	{
+			// 		printf("bind fine, t = %d, c = %d\n", core, global_core);
+			// 	}
+			// }
 
 			counter.push_back(core);//not global core
 
@@ -146,7 +152,7 @@ private:
 	// bool enable_binding = false;
 	vector<int> core_bindings;
 
-	CPUInfoUtil& cpuinfo_ = CPUInfoUtil::GetInstance();
+	CPUInfoUtil* cpuinfo_ = CPUInfoUtil::GetInstance();
 
 	// Full core_id for each division
 	//on 2 * 8 core
@@ -194,7 +200,7 @@ private:
 	map<int, int> core_to_thread_map;
 	map<int, int> thread_to_core_map;
 
-	UglyThreadSafeMap<int, vector<int>> core_counter_;//this is implemented in case of bad affinity implementation
+	SimpleThreadSafeMap<int, vector<int>> core_counter_;//this is implemented in case of bad affinity implementation
 
 	//to do:
 	//	to consider NUMA when assigning cores
@@ -205,7 +211,7 @@ private:
 		int cur_step = 0;
 		int last_div = 0;//last division core
 
-		int core_cnt = cpuinfo_.GetTotalCoreCount();
+		int core_cnt = cpuinfo_->GetTotalCoreCount();
 
 		for(int i = 0; i < core_cnt; i++)
 		{
@@ -235,11 +241,11 @@ private:
 		
 		//the thread pool will be initialed after the core pool initialized
 		//the loop sequence must be so.
-		for(int j = 0; j < cpuinfo_.GetThreadPerCore(); j++)
+		for(int j = 0; j < cpuinfo_->GetThreadPerCore(); j++)
 		for(int i = 0; i < NUM_THREAD_DIVISION; i++)
 		for(auto core_id : potential_core_pool_[i])
 		{
-			potential_thread_pool_[i].push_back(cpuinfo_.GetCoreThreads(core_id)[j]);
+			potential_thread_pool_[i].push_back(cpuinfo_->GetCoreThreads(core_id)[j]);
 		}
 
 		//local_rank_ == 0  node 0: cores: 
@@ -258,31 +264,29 @@ private:
 		//[ 11 13 15 27 29 31], 
 
 
-		//debug
+		//debug; would be necessarty if run on nodes with different CPU configuration
+		std::stringstream ss;
+		ss<<"node "<<node_.get_local_rank()<<": cores: ";
+		for(auto cores : potential_core_pool_)
 		{
-			std::stringstream ss;
-			ss<<"node "<<node_.get_local_rank()<<": cores: ";
-			for(auto cores : potential_core_pool_)
+			ss<<"[";
+			for(auto core : cores)
 			{
-				ss<<"[";
-				for(auto core : cores)
-				{
-					ss<<" "<<core;
-				}
-				ss<<"], ";
+				ss<<" "<<core;
 			}
-			ss<<" threads: ";
-			for(auto threads : potential_thread_pool_)
-			{
-				ss<<"[";
-				for(auto thread : threads)
-				{
-					ss<<" "<<thread;
-				}
-				ss<<"], ";
-			}
-			node_.LocalSequentialDebugPrint(ss.str());
+			ss<<"], ";
 		}
+		ss<<" threads: ";
+		for(auto threads : potential_thread_pool_)
+		{
+			ss<<"[";
+			for(auto thread : threads)
+			{
+				ss<<" "<<thread;
+			}
+			ss<<"], ";
+		}
+		node_.LocalSequentialDebugPrint(ss.str());
 	}
 
 	void load_actor_division()
@@ -526,73 +530,6 @@ private:
 
 		return str;
 	}
-
-	/*
-	 * Bind the current thread to a special core (core number)
-	 */
-	/*
-	void bind_to_core(size_t core)
-	{
-		cpu_set_t mask;
-		CPU_ZERO(&mask);
-		CPU_SET(core, &mask);
-		if (sched_setaffinity(0, sizeof(mask), &mask) != 0)
-			cout << "Failed to set affinity (core: " << core << ")" << endl;
-	}*/
-
-	/*
-	 * Bind the current thread to special cores (mask)
-	 */
-	/*
-	void bind_to_core(cpu_set_t mask)
-	{
-		if (sched_setaffinity(0, sizeof(mask), &mask) != 0)
-			cout << "Fail to set affinity!" << endl;
-	}*/
-
-	/*
-	 * Bind the current thread to all of cores
-	 * It would like unbind to special cores
-	 * and not return the previous core binding
-	 */
-	/*
-	void bind_to_all()
-	{
-		cpu_set_t mask;
-		CPU_ZERO(&mask);
-		for (int i = 0; i < default_bindings.size(); i++)
-			CPU_SET(default_bindings[i], &mask);
-
-		if (sched_setaffinity(0, sizeof(mask), &mask) != 0)
-			cout << "Fail to set affinity" << endl;
-	}*/
-
-	/*
-	 * Return the mask of the current core binding
-	 */
-	/*
-	cpu_set_t get_core_binding()
-	{
-		cpu_set_t mask;
-		CPU_ZERO(&mask);
-		if (sched_getaffinity(0, sizeof(mask), &mask) != 0)
-			cout << "Fail to get affinity" << endl;
-		return mask;
-	}*/
-
-	/*
-	 * Unbind the current thread to special cores
-	 * and return the preivous core binding
-	 */
-	/*
-	cpu_set_t unbind_to_core()
-	{
-		cpu_set_t mask;
-		mask = get_core_binding(); // record the current core binding
-
-		bind_to_all();
-		return mask;
-	}*/
 
 	int multi_floor (int a, double b) {
 		return (int)floor(a * b);

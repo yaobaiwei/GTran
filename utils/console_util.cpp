@@ -1,17 +1,14 @@
-/*-----------------------------------------------------
-
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * console_util.cpp
+ *
+ *  Created on: Nov 10, 2018
+ *      Author: Chenghuan Huang
+ */
 
 #include "console_util.hpp"
 #include <fstream>
 
 using namespace std;
-
-// ConsoleUtil& icurwen4uvkfsjdev = ConsoleUtil::GetInstance();
 
 int ConsoleUtil::Getch()
 {

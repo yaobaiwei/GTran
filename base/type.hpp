@@ -101,7 +101,7 @@ obinstream& operator>>(obinstream& m, ikey_t& p);
 
 bool operator == (const ikey_t &p1, const ikey_t &p2);
 
-enum {VID_BITS = 26}; // <32; the total # of vertices should no be more than 2^26
+enum {VID_BITS = 27}; // <32; the total # of vertices should no be more than 2^26
 enum {EID_BITS = (VID_BITS * 2)}; //eid = v1_id | v2_id (52 bits)
 enum {PID_BITS = (64 - EID_BITS)}; //12, the total # of property should no be more than 2^PID_BITS
 

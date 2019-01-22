@@ -22,16 +22,9 @@ static __inline__ unsigned long long GetCycleCount()
 MKLUtil::MKLUtil(int tid)
 {
     tid_ = tid;
-    // printf("MKLUtil::MKLUtil() %d\n", tid_);
-
-    //they are the same, 0.
-    // if(tid == 0)
-    // {
-    //     printf("%d %d\n", VSL_ERROR_OK, VSL_STATUS_OK);
-    // }
 
     int cc = GetCycleCount();
-    // int cc = __rdtsc();
+
     vslNewStream(&rng_stream_, VSL_BRNG_SFMT19937, cc);
 }
 
@@ -63,69 +56,23 @@ void MKLUtil::Test()
     printf( "Sample mean of normal distribution = %f\n", s );
 }
 
-// vRngUniform
-// Generates random numbers uniformly distributed over
-// the interval [a, b).
-// Syntax
-// status = viRngUniform( method, stream, n, r, a, b );
-// Include Files
-// • mkl.h
-// Input Parameters
-// Name Type Description
-// method const MKL_INT Generation method; the specific value is as follows:
-// VSL_RNG_METHOD_UNIFORM_STD
-// Standard method. Currently there is only one method for
-// this distribution generator.
-// stream VSLStreamStatePtr Pointer to the stream state structure
-// n const MKL_INT Number of random values to be generated
-// a const int Left interval bound a
-// b const int Right interval bound b
-// Output Parameters
-// Name Type Description
-// r int* Vector of n random numbers uniformly distributed over the
-// interval [a,b)
-
-
-void MKLUtil::UniformRNGI4(int* dst, int len, int min, int max)
+bool MKLUtil::UniformRNGI4(int* dst, int len, int min, int max)
 {
     int status = viRngUniform(VSL_RNG_METHOD_UNIFORM_STD, rng_stream_, len, dst, min, max + 1);
 
-    assert(status == VSL_STATUS_OK);
+    return status == VSL_STATUS_OK;
 }
 
-
-// Syntax
-// status = vsRngUniform( method, stream, n, r, a, b );
-// status = vdRngUniform( method, stream, n, r, a, b );
-// Include Files
-// • mkl.h
-// Input Parameters
-// Name Type Description
-// method const MKL_INT Generation method; the specific values are as follows:
-// VSL_RNG_METHOD_UNIFORM_STD
-// VSL_RNG_METHOD_UNIFORM_STD_ACCURATE
-// Standard method.
-// stream VSLStreamStatePtr Pointer to the stream state structure
-// n const MKL_INT Number of random values to be generated
-// a const float for vsRngUniform
-// const double for
-// vdRngUniform
-// Left bound a
-// b const float for vsRngUniform Right bound b
-
-
-
-void MKLUtil::UniformRNGF4(float* dst, int len, float min, float max)
+bool MKLUtil::UniformRNGF4(float* dst, int len, float min, float max)
 {
     int status = vsRngUniform(VSL_RNG_METHOD_UNIFORM_STD, rng_stream_, len, dst, min, max);
 
-    assert(status == VSL_STATUS_OK);
+    return status == VSL_STATUS_OK;
 }
 
-
-void MKLUtil::UniformRNGF8(double* dst, int len, double min, double max)
+bool MKLUtil::UniformRNGF8(double* dst, int len, double min, double max)
 {
     int status = vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, rng_stream_, len, dst, min, max);
 
-    assert(status == VSL_STATUS_OK);
+    return status == VSL_STATUS_OK;
 }

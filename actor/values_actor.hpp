@@ -23,13 +23,13 @@ class ValuesActor : public AbstractActor {
 public:
 	ValuesActor(int id, DataStore* data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity * core_affinity) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::VALUES) 
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	// inType, [key]+
 	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		Meta & m = msg.meta;
 		Actor_Object actor_obj = actor_objs[m.step];

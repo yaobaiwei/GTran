@@ -54,7 +54,7 @@ class ActorAdapter {
 public:
 	ActorAdapter(Node & node, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) 
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 		num_thread_ = config_->global_num_threads;
 		times_.resize(num_thread_, 0);
 	}
@@ -95,7 +95,7 @@ public:
 
 	void Start(){
 		Init();
-		TidMapper& tmp = TidMapper::GetInstance();//in case of initial in parallel region
+		TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();//in case of initial in parallel region
 
 		for(int i = 0; i < num_thread_; ++i)
 			thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
@@ -148,7 +148,6 @@ public:
 			return;
 		}
 
-
 		int current_step;
 		do{
 			current_step = msg.meta.step;
@@ -163,7 +162,7 @@ public:
 	}
 
 	void ThreadExecutor(int tid) {
-		TidMapper::GetInstance().Register(tid);
+		TidMapper::GetInstance()->Register(tid);
 		// bind thread to core
 		if (config_->global_enable_core_binding) {
 			core_affinity_->BindToCore(tid);

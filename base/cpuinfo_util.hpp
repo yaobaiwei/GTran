@@ -1,10 +1,9 @@
-/*-----------------------------------------------------
-
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * cpuinfo_util.hpp
+ *
+ *  Created on: Nov 10, 2018
+ *      Author: Chenghuan Huang
+ */
 
 #pragma once
 
@@ -57,10 +56,10 @@ private:
     ~CPUInfoUtil(){};
 
 public:
-    static CPUInfoUtil& GetInstance()
+    static CPUInfoUtil* GetInstance()
     {
         static CPUInfoUtil cpuinfo_single_instance;
-        return cpuinfo_single_instance;
+        return &cpuinfo_single_instance;
     }
 
     //void GetCoreInfo();

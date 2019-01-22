@@ -40,7 +40,7 @@ public:
 
     TCPMailbox(Node & my_node) : my_node_(my_node), context(1) 
     {
-        config_ = &Config::GetInstance();
+        config_ = Config::GetInstance();
     }
 
 	~TCPMailbox();

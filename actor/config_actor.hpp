@@ -23,12 +23,12 @@ class ConfigActor : public AbstractActor {
 public:
 	ConfigActor(int id, DataStore * data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::CONFIG) 
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 
 	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		// Get Actor_Object
 		Meta & m = msg.meta;

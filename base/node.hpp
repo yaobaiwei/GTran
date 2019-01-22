@@ -90,9 +90,7 @@ public:
         return ss.str();
     }
 
-    ////<Nov 2018, Chenghuan Huang>
     //if not parameter are given, then it do not modify the static instance
-    //yet another deep dark fantasy of magical C++
     static Node StaticInstance(Node* p = NULL)
     {
         static Node* static_instance_p_ = NULL;
@@ -114,7 +112,7 @@ public:
         printf("SingleTrap from local_rank_ %d, %s\n", StaticInstance().local_rank_, s.c_str());
     }
 
-    //sequential debug print among local_comm
+    //sequential debug print among local_comm (workers)
     void LocalSequentialDebugPrint(string s)
     {
         for(int i = 0; i < local_size_; i++)

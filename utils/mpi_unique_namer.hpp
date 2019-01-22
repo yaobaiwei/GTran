@@ -1,22 +1,26 @@
-/*-----------------------------------------------------
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/*
+ * mpi_unique_namer.hpp
+ *
+ *  Created on: Nov 15, 2018
+ *      Author: Chenghuan Huang
+ */
+
+
 #pragma once
 
 
 #include <string>
 #include <mpi.h>
 
-class MPIConfigNamer
+//this class is implemented to generate a unique hash-based path for MPI program.
+//the "unique path" design to be related to the application configuration
+class MPIUniqueNamer
 {
 private:
     //the concat of hostnames
     void GetHostsStr();
 
-    MPIConfigNamer(MPI_Comm comm)
+    MPIUniqueNamer(MPI_Comm comm)
     {
         comm_ = comm;
         MPI_Comm_rank(comm, &my_rank_);
@@ -36,13 +40,13 @@ private:
     std::string hashed_str_;
 
 public:
-    static MPIConfigNamer* GetInstanceP(MPI_Comm comm = MPI_COMM_WORLD)
+    static MPIUniqueNamer* GetInstance(MPI_Comm comm = MPI_COMM_WORLD)
     {
-        static MPIConfigNamer* config_namer_single_instance = NULL;
+        static MPIUniqueNamer* config_namer_single_instance = NULL;
 
         if(config_namer_single_instance == NULL)
         {
-            config_namer_single_instance = new MPIConfigNamer(comm);
+            config_namer_single_instance = new MPIUniqueNamer(comm);
         }
 
         return config_namer_single_instance;

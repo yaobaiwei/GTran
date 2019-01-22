@@ -25,7 +25,7 @@ public:
 
 	HasLabelActor(int id, DataStore * data_store, int machine_id, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), machine_id_(machine_id), num_thread_(num_thread), mailbox_(mailbox), type_(ACTOR_T::HASLABEL) 
 	{
-		config_ = &Config::GetInstance();
+		config_ = Config::GetInstance();
 	}
 	// HasLabel:
 	// 		Pass if any label_key matches
@@ -34,7 +34,7 @@ public:
 	// 		vector<value_t> value_t.type = int
 	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		// Get Actor_Object
 		Meta & m = msg.meta;

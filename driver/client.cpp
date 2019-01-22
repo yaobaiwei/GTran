@@ -3,6 +3,7 @@
  *
  *  Created on: Jun 24, 2018
  *      Author: Hongzhi Chen
+ *  Modified on Jan 2019, by Chenghuan Huang
  */
 
 #include "driver/client.hpp"
@@ -151,20 +152,17 @@ void Client::run_console(string query_fname) {
   // 1. Whole time for user
   // 2. Touch Worker to Get result 
 
-  ConsoleUtil& console = ConsoleUtil::GetInstance();
-  console.SetConsoleHistory("history_gquery.log");
-  console.SetOnQuitWrite("history_gquery.log");
+  ConsoleUtil* console = ConsoleUtil::GetInstance();
+  console->SetConsoleHistory("history_gquery.log");
+  console->SetOnQuitWrite("history_gquery.log");
 
   while (true) {
 next:
     string cmd;
 
-    cmd = console.TryConsoleInput("GQuery> ");
-
-
+    cmd = console->TryConsoleInput("GQuery> ");
     // cout << "GQuery> ";
     // std::getline(std::cin, cmd);
-
 
     // Timer
     uint64_t enter_t = timer::get_usec();

@@ -21,7 +21,7 @@
 #include <mkl.h>
 
 #include "tid_mapper.hpp"
-#include "ugly_thread_safe_map.hpp"
+#include "simple_thread_safe_map.hpp"
 
 namespace std
 {
@@ -43,7 +43,7 @@ private:
     //get instance from the map with key tid
     static MKLUtil* GetInstanceActual(int tid)
     {
-        static UglyThreadSafeMap<int, MKLUtil*> instance_map;
+        static SimpleThreadSafeMap<int, MKLUtil*> instance_map;
 
         if(instance_map.Count(tid) == 0)
         {
@@ -63,23 +63,20 @@ public:
 
     //currently, assuming that each tid has only one instance of MKLUtil.
     //maybe in the future, a "thread instance" will be able to use a pool of threads.
-    //but not now
+    //if you wants to use the main thread to do computation with this class, you need to register tid for it
     static MKLUtil* GetInstance()
     {
-        auto tid = TidMapper::GetInstance().GetTidUnique();
+        auto tid = TidMapper::GetInstance()->GetTidUnique();
 
         return GetInstanceActual(tid);
     }
 
+    // Interface for testing
     void Test();
 
-    //
-    void UniformRNGI4(int* dst, int len, int min, int max);
-    void UniformRNGF4(float* dst, int len, float min, float max);
-    void UniformRNGF8(double* dst, int len, double min, double max);
-
-    // void DGEMM();
-    // void SGEMM();
+    bool UniformRNGI4(int* dst, int len, int min, int max);
+    bool UniformRNGF4(float* dst, int len, float min, float max);
+    bool UniformRNGF8(double* dst, int len, double min, double max);
 };
 
 }

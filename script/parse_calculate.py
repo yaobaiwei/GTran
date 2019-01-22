@@ -1,16 +1,14 @@
 import sys
 
-#Usage: To calculate the average runtime [geometric mean] of each query through 5 repeatted execution. 
 sum = 1
 count = 0
-prefix = "/data/aaron/"
 
 if ( len(sys.argv) != 3 ) :
     print("2 arguments needed")
     sys.exit(2)
 
 for num in range(int(sys.argv[1]), int(sys.argv[2])) :
-    fname = prefix + "gquery/output/outputworker" + str(num)
+    fname = "/data/aaron/test_gquery/gquery/output/outputworker" + str(num)
     file = open(fname, "r")
 
     for line in file :

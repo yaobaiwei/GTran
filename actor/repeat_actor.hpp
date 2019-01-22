@@ -1,7 +1,7 @@
 /*
  * repeat_actor.hpp
  *
- *  Created on: December 19, 2018
+ *  Created on: Dec 19, 2018
  *      Author: Chenghuan Huang
  */
 
@@ -16,7 +16,7 @@ public:
 	RepeatActor(int id, DataStore* data_store, int num_thread, AbstractMailbox* mailbox, CoreAffinity* core_affinity) : AbstractActor(id, data_store, core_affinity), num_thread_(num_thread), mailbox_(mailbox){}
 	void process(const vector<Actor_Object> & actors,  Message & msg){
 
-		int tid = TidMapper::GetInstance().GetTid();
+		int tid = TidMapper::GetInstance()->GetTid();
 
 		if(msg.meta.msg_type == MSG_T::SPAWN){
 			vector<int> step_vec;

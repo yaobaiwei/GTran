@@ -15,32 +15,22 @@ using namespace std;
 
 void VKVStore::ReadSnapshot()
 {
-    // return;
-    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+    MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-    auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+    auto snapshot_tmp_tuple = make_tuple(last_entry, mem_sz, mem);
 
-    bool ok = snapshot->ReadData("vkvstore", tmp_tuple, ReadKVStoreImpl);
-
-    int ok_cnt = 0;
-    if(ok)
+    if(snapshot->ReadData("vkvstore", snapshot_tmp_tuple, ReadKVStoreImpl))
     {
-        ok_cnt++;
-        last_entry = get<0>(tmp_tuple);
+        last_entry = get<0>(snapshot_tmp_tuple);
     }
-    printf("VKVStore::ReadSnapshot(), Snapshot read %d of 1\n", ok_cnt);
 }
 
 void VKVStore::WriteSnapshot()
 {
-    // return;
-    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+    MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
-    if(!snapshot->TestRead("vkvstore"))
-    {
-        auto tmp_tuple = make_tuple(last_entry, mem_sz, mem);
-        snapshot->WriteData("vkvstore", tmp_tuple, WriteKVStoreImpl);
-    }
+    auto snapshot_tmp_tuple = make_tuple(last_entry, mem_sz, mem);
+    snapshot->WriteData("vkvstore", snapshot_tmp_tuple, WriteKVStoreImpl);
 }
 
 // ==================VKVStore=======================
@@ -201,7 +191,7 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
 
 VKVStore::VKVStore(Buffer * buf) : buf_(buf)
 {
-    config_ = &Config::GetInstance();
+    config_ = Config::GetInstance();
 	mem = config_->kvstore;
 	mem_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
     offset = config_->kvstore_offset;
@@ -261,17 +251,12 @@ void VKVStore::init(vector<Node> & nodes) {
 // Insert a list of Vertex properties
 void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
 
-    MPISnapshot* snapshot = MPISnapshot::GetInstanceP();
+    MPISnapshot* snapshot = MPISnapshot::GetInstance();
     if(!snapshot->TestRead("vkvstore"))
     {
-        printf("(!snapshot->TestRead('vkvstore'))\n");
         for (int i = 0; i < vplist.size(); i++){
             insert_single_vertex_property(vplist.at(i));
         }
-    }
-    else
-    {
-        printf("(snapshot->TestRead('vkvstore'))\n");
     }
 }
 
