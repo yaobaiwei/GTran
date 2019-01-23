@@ -399,7 +399,6 @@ public:
 		//read snapshot area
         parser_->ReadSnapshot();
         datastore->ReadSnapshot();
-		//TODO: ep, vp store -> read snapshot
 
 		datastore->LoadDataFromHDFS();
 		worker_barrier(my_node_);
