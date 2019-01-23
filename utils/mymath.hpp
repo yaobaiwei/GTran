@@ -124,4 +124,9 @@ public:
     {
         seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
+
+    static void hash_combine(size_t& seed, uint64_t v)
+    {
+        seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
 };

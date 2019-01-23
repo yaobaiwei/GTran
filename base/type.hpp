@@ -241,6 +241,12 @@ uint64_t pid : PID_BITS;
         return r;
     }
 
+	uint64_t validation_value() {
+        uint64_t r = 0;
+        r += vid;
+        return r;
+	}
+
     uint64_t hash() {
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
     }
@@ -289,6 +295,14 @@ uint64_t pid : PID_BITS;
         r += pid;
         return r;
     }
+
+	uint64_t validation_value() {
+		uint64_t r = 0;
+		r += in_vid;
+		r <<= VID_BITS;
+		r += out_vid;
+		return r;
+	}
 
     uint64_t hash() {
         return mymath::hash_u64(value()); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
@@ -368,8 +382,8 @@ enum Index_T { E_LABEL, E_PROPERTY, V_LABEL, V_PROPERTY };
 // Spawn: spawn a new actor
 // Feed: "proxy" feed actor a input
 // Reply: actor returns the intermidiate result to actor
-enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH,EXIT };
-static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit"};
+enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH, EXIT, VALIDATION, COMMIT };
+static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit", "validation", "commit"};
 
 ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 
@@ -377,11 +391,12 @@ obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
 	INIT, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, CONFIG, COUNT, DEDUP, GROUP, HAS, HASLABEL, INDEX,
-	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, COIN, REPEAT, END
+	IS, KEY, LABEL, MATH, ORDER, PROPERTY, RANGE, SELECT, TRAVERSAL, VALUES, WHERE, COIN, REPEAT, END, VALIDATION
 };
 
 static const char *ActorType[] = { "INIT", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "CONFIG", "COUNT", "DEDUP", "GROUP", "HAS",
-"HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE" , "COIN", "REPEAT", "END"};
+"HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE" , "COIN", "REPEAT", "END", "VALIDATION"};
+
 
 ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
 
@@ -544,4 +559,10 @@ enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };
 static const int NUM_THREAD_DIVISION = 6;
 static const int NUM_RESIDENT_THREAD = 4;
 
+//====For Validation=====
+
+enum Premitive_T { ALL, IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP };
+enum ID_T { VID, EID, VPID, EPID };
+
+//====For Validation=====
 #endif /* TYPE_HPP_ */

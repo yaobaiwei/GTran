@@ -5,9 +5,11 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #pragma once
 
+#include <algorithm>
 #include <mutex>
 #include <string>
 #include <stdlib.h>
+#include <unistd.h>
 #include <ext/hash_map>
 #include <ext/hash_set>
 
@@ -84,6 +86,12 @@ public:
 	void GetAggData(agg_t key, vector<value_t> & data);
 	void DeleteAggData(agg_t key);
 
+	// Validation : Get RCT data
+	void GetRecentlyCommittedTable (vector<Premitive_T> premitiveList,
+									vector<uint64_t> & committedTimeList,
+									vector<int> & propertyKeyList,
+									vector<uint64_t> & data);
+
 	// For TCP use
 	TCPHelper * tcp_helper;
 
@@ -122,6 +130,22 @@ private:
 	VKVStore * vpstore_;
 	EKVStore * epstore_;
 
+	// Validation Use
+	// 	Insert V/E, Delete V/E (4 tables)
+	// 	Insert/Modify/Delete VP/EP (3/6 tables)
+	// 	TrxID --> ObjectList
+	// 	One thread access one Transaction at a time.
+	hash_map<uint64_t, vector<vid_t>> rct_IV;
+	hash_map<uint64_t, vector<eid_t>> rct_IE;
+	hash_map<uint64_t, vector<vid_t>> rct_DV;
+	hash_map<uint64_t, vector<eid_t>> rct_DE;
+	hash_map<uint64_t, vector<vpid_t>> rct_IVP;
+	hash_map<uint64_t, vector<epid_t>> rct_IEP;
+	hash_map<uint64_t, vector<vpid_t>> rct_MVP;
+	hash_map<uint64_t, vector<epid_t>> rct_MEP;
+	hash_map<uint64_t, vector<vpid_t>> rct_DVP;
+	hash_map<uint64_t, vector<epid_t>> rct_DEP;
+
 	//=========tmp usage=========
 	vector<Vertex*> vertices;  //x
 	vector<Edge*> edges; //x
@@ -148,4 +172,12 @@ private:
 	void get_eplist();
 	void load_eplist(const char* inpath);
 	void to_ep(char* line, vector<EProperty*> & eplist);
+	
+	// Validation use
+	void get_rct_all(vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data); 
+
+	template <class T>
+	void get_rct_topo(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data);
+	template <class T>
+	void get_rct_prop(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data);
 };
