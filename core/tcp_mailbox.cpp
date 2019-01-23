@@ -1,9 +1,8 @@
-/*
- * tcp_mailbox.cpp
- *
- *  Created on: Aug 29, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+
+*/
 
 #include "core/tcp_mailbox.hpp"
 

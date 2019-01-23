@@ -1,9 +1,8 @@
-/*
- * select_actor.hpp
- *
- *  Created on: July 24, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef SELECT_ACTOR_HPP_
 #define SELECT_ACTOR_HPP_
 

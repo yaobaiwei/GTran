@@ -1,9 +1,9 @@
-/*
- * index_actor.hpp
- *
- *  Created on: Aug 29, 2018
- *      Author: Aaron LI, Nick Fang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Aaron Li (cjli@cse.cuhk.edu.hk)
+         Nick Fang (jcfang6@cse.cuhk.edu.hk)
+*/
+
 #ifndef INDEX_ACTOR_HPP_
 #define INDEX_ACTOR_HPP_
 

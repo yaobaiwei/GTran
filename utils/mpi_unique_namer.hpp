@@ -1,13 +1,9 @@
-/*
- * mpi_unique_namer.hpp
- *
- *  Created on: Nov 15, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
 
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #pragma once
-
 
 #include <string>
 #include <mpi.h>

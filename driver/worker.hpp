@@ -1,10 +1,8 @@
-/*
- * worker.hpp
- *
- *  Created on: Jun 21, 2018
- *      Author: Hongzhi Chen
- *  Modified on Jan 2019, by Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+         Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #ifndef WORKER_HPP_
 #define WORKER_HPP_
@@ -107,14 +105,6 @@ public:
 
 		cmd = cmd.substr(3);
 		string file_name = Tool::trim(cmd, " ");
-		// config file for emulator
-		// file format:
-		// first line: #test_time(sec) [/t] #parrell_factor
-		// first line: #num of query type
-		// following with n queries:
-		//		query_string [/t] property_key_string
-		// each query_string contains one unkown:
-		// g.V().has("name", "%RAND")[/t]price
 	    ifstream ifs(file_name);
 	    if (!ifs.good()) {
 	        cout << "file not found: " << file_name << endl;
@@ -249,6 +239,7 @@ public:
 		}
 
 		is_emu_mode_ = false;
+
 		// send reply to client
 		if(is_main_worker){
 			value_t v;
@@ -308,9 +299,6 @@ public:
 		if(success){
 			Pack pkg;
 			pkg.id = qid;
-
-			//a debug function is needed
-
 			pkg.actors = move(actors);
 
 			queue_.Push(pkg);
@@ -376,9 +364,9 @@ public:
 		//initial MPISnapshot
 		MPISnapshot* snapshot = MPISnapshot::GetInstance(config_->SNAPSHOT_PATH);
 
-    	// you can use this if you want to overwrite snapshot (e.g., the file is damaged.)
+    	// you can use this if you want to overwrite snapshot
 		// snapshot->DisableRead();
-    	// you can use this if you are test on a tiny dataset to avoid write snapshot
+    	// you can use this if you are testing on a tiny dataset to avoid write snapshot
 		// snapshot->DisableWrite();
 
 		//===================prepare stage=================
@@ -387,11 +375,11 @@ public:
 		//init core affinity
 		CoreAffinity * core_affinity = new CoreAffinity();
 		core_affinity->Init();
-		cout << "DONE -> Init Core Affinity" << endl;
+		cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init Core Affinity" << endl;
 
 		//set the in-memory layout for RDMA buf
 		Buffer * buf = new Buffer(my_node_);
-		cout << "DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
+	    cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
 
 		AbstractMailbox * mailbox;
 		if (config_->global_use_rdma)
@@ -400,43 +388,38 @@ public:
 			mailbox = new TCPMailbox(my_node_);
 		mailbox->Init(workers_);
 
-		cout << "DONE -> Mailbox->Init()" << endl;
+	    cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Mailbox->Init()" << endl;
 
 		DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
 		DataStore::StaticInstanceP(datastore);
 		datastore->Init(workers_);
 
-		cout << "DONE -> DataStore->Init()" << endl;
+	    cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Init()" << endl;
 
 		//read snapshot area
-		{
-			parser_->ReadSnapshot();
-			datastore->ReadSnapshot();
-			//to do:
-			//ep, vp store -> read snapshot
-		}
+        parser_->ReadSnapshot();
+        datastore->ReadSnapshot();
+		//TODO: ep, vp store -> read snapshot
 
 		datastore->LoadDataFromHDFS();
 		worker_barrier(my_node_);
 
 		//=======data shuffle==========
 		datastore->Shuffle();
-		cout << "DONE -> DataStore->Shuffle()" << endl;
+	    cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Shuffle()" << endl;
 		//=======data shuffle==========
 
 		datastore->DataConverter();
 		worker_barrier(my_node_);
 
-		cout << "DONE -> Datastore->DataConverter()" << endl;
+	    cout << "Worker" << my_node_.get_local_rank()  << ": DONE -> Datastore->DataConverter()" << endl;
 
 		parser_->LoadMapping();
-		cout << "DONE -> Parser_->LoadMapping()" << endl;
+	    cout << "Worker" << my_node_.get_local_rank()  << ": DONE -> Parser_->LoadMapping()" << endl;
 
 		//write snapshot area
-		{
-			parser_->WriteSnapshot();
-			datastore->WriteSnapshot();
-		}
+        parser_->WriteSnapshot();
+        datastore->WriteSnapshot();
 
 		thread recvreq(&Worker::RecvRequest, this);
 		thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
@@ -454,15 +437,12 @@ public:
 		//actor driver starts
 		ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
 		actor_adapter->Start();
-		cout << "DONE -> actor_adapter->Start()" << endl;
-
-		//for better stdout visualizability
+        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> actor_adapter->Start()" << endl;
 		worker_barrier(my_node_);
+
+
 		fflush(stdout);
 		worker_barrier(my_node_);
-
-		if(my_node_.get_local_rank() == MASTER_RANK)
-			cout << "DONE (all workers) -> actor_adapter->Start()" << endl;
 
 
 		//pop out the query result from collector, automatically block when it's empty and wait

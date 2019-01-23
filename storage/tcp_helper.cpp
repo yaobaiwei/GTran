@@ -1,9 +1,8 @@
-/*
- * tcp_helper.cpp
- *
- *  Created on: Sep 1, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #pragma once
 
 #include "storage/tcp_helper.hpp"

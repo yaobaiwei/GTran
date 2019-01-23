@@ -1,3 +1,8 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
+
 template <class T>
 ibinstream& operator<<(ibinstream& m, const T* p)
 {

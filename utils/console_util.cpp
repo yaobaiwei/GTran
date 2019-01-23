@@ -1,9 +1,7 @@
-/*
- * console_util.cpp
- *
- *  Created on: Nov 10, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #include "console_util.hpp"
 #include <fstream>

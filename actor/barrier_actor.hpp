@@ -1,10 +1,8 @@
-/*
- * branch_actor.hpp
- *
- *  Created on: July 16, 2018
- *      Author: Nick Fang
- *  Modified on Nov, 2018 by Chenghuan Huang 
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+         Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 #pragma once
 #include <limits.h>
 

@@ -15,26 +15,16 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
-# MKL
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux/mkl/include")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux/mkl/lib/intel64_lin")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux/compiler/lib/intel64_lin")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmkl_blas95_lp64 -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core ")
-
-# HWLOC
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/data/miao/lib/hwloc-1.11.7/include")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/data/miao/lib/hwloc-1.11.7/lib")
-
 set(COMMON_LINK_LIBS "-lrt")
-
-# Please source tbbvars.sh first
-set(TBB_LIB "tbb")
-set(HWLOC_LIB "hwloc")
 
 set(ZMQ_ROOT "/data/hzchen/lib/zmq")
 set(GLOG_ROOT "/data/hzchen/lib/glog")
 set(HDFS2_ROOT "/data/opt/hadoop-2.6.0")
 set(IBVERB_ROOT "/data/miao/lib/libibverbs-1.2.0")
+set(HWLOC_ROOT "/data/miao/lib/hwloc-1.11.7")
+set(TBB_ROOT "/data/miao/lib/tbb44_20151115oss")
+set(MKL_ROOT "/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux")
+
 
 add_definitions(-DUSE_HDFS2_)  #use hdfs v2.x.x by defalut
 add_definitions(-DHAS_RDMA)  #use RDMA
@@ -46,16 +36,25 @@ include(cmake/modules/glog.cmake)
 include(cmake/modules/hdfs.cmake)
 include(cmake/modules/ibverbs.cmake)
 include(cmake/modules/zmq.cmake)
+include(cmake/modules/hwloc.cmake)
+include(cmake/modules/tbb.cmake)
 
-set(DEPS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/deps)
-set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR}  ${ZMQ_INCLUDE_DIR} ${DEPS_INCLUDE_DIR})
-set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${ZMQ_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS} ${TBB_LIB} ${HWLOC_LIB})
+# MKL
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${MKL_ROOT}/mkl/include")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${MKL_ROOT}/mkl/lib/intel64_lin")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${MKL_ROOT}/compiler/lib/intel64_lin")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmkl_blas95_lp64 -lmkl_lapack95_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core ")
+
+
+set(DEPS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_party)
+set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR}  ${ZMQ_INCLUDE_DIR} ${HWLOC_INCLUDE_DIR} ${MKL_INCLUDE_DIRS} ${TBB_INCLUDE_DIR} ${DEPS_INCLUDE_DIR})
+set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${ZMQ_LIBRARIES} ${HWLOC_LIBRARIES} ${MKL_LIBRARIES} ${TBB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS})
 
 add_subdirectory(actor)
 add_subdirectory(base)
 add_subdirectory(core)
 add_subdirectory(storage)
 add_subdirectory(utils)
-add_subdirectory(deps)
+add_subdirectory(third_party)
 
 add_subdirectory(driver)

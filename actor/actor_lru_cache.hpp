@@ -1,9 +1,8 @@
-/*
- * actor_lru_cache.hpp
- *
- *  Created on: 14 Aug, 2018
- *      Author: Aaron LI 
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef ACTOR_LRU_CACHE_HPP_
 #define ACTOR_LRU_CACHE_HPP_
 

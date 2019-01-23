@@ -1,11 +1,10 @@
-/*
- * client.cpp
- *
- *  Created on: Jun 24, 2018
- *      Author: Hongzhi Chen
- *  Modified on Jan 2019, by Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
 
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+         Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
+
+#include "glog/logging.h"
 #include "driver/client.hpp"
 
 Client::Client(string cfg_fname) : fname_(cfg_fname) {
@@ -97,16 +96,10 @@ void Client::print_help()
     cout << "GQuery commands: " << endl;
     cout << "    help                display help infomation" << endl;
     cout << "    quit                quit from console" << endl;
-    // cout << "    config <args>       run commands on config" << endl;
-    // cout << "        -v                  print current config" << endl;
-    // cout << "        -l <file>           load config items from <file>" << endl;
-    // cout << "        -s <string>         set config items by <str> (format: item1=val1&item2=...)" << endl;
     cout << "    gquery <args>       run Gremlin-Like queries" << endl;
     cout << "        -q <query> [<args>] a single query input by user" << endl;
     cout << "           -o <file>           output results into <file>" << endl;
     cout << "        -f <file> [<args>]  a single query from <file>" << endl;
-    // cout << "           -n <num>            run <num> times" << endl;
-    // cout << "           -v <num>            print at most <num> lines of results" << endl;
     cout << "           -o <file>           output results into <file>" << endl;
     cout << "        -b <file> [<args>]  a set of queries configured by <file> (batch-mode)" << endl;
     cout << "           -o <file>           output results into <file>" << endl;
@@ -124,188 +117,179 @@ bool Client::trim_str(string& str) {
 }
 
 void Client::run_console(string query_fname) {
-	if (query_fname != "") {
-		string query, result;
+    if (query_fname != "") {
+        string query, result;
 
-		ifstream file(query_fname.c_str());
-		if (!file) {
-		  cout << "[Client][ERROR]: " << query_fname << " does not exist." << endl << endl;
-		  return;
-		}
+        ifstream file(query_fname.c_str());
+        if (!file) {
+          cout << "[Client][ERROR]: " << query_fname << " does not exist." << endl << endl;
+          return;
+        }
 
-		while (std::getline(file, query)) {
-		  if (!trim_str(query)) {
-			  cout << "[Client][Error]: Empty Query" << endl << endl;
-			  return;
-		  }
+        while (std::getline(file, query)) {
+            if (!trim_str(query)) {
+              cout << "[Client][Error]: Empty Query" << endl << endl;
+              return;
+            }
 
-		  run_query(query, result, true);
-
-		  query.clear();
-		}
+            run_query(query, result, true);
+            query.clear();
+        }
 
         cout << "[Client] result: " << result << endl << endl;
-		return;
-	}
-
-  // Timer:
-  // 1. Whole time for user
-  // 2. Touch Worker to Get result 
-
-  ConsoleUtil* console = ConsoleUtil::GetInstance();
-  console->SetConsoleHistory("history_gquery.log");
-  console->SetOnQuitWrite("history_gquery.log");
-
-  while (true) {
-next:
-    string cmd;
-
-    cmd = console->TryConsoleInput("GQuery> ");
-    // cout << "GQuery> ";
-    // std::getline(std::cin, cmd);
-
-    // Timer
-    uint64_t enter_t = timer::get_usec();
-
-    // trim input and check input is empty
-    if (!trim_str(cmd)) {
-        goto next;
+        return;
     }
 
-    // Usage
-    if (cmd == "help" || cmd == "h") {
-      print_help();
-      continue;
-    }
+    ConsoleUtil* console = ConsoleUtil::GetInstance();
+    console->SetConsoleHistory("history_gquery.log");
+    console->SetOnQuitWrite("history_gquery.log");
 
-    // run cmd
-    if (cmd == "quit" || cmd == "q") {
-      exit(0);
-    } else {
-      std::stringstream cmd_ss(cmd);
-      std::string token;
+    while (true) {
+    next:
+        string cmd = console->TryConsoleInput("GQuery> ");
 
-      cmd_ss >> token;
-      if (token == "gquery") {
-        string query, result;
-        string fname, bname, ofname;
-        bool s_enable = false, f_enable = false, b_enable = false, o_enable = false;
+        // Timer
+        uint64_t enter_t = timer::get_usec();
 
-        // get parameters
-        while (cmd_ss >> token) {
-          if (token == "-q") {
-            // single query by command
-            std::getline(cmd_ss, query);
-            if (!trim_str(query)) {
-                cout << "[Client][Error]: Empty Query" << endl << endl;
-                goto next;
-            }
-            s_enable = true;
-          } else if (token == "-f") {
-            // single query in file
-            cmd_ss >> fname;
-            f_enable = true;
-          } else if (token == "-b") {
-            // set of queries
-            cmd_ss >> bname;
-            b_enable = true;
-          } else if (token == "-o") {
-            // output to file
-            cmd_ss >> ofname;
-            o_enable = true;
-          } else {
-            goto failed;
-          }
-        } // gquery_while
-
-        if (!s_enable && !f_enable && !b_enable) goto failed; // meaningless
-
-        if (s_enable) { // -s <query>
-            run_query(query, result, false);
-
-            if (o_enable) {
-              std::ofstream ofs(ofname, std::ofstream::out);
-              ofs << result;
-            } else {
-              cout << "[Client] result: " << result << endl << endl;
-            }
+        // trim input and check input is empty
+        if (!trim_str(cmd)) {
+            goto next;
         }
 
-        if (f_enable) { // -f <file>
-          cout << "[Client] Single query in file" << endl;
-
-          ifstream file(fname.c_str());
-          if (!file) {
-              cout << "[Client][ERROR]: " << fname << " does not exist." << endl << endl;
-              goto next;
-          }
-
-          // read only one line
-          std::getline(file, query);
-          if (!trim_str(query)) {
-              cout << "[Client][Error]: Empty Query" << endl << endl;
-              goto next;
-          }
-
-          run_query(query, result, false);
-
-          if (o_enable) {
-            std::ofstream ofs(ofname, std::ofstream::out);
-            ofs << result;
-          } else {
-            cout << "[Client] result: " << result << endl << endl;
-          }
+        // Usage
+        if (cmd == "help" || cmd == "h") {
+          print_help();
+          continue;
         }
 
-        if (b_enable) { // -b <file>
-          cout << "[Client] b_enable" << endl;
+        // run cmd
+        if (cmd == "quit" || cmd == "q") {
+          exit(0);
+        } else {
+          std::stringstream cmd_ss(cmd);
+          std::string token;
 
-          ifstream file(bname.c_str());
-          if (!file) {
-              cout << "[Client][ERROR]: " << bname << " does not exist." << endl << endl;
-              goto next;
-          }
+          cmd_ss >> token;
+          if (token == "gquery") {
+            string query, result;
+            string fname, bname, ofname;
+            bool s_enable = false, f_enable = false, b_enable = false, o_enable = false;
 
-          while (std::getline(file, query)) {
+            // get parameters
+            while (cmd_ss >> token) {
+              if (token == "-q") {
+                // single query by command
+                std::getline(cmd_ss, query);
+                if (!trim_str(query)) {
+                    cout << "[Client][Error]: Empty Query" << endl << endl;
+                    goto next;
+                }
+                s_enable = true;
+              } else if (token == "-f") {
+                // single query in file
+                cmd_ss >> fname;
+                f_enable = true;
+              } else if (token == "-b") {
+                // set of queries
+                cmd_ss >> bname;
+                b_enable = true;
+              } else if (token == "-o") {
+                // output to file
+                cmd_ss >> ofname;
+                o_enable = true;
+              } else {
+                goto failed;
+              }
+            } // gquery_while
+
+            if (!s_enable && !f_enable && !b_enable) goto failed; // meaningless
+
+            if (s_enable) { // -s <query>
+                run_query(query, result, false);
+
+                if (o_enable) {
+                  std::ofstream ofs(ofname, std::ofstream::out);
+                  ofs << result;
+                } else {
+                  cout << "[Client] result: " << result << endl << endl;
+                }
+            }
+
+            if (f_enable) { // -f <file>
+              cout << "[Client] Single query in file" << endl;
+
+              ifstream file(fname.c_str());
+              if (!file) {
+                  cout << "[Client][ERROR]: " << fname << " does not exist." << endl << endl;
+                  goto next;
+              }
+
+              // read only one line
+              std::getline(file, query);
               if (!trim_str(query)) {
                   cout << "[Client][Error]: Empty Query" << endl << endl;
                   goto next;
               }
 
-              run_query(query, result, true);
+              run_query(query, result, false);
 
-              query.clear();
-          }
+              if (o_enable) {
+                std::ofstream ofs(ofname, std::ofstream::out);
+                ofs << result;
+              } else {
+                cout << "[Client] result: " << result << endl << endl;
+              }
+            }
 
-          if (o_enable) {
-            std::ofstream ofs(ofname, std::ofstream::out);
-            ofs << result;
+            if (b_enable) { // -b <file>
+              cout << "[Client] b_enable" << endl;
+
+              ifstream file(bname.c_str());
+              if (!file) {
+                  cout << "[Client][ERROR]: " << bname << " does not exist." << endl << endl;
+                  goto next;
+              }
+
+              while (std::getline(file, query)) {
+                  if (!trim_str(query)) {
+                      cout << "[Client][Error]: Empty Query" << endl << endl;
+                      goto next;
+                  }
+
+                  run_query(query, result, true);
+
+                  query.clear();
+              }
+
+              if (o_enable) {
+                std::ofstream ofs(ofname, std::ofstream::out);
+                ofs << result;
+              } else {
+                cout << "[Client] result: " << result << endl << endl;
+              }
+            }
+
           } else {
-            cout << "[Client] result: " << result << endl << endl;
+        failed:
+            cout << "[Client][ERROR]: Failed to run the command: " << cmd << endl << endl;
+            print_help();
           }
+
         }
 
-      } else {
-failed:
-        cout << "[Client][ERROR]: Failed to run the command: " << cmd << endl << endl;
-        print_help();
-      }
-
+        uint64_t end_t = timer::get_usec();
+        cout << "[Timer] " << (end_t - enter_t) / 1000 << " ms for whole process." << endl;
     }
-
-    uint64_t end_t = timer::get_usec();
-    cout << "[Timer] " << (end_t - enter_t) / 1000 << " ms for whole process." << endl;
-  }
 }
 
-//prog node-config-fname_path host-fname_path
+
 int main(int argc, char* argv[])
 {
-  // cout<<"int main(int argc, char* argv[])"<<endl;
     if(argc != 2 && argc != 3){
         cout << "1 or 2 params required" <<endl;
         return 0;
     }
+
     google::InitGoogleLogging(argv[0]);
     string cfg_fname = argv[1];
     CHECK(!cfg_fname.empty());

@@ -1,9 +1,8 @@
-/*
- * result_collector.hpp
- *
- *  Created on: Jul 12, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+
+*/
 
 #ifndef RESULT_COLLECTOR_HPP_
 #define RESULT_COLLECTOR_HPP_

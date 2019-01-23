@@ -1,10 +1,8 @@
-/*
- * actor_cache.hpp
- *
- *  Created on: July 23, 2018
- *      Author: Aaron LI 
- *  Modified on Nov, 2018 by Chenghuan Huang 
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+         Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #ifndef CORE_AFFINITY_HPP_
 #define CORE_AFFINITY_HPP_

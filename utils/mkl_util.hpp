@@ -1,12 +1,9 @@
-/*-----------------------------------------------------
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
+
 #pragma once
-
-
 
 #include <cstdio>
 #include <string>

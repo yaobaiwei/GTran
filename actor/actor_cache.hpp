@@ -1,10 +1,9 @@
-/*
- * actor_cache.hpp
- *
- *  Created on: July 23, 2018
- *      Author: Aaron LI 
- *  Modified on Nov, 2018 by Chenghuan Huang 
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+         Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
+
 #ifndef ACTOR_CACHE_HPP_
 #define ACTOR_CACHE_HPP_
 
@@ -125,7 +124,7 @@ private:
         //cacheline 1
         uint64_t id_block[BLOCK_KEY_SIZE] __attribute__((aligned(64)));
 
-        // CacheBlock(){memset(0, id_block, 64);}
+        //CacheBlock(){memset(0, id_block, 64);}
         CacheBlock()
         {
             for(int i = 0; i < BLOCK_KEY_SIZE; i++)

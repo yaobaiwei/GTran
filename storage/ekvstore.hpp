@@ -1,9 +1,8 @@
-/*
- * ekvstore.hpp
- *
- *  Created on: Jun 1, 2018
- *      Author: Aaron Li, Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+         Modified Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #ifndef EKVSTORE_HPP_
 #define EKVSTORE_HPP_

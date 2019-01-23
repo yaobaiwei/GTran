@@ -1,9 +1,7 @@
-/*
- * cpuinfo_util.cpp
- *
- *  Created on: Nov 10, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #include "cpuinfo_util.hpp"
 
@@ -42,13 +40,11 @@ CPUInfoUtil::CPUInfoUtil()
 
         if(strstr(buffer,"processor")!=NULL)
         {
-            // printf("(val = %d)  %s", val, buffer);
             processor_.push_back(val);
         }
 
         if(strstr(buffer,"physical id")!=NULL)
         {
-            // printf("(val = %d)  %s", val, buffer);
             physical_id_.push_back(val);
 
             if(physical_id_map_.count(val) == 0)
@@ -59,19 +55,16 @@ CPUInfoUtil::CPUInfoUtil()
 
         if(strstr(buffer,"siblings")!=NULL)
         {
-            // printf("(val = %d)  %s", val, buffer);
             siblings_.push_back(val); siblings_val = val;
         }
 
         if(strstr(buffer,"core id")!=NULL)
         {
-            // printf("(val = %d)  %s", val, buffer);
             core_id_.push_back(val);
         }
 
         if(strstr(buffer,"cpu cores")!=NULL)
         {
-            // printf("(val = %d)  %s", val, buffer);
             cpu_cores_.push_back(val); cpu_cores_val = val;
         }
     }

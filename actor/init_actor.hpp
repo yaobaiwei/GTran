@@ -1,3 +1,9 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
+         Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef INIT_ACTOR_HPP_
 #define INIT_ACTOR_HPP_
 

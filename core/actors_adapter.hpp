@@ -1,9 +1,9 @@
-/*
- * actors_adapter.hpp
- *
- *  Created on: May 28, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+         Modified by Nick Fang (jcfang6@cse.cuhk.edu.hk)
+                     Changji Li (cjli@cse.cuhk.edu.hk)
+*/
 
 #ifndef ACTORS_ADAPTER_HPP_
 #define ACTORS_ADAPTER_HPP_

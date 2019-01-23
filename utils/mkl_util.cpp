@@ -1,10 +1,7 @@
-/*-----------------------------------------------------
+/* Copyright 2019 Husky Data Lab, CUHK
 
-       @copyright (c) 2018 CUHK Husky Data Lab
-              Last modified : 2018-11
-  Author(s) : Chenghuan Huang(entityless@gmail.com)
-:)
------------------------------------------------------*/
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #include "mkl_util.hpp"
 #include <fstream>

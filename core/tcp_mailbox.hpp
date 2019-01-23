@@ -1,3 +1,9 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+
+*/
+
 #pragma once
 
 #include <unistd.h>

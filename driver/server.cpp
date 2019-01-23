@@ -1,9 +1,7 @@
-/*
- * server.cpp
- *
- *  Created on: May 9, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #include "base/node.hpp"
 #include "base/node_util.hpp"
@@ -14,7 +12,7 @@
 
 #include "glog/logging.h"
 
-//prog node-config-fname_path host-fname_path
+
 int main(int argc, char* argv[])
 {
 	google::InitGoogleLogging(argv[0]);
@@ -36,14 +34,10 @@ int main(int argc, char* argv[])
 	nodes.erase(nodes.begin()); //delete the master info in nodes (array) for rdma init
 
 	//set my_node as the shared static Node instance
-
 	my_node.InitialLocalWtime();
 
 	//set this as 
 	Node::StaticInstance(&my_node);
-
-	// Config * config = new Config();
-	// config->Init();
 
 	Config* config = Config::GetInstance();
 	config->Init();
@@ -64,12 +58,8 @@ int main(int argc, char* argv[])
 		worker_finalize(my_node);
 	}
 
-	void node_barrier();
-	void node_finalize();
+	node_barrier();
+	node_finalize();
 
 	return 0;
 }
-
-
-
-

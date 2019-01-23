@@ -1,9 +1,7 @@
-/*
- * timer.hpp
- *
- *  Created on: May 13, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #ifndef TIMER_HPP_
 #define TIMER_HPP_

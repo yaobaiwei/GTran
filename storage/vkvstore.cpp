@@ -1,9 +1,8 @@
-/*
- * vkvstore.cpp
- *
- *  Created on: Jun 1, 2018
- *      Author: Aaron Li, Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+         Modified Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #include <assert.h>
 #include "storage/vkvstore.hpp"

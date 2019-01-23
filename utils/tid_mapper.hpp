@@ -1,9 +1,7 @@
-/*
- * tid_mapper.hpp
- *
- *  Created on: Nov 14, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #pragma once
 
@@ -17,19 +15,16 @@
 #include <assert.h>
 #include <pthread.h>
 
-//used to obtain the thread id of a thread itself without parameter passing
-//suppose that any thread is supported by pthread (or, POSIX)
+
 namespace std
 {
     class TidMapper
     {
     private:
-        TidMapper(const TidMapper&);//not to def
-        TidMapper& operator=(const TidMapper&);//not to def
+        TidMapper(const TidMapper&);
+        TidMapper& operator=(const TidMapper&);
         ~TidMapper(){};
 
-        //never buffer this in cache.
-        // volatile map<pthread_t, int> tid_map_;
         map<pthread_t, int> manual_tid_map_;
         map<pthread_t, int> unique_tid_map_;
 

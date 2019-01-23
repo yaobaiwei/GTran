@@ -1,9 +1,7 @@
-/*
- * simple_thread_safe_map.hpp
- *
- *  Created on: Nov 12, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 
 #pragma once
@@ -18,13 +16,9 @@
 #include <assert.h>
 #include <pthread.h>
 
-//this is a poor performance map implementation for multi-thread usage.
+
 namespace std
 {
-    //not to use mutex in this map
-    //because assessing the map should be a lightweight operation
-    //do not try to implement a single instance map here
-    //this is just a abstract implementation
     template <typename __KEY_T, typename __VALUE_T>
     class SimpleThreadSafeMap
     {

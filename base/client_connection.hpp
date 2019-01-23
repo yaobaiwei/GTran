@@ -1,9 +1,7 @@
-/*
- * client_connection.hpp
- *
- *  Created on: Jun 27, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #ifndef CLIENT_CONNECTION_HPP_
 #define CLIENT_CONNECTION_HPP_

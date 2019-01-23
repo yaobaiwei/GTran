@@ -1,10 +1,9 @@
-/*
- * abstract_actor.hpp
- *
- *  Created on: May 26, 2018
- *      Author: Hongzhi Chen
- */
-//
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+
+*/
+
 #ifndef ABSTRACT_ACTOR_HPP_
 #define ABSTRACT_ACTOR_HPP_
 

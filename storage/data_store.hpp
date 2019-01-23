@@ -1,9 +1,7 @@
-/*
- * gquery.cpp
- *
- *  Created on: May 29, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #pragma once
 

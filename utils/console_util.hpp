@@ -1,13 +1,9 @@
-/*
- * console_util.hpp
- *
- *  Created on: Nov 10, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #pragma once
-
-
 
 #include <cstdio>
 #include <string>
@@ -19,10 +15,7 @@
 #include <list>
 #include <memory.h>
 #include <signal.h>
-// #include <stdarg.h>
-// #include <ncurses.h>
 
-// #include "conio.h"
 
 // TODO: colorful console
 #define BLUE COLOR_BLUE

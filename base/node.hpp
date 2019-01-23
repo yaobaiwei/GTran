@@ -1,11 +1,7 @@
-/*
- * node.hpp
- *
- *  Created on: May 10, 2018
- *      Author: Hongzhi Chen
- *  Modified on Nov 2018, by Chenghuan Huang
- */
-//
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 
 #pragma once

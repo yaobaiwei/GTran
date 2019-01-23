@@ -1,9 +1,8 @@
-/*
- * traversal_actor.hpp
- *
- *  Created on: July 16, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef TRAVERSAL_ACTOR_HPP_
 #define TRAVERSAL_ACTOR_HPP_
 
@@ -115,7 +114,7 @@ private:
 					for (auto & in_nb : vtx->in_nbs) { // in_nb : vid_t
 						// Get edge_id
 						if (lid > 0) {
-							eid_t e_id(in_nb.value(), cur_vtx_id.value());
+						    eid_t e_id(cur_vtx_id.value(), in_nb.value());
 							label_t label;
 							get_label_for_edge(tid, e_id, label);
 
@@ -132,7 +131,7 @@ private:
 				if (dir != Direction_T::IN) {
 					for (auto & out_nb : vtx->out_nbs) {
 						if (lid > 0) {
-							eid_t e_id(cur_vtx_id.value(), out_nb.value());
+						    eid_t e_id(out_nb.value(), cur_vtx_id.value());
 							label_t label;
 							get_label_for_edge(tid, e_id, label);
 
@@ -166,7 +165,7 @@ private:
 				if (dir != Direction_T::OUT) {
 					for (auto & in_nb : vtx->in_nbs) { // in_nb : vid_t
 						// Get edge_id
-						eid_t e_id(in_nb.value(), cur_vtx_id.value());
+					    eid_t e_id(cur_vtx_id.value(), in_nb.value());
 						if (lid > 0) {
 							label_t label;
 							get_label_for_edge(tid, e_id, label);
@@ -183,7 +182,7 @@ private:
 				if (dir != Direction_T::IN) {
 					for (auto & out_nb : vtx->out_nbs) {
 						// Get edge_id
-						eid_t e_id(cur_vtx_id.value(), out_nb.value());
+					    eid_t e_id(out_nb.value(), cur_vtx_id.value());
 						if (lid > 0) {
 							label_t label;
 							get_label_for_edge(tid, e_id, label);

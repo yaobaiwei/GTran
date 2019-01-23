@@ -1,3 +1,9 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+
+*/
+
 template<class T1, class T2>
 size_t MemSize(const pair<T1, T2>& p)
 {

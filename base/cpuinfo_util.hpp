@@ -1,9 +1,7 @@
-/*
- * cpuinfo_util.hpp
- *
- *  Created on: Nov 10, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #pragma once
 
@@ -16,11 +14,7 @@
 #include <iostream>
 #include <assert.h>
 
-//this class is an single instance class
-//and even on KNL, it won't takes too much memory
-//so memory efficiency is not concerned
-//duplicate storage and computation will occur frequently in this class
-//but I don't care.
+
 class CPUInfoUtil
 {
 private:

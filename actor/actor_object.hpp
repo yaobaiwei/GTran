@@ -1,9 +1,8 @@
-/*
-* actor_object.hpp
-*
-*  Created on: Jun 15, 2018
-*      Author: Nick Fang
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 */
+
 #pragma once
 
 #include <string>

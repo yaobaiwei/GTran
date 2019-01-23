@@ -1,9 +1,7 @@
-/*
- * has_actor.hpp
- *
- *  Created on: July 16, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
 #ifndef HAS_ACTOR_HPP_
 #define HAS_ACTOR_HPP_
 

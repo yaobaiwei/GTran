@@ -1,9 +1,8 @@
-/*
- * label_actor.hpp
- *
- *  Created on: July 23, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef LABEL_ACTOR_HPP_
 #define LABEL_ACTOR_HPP_
 

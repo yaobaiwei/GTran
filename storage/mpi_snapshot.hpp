@@ -1,9 +1,7 @@
-/*
- * mpi_snapshot.hpp
- *
- *  Created on: Nov 20, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
 
 #pragma once
 

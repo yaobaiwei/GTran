@@ -1,3 +1,8 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
+
 #include "utils/timer.hpp"
 
 int timer::N_Timers = 0;

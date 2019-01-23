@@ -1,10 +1,8 @@
-/*
- * config.hpp
- *
- *  Created on: May 9, 2018
- *      Author: Hongzhi Chen
- */
-//
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
+
 #ifndef IDMAPPER_HPP_
 #define IDMAPPER_HPP_
 

@@ -1,5 +1,13 @@
-#include "core/parser.hpp"
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
+         Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+*/
+
+
 #include <iostream>
+
+#include "core/parser.hpp"
 #include "storage/mpi_snapshot.hpp"
 #include "storage/snapshot_func.hpp"
 

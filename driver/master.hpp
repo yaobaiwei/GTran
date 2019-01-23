@@ -1,9 +1,7 @@
-/*
- * master.hpp
- *
- *  Created on: Jun 21, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #ifndef MASTER_HPP_
 #define MASTER_HPP_
@@ -56,8 +54,6 @@ public:
 	void ProgListener(){
 		while(1){
 			vector<uint32_t> prog = recv_data<vector<uint32_t>>(node_, MPI_ANY_SOURCE, true, MONITOR_CHANNEL);
-			//DEBUG
-			// cout << "@@@@@ Master gets progress report from " << prog[0] << "=> " << prog[1] << endl;
 
 			int src = prog[0];  //the slave ID
 			Progress & p = progress_map_[src];
@@ -87,7 +83,6 @@ public:
 		}
 		if (min_index != -1)
 		{
-			// printf("Master min_index != -1, %d\n", min_index);
 			return min_index;
 		}
 		return rand() % (node_.get_world_size() - 1) + 1;

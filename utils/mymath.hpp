@@ -1,9 +1,7 @@
-/*
- * mymath.hpp
- *
- *  Created on: May 18, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #pragma once
 

@@ -1,9 +1,8 @@
-/*
- * properties_actor.hpp
- *
- *  Created on: July 20, 2018
- *      Author: Aaron LI
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef PROPERTIES_ACTOR_HPP_
 #define PROPERTIES_ACTOR_HPP_
 

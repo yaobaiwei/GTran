@@ -1,9 +1,7 @@
-/*
- * repeat_actor.hpp
- *
- *  Created on: Dec 19, 2018
- *      Author: Chenghuan Huang
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Chenghuan Huan (chhuang@cse.cuhk.edu.hk)
+*/
 
 #pragma once
 

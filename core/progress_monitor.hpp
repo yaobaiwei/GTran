@@ -1,9 +1,8 @@
-/*
- * progress_monitor.hpp
- *
- *  Created on: Jun 26, 2018
- *      Author: yaobaiwei
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+
+*/
 
 #ifndef PROGRESS_MONITOR_HPP_
 #define PROGRESS_MONITOR_HPP_

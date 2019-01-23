@@ -1,9 +1,7 @@
-/*
- * tool.hpp
- *
- *  Created on: May 23, 2018
- *      Author: Hongzhi Chen
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*/
 
 #ifndef TOOL_HPP_
 #define TOOL_HPP_
