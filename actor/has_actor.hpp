@@ -11,6 +11,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 
 #include "actor/abstract_actor.hpp"
 #include "actor/actor_cache.hpp"
+#include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/index_store.hpp"
@@ -104,6 +105,9 @@ private:
 	// Cache
 	ActorCache cache;
 	Config* config_;
+	
+	// Validation Store
+	ActorValidationObject v_obj;
 
 	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
 
