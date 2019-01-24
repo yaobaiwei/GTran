@@ -1,9 +1,8 @@
-/*
- * actor_validation_object.hpp
- *
- *  Created on: Dec 17, 2018
- *      Author: Aaron LI 
- */
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
+*/
+
 #ifndef ACTOR_VALID_HPP_
 #define ACTOR_VALID_HPP_
 
