@@ -26,4 +26,6 @@ public:
   virtual bool TryRecv(int tid, Message & msg) = 0;
   virtual void Recv(int tid, Message & msg) = 0;
   virtual void Sweep(int tid) = 0;
+  virtual void Send_Notify(int dst_nid, ibinstream& in) = 0;
+  virtual void Recv_Notify(obinstream& out) = 0;
 };

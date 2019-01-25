@@ -16,6 +16,9 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "base/node.hpp"
 #include "base/communication.hpp"
+#include "core/buffer.hpp"
+#include "core/rdma_mailbox.hpp"
+#include "core/tcp_mailbox.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
 #include "utils/zmq.hpp"
@@ -34,7 +37,7 @@ struct Progress
 
 class Master{
 public:
-	Master(Node & node): node_(node){
+	Master(Node & node, vector<Node> & workers): node_(node), workers_(workers){
 		config_ = Config::GetInstance();
 		is_end_ = false;
 		client_num = 0;
@@ -120,6 +123,15 @@ public:
 	}
 
 	void Start(){
+		//Register RDMA
+		Buffer* buf = new Buffer(node_);
+		AbstractMailbox * mailbox;
+		if (config_->global_use_rdma)
+			mailbox = new RdmaMailbox(node_, node_, buf);
+		else
+			mailbox = new TCPMailbox(node_);
+		mailbox->Init(workers_);
+
 		thread listen(&Master::ProgListener,this);
 		thread process(&Master::ProcessREQ, this);
 
@@ -139,6 +151,7 @@ public:
 
 private:
 	Node & node_;
+	vector<Node> & workers_;
 	Config * config_;
 	map<int, Progress> progress_map_;
 	int client_num;

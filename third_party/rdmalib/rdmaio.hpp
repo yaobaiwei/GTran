@@ -289,6 +289,8 @@ public:
 
         ahs_.clear();
         ud_attrs_.clear();
+
+		inited_ = true;
     }
 
     //return true if the connection is succesfull
@@ -661,6 +663,86 @@ public:
         return rc;
     }
 
+	IOStatus ud_post_send(int remote_id, int thread_id, char *local_buf, int len, int flags) {
+		IOStatus rc = IO_SUCC;
+		struct ibv_send_wr sr, *bad_sr;
+		struct ibv_sge sge;
+		auto key = _QP_ENCODE_ID(remote_id, thread_id);
+		RdmaQpAttr* qp_attr = &ud_attrs_[key];
+		sr.wr.ud.ah = ahs_[key];
+		sr.wr.ud.remote_qpn = qp_attr->qpn;
+		sr.wr.ud.remote_qkey = DEFAULT_QKEY;
+
+		sr.opcode = IBV_WR_SEND_WITH_IMM;
+		sr.num_sge = 1;
+		sr.next = NULL;
+		sr.sg_list = &sge;
+		sr.send_flags = flags;
+		sr.imm_data   = htonl(0x1234);
+		// sr[i].send_flags |= IBV_SEND_INLINE;
+
+		sge.addr = (uint64_t)local_buf;
+		sge.length = len;
+		sge.lkey = dev_->dgram_buf_mr->lkey;
+
+		rc = (IOStatus)ibv_post_send(qp, &sr, &bad_sr);
+		CE(rc, "ibv_post_send error");
+		return rc;
+	}
+
+	IOStatus ud_post_recv(void *buf_addr, int len) {
+        IOStatus rc = IO_SUCC;
+        struct ibv_recv_wr *bad_wr;
+        struct ibv_sge sge;
+        memset(&sge, 0, sizeof(struct ibv_sge));
+        struct ibv_recv_wr rr;
+        memset(&rr, 0, sizeof(struct ibv_recv_wr));
+
+        sge.addr = (uintptr_t) buf_addr;
+        sge.length = len;
+        sge.lkey = dev_->dgram_buf_mr->lkey;
+
+        rr.wr_id = (uint64_t) buf_addr;
+        rr.sg_list = &sge;
+        rr.num_sge = 1;
+
+        rc = (IOStatus)ibv_post_recv(qp, &rr, &bad_wr);
+        CE(rc, "Failed to  posting datagram recv.\n");
+
+        return rc;
+    }
+
+	// poll complection of a cq
+    IOStatus poll_recv_completion(uint64_t & len, uint64_t *rid = NULL) {
+        struct ibv_wc wc;
+        int poll_result;
+        this->pendings = 0;
+
+        do {
+            poll_result = ibv_poll_cq (this->recv_cq, 1, &wc);
+        }
+        while ((poll_result == 0));
+
+        if (unlikely(rid != NULL))
+            *rid = wc.wr_id;
+
+        // check the result
+        if (poll_result < 0) {
+            assert(false);
+            /* poll CQ failed */
+            return IO_ERR;
+        }  else if (wc.status != IBV_WC_SUCCESS) {
+            fprintf (stderr,
+                     "got bad completion with status: 0x%x, vendor syndrome: 0x%x, with error %s, qp n:%d t:%d\n",
+                     wc.status, wc.vendor_err, ibv_wc_status_str(wc.status), nid, tid);
+            assert(false);
+            return IO_ERR;
+        }
+
+		len = wc.byte_len;
+        return IO_SUCC;
+    }
+
     // poll complection of a cq
     IOStatus poll_completion(uint64_t *rid = NULL) {
 
@@ -807,7 +889,7 @@ public:
         node_id_(id), network_(net.begin(), net.end()), tcp_base_port_(port),
         recv_helpers_(NULL), remote_ud_qp_attrs_(NULL), //qps_(NULL),
         rdma_single_device_(NULL),
-        num_rc_qps_(100), num_uc_qps_(1), num_ud_qps_(4),
+        num_rc_qps_(100), num_uc_qps_(1), num_ud_qps_(100),
         enable_single_thread_mr_(enable_single_thread_mr)
     {
 
@@ -1467,33 +1549,6 @@ retry:
         return qp_attr;
     }
 
-    int post_ud(int qid, RdmaReq* reqs) {
-        int rc = 0;
-        struct ibv_send_wr sr, *bad_sr;
-        struct ibv_sge sge;
-        Qp *qp = qps_[qid];
-        assert(qp->qp->qp_type == IBV_QPT_UD);
-        RdmaQpAttr* qp_attr = remote_ud_qp_attrs_[reqs->wr.ud.remote_qid];
-        sr.wr.ud.ah = qp->dev_->ahs[_QP_ENCODE_ID(qp_attr->lid, qp->port_id_)];
-        sr.wr.ud.remote_qpn = qp_attr->qpn;
-        sr.wr.ud.remote_qkey = DEFAULT_QKEY;
-
-        sr.opcode = IBV_WR_SEND;
-        sr.num_sge = 1;
-        sr.next = NULL;
-        sr.sg_list = &sge;
-        sr.send_flags = reqs->flags;
-        // sr[i].send_flags |= IBV_SEND_INLINE;
-
-        sge.addr = reqs->buf;
-        sge.length = reqs->length;
-        sge.lkey = qp->dev_->dgram_buf_mr->lkey;
-
-        rc = ibv_post_send(qp->qp, &sr, &bad_sr);
-        CE(rc, "ibv_post_send error");
-        return rc;
-    }
-
     int post_ud_doorbell(int qid, int batch_size, RdmaReq* reqs) {
 
         int rc = 0;
@@ -1562,29 +1617,7 @@ retry:
         MOD_ADD(recv_helper->recv_head, recv_helper->max_recv_num); /* 1 step */
         return rc;
     }
-
-    int post_ud_recv(struct ibv_qp *qp, void *buf_addr, int len, int lkey) {
-        int rc = 0;
-        struct ibv_recv_wr *bad_wr;
-        struct ibv_sge sge;
-        memset(&sge, 0, sizeof(struct ibv_sge));
-        struct ibv_recv_wr rr;
-        memset(&rr, 0, sizeof(struct ibv_recv_wr));
-
-        sge.addr = (uintptr_t) buf_addr;
-        sge.length = len;
-        sge.lkey = lkey;
-
-        rr.wr_id = (uint64_t) buf_addr;
-        rr.sg_list = &sge;
-        rr.num_sge = 1;
-
-        rc = ibv_post_recv(qp, &rr, &bad_wr);
-        CE(rc, "Failed to  posting datagram recv.\n");
-
-        return rc;
-    }
-
+	
     int post_ud_recvs(int qid, int recv_num) {
         struct ibv_recv_wr *head_rr, *tail_rr, *temp_rr, *bad_rr;
         RdmaRecvHelper *recv_helper = recv_helpers_[qid];

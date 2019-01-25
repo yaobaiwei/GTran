@@ -111,7 +111,23 @@ public:
 	// remote_head_buffer_offset = local_head_buffer_sz * local_head_buffer_offset
 	uint64_t remote_head_buffer_offset;
 
-	// buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz +remote_head_buffer_sz
+	// two sided send buffer sz = global_per_send_buffer_sz_mb
+	uint64_t dgram_send_buffer_sz;
+	// two sided send buffer offset = remote_head_buffer_sz + remote_head_buffer_offset;
+	uint64_t dgram_send_buffer_offset;
+
+	// two sided recv buffer sz = global_per_recv_buffer_sz_mb
+	uint64_t dgram_recv_buffer_sz;
+	// two sided recv buffer offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
+	uint64_t dgram_recv_buffer_offset;
+
+	// RDMA mem for RC QP(read/write)
+	// conn_buf_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz +remote_head_buffer_sz
+	uint64_t conn_buf_sz;
+	// RDMA mem for UD QP(read/write)
+	// dgram_buf_sz = dgram_send_buffer_sz + dgram_recv_buffer_sz
+	uint64_t dgram_buf_sz;
+	// buffer_sz =  conn_buf_sz + dgram_buf_sz
 	uint64_t buffer_sz;
 
 	// head [key region] / (head + entry) [Total] * 100
@@ -125,6 +141,8 @@ public:
 	char * recv_buf;
 	char * local_head_buf;
 	char * remote_head_buf;
+	char * dgram_send_buf;
+	char * dgram_recv_buf;
 
 	uint32_t num_vertex_node;
 	uint32_t num_edge_node;
@@ -227,7 +245,7 @@ public:
 		// 	exit(-1);
 		// }
 
-		global_num_machines = node.get_local_size();
+		global_num_machines = node.get_world_size() - 1;
 
 		val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
 		if(val!=val_not_found) global_num_threads=val;
@@ -363,7 +381,7 @@ public:
 
 			if(node.get_world_rank() == 0)
 				printf("given SNAPSHOT_PATH = %s, processed = %s\n", ori_str.c_str(), SNAPSHOT_PATH.c_str());
-		} 
+		}
 		else
 		{
 			// fprintf(stderr, "must enter the SNAPSHOT_PATH. exits.\n");
@@ -374,15 +392,15 @@ public:
 		iniparser_freedict(ini);
 
 
-    	kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
-    	kvstore_offset = 0;
+		kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
+		kvstore_offset = 0;
 
 		// one more thread for worker main thread
-    	send_buffer_sz = (global_num_threads + 1) * MiB2B(global_per_send_buffer_sz_mb);
-    	send_buffer_offset = kvstore_offset + kvstore_sz;
+		send_buffer_sz = (global_num_threads + 1) * MiB2B(global_per_send_buffer_sz_mb);
+		send_buffer_offset = kvstore_offset + kvstore_sz;
 
-    	recv_buffer_sz = global_num_machines * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
-    	recv_buffer_offset = send_buffer_offset + send_buffer_sz;
+		recv_buffer_sz = global_num_machines * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
+		recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
 		local_head_buffer_sz = global_num_machines * global_num_threads * sizeof(uint64_t);
 		local_head_buffer_offset = recv_buffer_sz + recv_buffer_offset;
@@ -390,7 +408,16 @@ public:
 		remote_head_buffer_sz = global_num_machines * global_num_threads * sizeof(uint64_t);
 		remote_head_buffer_offset = local_head_buffer_sz + local_head_buffer_offset;
 
-    	buffer_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz;
+		dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
+		dgram_send_buffer_offset = remote_head_buffer_offset + remote_head_buffer_sz;
+		dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
+		dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
+
+		conn_buf_sz =  kvstore_sz + send_buffer_sz + recv_buffer_sz
+					   + local_head_buffer_sz + remote_head_buffer_sz ;
+		dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
+		//conn_buf_sz = 0;
+		buffer_sz = conn_buf_sz + dgram_buf_sz;
 
     	//init hdfs
     	hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);

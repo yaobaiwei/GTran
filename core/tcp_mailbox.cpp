@@ -105,3 +105,5 @@ bool TCPMailbox::TryRecv(int tid, Message & msg) {
 
 void TCPMailbox::Recv(int tid, Message & msg) { return; }
 void TCPMailbox::Sweep(int tid) { return; }
+void TCPMailbox::Send_Notify(int dst_nid, ibinstream& in){ return; }
+void TCPMailbox::Recv_Notify(obinstream& out){ return ; }
