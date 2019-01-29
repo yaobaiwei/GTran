@@ -27,8 +27,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 class RdmaMailbox : public AbstractMailbox {
 public:
-    RdmaMailbox(Node & node, Buffer * buffer) :
-        node_(node), buffer_(buffer) 
+    RdmaMailbox(Node & node, Node & master, Buffer * buffer) :
+        node_(node), master_(master), buffer_(buffer)
     {
         config_ = Config::GetInstance();
     }
@@ -48,6 +48,10 @@ public:
     bool TryRecv(int tid, Message & msg) override;
 
 	void Sweep(int tid) override;
+
+	void Send_Notify(int dst_nid, ibinstream& in) override;
+	
+	void Recv_Notify(obinstream& out) override;
 
 private:
     struct rbf_rmeta_t {
@@ -77,6 +81,7 @@ private:
 	 bool SendData(int tid, const mailbox_data_t& data);
 
      Node & node_;
+	 Node & master_;
      Config* config_;
      Buffer * buffer_;
 

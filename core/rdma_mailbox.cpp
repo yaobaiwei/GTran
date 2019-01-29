@@ -9,7 +9,20 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 void RdmaMailbox::Init(vector<Node> & nodes) {
 	// Init RDMA
-	RDMA_init(node_.get_local_size(), config_->global_num_threads + 1, node_.get_local_rank(), buffer_->GetBuf(), buffer_->GetBufSize(), nodes);
+	rdma_mem_t mem_info;
+	mem_info.mem_conn = config_->kvstore;
+	mem_info.mem_conn_sz = config_->conn_buf_sz;
+	mem_info.mem_dgram = config_->dgram_send_buf;
+	mem_info.mem_dgram_sz = config_->dgram_buf_sz;
+	mem_info.mem_dgram_recv = config_->dgram_recv_buf;
+	mem_info.mem_dgram_recv_sz = config_->dgram_recv_buffer_sz;
+
+	int nid = node_.get_local_rank();
+	// Avoid conflict of master and worker 0
+	if(node_.get_world_rank() == 0){
+		nid = config_->global_num_machines;
+	}
+	RDMA_init(config_->global_num_machines, config_->global_num_threads + 1, nid, mem_info, nodes, master_);
 
 	int nrbfs = config_->global_num_machines * config_->global_num_threads;
 
@@ -252,4 +265,28 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
         }
 		//timer::stop_timer(tid);
 	}
+}
+
+void RdmaMailbox::Send_Notify(int dst_nid, ibinstream& in){
+	RDMA &rdma = RDMA::get_rdma();
+	int failed = 0;
+	memcpy(config_->dgram_send_buf, in.get_buf(), in.size());
+	while(rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.size()) != 0){
+		failed ++;
+		cout << "Fail to send msg from " << node_.get_world_rank() << " to " << dst_nid << ", retry " << failed << " times"<< endl;
+		CHECK_LT(failed, 10) << "Node " << node_.get_world_rank() << " fail sending msg 10 times!!!!!";
+	}
+}
+
+void RdmaMailbox::Recv_Notify(obinstream& out){
+	RDMA &rdma = RDMA::get_rdma();
+	int failed = 0;
+	uint64_t received_sz = 0;
+	char* received;
+	while(rdma.dev->RdmaRecv(received, received_sz) != 0){
+		failed ++;
+		cout << "Node " << node_.get_world_rank() <<" fail to post recv request " << failed << " times!"<< endl;
+		CHECK_LT(failed, 10) << "Node " << node_.get_world_rank() << " fail post recv request 10 times!!!!!";
+	}
+	out.assign(received, received_sz, 0);
 }
