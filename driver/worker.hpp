@@ -38,7 +38,7 @@ struct Pack{
 
 class Worker{
 public:
-	Worker(Node & my_node, vector<Node> & workers): my_node_(my_node), workers_(workers)
+	Worker(Node & my_node, vector<Node> & workers, Node & master): my_node_(my_node), workers_(workers), master_(master)
 	{
 		config_ = Config::GetInstance();
 		num_query = 0;
@@ -383,7 +383,7 @@ public:
 
 		AbstractMailbox * mailbox;
 		if (config_->global_use_rdma)
-			mailbox = new RdmaMailbox(my_node_, buf);
+			mailbox = new RdmaMailbox(my_node_, master_, buf);
 		else
 			mailbox = new TCPMailbox(my_node_);
 		mailbox->Init(workers_);
@@ -430,7 +430,7 @@ public:
 
 		Monitor * monitor = new Monitor(my_node_);
 		monitor->Start();
-		
+
 		worker_barrier(my_node_);
 
 		//actor driver starts
@@ -486,6 +486,8 @@ public:
 
 private:
 	Node & my_node_;
+	Node & master_;
+
 	vector<Node> & workers_;
 	Config * config_;
 	Parser* parser_;
