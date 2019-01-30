@@ -20,12 +20,6 @@ using namespace std;
 class Parser
 {
 private:
-	enum Step_T{
-		IN, OUT, BOTH, INE, OUTE, BOTHE, INV, OUTV, BOTHV, AND, AGGREGATE, AS, CAP, COUNT, DEDUP,
-		GROUP, GROUPCOUNT, HAS, HASLABEL, HASKEY, HASVALUE, HASNOT, IS, KEY, LABEL, LIMIT, MAX,
-		MEAN, MIN, NOT, OR, ORDER, PROPERTIES, RANGE, SELECT, SKIP, SUM, UNION, VALUES, WHERE, COIN, REPEAT
-	};
-
 	//for debug usage
 	string TokenToStr(pair<Step_T, string> token);
 	string TokensToStr(vector<pair<Step_T, string>> tokens);

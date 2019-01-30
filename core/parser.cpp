@@ -454,42 +454,6 @@ void Parser::ParseSetConfig(const string& param){
 	AppendActor(actor);
 }
 
-
-string Parser::TokenToStr(pair<Step_T, string> token)
-{
-	string str = "";
-	str += "<";
-	str += StepToStr(get<0>(token)) + "  " + get<1>(token);
-	str += ">, ";
-
-	return str;
-}
-
-string Parser::TokensToStr(vector<pair<Step_T, string>> tokens)
-{
-	string str = "[ ";
-
-	for(auto token : tokens)
-	{
-		str += TokenToStr(token);
-	}
-
-	str += "]";
-
-	return str;
-}
-
-string Parser::StepToStr(int step)
-{
-	map<int, string> step_str_map;
-
-	step_str_map[IN] = "IN"; step_str_map[OUT] = "OUT"; step_str_map[BOTH] = "BOTH"; step_str_map[INE] = "INE"; step_str_map[OUTE] = "OUTE"; step_str_map[BOTHE] = "BOTHE"; step_str_map[INV] = "INV"; step_str_map[OUTV] = "OUTV"; step_str_map[BOTHV] = "BOTHV"; step_str_map[AND] = "AND"; step_str_map[AGGREGATE] = "AGGREGATE"; step_str_map[AS] = "AS"; step_str_map[CAP] = "CAP"; step_str_map[COUNT] = "COUNT"; step_str_map[DEDUP] = "DEDUP";
-	step_str_map[GROUP] = "GROUP"; step_str_map[GROUPCOUNT] = "GROUPCOUNT"; step_str_map[HAS] = "HAS"; step_str_map[HASLABEL] = "HASLABEL"; step_str_map[HASKEY] = "HASKEY"; step_str_map[HASVALUE] = "HASVALUE"; step_str_map[HASNOT] = "HASNOT"; step_str_map[IS] = "IS"; step_str_map[KEY] = "KEY"; step_str_map[LABEL] = "LABEL"; step_str_map[LIMIT] = "LIMIT"; step_str_map[MAX] = "MAX";
-	step_str_map[MEAN] = "MEAN"; step_str_map[MIN] = "MIN"; step_str_map[NOT] = "NOT"; step_str_map[OR] = "OR"; step_str_map[ORDER] = "ORDER"; step_str_map[PROPERTIES] = "PROPERTIES"; step_str_map[RANGE] = "RANGE"; step_str_map[SELECT] = "SELECT"; step_str_map[SKIP] = "SKIP"; step_str_map[SUM] = "SUM"; step_str_map[UNION] = "UNION"; step_str_map[VALUES] = "VALUES"; step_str_map[WHERE] = "WHERE"; step_str_map[COIN] = "COIN"; step_str_map[REPEAT] = "REPEAT";
-
-	return step_str_map[step];
-}
-
 void Parser::DoParse(const string& query)
 {
 
@@ -738,73 +702,73 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 
 		switch (type){
 		//AggregateActor
-		case AGGREGATE:
+		case Step_T::AGGREGATE:
 			ParseAggregate(params); break;
 		//As Actor
-		case AS:
+		case Step_T::AS:
 			ParseAs(params); break;
 		//Branch ActorsW
-		case UNION:
+		case Step_T::UNION:
 			ParseBranch(params); break;
 		//BranchFilter Actors
-		case AND:case NOT:case OR:
+		case Step_T::AND:case Step_T::NOT:case Step_T::OR:
 			ParseBranchFilter(params, type); break;
 		//Cap Actor
-		case CAP:
+		case Step_T::CAP:
 			ParseCap(params); break;
 		//Count Actor
-		case COUNT:
+		case Step_T::COUNT:
 			ParseCount(params); break;
 		//Dedup Actor
-		case DEDUP:
+		case Step_T::DEDUP:
 			ParseDedup(params); break;
 		//Group Actor
-		case GROUP:case GROUPCOUNT:
+		case Step_T::GROUP:case Step_T::GROUPCOUNT:
 			ParseGroup(params, type); break;
 		//Has Actors
-		case HAS:case HASKEY:case HASVALUE:case HASNOT:
+		case Step_T::HAS:case Step_T::HASKEY:case Step_T::HASVALUE:case Step_T::HASNOT:
 			ParseHas(params, type); break;
 		//HasLabel Actors
-		case HASLABEL:
+		case Step_T::HASLABEL:
 			ParseHasLabel(params); break;
 		//Is Actor
-		case IS:
+		case Step_T::IS:
 			ParseIs(params); break;
 		//Key Actor
-		case KEY:
+		case Step_T::KEY:
 			ParseKey(params); break;
 		//Label Actor
-		case LABEL:
+		case Step_T::LABEL:
 			ParseLabel(params); break;
 		//Math Actor
-		case MAX:case MEAN:case MIN:case SUM:
+		case Step_T::MAX:case Step_T::MEAN:case Step_T::MIN:case Step_T::SUM:
 			ParseMath(params, type); break;
 		//Order Actor
-		case ORDER:
+		case Step_T::ORDER:
 			ParseOrder(params); break;
 		//Property Actor
-		case PROPERTIES:
+		case Step_T::PROPERTIES:
 			ParseProperties(params); break;
 		//Range Actor
-		case LIMIT:case RANGE:case SKIP:
+		case Step_T::LIMIT:case Step_T::RANGE:case Step_T::SKIP:
 			ParseRange(params, type); break;
 		//Coin Actor
-		case COIN:
+		case Step_T::COIN:
 			ParseCoin(params); break;
 		//Repeat Actor
-		case REPEAT:
+		case Step_T::REPEAT:
 			ParseRepeat(params); break;
 		//Select Actor
-		case SELECT:
+		case Step_T::SELECT:
 			ParseSelect(params); break;
 		//Traversal Actors
-		case IN:case OUT:case BOTH:case INE:case OUTE:case BOTHE:case INV:case OUTV:case BOTHV:
+		case Step_T::IN:case Step_T::OUT:case Step_T::BOTH:case Step_T::INE:case Step_T::OUTE:case Step_T::BOTHE:case Step_T::INV:case Step_T::OUTV:case Step_T::BOTHV:
 			ParseTraversal(params, type); break;
 		//Values Actor
-		case VALUES:
+		case Step_T::VALUES:
 			ParseValues(params); break;
 		//Where	Actor
-		case WHERE:
+		case Step_T::WHERE:
 			ParseWhere(params); break;
 		default:throw ParserException("Unexpected step");
 		}
@@ -1077,7 +1041,7 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type)
 		throw ParserException("expect at most two params in group");
 	}
 
-	int isCount = type == GROUPCOUNT;
+	int isCount = type == Step_T::GROUPCOUNT;
 	actor.AddParam(isCount);
 
 	Element_T element_type;
@@ -1136,7 +1100,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 	uint8_t vtype = 0;
 
 	switch (type){
-	case HAS:
+	case Step_T::HAS:
 		/*
 			key	   			= params[0]
 			pred_type 		= parse(params[1])
@@ -1156,7 +1120,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		actor.AddParam(key);
 		ParsePredicate(pred_param, vtype, actor, false);
 		break;
-	case HASVALUE:
+	case Step_T::HASVALUE:
 		/*
 			key	   			= -1
 			pred_type 		= EQ
@@ -1171,7 +1135,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 			}
 		}
 		break;
-	case HASNOT:
+	case Step_T::HASNOT:
 		/*
 			key	   			= params[0]
 			pred_type 		= NONE
@@ -1188,7 +1152,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		actor.AddParam(Predicate_T::NONE);
 		actor.AddParam(-1);
 		break;
-	case HASKEY:
+	case Step_T::HASKEY:
 		/*
 			key	   			= params[0]
 			pred_type 		= ANY
@@ -1595,7 +1559,7 @@ void Parser::ParseTraversal(const vector<string>& params, Step_T type)
 	//@ TraversalActor params: (Element_T inType, Element_T outType, Direction_T direction, int label_id)
 	//  i_type = E/V, o_type = E/V
 	Actor_Object actor(ACTOR_T::TRAVERSAL);
-	int traversal_type = type;
+	int traversal_type = (int)type;
 	Element_T inType;
 	Element_T outType;
 	Direction_T dir;
@@ -1744,49 +1708,49 @@ void Parser::ParseWhere(const vector<string>& params)
 }
 
 
-const map<string, Parser::Step_T> Parser::str2step = {
-	{ "in", IN },
-	{ "out", OUT },
-	{ "both", BOTH },
-	{ "inE", INE },
-	{ "outE", OUTE },
-	{ "bothE", BOTHE },
-	{ "inV", INV },
-	{ "outV", OUTV },
-	{ "bothV", BOTHV },
-	{ "and", AND },
-	{ "aggregate", AGGREGATE },
-	{ "as", AS },
-	{ "cap", CAP },
-	{ "count", COUNT },
-	{ "dedup", DEDUP },
-	{ "group", GROUP},
-	{ "groupCount", GROUPCOUNT},
-	{ "has", HAS },
-	{ "hasLabel", HASLABEL },
-	{ "hasKey", HASKEY },
-	{ "hasValue", HASVALUE },
-	{ "hasNot", HASNOT },
-	{ "is", IS },
-	{ "key", KEY },
-	{ "label", LABEL },
-	{ "limit", LIMIT },
-	{ "max", MAX },
-	{ "mean", MEAN },
-	{ "min", MIN },
-	{ "not", NOT },
-	{ "or", OR },
-	{ "order", ORDER },
-	{ "properties", PROPERTIES },
-	{ "range", RANGE },
-	{ "select", SELECT },
-	{ "skip", SKIP },
-	{ "sum", SUM },
-	{ "union", UNION },
-	{ "values", VALUES },
-	{ "where", WHERE },
-	{ "coin", COIN },
-	{ "repeat", REPEAT }
+const map<string, Step_T> Parser::str2step = {
+	{ "in", Step_T::IN },
+	{ "out", Step_T::OUT },
+	{ "both", Step_T::BOTH },
+	{ "inE", Step_T::INE },
+	{ "outE", Step_T::OUTE },
+	{ "bothE", Step_T::BOTHE },
+	{ "inV", Step_T::INV },
+	{ "outV", Step_T::OUTV },
+	{ "bothV", Step_T::BOTHV },
+	{ "and", Step_T::AND },
+	{ "aggregate", Step_T::AGGREGATE },
+	{ "as", Step_T::AS },
+	{ "cap", Step_T::CAP },
+	{ "count", Step_T::COUNT },
+	{ "dedup", Step_T::DEDUP },
+	{ "group", Step_T::GROUP},
+	{ "groupCount", Step_T::GROUPCOUNT},
+	{ "has", Step_T::HAS },
+	{ "hasLabel", Step_T::HASLABEL },
+	{ "hasKey", Step_T::HASKEY },
+	{ "hasValue", Step_T::HASVALUE },
+	{ "hasNot", Step_T::HASNOT },
+	{ "is", Step_T::IS },
+	{ "key", Step_T::KEY },
+	{ "label", Step_T::LABEL },
+	{ "limit", Step_T::LIMIT },
+	{ "max", Step_T::MAX },
+	{ "mean", Step_T::MEAN },
+	{ "min", Step_T::MIN },
+	{ "not", Step_T::NOT },
+	{ "or", Step_T::OR },
+	{ "order", Step_T::ORDER },
+	{ "properties", Step_T::PROPERTIES },
+	{ "range", Step_T::RANGE },
+	{ "select", Step_T::SELECT },
+	{ "skip", Step_T::SKIP },
+	{ "sum", Step_T::SUM },
+	{ "union", Step_T::UNION },
+	{ "values", Step_T::VALUES },
+	{ "where", Step_T::WHERE },
+	{ "coin", Step_T::COIN },
+	{ "repeat", Step_T::REPEAT }
 };
 
 const map<string, Predicate_T> Parser::str2pred = {
