@@ -14,9 +14,12 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/mymath.hpp"
 #include "base/type.hpp"
 #include "base/node.hpp"
+#include "base/type.hpp"
 
 #include "glog/logging.h"
 
+static uint64_t _VIDFLAG = 0xFFFFFFFFFFFFFFFF >> (64-VID_BITS);
+static uint64_t _PIDLFLAG = 0xFFFFFFFFFFFFFFFF >> (64- 2*VID_BITS);
 
 class NaiveIdMapper : public AbstractIdMapper {
 public:
@@ -26,31 +29,31 @@ public:
 	}
 
 	bool IsVertex(uint64_t v_id) {
-		bool has_v = v_id & 0x3FFFFFF;
+		bool has_v = v_id & _VIDFLAG;
 		return has_v;
 	}
 
 	bool IsEdge(uint64_t e_id) {
-		bool has_out_v = e_id & 0x3FFFFFF;
+		bool has_out_v = e_id & _VIDFLAG;
 		e_id >>= VID_BITS;
-		bool has_in_v = e_id & 0x3FFFFFF;
+		bool has_in_v = e_id & _VIDFLAG;
 		return has_out_v && has_in_v;
 	}
 
 	bool IsVProperty(uint64_t vp_id) {
-		bool has_p = vp_id & 0xFFF;
+		bool has_p = vp_id & _PIDLFLAG;
 		vp_id >>= PID_BITS;
 		vp_id >>= VID_BITS;
-		bool has_v = vp_id & 0x3FFFFFF;
+		bool has_v = vp_id & _VIDFLAG;
 		return has_p && has_v;
 	}
 
 	bool IsEProperty(uint64_t ep_id) {
-		bool has_p = ep_id & 0xFFF;
+		bool has_p = ep_id & _PIDLFLAG;
 		ep_id >>= PID_BITS;
-		bool has_out_v = ep_id & 0x3FFFFFF;
+		bool has_out_v = ep_id & _VIDFLAG;
 		ep_id >>= VID_BITS;
-		bool has_in_v = ep_id & 0x3FFFFFF;
+		bool has_in_v = ep_id & _VIDFLAG;
 		return has_p && has_out_v && has_in_v;
 	}
 

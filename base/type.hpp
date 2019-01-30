@@ -210,7 +210,7 @@ namespace __gnu_cxx {
 	};
 }
 
-//vpid: 64bits  vid|0x27|pid
+//vpid: 64bits  vid|0x26|pid
 struct vpid_t {
 uint64_t vid : VID_BITS;
 uint64_t pid : PID_BITS;

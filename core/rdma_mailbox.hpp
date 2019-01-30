@@ -69,11 +69,6 @@ private:
          uint64_t rr_cnt; // round-robin
      } __attribute__ ((aligned (CLINE)));
 
-	 struct rdma_data_t{
-		 ibinstream stream;
-		 int dst_nid;
-		 int dst_tid;
-	 };
 
      bool CheckRecvBuf(int tid, int nid);
      void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
