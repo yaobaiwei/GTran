@@ -68,10 +68,10 @@ class RDMA {
             ctrl->open_device();
             ctrl->set_dgram_mr(mem_info.mem_dgram, mem_info.mem_dgram_sz);
             ctrl->register_dgram_mr();
-            ctrl->start_server();
 
             // Init QP connection
             if(nid == num_workers){
+                ctrl->start_server();
                 // UD connection between master and workers
                 Qp* qp = ctrl->create_ud_qp(0, 0, 1, 0);
                 assert(qp != NULL);
@@ -97,9 +97,9 @@ class RDMA {
                     assert(status == Qp::IOStatus::IO_SUCC);
                 }
             }else{
-                // RC connection between workers
                 ctrl->set_connect_mr(mem_info.mem_conn, mem_info.mem_conn_sz);
                 ctrl->register_connect_mr();
+                ctrl->start_server();
                 // RC connection between workers
                 for (uint j = 0; j < num_threads * 2; ++j) {
                     for (uint i = 0; i < num_workers; ++i) {
