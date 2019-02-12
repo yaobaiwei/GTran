@@ -47,9 +47,9 @@ static const cid_t MAX_CID = std::numeric_limits<cid_t>::max();
 
 typedef uint64_t eid_t;
 
-static const cid_t INVALID_EID = 0;
+static const eid_t INVALID_EID = 0;
 
-static const cid_t MAX_EID = std::numeric_limits<eid_t>::max();
+static const eid_t MAX_EID = std::numeric_limits<eid_t>::max();
 
 
 
