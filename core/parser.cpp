@@ -48,7 +48,7 @@ void Parser::LoadMapping(){
 	if(!read_str2vl_snapshot_ok)
 	{
 		// load vertex label
-		string vl_path = config_->HDFS_INDEX_PATH + "./vtx_label";
+		string vl_path = config->HDFS_INDEX_PATH + "./vtx_label";
 		hdfsFile vl_file = get_r_handle(vl_path.c_str(), fs);
 		LineReader vl_reader(fs, vl_file);
 		while (true)
@@ -79,7 +79,7 @@ void Parser::LoadMapping(){
 	if(!(read_str2vpk_snapshot_ok && read_vpk2vptype_snapshot_ok))
 	{
 		// load vertex property key and type
-		string vp_path = config_->HDFS_INDEX_PATH + "./vtx_property_index";
+		string vp_path = config->HDFS_INDEX_PATH + "./vtx_property_index";
 		hdfsFile vp_file = get_r_handle(vp_path.c_str(), fs);
 		LineReader vp_reader(fs, vp_file);
 		while (true)
@@ -111,7 +111,7 @@ void Parser::LoadMapping(){
 	if(!read_str2el_snapshot_ok)
 	{
 		// load edge label
-		string el_path = config_->HDFS_INDEX_PATH + "./edge_label";
+		string el_path = config->HDFS_INDEX_PATH + "./edge_label";
 		hdfsFile el_file = get_r_handle(el_path.c_str(), fs);
 		LineReader el_reader(fs, el_file);
 		while (true)
@@ -141,7 +141,7 @@ void Parser::LoadMapping(){
 	if(!(read_str2epk_snapshot_ok && read_epk2eptype_snapshot_ok))
 	{
 		// load edge property key and type
-		string ep_path = config_->HDFS_INDEX_PATH + "./edge_property_index";
+		string ep_path = config->HDFS_INDEX_PATH + "./edge_property_index";
 		hdfsFile ep_file = get_r_handle(ep_path.c_str(), fs);
 		LineReader ep_reader(fs, ep_file);
 		while (true)
@@ -166,7 +166,7 @@ void Parser::LoadMapping(){
 		}
 		hdfsCloseFile(fs, ep_file);
 	}
-	
+
 	hdfsDisconnect(fs);
 
 	//these *_str will be used when given error key in a query (return to the client as error message)
@@ -212,7 +212,7 @@ int Parser::GetPid(Element_T type, string& property){
 			}
 		}
 
-		if(! index_store_->IsIndexEnabled(type, itr->second)){
+		if(! index_store->IsIndexEnabled(type, itr->second)){
 			cout << "Property is not enabled: " << property << endl;
 			return -1;
 		}
@@ -220,49 +220,64 @@ int Parser::GetPid(Element_T type, string& property){
 	}
 }
 
-bool Parser::Parse(const string& query, vector<Actor_Object>& vec, string& error_msg)
+bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg){
+    ClearTrx();
+    vector<string> lines;
+    Tool::split(trx_input, ";", lines);
+    plan.query_plans_.resize(lines.size());
+    trx_plan = &plan;
+
+    for(string& line : lines){
+        Tool::trim(line, " ");
+        if(!ParseLine(line, plan.query_plans_[line_index].actors, error_msg)){
+            return false;
+        }
+        line_index ++;
+    }
+
+    return true;
+}
+
+bool Parser::ParseLine(const string& line, vector<Actor_Object>& vec, string& error_msg)
 {
-	Clear();
+	ClearQuery();
 	bool build_index = false;
 	bool set_config = false;
-	string error_prefix = "Parsing Error: ";
+	string error_prefix = "Parser error at line ";
 	// check prefix
-	if (query.find("g.V().") == 0){
-		ParseInit(Element_T::VERTEX);
-		io_type_ = IO_T::VERTEX;
-	}
-	else if (query.find("g.E().") == 0){
-		ParseInit(Element_T::EDGE);
-		io_type_ = IO_T::EDGE;
-	}
-	else if (query.find("BuildIndex") == 0){
+	if (line.find("BuildIndex") == 0){
 		build_index = true;
 		error_prefix = "Build Index error: ";
-	}else if (query.find("SetConfig") == 0){
+	}else if (line.find("SetConfig") == 0){
 		set_config = true;
 		error_prefix = "Set Config error: ";
-	}else{
+	}
+    /*
+    else{
 		error_msg = "1. Execute query with 'g.V()' or 'g.E()'\n";
 		error_msg += "2. Set up index by BuildIndex(V/E, propertyname)\n";
 		error_msg += "3. Change config by SetConfig(config_name, t/f)\n";
 		error_msg += "4. Run emulator mode with 'emu <file>'";
 		return false;
-	}
+	}*/
 
 	try{
 		if(build_index){
-			ParseIndex(query);
+			ParseIndex(line);
 		}else if(set_config){
-			ParseSetConfig(query);
+			ParseSetConfig(line);
 		}else{
-			// trim blanks and remove prefix
-			string q = query.substr(6);
-			q = Tool::trim(q, " ");
-			DoParse(q);
+            string query, return_name;
+            ParseInit(line, return_name, query);
+			ParseQuery(query);
+            if(return_name != ""){
+                place_holder[return_name] = make_pair(line_index, io_type_);
+            }
 		}
 	}
 	catch (ParserException e){
-		error_msg = error_prefix + e.message;
+		error_msg = error_prefix + to_string(line_index + 1) + ":\n"
+                    + line + "\n"+ e.message;
 		return false;
 	}
 
@@ -385,6 +400,21 @@ Parser::IO_T Parser::Value2IO(uint8_t type){
 	}
 }
 
+void Parser::RegPlaceHolder(const string& var, int param_index, IO_T type){
+    auto itr = place_holder.find(var);
+
+    if(itr == place_holder.end()){
+        throw ParserException("Unexpected variable '" + var + "'");
+    }
+
+    auto& p = itr->second;
+    if(p.second != type){
+        throw ParserException("Expect " + string(IOType[type]) + " but get '" + var
+                               + "' with type " + string(IOType[p.second]));
+    }
+    trx_plan->RegPlaceHolder(p.first, line_index, actors_.size(), param_index);
+}
+
 void Parser::ParseIndex(const string& param){
 	vector<string> params;
 	Tool::splitWithEscape(param, ",() ", params);
@@ -454,9 +484,8 @@ void Parser::ParseSetConfig(const string& param){
 	AppendActor(actor);
 }
 
-void Parser::DoParse(const string& query)
+void Parser::ParseQuery(const string& query)
 {
-
 	vector<pair<Step_T, string>> tokens;
 	// extract steps from query
 	GetSteps(query, tokens);
@@ -468,13 +497,20 @@ void Parser::DoParse(const string& query)
 	ParseSteps(tokens);
 }
 
-void Parser::Clear()
+void Parser::ClearTrx()
+{
+	trx_index = 0;
+    line_index = 0;
+    place_holder.clear();
+}
+
+void Parser::ClearQuery()
 {
 	actors_.clear();
 	index_count_.clear();
-	str2ls.clear();
-	ls2type.clear();
-	str2se.clear();
+	str2ls_.clear();
+	ls2type_.clear();
+	str2se_.clear();
 	min_count_ = -1; // max of uint64_t
 	first_in_sub_ = 0;
 }
@@ -649,9 +685,7 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
 }
 
 void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens){
-
-
-	if(config_->global_enable_step_reorder){
+	if(config->global_enable_step_reorder){
 		for(int i = 1; i < tokens.size(); i ++){
 			int priority = GetStepPriority(tokens[i].first);
 
@@ -695,10 +729,6 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 		Step_T type = stepToken.first;
 		vector<string> params;
 		SplitParam(stepToken.second, params);
-
-		for(int i = 0; i < params.size(); i++)
-		{
-		}
 
 		switch (type){
 		//AggregateActor
@@ -789,7 +819,7 @@ void Parser::ParseSub(const vector<string>& params, int current, bool filterBran
 		first_in_sub_ = actors_.size();
 
 		// Parse sub-query and add to actors_ list
-		DoParse(sub);
+		ParseQuery(sub);
 
 		// check sub query type
 		if (first){
@@ -833,10 +863,10 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 	if (toKey){
 		map<string, int> *key_map;
 		if (pred_type == Predicate_T::WITHIN || pred_type == Predicate_T::WITHOUT){
-			key_map = &str2se;
+			key_map = &str2se_;
 		}
 		else{
-			key_map = &str2ls;
+			key_map = &str2ls_;
 		}
 
 		// Parse string to key
@@ -884,13 +914,61 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 	actor.params.push_back(pred_param);
 }
 
-void Parser::ParseInit(Element_T type)
+void Parser::ParseInit(const string& line, string& var_name, string& query)
 {
-	//@ InitActor params: (Element_T type)
+	//@ InitActor params: (Element_T type, bool with_input, uint64_t [vids/eids] )
 	//  o_type = E/V
-	Actor_Object actor(ACTOR_T::INIT);
-	actor.AddParam(type);
-	AppendActor(actor);
+    Actor_Object actor(ACTOR_T::INIT);
+
+    // Check "=" sign , extract return varibale name and query string
+    std::size_t idx = line.find("=");
+    if (idx != string::npos){
+        var_name = line.substr(0, idx);
+        Tool::trim(var_name, " ");
+        if(var_name == ""){
+            throw ParserException("expect variable name at the left of '='");
+        }
+        query = line.substr(idx + 1);
+        Tool::trim(query, " ");
+    }else{
+        var_name = "";
+        query = line;
+    }
+
+    Element_T element_type;
+    // Check begining of query
+    if(query.find("g.V") == 0){
+        io_type_ = IO_T::VERTEX;
+        element_type = Element_T::VERTEX;
+    }else if(query.find("g.E") == 0){
+        io_type_ = IO_T::EDGE;
+        element_type = Element_T::EDGE;
+    }else{
+        throw ParserException("Execute query with g.V or g.E");
+    }
+
+
+    idx = query.find(").");
+    bool with_input = false;
+    if(idx == string::npos){
+        throw ParserException("Execute query with g.V() or g.E()");
+    }else if(idx < 4){
+        throw ParserException("Execute query with g.V or g.E");
+    }else if(idx > 4){
+        string var = query.substr(4, idx - 4);
+        RegPlaceHolder(var, 2, io_type_);
+        with_input =  true;
+    }
+
+    // skip g.V().
+    query = query.substr(idx + 2);
+    if(query.length() < 3){
+        throw ParserException("Unexpected query ending with '" + query + "''");
+    }
+
+    actor.AddParam(element_type);
+    actor.AddParam(with_input);
+    AppendActor(actor);
 }
 
 void Parser::ParseAggregate(const vector<string>& params)
@@ -904,10 +982,10 @@ void Parser::ParseAggregate(const vector<string>& params)
 
 	// get side-effect key id by string
 	string key = params[0];
-	if (str2se.count(key) == 0){
-		str2se[key] = str2se.size();
+	if (str2se_.count(key) == 0){
+		str2se_[key] = str2se_.size();
 	}
-	actor.AddParam(str2se[key]);
+	actor.AddParam(str2se_[key]);
 	actor.send_remote = IsElement();
 
 	AppendActor(actor);
@@ -924,15 +1002,15 @@ void Parser::ParseAs(const vector<string>& params)
 
 	// get label step key id by string
 	string key = params[0];
-	if (str2ls.count(key) != 0){
+	if (str2ls_.count(key) != 0){
 		throw ParserException("duplicated key: " + key);
 	}
 	int ls_id = actors_.size();
-	str2ls[key] = ls_id;
+	str2ls_[key] = ls_id;
 	actor.AddParam(ls_id);
 
 	// store output type of label step
-	ls2type[ls_id] = io_type_;
+	ls2type_[ls_id] = io_type_;
 
 	AppendActor(actor);
 }
@@ -990,10 +1068,10 @@ void Parser::ParseCap(const vector<string>& params)
 	// get side_effect_key id by string
 	for (string key : params)
 	{
-		if (str2se.count(key) == 0){
+		if (str2se_.count(key) == 0){
 			throw ParserException("unexpected key in cap: " + key);
 		}
-		actor.AddParam(str2se[key]);
+		actor.AddParam(str2se_[key]);
 		actor.AddParam(key);
 	}
 
@@ -1022,10 +1100,10 @@ void Parser::ParseDedup(const vector<string>& params)
 	for (string key : params)
 	{
 		// get label step key id by string
-		if (str2ls.count(key) == 0){
+		if (str2ls_.count(key) == 0){
 			throw ParserException("unexpected key in dedup: " + key);
 		}
-		actor.AddParam(str2ls[key]);
+		actor.AddParam(str2ls_[key]);
 	}
 
 	actor.send_remote = IsElement();
@@ -1077,7 +1155,7 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type)
 
 void Parser::ParseHas(const vector<string>& params, Step_T type)
 {
-	//@ HasActor params: (Element_T type, bool isInit, [int pid, Predicate_T  p_type, vector values]...)
+	//@ HasActor params: (Element_T type, [int pid, Predicate_T  p_type, vector values]...)
 	//  i_type = o_type = VERTX/EDGE
 	if (params.size() < 1){
 		throw ParserException("expect at least one param for has");
@@ -1179,7 +1257,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 		PredicateValue pred(pred_type, actor.params[size - 1]);
 
 		uint64_t count = 0;
-		bool enabled = index_store_->IsIndexEnabled(element_type, key, &pred, &count);
+		bool enabled = index_store->IsIndexEnabled(element_type, key, &pred, &count);
 
 		if(enabled && count / index_ratio < min_count_)
 		{
@@ -1252,7 +1330,7 @@ void Parser::ParseHasLabel(const vector<string>& params)
 		PredicateValue pred(pred_type, pred_params);
 
 		uint64_t count = 0;
-		if(index_store_->IsIndexEnabled(element_type, 0, &pred, &count)){
+		if(index_store->IsIndexEnabled(element_type, 0, &pred, &count)){
 			actors_.erase(actors_.end() - 1);
 
 			value_t v;
@@ -1490,7 +1568,7 @@ void Parser::ParseCoin(const vector<string>& params)
 	{
 		throw ParserException("expected a value in range [0.0, 1.0]");
 	}
-	
+
 	//find floating point
 	if(param.find(".") == string::npos)
 	{
@@ -1533,11 +1611,11 @@ void Parser::ParseSelect(const vector<string>& params)
 	int key;
 	IO_T type;
 	for (string param : params){
-		if (str2ls.count(param) == 0){
+		if (str2ls_.count(param) == 0){
 			throw ParserException("unexpected label step: " + param);
 		}
-		key = str2ls[param];
-		type = ls2type[key];
+		key = str2ls_[param];
+		type = ls2type_[key];
 		actor.AddParam(key);
 		actor.AddParam(param);
 	}
@@ -1690,10 +1768,10 @@ void Parser::ParseWhere(const vector<string>& params)
 		string param = params[0];
 		int label_step_key = -1;
 		if (params.size() == 2){
-			if (str2ls.count(param) != 1){
+			if (str2ls_.count(param) != 1){
 				throw ParserException("Unexpected label step: " + param);
 			}
-			label_step_key = str2ls[param];
+			label_step_key = str2ls_[param];
 			param = params[1];
 		}
 
@@ -1766,3 +1844,5 @@ const map<string, Predicate_T> Parser::str2pred = {
 	{ "within", Predicate_T::WITHIN },
 	{ "without", Predicate_T::WITHOUT }
 };
+
+const char *Parser::IOType[] = { "edge", "vertex", "int", "double", "char", "string", "collection" };

@@ -8,8 +8,8 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include <string>
 #include <vector>
 #include <map>
-#include "actor/actor_object.hpp"
 #include "base/type.hpp"
+#include "core/exec_plan.hpp"
 #include "core/index_store.hpp"
 #include "utils/tool.hpp"
 #include "utils/hdfs_core.hpp"
@@ -25,35 +25,17 @@ private:
 	string TokensToStr(vector<pair<Step_T, string>> tokens);
 	string StepToStr(int step);
 
+/*-----------------Global members for all transactions--------------------------
+------------------------------------------------------------------------------*/
+
+    Config * config;
+    IndexStore * index_store;
+
 	enum IO_T { EDGE, VERTEX, INT, DOUBLE, CHAR, STRING, COLLECTION };
-
-	// In/out data type
-	IO_T io_type_;
-
-	// tmp actors store
-	vector<Actor_Object> actors_;
-
-	// disable index when (count of given predicate > min_count_ * ratio)
-	const static int index_ratio = 3;
-	vector<uint64_t> index_count_;
-	uint64_t min_count_;
-
-	// first step index in sub query
-	int first_in_sub_;
-
-	// record step index of actor which should send data to non-local nodes
-	int dispatch_step_;
-
-	// str to enum
+    const static char *IOType[];
+    // str to enum
 	const static map<string, Step_T> str2step;		// step type
 	const static map<string, Predicate_T> str2pred;	// predicate type
-
-	// str to id
-	map<string, int> str2ls; // label step
-	map<string, int> str2se; // side-effect
-
-	// id to enm
-	map<int, IO_T> ls2type;	 // label step output type
 
 	// str to id, for property key and label key
 	map<string, uint32_t> str2vpk;
@@ -71,8 +53,50 @@ private:
 	map<uint32_t, uint8_t> vpk2vptype;
 	map<uint32_t, uint8_t> epk2eptype;
 
-	Config * config_;
-	IndexStore * index_store_;
+    const static int index_ratio = 3;
+
+/*-----------------local members for one transaction----------------------------
+------------------------------------------------------------------------------*/
+
+    // Name of query variable to <query index, type>
+    map<string, pair<int, IO_T>> place_holder;
+
+    // Unique index of each actor object in transaction
+    int trx_index;
+
+    // Current line
+    int line_index;
+
+    TrxPlan* trx_plan;
+
+/*-----------------local members for one line in trx----------------------------
+------------------------------------------------------------------------------*/
+
+    // In/out data type
+	IO_T io_type_;
+
+    // first step index in sub query
+	int first_in_sub_;
+
+	// record step index of actor which should send data to non-local nodes
+	int dispatch_step_;
+
+    // disable index when (count of given predicate > min_count_ * ratio)
+	vector<uint64_t> index_count_;
+	uint64_t min_count_;
+
+    // str to id
+	map<string, int> str2ls_; // label step
+	map<string, int> str2se_; // side-effect
+
+    // id to enm
+	map<int, IO_T> ls2type_;  // label step output type
+
+    // tmp actors store
+	vector<Actor_Object> actors_;
+
+/*---------------------------------Functions------------------------------------
+------------------------------------------------------------------------------*/
 
 	// IO type checking
 	bool IsNumber();
@@ -94,9 +118,15 @@ private:
 	void SplitParam(string& param, vector<string>& params);
 	void SplitPredicate(string& param, Predicate_T& pred_type, vector<string>& params);
 
-	void Clear();
+	void ClearTrx();
+    void ClearQuery();
 
 	void AppendActor(Actor_Object& actor);
+
+    void RegPlaceHolder(const string& var, int param_index, IO_T type);
+
+    // Parse each line of transaction
+    bool ParseLine(const string& query, vector<Actor_Object>& vec, string& error_msg);
 
 	// Parse build index
 	void ParseIndex(const string& param);
@@ -104,8 +134,8 @@ private:
 	// Parse set config
 	void ParseSetConfig(const string& param);
 
-	// Parse query or sub-query
-	void DoParse(const string& query);
+    // Parse query or sub-query
+	void ParseQuery(const string& query);
 
 	// extract steps and corresponding params from query string
 	void GetSteps(const string& query, vector<pair<Step_T, string>>& tokens);
@@ -129,7 +159,7 @@ private:
 	void ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
 
 	// Parse actors
-	void ParseInit(Element_T type);
+    void ParseInit(const string& line, string& var_name, string& query);
 	void ParseAggregate(const vector<string>& params);
 	void ParseAs(const vector<string>& params);
 	void ParseBranch(const vector<string>& params);
@@ -156,11 +186,11 @@ private:
 
 public:
 	// Parse query string
-	bool Parse(const string& query, vector<Actor_Object>& vec, string& error_msg);
+    bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);
 
-	Parser(IndexStore* index_store): index_store_(index_store)
+	Parser(IndexStore* index_store_): index_store(index_store_)
 	{
-		config_ = Config::GetInstance();
+		config = Config::GetInstance();
 	}
 
 	int GetPid(Element_T type, string& property);

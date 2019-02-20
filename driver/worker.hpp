@@ -10,6 +10,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/zmq.hpp"
 
 #include "base/core_affinity.hpp"
+
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "base/thread_safe_queue.hpp"
@@ -17,6 +18,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/global.hpp"
 #include "utils/config.hpp"
 
+#include "core/exec_plan.hpp"
 #include "core/message.hpp"
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
@@ -81,6 +83,7 @@ public:
 		}
 	}
 
+    /* Not suitable for transaction base emulation, should be modified later
 	void RunEMU(string& cmd, string& client_host){
 		string emu_host = "EMUWORKER";
 		qid_t qid;
@@ -249,6 +252,7 @@ public:
 			rc_->InsertResult(qid.value(), result);
 		}
 	}
+    */
 
 	void WorkerListener(DataStore * datastore){
 		while(1) {
@@ -286,23 +290,32 @@ public:
 		}
 	}
 
-	void ParseAndSendQuery(string query, string client_host, int query_type = -1){
+	void ParseTransaction(string query, uint64_t trxid, uint64_t st, string client_host){
 		qid_t qid(my_node_.get_local_rank(), ++num_query);
-		thpt_monitor_->RecordStart(qid.value(), query_type);
+		thpt_monitor_->RecordStart(qid.value());
 
+        // TODO: refactor result collector
 		rc_->Register(qid.value(), client_host);
 
-		vector<Actor_Object> actors;
+		TrxPlan plan(trxid, st, client_host);
 		string error_msg;
-		bool success = parser_->Parse(query, actors, error_msg);
+		bool success = parser_->Parse(query, plan, error_msg);
 
 		if(success){
-			Pack pkg;
-			pkg.id = qid;
-			pkg.actors = move(actors);
-
-			queue_.Push(pkg);
+            QueryPlan qplan;
+            if(plan.NextQuery(qplan)){
+                Pack pkg;
+    			pkg.id = qid;
+                pkg.actors = move(qplan.actors);
+                queue_.Push(pkg);
+            }else{
+                error_msg = "Error: Empty transaction";
+                goto ERROR;
+            }
+            plans_[trxid] = move(plan);
+            qid2trx_[qid.value()] = trxid;
 		}else{
+ERROR:
 			value_t v;
 			Tool::str2str(error_msg, v);
 			vector<value_t> vec = {v};
@@ -327,11 +340,17 @@ public:
 			um >> query;
 			cout << "worker_node" << my_node_.get_local_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
 
+            // TODO: Get trxid and st from master
+            // Fake id and start time
+            uint64_t trxid = 2 << 35;
+            uint64_t st = 0;
+            /*
 			if(query.find("emu") == 0){
 				RunEMU(query, client_host);
 			}else{
 				ParseAndSendQuery(query, client_host);
-			}
+			}*/
+            ParseTransaction(query, trxid, st, client_host);
 		}
 	}
 
@@ -455,7 +474,25 @@ public:
 			uint64_t time_ = thpt_monitor_->RecordEnd(re.qid);
 
 			if(!is_emu_mode_){
-				ibinstream m;
+                auto itr = qid2trx_.find(re.qid);
+                if(itr != qid2trx_.end()){
+                    TrxPlan& plan = plans_[itr->second];
+                    plan.FillPlaceHolder(re.results);
+                    QueryPlan qplan;
+                    if(plan.NextQuery(qplan)){
+                        qid_t qid(my_node_.get_local_rank(), ++num_query);
+                		thpt_monitor_->RecordStart(qid.value());
+                		rc_->Register(qid.value(), plan.client_host);
+
+                        Pack pkg;
+                        pkg.id = qid;
+                        pkg.actors = move(qplan.actors);
+                        queue_.Push(pkg);
+                        continue;
+                    }
+                }
+
+                ibinstream m;
 				m << re.hostname; //client hostname
 				m << re.results; //query results
 				m << time_;   //execution time
@@ -503,6 +540,8 @@ private:
 	zmq::socket_t * receiver_;
 	zmq::socket_t * w_listener_;
 
+    map<uint64_t, TrxPlan> plans_;
+    map<uint64_t, uint64_t> qid2trx_;
 	vector<zmq::socket_t *> senders_;
 };
 

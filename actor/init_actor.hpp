@@ -67,8 +67,13 @@ public:
     void process(const vector<Actor_Object> & actor_objs, Message & msg){
 
     	int tid = TidMapper::GetInstance()->GetTid();
-
-		if(actor_objs[msg.meta.step].params.size() == 1){
+        assert(actor_objs[msg.meta.step].params.size() >= 2);
+        bool with_input = Tool::value_t2int(actor_objs[msg.meta.step].params[1]);
+		if(with_input){
+            InitWithInput(tid, actor_objs, msg);
+        }
+        else if(actor_objs[msg.meta.step].params.size() == 2){
+            cout << "Normal" << endl;
 			InitWithoutIndex(tid, actor_objs, msg);
 		}else{
 			InitWithIndex(tid, actor_objs, msg);
@@ -214,6 +219,28 @@ private:
 		edge_data_count.push_back(move(msg_data));
     }
 
+    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
+        Meta m = msg.meta;
+        const Actor_Object& actor_obj = actor_objs[m.step];
+
+        msg.max_data_size = config_->max_data_size;
+        msg.data.clear();
+        msg.data.emplace_back(history_t(), vector<value_t>());
+
+        if(m.recver_nid == m.parent_nid){
+            msg.data[0].second.insert(msg.data[0].second.end(),
+                                make_move_iterator(actor_obj.params.begin() + 2),
+                                make_move_iterator(actor_obj.params.end()));
+        }
+        vector<Message> vec;
+        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, vec);
+
+        // Send Message
+        for (auto& msg_ : vec) {
+            mailbox_->Send(tid, msg_);
+        }
+	}
+
 	void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
         Meta m = msg.meta;
         const Actor_Object& actor_obj = actor_objs[m.step];
@@ -222,13 +249,13 @@ private:
 		vector<pair<int, PredicateValue>> pred_chain;
 
 		// Get Params
-		assert(actor_obj.params.size() > 1 && (actor_obj.params.size() - 1) % 3 == 0); // make sure input format
+		assert((actor_obj.params.size() - 2) % 3 == 0); // make sure input format
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-		int numParamsGroup = (actor_obj.params.size() - 1) / 3; // number of groups of params
+		int numParamsGroup = (actor_obj.params.size() - 2) / 3; // number of groups of params
 
 		// Create predicate chain for this query
 		for (int i = 0; i < numParamsGroup; i++) {
-			int pos = i * 3 + 1;
+			int pos = i * 3 + 2;
 			// Get predicate params
 			int pid = Tool::value_t2int(actor_obj.params.at(pos));
 			Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 1));
