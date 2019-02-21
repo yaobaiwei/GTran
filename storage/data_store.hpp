@@ -87,10 +87,7 @@ public:
 	void DeleteAggData(agg_t key);
 
 	// Validation : Get RCT data
-	void GetRecentlyCommittedTable (vector<Premitive_T> premitiveList,
-									vector<uint64_t> & committedTimeList,
-									vector<int> & propertyKeyList,
-									vector<uint64_t> & data);
+	void GetRecentActionSet (int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set);
 
 	// For TCP use
 	TCPHelper * tcp_helper;
@@ -174,10 +171,6 @@ private:
 	void to_ep(char* line, vector<EProperty*> & eplist);
 	
 	// Validation use
-	void get_rct_all(vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data); 
-
 	template <class T>
-	void get_rct_topo(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data);
-	template <class T>
-	void get_rct_prop(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data);
+	void get_rct(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, set<uint64_t> & data);
 };

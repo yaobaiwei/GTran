@@ -126,6 +126,10 @@ struct vid_t {
     	return (uint32_t)vid;
     }
 
+    uint64_t validation_value(){
+    	return (uint64_t)vid;
+    }
+
     uint64_t hash() {
         uint64_t r = value();
         return mymath::hash_u64(r); // the standard hash is too slow (i.e., std::hash<uint64_t>()(r))
@@ -178,6 +182,10 @@ uint64_t out_v : VID_BITS;
         r <<= VID_BITS;
         r += out_v;
         return r;
+    }
+
+    uint64_t validation_value(){
+        return value();
     }
 
     uint64_t hash() {
@@ -566,7 +574,9 @@ static const int NUM_RESIDENT_THREAD = 4;
 
 //====For Validation=====
 
-enum Premitive_T { ALL, IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP };
+// COUNT in Primitive_T is used for iterating enum and do not assign any
+// value to each element.
+enum Primitive_T { IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP, COUNT };
 enum ID_T { VID, EID, VPID, EPID };
 
 //====For Validation=====
