@@ -488,33 +488,31 @@ void DataStore::DeleteAggData(agg_t key) {
 	}
 }
 
-void DataStore::GetRecentlyCommittedTable (vector<Premitive_T> premitiveList, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data) {
-	for (auto & premitive : premitiveList) {
-		switch (premitive) {
-			case Premitive_T::ALL:
-				get_rct_all(trxIDList, propertyKeyList, data);
-			case Premitive_T::IV:
-				get_rct_topo(rct_IV, trxIDList, propertyKeyList, data);
-			case Premitive_T::IE:
-				get_rct_topo(rct_IE, trxIDList, propertyKeyList, data);
-			case Premitive_T::DV:
-				get_rct_topo(rct_DV, trxIDList, propertyKeyList, data);
-			case Premitive_T::DE:
-				get_rct_topo(rct_DE, trxIDList, propertyKeyList, data);
-			case Premitive_T::IVP:
-				get_rct_prop(rct_IVP, trxIDList, propertyKeyList, data);
-			case Premitive_T::IEP:
-				get_rct_prop(rct_IEP, trxIDList, propertyKeyList, data);
-			case Premitive_T::DVP:
-				get_rct_prop(rct_DVP, trxIDList, propertyKeyList, data);
-			case Premitive_T::DEP:
-				get_rct_prop(rct_DEP, trxIDList, propertyKeyList, data);
-			case Premitive_T::MVP:
-				get_rct_prop(rct_MVP, trxIDList, propertyKeyList, data);
-			case Premitive_T::MEP:
-				get_rct_prop(rct_MEP, trxIDList, propertyKeyList, data);
-		}
-	}
+void DataStore::GetRecentActionSet (int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set) {
+    switch (p) {
+        case Primitive_T::IV:
+            get_rct(rct_IV, trxIDList, rct_set);
+        case Primitive_T::IE:
+            get_rct(rct_IE, trxIDList, rct_set);
+        case Primitive_T::DV:
+            get_rct(rct_DV, trxIDList, rct_set);
+        case Primitive_T::DE:
+            get_rct(rct_DE, trxIDList, rct_set);
+        case Primitive_T::IVP:
+            get_rct(rct_IVP, trxIDList, rct_set);
+        case Primitive_T::IEP:
+            get_rct(rct_IEP, trxIDList, rct_set);
+        case Primitive_T::DVP:
+            get_rct(rct_DVP, trxIDList, rct_set);
+        case Primitive_T::DEP:
+            get_rct(rct_DEP, trxIDList, rct_set);
+        case Primitive_T::MVP:
+            get_rct(rct_MVP, trxIDList, rct_set);
+        case Primitive_T::MEP:
+            get_rct(rct_MEP, trxIDList, rct_set);
+        default :
+            cout << "Wrong type of primitive" << endl;
+    }
 }
 
 void DataStore::get_string_indexes()
@@ -920,39 +918,12 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 
 }
 
-void DataStore::get_rct_all(vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data) {
-	get_rct_topo(rct_IV, trxIDList, propertyKeyList, data);
-	get_rct_topo(rct_IE, trxIDList, propertyKeyList, data);
-	get_rct_topo(rct_DV, trxIDList, propertyKeyList, data);
-	get_rct_topo(rct_DE, trxIDList, propertyKeyList, data);
-	get_rct_prop(rct_IVP, trxIDList, propertyKeyList, data);
-	get_rct_prop(rct_IEP, trxIDList, propertyKeyList, data);
-	get_rct_prop(rct_DVP, trxIDList, propertyKeyList, data);
-	get_rct_prop(rct_DEP, trxIDList, propertyKeyList, data);
-	get_rct_prop(rct_MVP, trxIDList, propertyKeyList, data);
-	get_rct_prop(rct_MEP, trxIDList, propertyKeyList, data);
-}
-
 template <class T>
-void DataStore::get_rct_topo(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data) {
-	// Have not considered property; need to reconfirm
+void DataStore::get_rct(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set) {
 	for (auto & trxID : trxIDList) {
 		if (rct.find(trxID) != rct.end()) {
-			for (auto & opr : rct[trxID]) {
-				data.emplace_back(opr.value());
-			}
-		}
-	}
-}
-template <class T>
-void DataStore::get_rct_prop(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, vector<int> & propertyKeyList, vector<uint64_t> & data) {
-	for (auto & trxID : trxIDList) {
-		if (rct.find(trxID) != rct.end()) {
-			for (auto & opr : rct[trxID]) {
-				// TODO : Check property
-				if (find(propertyKeyList.begin(), propertyKeyList.end(), opr.pid) != propertyKeyList.end()) {
-					data.emplace_back(opr.validation_value());
-				}
+			for (auto & val : rct[trxID]) {
+				rct_set.emplace(val.validation_value());
 			}
 		}
 	}
