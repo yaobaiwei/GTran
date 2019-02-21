@@ -39,6 +39,7 @@ public:
     TrxPlan(uint64_t trxid, uint64_t st, string client_host_) : trxid_(trxid), st_(st), client_host(client_host_){
         trx_type_ = TRX_READONLY;
         query_index_ = -1;
+        exec_time = 0;
     }
 
     // Register place holder
@@ -51,6 +52,7 @@ public:
     bool NextQuery(QueryPlan& plan);
 
     string client_host;
+    uint64_t exec_time;
 private:
     // Locate the position of place holder
     struct position_t{

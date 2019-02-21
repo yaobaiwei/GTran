@@ -27,13 +27,11 @@ void TrxPlan::FillPlaceHolder(vector<value_t>& results){
         Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
         if(actor.actor_type == ACTOR_T::INIT){
             // TODO: Better move eids/vids to message data instead of actor params
-            actor.params.insert(actor.params.end(),
-                                make_move_iterator(results.begin()),
-                                make_move_iterator(results.end()));
+            actor.params.insert(actor.params.end(),results.begin(), results.end());
         }else{
             value_t result;
             if(results.size() == 1){
-                result = move(results[0]);
+                result = results[0];
             }else{
                 Tool::vec2value_t(results, result);
             }
