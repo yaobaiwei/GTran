@@ -87,7 +87,8 @@ public:
 	void DeleteAggData(agg_t key);
 
 	// Validation : Get RCT data
-	void GetRecentActionSet (int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set);
+    void GetRecentActionSet (int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set);
+    void InsertRecentActionSet (int p, uint64_t trxIDList, vector<uint64_t> & data);
 
 	// For TCP use
 	TCPHelper * tcp_helper;
@@ -128,20 +129,16 @@ private:
 	EKVStore * epstore_;
 
 	// Validation Use
-	// 	Insert V/E, Delete V/E (4 tables)
-	// 	Insert/Modify/Delete VP/EP (3/6 tables)
-	// 	TrxID --> ObjectList
-	// 	One thread access one Transaction at a time.
-	hash_map<uint64_t, vector<vid_t>> rct_IV;
-	hash_map<uint64_t, vector<eid_t>> rct_IE;
-	hash_map<uint64_t, vector<vid_t>> rct_DV;
-	hash_map<uint64_t, vector<eid_t>> rct_DE;
-	hash_map<uint64_t, vector<vpid_t>> rct_IVP;
-	hash_map<uint64_t, vector<epid_t>> rct_IEP;
-	hash_map<uint64_t, vector<vpid_t>> rct_MVP;
-	hash_map<uint64_t, vector<epid_t>> rct_MEP;
-	hash_map<uint64_t, vector<vpid_t>> rct_DVP;
-	hash_map<uint64_t, vector<epid_t>> rct_DEP;
+    //     Insert V/E, Delete V/E (4 tables)
+    //     Insert/Modify/Delete VP/EP (6 tables)
+    //     TrxID --> ObjectList
+    //         Insert -> multi-thread
+    //         Read -> single-thread
+    typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_vector<uint64_t>> rct_type;
+    typedef rct_type::accessor rct_accessor;
+    typedef rct_type::const_accessor rct_const_accessor;
+    // Primitive_T -> rct
+    hash_map<uint32_t, rct_type> rct;
 
 	//=========tmp usage=========
 	vector<Vertex*> vertices;  //x
@@ -169,8 +166,4 @@ private:
 	void get_eplist();
 	void load_eplist(const char* inpath);
 	void to_ep(char* line, vector<EProperty*> & eplist);
-	
-	// Validation use
-	template <class T>
-	void get_rct(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, set<uint64_t> & data);
 };

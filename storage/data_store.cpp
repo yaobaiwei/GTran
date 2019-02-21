@@ -489,29 +489,22 @@ void DataStore::DeleteAggData(agg_t key) {
 }
 
 void DataStore::GetRecentActionSet (int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set) {
-    switch (p) {
-        case Primitive_T::IV:
-            get_rct(rct_IV, trxIDList, rct_set);
-        case Primitive_T::IE:
-            get_rct(rct_IE, trxIDList, rct_set);
-        case Primitive_T::DV:
-            get_rct(rct_DV, trxIDList, rct_set);
-        case Primitive_T::DE:
-            get_rct(rct_DE, trxIDList, rct_set);
-        case Primitive_T::IVP:
-            get_rct(rct_IVP, trxIDList, rct_set);
-        case Primitive_T::IEP:
-            get_rct(rct_IEP, trxIDList, rct_set);
-        case Primitive_T::DVP:
-            get_rct(rct_DVP, trxIDList, rct_set);
-        case Primitive_T::DEP:
-            get_rct(rct_DEP, trxIDList, rct_set);
-        case Primitive_T::MVP:
-            get_rct(rct_MVP, trxIDList, rct_set);
-        case Primitive_T::MEP:
-            get_rct(rct_MEP, trxIDList, rct_set);
-        default :
-            cout << "Wrong type of primitive" << endl;
+    for (auto & trxID : trxIDList) {
+        rct_const_accessor rctca; 
+        if (rct[p].find(rctca, trxID)) {
+            for (auto & item : rctca->second) {
+                rct_set.emplace(item);
+            }
+        }
+    }
+}
+
+void DataStore::InsertRecentActionSet (int p, uint64_t trxID, vector<uint64_t> & data) {
+    rct_accessor rcta; 
+    rct[p].insert(rcta, trxID);
+
+    for (auto & val : data) {
+        rcta->second.emplace_back(val);
     }
 }
 
@@ -916,15 +909,4 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist)
 	edges.push_back(e);
 	eplist.push_back(ep);
 
-}
-
-template <class T>
-void DataStore::get_rct(hash_map<uint64_t, vector<T>> & rct, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set) {
-	for (auto & trxID : trxIDList) {
-		if (rct.find(trxID) != rct.end()) {
-			for (auto & val : rct[trxID]) {
-				rct_set.emplace(val.validation_value());
-			}
-		}
-	}
 }
