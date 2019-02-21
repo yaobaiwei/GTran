@@ -5,15 +5,19 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #pragma once
 
-#include <algorithm>
-#include <mutex>
-#include <string>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ext/hash_map>
 #include <ext/hash_set>
-
 #include <hdfs.h>
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_vector.h>
+
+#include <algorithm>
+#include <mutex>
+#include <set>
+#include <string>
+
 #include "glog/logging.h"
 
 #include "storage/vkvstore.hpp"
@@ -35,100 +39,99 @@ using __gnu_cxx::hash_map;
 using __gnu_cxx::hash_set;
 
 class DataStore {
-public:
-	DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf);
+ public:
+    DataStore(Node & node, AbstractIdMapper * id_mapper, Buffer * buf);
 
-	~DataStore();
+    ~DataStore();
 
-	void Init(vector<Node> & nodes);
+    void Init(vector<Node> & nodes);
 
-	//index format
-	//string \t index [int]
-	/*
-	 * 	unordered_map<string, label_t> str2el; //map to edge_label
-	 * 	unordered_map<label_t, string> el2str;
-	 *	unordered_map<string, label_t> str2epk; //map to edge's property key
-	 *	unordered_map<label_t, string> epk2str;
-	 *	unordered_map<string, label_t> str2vl; //map to vtx_label
-	 *	unordered_map<label_t, string> vl2str;
-	 *	unordered_map<string, label_t> str2vpk; //map to vtx's property key
-	 *	unordered_map<label_t, string> vpk2str;
-	 */
+    // index format
+    // string \t index [int]
+    /*
+     * unordered_map<string, label_t> str2el; //map to edge_label
+     * unordered_map<label_t, string> el2str;
+     * unordered_map<string, label_t> str2epk; //map to edge's property key
+     * unordered_map<label_t, string> epk2str;
+     * unordered_map<string, label_t> str2vl; //map to vtx_label
+     * unordered_map<label_t, string> vl2str;
+     * unordered_map<string, label_t> str2vpk; //map to vtx's property key
+     * unordered_map<label_t, string> vpk2str;
+     */
 
-	void LoadDataFromHDFS();
-	void Shuffle();
-	void DataConverter();
+    void LoadDataFromHDFS();
+    void Shuffle();
+    void DataConverter();
 
-	void ReadSnapshot();
-	void WriteSnapshot();
+    void ReadSnapshot();
+    void WriteSnapshot();
 
-	Vertex* GetVertex(vid_t v_id);
-	Edge* GetEdge(eid_t e_id);
+    Vertex* GetVertex(vid_t v_id);
+    Edge* GetEdge(eid_t e_id);
 
-	void GetAllVertices(vector<vid_t> & vid_list);
-	void GetAllEdges(vector<eid_t> & eid_list);
+    void GetAllVertices(vector<vid_t> & vid_list);
+    void GetAllEdges(vector<eid_t> & eid_list);
 
-	bool VPKeyIsLocal(vpid_t vp_id);
-	bool EPKeyIsLocal(epid_t ep_id);
+    bool VPKeyIsLocal(vpid_t vp_id);
+    bool EPKeyIsLocal(epid_t ep_id);
 
-	bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
-	bool GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);
+    bool GetPropertyForVertex(int tid, vpid_t vp_id, value_t & val);
+    bool GetPropertyForEdge(int tid, epid_t ep_id, value_t & val);
 
-	bool GetLabelForVertex(int tid, vid_t vid, label_t & label);
-	bool GetLabelForEdge(int tid, eid_t eid, label_t & label);
+    bool GetLabelForVertex(int tid, vid_t vid, label_t & label);
+    bool GetLabelForEdge(int tid, eid_t eid, label_t & label);
 
-	int GetMachineIdForVertex(vid_t v_id);
-	int GetMachineIdForEdge(eid_t e_id);
+    int GetMachineIdForVertex(vid_t v_id);
+    int GetMachineIdForEdge(eid_t e_id);
 
-	void GetNameFromIndex(Index_T type, label_t label, string & str);
+    void GetNameFromIndex(Index_T type, label_t label, string & str);
 
-	void InsertAggData(agg_t key, vector<value_t> & data);
-	void GetAggData(agg_t key, vector<value_t> & data);
-	void DeleteAggData(agg_t key);
+    void InsertAggData(agg_t key, vector<value_t> & data);
+    void GetAggData(agg_t key, vector<value_t> & data);
+    void DeleteAggData(agg_t key);
 
-	// Validation : Get RCT data
-    void GetRecentActionSet (int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set);
-    void InsertRecentActionSet (int p, uint64_t trxIDList, vector<uint64_t> & data);
+    // Validation : Get RCT data
+    void GetRecentActionSet(int p, vector<uint64_t> & trxIDList,
+            set<uint64_t> & rct_set);
+    void InsertRecentActionSet(int p, uint64_t trxIDList,
+            vector<uint64_t> & data);
 
-	// For TCP use
-	TCPHelper * tcp_helper;
+    // For TCP use
+    TCPHelper * tcp_helper;
 
-	//single ptr instance
-	//diff from Node
-	static DataStore* StaticInstanceP(DataStore* p = NULL)
-	{
-		static DataStore* static_instance_p_ = NULL;
-		if(p)
-		{
-			// if(static_instance_p_)
-			// 	delete static_instance_p_;
-			// static_instance_p_ = new DataStore;
-			static_instance_p_ = p;
-		}
-			
-		assert(static_instance_p_ != NULL);
-		return static_instance_p_;
-	}
+    // single ptr instance
+    // diff from Node
+    static DataStore* StaticInstanceP(DataStore* p = NULL) {
+        static DataStore* static_instance_p_ = NULL;
+        if (p) {
+            // if(static_instance_p_)
+            //     delete static_instance_p_;
+            // static_instance_p_ = new DataStore;
+            static_instance_p_ = p;
+        }
 
-private:
+        assert(static_instance_p_ != NULL);
+        return static_instance_p_;
+    }
 
-	Buffer * buffer_;
-	AbstractIdMapper* id_mapper_;
-	Config* config_;
-	Node & node_;
+ private:
+    Buffer * buffer_;
+    AbstractIdMapper* id_mapper_;
+    Config* config_;
+    Node & node_;
 
-	//load the index and data from HDFS
-	string_index indexes; //index is global, no need to shuffle
-	hash_map<vid_t, Vertex*> v_table;
-	hash_map<eid_t, Edge*> e_table;
+    // load the index and data from HDFS
+    string_index indexes;  // index is global, no need to shuffle
+    hash_map<vid_t, Vertex*> v_table;
+    hash_map<eid_t, Edge*> e_table;
 
-	unordered_map<agg_t, vector<value_t>> agg_data_table;
-	mutex agg_mutex;
+    unordered_map<agg_t, vector<value_t>> agg_data_table;
+    mutex agg_mutex;
 
-	VKVStore * vpstore_;
-	EKVStore * epstore_;
+    VKVStore * vpstore_;
+    EKVStore * epstore_;
 
-	// Validation Use
+    // Validation Use
     //     Insert V/E, Delete V/E (4 tables)
     //     Insert/Modify/Delete VP/EP (6 tables)
     //     TrxID --> ObjectList
@@ -140,30 +143,30 @@ private:
     // Primitive_T -> rct
     hash_map<uint32_t, rct_type> rct;
 
-	//=========tmp usage=========
-	vector<Vertex*> vertices;  //x
-	vector<Edge*> edges; //x
-	vector<VProperty*> vplist; //x
-	vector<EProperty*> eplist; //x
-	vector<vp_list*> vp_buf; //x
+    // =========tmp usage=========
+    vector<Vertex*> vertices;  // x
+    vector<Edge*> edges;  // x
+    vector<VProperty*> vplist;  // x
+    vector<EProperty*> eplist;  // x
+    vector<vp_list*> vp_buf;  // x
 
-	typedef map<string, uint8_t> type_map;
-	typedef map<string, uint8_t>::iterator type_map_itr;
-	type_map vtx_pty_key_to_type; //x
-	type_map edge_pty_key_to_type; //x
+    typedef map<string, uint8_t> type_map;
+    typedef map<string, uint8_t>::iterator type_map_itr;
+    type_map vtx_pty_key_to_type;  // x
+    type_map edge_pty_key_to_type;  // x
 
-	//==========tmp usage=========
+    // ==========tmp usage=========
 
-	void get_string_indexes();
-	void get_vertices();
-	void load_vertices(const char* inpath);
-	Vertex* to_vertex(char* line);
+    void get_string_indexes();
+    void get_vertices();
+    void load_vertices(const char* inpath);
+    Vertex* to_vertex(char* line);
 
-	void get_vplist();
-	void load_vplist(const char* inpath);
-	void to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf);
+    void get_vplist();
+    void load_vplist(const char* inpath);
+    void to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> & vp_buf);
 
-	void get_eplist();
-	void load_eplist(const char* inpath);
-	void to_ep(char* line, vector<EProperty*> & eplist);
+    void get_eplist();
+    void load_eplist(const char* inpath);
+    void to_ep(char* line, vector<EProperty*> & eplist);
 };
