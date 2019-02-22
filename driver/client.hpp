@@ -6,14 +6,13 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #ifndef CLIENT_HPP_
 #define CLIENT_HPP_
 
+#include <unistd.h>
+#include <limits.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <set>
-
-#include <unistd.h>
-#include <limits.h>
 
 #include "base/node.hpp"
 #include "base/node_util.hpp"
@@ -29,20 +28,22 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/console_util.hpp"
 
 class Client{
-public:
-    Client(string cfg_fname);
+ public:
+    explicit Client(string cfg_fname);
 
     void Init();
 
     void run_console(string query_fname);
 
-private:
+ private:
     int id;
     string fname_;
     vector<Node> nodes_;
     Node master_;
     ClientConnection cc_;
-    int handler;
+    int handler_;
+    uint64_t time_stamp_;
+    uint64_t trxid_;
 
     void RequestWorker();
     string CommitQuery(string query);

@@ -6,10 +6,11 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "actor/actor_object.hpp"
 #include "base/serialization.hpp"
 #include "base/type.hpp"
+#include "utils/timer.hpp"
 
 // Execution plan for query
-class QueryPlan{
-public:
+class QueryPlan {
+ public:
     QueryPlan() {}
 
     // Query info
@@ -33,41 +34,50 @@ class Parser;
 #define TRX_DELETE   4
 
 // Execution plan for transaction
-class TrxPlan{
-public:
-    TrxPlan(){}
-    TrxPlan(uint64_t trxid, uint64_t st, string client_host_) : trxid_(trxid), st_(st), client_host(client_host_){
+class TrxPlan {
+ public:
+    TrxPlan() {}
+    TrxPlan(uint64_t trxid_, uint64_t st, string client_host_) : trxid(trxid_), st_(st), client_host(client_host_) {
         trx_type_ = TRX_READONLY;
         query_index_ = -1;
-        exec_time = 0;
+        start_time = timer::get_usec();
     }
 
     // Register place holder
     void RegPlaceHolder(int src_index, int dst_index, int actor_index, int param_index);
 
-    // Fill in placeholder after query done
-    void FillPlaceHolder(vector<value_t>& results);
+    // Fill in placeholder and trx result after query done
+    void FillResult(vector<value_t>& vec);
 
     // Get exection plan, false if finished
     bool NextQuery(QueryPlan& plan);
 
+    uint64_t trxid;
+
     string client_host;
-    uint64_t exec_time;
-private:
+
+    // physical time
+    uint64_t start_time;
+
+    // Results from all queries
+    vector<value_t> results;
+
+ private:
     // Locate the position of place holder
-    struct position_t{
+    struct position_t {
         int query;
         int actor;
         int param;
         position_t(int q, int a, int p) : query(q), actor(a), param(p){}
     };
-    uint64_t st_;
-    uint64_t trxid_;
-    char trx_type_;
 
+    uint64_t st_;
+    char trx_type_;
 
     // indicate current query line
     int query_index_;
+
+    // Info of all queries
     vector<QueryPlan> query_plans_;
 
     // Place holder

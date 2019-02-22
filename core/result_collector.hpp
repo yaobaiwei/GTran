@@ -15,64 +15,52 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <mutex>
 #include <queue>
 #include <string>
+#include <unordered_set>
 
 #include "base/type.hpp"
 #include "base/thread_safe_queue.hpp"
 
 using __gnu_cxx::hash_map;
-using namespace std;
 
-struct reply{
-	string hostname;
-	uint64_t qid;
-	vector<value_t> results;
+struct reply {
+    uint64_t qid;
+    vector<value_t> results;
 };
 
-class Result_Collector
-{
-public:
-	void Register(uint64_t qid, string hostname){
-		lock_guard<mutex> lck(m_mutex_);
-		reply_list_.push_front(move(hostname));
-		mp_[qid] = reply_list_.begin();
-	}
+class Result_Collector {
+ public:
+    void Register(uint64_t qid) {
+        lock_guard<mutex> lck(m_mutex_);
+        qid_list_.insert(qid);
+    }
 
-	void InsertResult(uint64_t qid, vector<value_t> & data){
-		m_mutex_.lock();
-		indexItr it = mp_.find(qid);
+    void InsertResult(uint64_t qid, vector<value_t> & data) {
+        {
+            // check if qid is valid
+            lock_guard<mutex> lck(m_mutex_);
+            auto it = qid_list_.find(qid);
 
-		if(it == mp_.end()){
-			cout << "ERROR: Impossible branch in Result_Collector!\n";
-			exit(-1);
-		}
+            if (it == qid_list_.end()) {
+                cout << "ERROR: Impossible branch in Result_Collector!\n";
+                exit(-1);
+            }
+            qid_list_.erase(it);
+        }
 
-		itemItr re_pos = it->second;
-		reply re;
-		re.hostname = move(*re_pos);
-		re.results = move(data);
-		re.qid = qid;
-		reply_list_.erase(re_pos);
-		mp_.erase(it);
+        reply re;
+        re.results = move(data);
+        re.qid = qid;
+        reply_queue_.Push(move(re));
+    }
 
-		m_mutex_.unlock();
-		reply_queue_.Push(move(re));
-	}
+    void Pop(reply & result) {
+        reply_queue_.WaitAndPop(result);
+    }
 
-	void Pop(reply & result){
-		reply_queue_.WaitAndPop(result);
-	}
-
-private:
-	//hostname, result;
-	typedef string item;
-	typedef list<item>::iterator itemItr;
-	typedef hash_map<uint64_t, itemItr> index;
-	typedef index::iterator indexItr;
-
-	mutex m_mutex_;
-	list<item> reply_list_;
-	ThreadSafeQueue<reply> reply_queue_;
-	index mp_;
+ private:
+    mutex m_mutex_;
+    unordered_set<uint64_t> qid_list_;
+    ThreadSafeQueue<reply> reply_queue_;
 };
 
 #endif /* RESULT_COLLECTOR_HPP_ */

@@ -39,16 +39,16 @@ struct Pack{
 };
 
 class Worker{
-public:
-    Worker(Node & my_node, vector<Node> & workers, Node & master): my_node_(my_node), workers_(workers), master_(master)
-    {
+ public:
+    Worker(Node & my_node, vector<Node> & workers, Node & master) :
+            my_node_(my_node), workers_(workers), master_(master) {
         config_ = Config::GetInstance();
         num_query = 0;
         is_emu_mode_ = false;
     }
 
-    ~Worker(){
-        for(int i = 0; i < senders_.size(); i++){
+    ~Worker() {
+        for (int i = 0; i < senders_.size(); i++) {
             delete senders_[i];
         }
 
@@ -59,7 +59,7 @@ public:
         delete rc_;
     }
 
-    void Init(){
+    void Init() {
         index_store_ = new IndexStore();
         parser_ = new Parser(index_store_);
         receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
@@ -68,15 +68,15 @@ public:
         rc_ = new Result_Collector;
         char addr[64];
         char w_addr[64];
-        sprintf(addr, "tcp://*:%d", my_node_.tcp_port);
-        sprintf(w_addr, "tcp://*:%d", my_node_.tcp_port + config_->global_num_threads + 1);
+        snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port);
+        snprintf(w_addr, sizeof(w_addr), "tcp://*:%d", my_node_.tcp_port + config_->global_num_threads + 1);
         receiver_->bind(addr);
         w_listener_->bind(w_addr);
 
-        for(int i = 0; i < my_node_.get_local_size(); i++){
-            if(i != my_node_.get_local_rank()){
+        for (int i = 0; i < my_node_.get_local_size(); i++) {
+            if (i != my_node_.get_local_rank()) {
                 zmq::socket_t * sender = new zmq::socket_t(context_, ZMQ_PUSH);
-                sprintf(addr, "tcp://%s:%d", workers_[i].hostname.c_str(), workers_[i].tcp_port);
+                snprintf(addr, sizeof(addr), "tcp://%s:%d", workers_[i].hostname.c_str(), workers_[i].tcp_port);
                 sender->connect(addr);
                 senders_.push_back(sender);
             }
@@ -254,13 +254,13 @@ public:
     }
     */
 
-    void WorkerListener(DataStore * datastore){
-        while(1) {
+    void WorkerListener(DataStore * datastore) {
+        while (1) {
             zmq::message_t request;
             w_listener_->recv(&request);
 
             char* buf = new char[request.size()];
-            memcpy(buf, (char *)request.data(), request.size());
+            memcpy(buf, reinterpret_cast<char*>(request.data()), request.size());
             obinstream um(buf, request.size());
 
             uint64_t id;
@@ -272,7 +272,7 @@ public:
             value_t val;
             ibinstream m;
 
-            switch(elem_type) {
+            switch (elem_type) {
                 case Element_T::VERTEX:
                     datastore->tcp_helper->GetPropertyForVertex(id, val);
                     break;
@@ -285,65 +285,56 @@ public:
 
             m << val;
             zmq::message_t msg(m.size());
-            memcpy((void *)msg.data(), m.get_buf(), m.size());
+            memcpy(reinterpret_cast<void*>(msg.data()), m.get_buf(), m.size());
             w_listener_->send(msg);
         }
     }
 
-    void ParseTransaction(string query, uint64_t trxid, uint64_t st, string client_host){
-        qid_t qid(my_node_.get_local_rank(), ++num_query);
-        thpt_monitor_->RecordStart(qid.value());
-
-        // TODO: refactor result collector
-        rc_->Register(qid.value(), client_host);
-
+    void ParseTransaction(string query, uint64_t trxid, uint64_t st, string client_host) {
         TrxPlan plan(trxid, st, client_host);
         string error_msg;
         bool success = parser_->Parse(query, plan, error_msg);
 
-        if(success){
-            QueryPlan qplan;
-            if(plan.NextQuery(qplan)){
-                Pack pkg;
-                pkg.id = qid;
-                pkg.actors = move(qplan.actors);
-                queue_.Push(pkg);
-            }else{
+        if (success) {
+            if (RegisterQuery(plan)) {
+                plans_[trxid] = move(plan);
+            } else {
                 error_msg = "Error: Empty transaction";
                 goto ERROR;
             }
-            plans_[trxid] = move(plan);
-            qid2trx_[qid.value()] = trxid;
-        }else{
-ERROR:
+        } else {
+  ERROR:
             value_t v;
             Tool::str2str(error_msg, v);
             vector<value_t> vec = {v};
-            rc_->InsertResult(qid.value(), vec);
+            plan.FillResult(vec);
+            ReplyClient(plan);
         }
     }
 
-    void RecvRequest(){
-        while(1)
-        {
+    void RecvRequest() {
+        // Fake id and start time
+        while (1) {
             zmq::message_t request;
             receiver_->recv(&request);
 
             char* buf = new char[request.size()];
-            memcpy(buf, (char *)request.data(), request.size());
+            memcpy(buf, reinterpret_cast<char*>(request.data()), request.size());
             obinstream um(buf, request.size());
 
             string client_host;
             string query;
+            uint64_t trxid;
+            uint64_t st;
 
-            um >> client_host; //get the client hostname for returning results.
+            um >> client_host;
             um >> query;
-            cout << "worker_node" << my_node_.get_local_rank() << " gets one QUERY: \"" << query <<"\" from host " << client_host << endl;
+            um >> trxid;
+            um >> st;
+            cout << "worker_node" << my_node_.get_local_rank()
+                    << " gets one QUERY: \"" << query << "\" from host "
+                    << client_host << endl;
 
-            // TODO: Get trxid and st from master
-            // Fake id and start time
-            uint64_t trxid = 2 << 35;
-            uint64_t st = 0;
             /*
             if(query.find("emu") == 0){
                 RunEMU(query, client_host);
@@ -354,23 +345,74 @@ ERROR:
         }
     }
 
-    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity){
-        while(1){
+    bool RegisterQuery(TrxPlan& plan) {
+        static mutex qid_mutex;
+        uint32_t num_query_;
+
+        // Two threads will call register
+        {
+            unique_lock<mutex> lock(qid_mutex);
+            num_query_ = ++num_query;
+        }
+
+        QueryPlan qplan;
+        if (plan.NextQuery(qplan)) {
+            qid_t qid(my_node_.get_local_rank(), num_query_);
+            rc_->Register(qid.value());
+            qid2trx_[qid.value()] = plan.trxid;
+
+            Pack pkg;
+            pkg.id = qid;
+            pkg.actors = move(qplan.actors);
+            queue_.Push(pkg);
+            return true;
+        }
+        return false;
+    }
+
+    void ReplyClient(TrxPlan& plan) {
+        ibinstream m;
+        m << plan.client_host;  // client hostname
+        m << plan.results;  // query results
+        m << (timer::get_usec() - plan.start_time);   // execution time
+
+        zmq::message_t msg(m.size());
+        memcpy(reinterpret_cast<void*>(msg.data()), m.get_buf(), m.size());
+
+        zmq::socket_t sender(context_, ZMQ_PUSH);
+        char addr[64];
+        // port calculation is based on our self-defined protocol
+        snprintf(addr, sizeof(addr), "tcp://%s:%d", plan.client_host.c_str(),
+                workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
+        sender.connect(addr);
+        cout << "worker_node" << my_node_.get_local_rank()
+                << " sends the results to Client " << plan.client_host << endl;
+        sender.send(msg);
+        monitor_->IncreaseCounter(1);
+    }
+
+    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
+        while (1) {
             Pack pkg;
             queue_.WaitAndPop(pkg);
 
             vector<Message> msgs;
-            Message::CreateInitMsg(pkg.id.value(), my_node_.get_local_rank(), my_node_.get_local_size(),core_affinity->GetThreadIdForActor(ACTOR_T::INIT), pkg.actors, msgs);
-            for(int i = 0 ; i < my_node_.get_local_size(); i++){
+            Message::CreateInitMsg(
+                pkg.id.value(),
+                my_node_.get_local_rank(),
+                my_node_.get_local_size(),
+                core_affinity->GetThreadIdForActor(ACTOR_T::INIT),
+                pkg.actors,
+                msgs);
+            for (int i = 0 ; i < my_node_.get_local_size(); i++) {
                 mailbox->Send(config_->global_num_threads, msgs[i]);
             }
             mailbox->Sweep(config_->global_num_threads);
         }
     }
 
-    void Start(){
-
-        //initial MPIUniqueNamer
+    void Start() {
+        // initial MPIUniqueNamer
         MPIUniqueNamer* p = MPIUniqueNamer::GetInstance(my_node_.local_comm);
         p->AppendHash(config_->HDFS_INDEX_PATH +
                       config_->HDFS_VTX_SUBFOLDER +
@@ -380,7 +422,7 @@ ERROR:
                       p->ultos(config_->global_vertex_property_kv_sz_gb) +
                       p->ultos(config_->global_edge_property_kv_sz_gb));
 
-        //initial MPISnapshot
+        // initial MPISnapshot
         MPISnapshot* snapshot = MPISnapshot::GetInstance(config_->SNAPSHOT_PATH);
 
         // you can use this if you want to overwrite snapshot
@@ -388,17 +430,19 @@ ERROR:
         // you can use this if you are testing on a tiny dataset to avoid write snapshot
         // snapshot->DisableWrite();
 
-        //===================prepare stage=================
+        // ===================prepare stage=================
         NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
 
-        //init core affinity
+        // init core affinity
         CoreAffinity * core_affinity = new CoreAffinity();
         core_affinity->Init();
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init Core Affinity" << endl;
 
-        //set the in-memory layout for RDMA buf
+        // set the in-memory layout for RDMA buf
         Buffer * buf = new Buffer(my_node_);
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
+        cout << "Worker" << my_node_.get_local_rank()
+                << ": DONE -> Register RDMA MEM, SIZE = "
+                << buf->GetBufSize() << endl;
 
         AbstractMailbox * mailbox;
         if (config_->global_use_rdma)
@@ -415,27 +459,27 @@ ERROR:
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Init()" << endl;
 
-        //read snapshot area
+        // read snapshot area
         parser_->ReadSnapshot();
         datastore->ReadSnapshot();
 
         datastore->LoadDataFromHDFS();
         worker_barrier(my_node_);
 
-        //=======data shuffle==========
+        // =======data shuffle==========
         datastore->Shuffle();
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Shuffle()" << endl;
-        //=======data shuffle==========
+        // =======data shuffle==========
 
         datastore->DataConverter();
         worker_barrier(my_node_);
 
-        cout << "Worker" << my_node_.get_local_rank()  << ": DONE -> Datastore->DataConverter()" << endl;
+        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Datastore->DataConverter()" << endl;
 
         parser_->LoadMapping();
-        cout << "Worker" << my_node_.get_local_rank()  << ": DONE -> Parser_->LoadMapping()" << endl;
+        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Parser_->LoadMapping()" << endl;
 
-        //write snapshot area
+        // write snapshot area
         parser_->WriteSnapshot();
         datastore->WriteSnapshot();
 
@@ -447,12 +491,12 @@ ERROR:
         if (!config_->global_use_rdma)
             w_listener = thread(&Worker::WorkerListener, this, datastore);
 
-        Monitor * monitor = new Monitor(my_node_);
-        monitor->Start();
+        monitor_ = new Monitor(my_node_);
+        monitor_->Start();
 
         worker_barrier(my_node_);
 
-        //actor driver starts
+        // actor driver starts
         ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
         actor_adapter->Start();
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> actor_adapter->Start()" << endl;
@@ -461,61 +505,24 @@ ERROR:
         fflush(stdout);
         worker_barrier(my_node_);
 
-        //pop out the query result from collector, automatically block when it's empty and wait
-        //fake, should find a way to stop
-        while(1){
+        // pop out the query result from collector, automatically block when it's empty and wait
+        // fake, should find a way to stop
+        while (1) {
             reply re;
             rc_->Pop(re);
 
-            // Node::SingleTrap("rc_->Pop(re);");
+            auto itr = qid2trx_.find(re.qid);
+            assert(itr != qid2trx_.end());
 
-            uint64_t time_ = thpt_monitor_->RecordEnd(re.qid);
-
-            if(!is_emu_mode_){
-                auto itr = qid2trx_.find(re.qid);
-                if(itr != qid2trx_.end()){
-                    TrxPlan& plan = plans_[itr->second];
-                    plan.exec_time += time_;
-                    plan.FillPlaceHolder(re.results);
-                    QueryPlan qplan;
-                    if(plan.NextQuery(qplan)){
-                        qid_t qid(my_node_.get_local_rank(), ++num_query);
-                        thpt_monitor_->RecordStart(qid.value());
-                        rc_->Register(qid.value(), plan.client_host);
-                        qid2trx_[qid.value()] = itr->second;
-
-                        Pack pkg;
-                        pkg.id = qid;
-                        pkg.actors = move(qplan.actors);
-                        queue_.Push(pkg);
-                        continue;
-                    }
-                    time_ = plan.exec_time;
-                }
-
-                // Send back result when transaction finished
-                ibinstream m;
-                m << re.hostname; //client hostname
-                m << re.results; //query results
-                m << time_;   //execution time
-
-                zmq::message_t msg(m.size());
-                memcpy((void *)msg.data(), m.get_buf(), m.size());
-
-                zmq::socket_t sender(context_, ZMQ_PUSH);
-                char addr[64];
-                //port calculation is based on our self-defined protocol
-                sprintf(addr, "tcp://%s:%d", re.hostname.c_str(), workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
-                sender.connect(addr);
-                cout << "worker_node" << my_node_.get_local_rank() << " sends the results to Client " << re.hostname << endl;
-                sender.send(msg);
-
-                monitor->IncreaseCounter(1);
+            TrxPlan& plan = plans_[itr->second];
+            plan.FillResult(re.results);
+            if (!RegisterQuery(plan) && !is_emu_mode_) {
+                ReplyClient(plan);
             }
         }
 
         actor_adapter->Stop();
-        monitor->Stop();
+        monitor_->Stop();
 
         recvreq.join();
         sendmsg.join();
@@ -523,7 +530,7 @@ ERROR:
             w_listener.join();
     }
 
-private:
+ private:
     Node & my_node_;
     Node & master_;
 
@@ -533,6 +540,7 @@ private:
     IndexStore* index_store_;
     ThreadSafeQueue<Pack> queue_;
     Result_Collector * rc_;
+    Monitor * monitor_;
     uint32_t num_query;
 
     bool is_emu_mode_;
@@ -546,7 +554,4 @@ private:
     map<uint64_t, uint64_t> qid2trx_;
     vector<zmq::socket_t *> senders_;
 };
-
-
-
 #endif /* WORKER_HPP_ */

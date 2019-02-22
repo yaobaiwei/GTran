@@ -3,6 +3,7 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
          Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
+#include <vector>
 
 #include "glog/logging.h"
 #include "driver/client.hpp"
@@ -11,28 +12,31 @@ Client::Client(string cfg_fname) : fname_(cfg_fname) {
     id = -1;
 }
 
-void Client::Init(){
+void Client::Init() {
     nodes_ = ParseFile(fname_);
     CHECK(CheckUniquePort(nodes_));
     master_ = GetNodeById(nodes_, 0);
     cc_.Init(nodes_);
 }
 
-void Client::RequestWorker(){
+void Client::RequestWorker() {
     ibinstream m;
     obinstream um;
     m << id;
     cc_.Send(MASTER_RANK, m);
     cout << "[Client] Client just posted a REQ" << endl;
 
-    //get the available worker ID
+    // get the available worker ID
     cc_.Recv(MASTER_RANK, um);
     um >> id;
-    um >> handler;
-    cout << "[Client] Client " << id << " recvs a REP: get available worker_node" << handler - 1 << endl << endl;
+    um >> handler_;
+    um >> trxid_;
+    um >> time_stamp_;
+
+    cout << "[Client] Client " << id << " recvs a REP: get available worker_node" << handler_ - 1 << endl << endl;
 }
 
-string Client::CommitQuery(string query){
+string Client::CommitQuery(string query) {
     ibinstream m;
     obinstream um;
 
@@ -41,38 +45,41 @@ string Client::CommitQuery(string query){
     string host_str(hostname);
     m << host_str;
     m << query;
-    cc_.Send(handler, m);
-    cout << "[Client] Client posts the query to worker_node" << handler - 1 << endl << endl;
+    m << trxid_;
+    m << time_stamp_;
 
-    cc_.Recv(handler, um);
+    cc_.Send(handler_, m);
+    cout << "[Client] Client posts the query to worker_node" << handler_ - 1 << endl << endl;
+
+    cc_.Recv(handler_, um);
 
     string result;
-	string hname;
-	uint64_t time_;
+    string hname;
+    uint64_t time_;
     vector<value_t> values;
     um >> hname;
     um >> values;
-	um >> time_;
+    um >> time_;
 
-	result = "";
-	if (values.size() == 0) {
-    	result = "Query '" + query + "' result: \n";
-		result += "=>Empty\n";
-	} else {
-		result = "Query '" + query + "' result: \n";
-		for(auto& v : values){
-			result += "=>" + Tool::DebugString(v) + "\n";
-		}
-	}
+    result = "";
+    if (values.size() == 0) {
+        result = "Query '" + query + "' result: \n";
+        result += "=>Empty\n";
+    } else {
+        result = "Query '" + query + "' result: \n";
+        for (auto& v : values) {
+            result += "=>" + Tool::DebugString(v) + "\n";
+        }
+    }
 
-	result += "[Timer] ";
-	if (time_ / 1000 == 0)
+    result += "[Timer] ";
+    if (time_ / 1000 == 0) {
         result += to_string(time_) + " us for ProcessQuery";
-    else{
-		stringstream ss;
-		ss << std::fixed << std::setprecision(2) << (time_ / 1000.0);
-		result += ss.str() + " ms for ProcessQuery";
-	}
+    } else {
+        stringstream ss;
+        ss << std::fixed << std::setprecision(2) << (time_ / 1000.0);
+        result += ss.str() + " ms for ProcessQuery";
+    }
 
 
     return result;
@@ -91,8 +98,7 @@ void Client::run_query(string query, string& result, bool isBatch) {
     }
 }
 
-void Client::print_help()
-{
+void Client::print_help() {
     cout << "GQuery commands: " << endl;
     cout << "    help                display help infomation" << endl;
     cout << "    quit                quit from console" << endl;
@@ -103,10 +109,12 @@ void Client::print_help()
     cout << "           -o <file>           output results into <file>" << endl;
     cout << "        -b <file> [<args>]  a set of queries configured by <file> (batch-mode)" << endl;
     cout << "           -o <file>           output results into <file>" << endl;
+    cout << "        -t <file> [<args>]  a set of queries configured by <file> (transaction-mode)" << endl;
+    cout << "           -o <file>           output results into <file>" << endl;
 }
 
 bool Client::trim_str(string& str) {
-    size_t pos = str.find_first_not_of(" \t"); // trim blanks from head
+    size_t pos = str.find_first_not_of(" \t");  // trim blanks from head
     if (pos == string::npos) return false;
     str.erase(0, pos);
 
@@ -172,8 +180,8 @@ void Client::run_console(string query_fname) {
           cmd_ss >> token;
           if (token == "gquery") {
             string query, result;
-            string fname, bname, ofname;
-            bool s_enable = false, f_enable = false, b_enable = false, o_enable = false;
+            string fname, bname, ofname, tname;
+            bool s_enable = false, f_enable = false, b_enable = false, o_enable = false, t_enable = false;
 
             // get parameters
             while (cmd_ss >> token) {
@@ -197,14 +205,18 @@ void Client::run_console(string query_fname) {
                 // output to file
                 cmd_ss >> ofname;
                 o_enable = true;
+              } else if (token == "-t") {
+                // transaction Mode
+                cmd_ss >> tname;
+                t_enable = true;
               } else {
                 goto failed;
               }
-            } // gquery_while
+            }  // gquery_while
 
-            if (!s_enable && !f_enable && !b_enable) goto failed; // meaningless
+            if (!s_enable && !f_enable && !b_enable && !t_enable) goto failed;  // meaningless
 
-            if (s_enable) { // -s <query>
+            if (s_enable) {  // -s <query>
                 run_query(query, result, false);
 
                 if (o_enable) {
@@ -215,7 +227,7 @@ void Client::run_console(string query_fname) {
                 }
             }
 
-            if (f_enable) { // -f <file>
+            if (f_enable) {  // -f <file>
               cout << "[Client] Single query in file" << endl;
 
               ifstream file(fname.c_str());
@@ -241,7 +253,7 @@ void Client::run_console(string query_fname) {
               }
             }
 
-            if (b_enable) { // -b <file>
+            if (b_enable) {  // -b <file>
               cout << "[Client] b_enable" << endl;
 
               ifstream file(bname.c_str());
@@ -269,12 +281,42 @@ void Client::run_console(string query_fname) {
               }
             }
 
-          } else {
+            if (t_enable) {
+              cout << "[Client] Transaction mode" << endl;
+              ifstream file(tname.c_str());
+              if (!file) {
+                cout << "[Client][ERROR]: " << bname << " does not exist." << endl << endl;
+                goto next;
+              }
+
+              string trx_cmd;
+              while (std::getline(file, query)) {
+                if (!trim_str(query)) {
+                  cout << "[Client][Error]: Empty Query" << endl << endl;
+                  goto next;
+                }
+                trx_cmd += query + "\n";
+                query.clear();
+              }
+              if (trx_cmd == "") {
+                cout << "[Client][Error]: Empty Transaction" << endl << endl;
+                goto next;
+              }
+
+              run_query(trx_cmd, result, true);
+
+              if (o_enable) {
+                std::ofstream ofs(ofname, std::ofstream::out);
+                ofs << result;
+              } else {
+                cout << "[Client] result: " << result << endl << endl;
+              }
+            }
+          } else {  // if token != "gquery"
         failed:
             cout << "[Client][ERROR]: Failed to run the command: " << cmd << endl << endl;
             print_help();
           }
-
         }
 
         uint64_t end_t = timer::get_usec();
@@ -283,10 +325,9 @@ void Client::run_console(string query_fname) {
 }
 
 
-int main(int argc, char* argv[])
-{
-    if(argc != 2 && argc != 3){
-        cout << "1 or 2 params required" <<endl;
+int main(int argc, char* argv[]) {
+    if (argc != 2 && argc != 3) {
+        cout << "1 or 2 params required" << endl;
         return 0;
     }
 
@@ -294,12 +335,12 @@ int main(int argc, char* argv[])
     string cfg_fname = argv[1];
     CHECK(!cfg_fname.empty());
 
-	string query_fname;
-	if (argc == 2) {
-		query_fname = "";
-	} else {
-		query_fname = argv[2];
-	}
+    string query_fname;
+    if (argc == 2) {
+        query_fname = "";
+    } else {
+        query_fname = argv[2];
+    }
 
     Client client(cfg_fname);
     client.Init();
