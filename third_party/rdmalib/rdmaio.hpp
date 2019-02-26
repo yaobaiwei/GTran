@@ -664,30 +664,63 @@ public:
     }
 
 	IOStatus ud_post_send(int remote_id, int thread_id, char *local_buf, int len, int flags) {
-		IOStatus rc = IO_SUCC;
-		struct ibv_send_wr sr, *bad_sr;
-		struct ibv_sge sge;
-		auto key = _QP_ENCODE_ID(remote_id, thread_id);
-		RdmaQpAttr* qp_attr = &ud_attrs_[key];
-		sr.wr.ud.ah = ahs_[key];
-		sr.wr.ud.remote_qpn = qp_attr->qpn;
-		sr.wr.ud.remote_qkey = DEFAULT_QKEY;
+        IOStatus rc = IO_SUCC;
+        struct ibv_send_wr sr, *bad_sr;
+        struct ibv_sge sge;
+        auto key = _QP_ENCODE_ID(remote_id, thread_id);
+        RdmaQpAttr* qp_attr = &ud_attrs_[key];
+        sr.wr.ud.ah = ahs_[key];
+        sr.wr.ud.remote_qpn = qp_attr->qpn;
+        sr.wr.ud.remote_qkey = DEFAULT_QKEY;
 
-		sr.opcode = IBV_WR_SEND_WITH_IMM;
-		sr.num_sge = 1;
-		sr.next = NULL;
-		sr.sg_list = &sge;
-		sr.send_flags = flags;
-		sr.imm_data   = htonl(0x1234);
-		// sr[i].send_flags |= IBV_SEND_INLINE;
+        sr.opcode = IBV_WR_SEND_WITH_IMM;
+        sr.num_sge = 1;
+        sr.next = NULL;
+        sr.sg_list = &sge;
+        sr.send_flags = flags;
+        sr.imm_data   = htonl(0x1234);
+        // sr[i].send_flags |= IBV_SEND_INLINE;
 
-		sge.addr = (uint64_t)local_buf;
-		sge.length = len;
-		sge.lkey = dev_->dgram_buf_mr->lkey;
+        sge.addr = (uint64_t)local_buf;
+        sge.length = len;
+        sge.lkey = dev_->dgram_buf_mr->lkey;
 
-		rc = (IOStatus)ibv_post_send(qp, &sr, &bad_sr);
-		CE(rc, "ibv_post_send error");
-		return rc;
+        rc = (IOStatus)ibv_post_send(qp, &sr, &bad_sr);
+        CE(rc, "ibv_post_send error");
+        return rc;
+	}
+
+    IOStatus ud_post_doorbell(int remote_id, int thread_id, RdmaReq *reqs, int batch_size, int flags) {
+        IOStatus rc = IO_SUCC;
+        struct ibv_send_wr sr[UD_MAX_SEND_SIZE], *bad_sr;
+        struct ibv_sge sge[UD_MAX_SEND_SIZE];
+
+        auto key = _QP_ENCODE_ID(remote_id, thread_id);
+        RdmaQpAttr* qp_attr = &ud_attrs_[key];
+        struct ibv_ah *ah = ahs_[key];
+        for (int i = 0; i < batch_size; i++) {
+            sr[i].wr.ud.ah = ah;
+            sr[i].wr.ud.remote_qpn = qp_attr->qpn;
+            sr[i].wr.ud.remote_qkey = DEFAULT_QKEY;
+
+            sr[i].opcode = IBV_WR_SEND_WITH_IMM;
+            sr[i].num_sge = 1;
+            sr[i].next = (i == batch_size - 1) ? NULL : &sr[i + 1];
+            sr[i].sg_list = &sge[i];
+            sr[i].send_flags = flags;
+            sr[i].imm_data   = htonl(0x1234);
+            // sr[i].send_flags |= IBV_SEND_INLINE;
+
+            sge[i].addr = reqs[i].buf;
+            sge[i].length = reqs[i].length;
+            sge[i].lkey = dev_->dgram_buf_mr->lkey;
+
+            sr[i].send_flags = flags;
+        }
+
+        rc = (IOStatus)ibv_post_send(qp, &sr[0], &bad_sr);
+        CE(rc, "ibv_post_send error");
+        return rc;
 	}
 
 	IOStatus ud_post_recv(void *buf_addr, int len) {
@@ -1617,7 +1650,7 @@ retry:
         MOD_ADD(recv_helper->recv_head, recv_helper->max_recv_num); /* 1 step */
         return rc;
     }
-	
+
     int post_ud_recvs(int qid, int recv_num) {
         struct ibv_recv_wr *head_rr, *tail_rr, *temp_rr, *bad_rr;
         RdmaRecvHelper *recv_helper = recv_helpers_[qid];

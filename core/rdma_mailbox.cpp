@@ -270,8 +270,7 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 void RdmaMailbox::Send_Notify(int dst_nid, ibinstream& in){
 	RDMA &rdma = RDMA::get_rdma();
 	int failed = 0;
-	memcpy(config_->dgram_send_buf, in.get_buf(), in.size());
-	while(rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.size()) != 0){
+	while(rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.get_buf(), in.size()) != 0){
 		failed ++;
 		cout << "Fail to send msg from " << node_.get_world_rank() << " to " << dst_nid << ", retry " << failed << " times"<< endl;
 		CHECK_LT(failed, 10) << "Node " << node_.get_world_rank() << " fail sending msg 10 times!!!!!";

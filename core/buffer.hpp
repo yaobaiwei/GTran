@@ -31,8 +31,6 @@ public:
 				config_->dgram_recv_buf = buffer_ + config_->dgram_recv_buffer_offset;
 			}else{
 				// Master
-				config_->dgram_recv_buffer_sz *= config_->global_num_machines;
-				config_->dgram_buf_sz = config_->dgram_send_buffer_sz + config_->dgram_recv_buffer_sz;
 				buffer_ = new char[config_->dgram_buf_sz];
 				memset(buffer_, 0, config_->dgram_buf_sz);
 				config_->dgram_send_buf = buffer_;
