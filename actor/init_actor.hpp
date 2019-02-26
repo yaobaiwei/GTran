@@ -4,11 +4,13 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
          Aaron Li (cjli@cse.cuhk.edu.hk)
 */
 
-#ifndef INIT_ACTOR_HPP_
-#define INIT_ACTOR_HPP_
+#ifndef ACTOR_INIT_ACTOR_HPP_
+#define ACTOR_INIT_ACTOR_HPP_
 
 #include <iostream>
 #include <string>
+#include <utility>
+#include <vector>
 #include "glog/logging.h"
 
 #include "actor/abstract_actor.hpp"
@@ -28,33 +30,44 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "storage/mpi_snapshot.hpp"
 #include "storage/snapshot_func.hpp"
 
-using namespace std;
-
 class InitActor : public AbstractActor {
-public:
-    InitActor(int id, DataStore* data_store, int num_thread, AbstractMailbox * mailbox, CoreAffinity* core_affinity, IndexStore * index_store, int num_nodes) : AbstractActor(id, data_store, core_affinity), index_store_(index_store), num_thread_(num_thread), mailbox_(mailbox), num_nodes_(num_nodes), type_(ACTOR_T::INIT), is_ready_(false)
-    {
+ public:
+    InitActor(int id,
+            DataStore* data_store,
+            int num_thread,
+            AbstractMailbox * mailbox,
+            CoreAffinity* core_affinity,
+            IndexStore * index_store,
+            int num_nodes) :
+        AbstractActor(id, data_store, core_affinity),
+        index_store_(index_store),
+        num_thread_(num_thread),
+        mailbox_(mailbox),
+        num_nodes_(num_nodes),
+        type_(ACTOR_T::INIT),
+        is_ready_(false) {
         config_ = Config::GetInstance();
 
-        //read snapshot here
-        //write snapshot @ InitData
+        // read snapshot here
+        // write snapshot @ InitData
 
         MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
         int snapshot_read_cnt = 0;
 
-        snapshot_read_cnt += ((snapshot->ReadData("init_actor_vtx_data", vtx_data, ReadMailboxDataImpl)) ? 1 : 0);
-        snapshot_read_cnt += ((snapshot->ReadData("init_actor_edge_data", edge_data, ReadMailboxDataImpl)) ? 1 : 0);
-        snapshot_read_cnt += ((snapshot->ReadData("init_actor_vtx_data_count", vtx_data_count, ReadMailboxDataImpl)) ? 1 : 0);
-        snapshot_read_cnt += ((snapshot->ReadData("init_actor_edge_data_count", edge_data_count, ReadMailboxDataImpl)) ? 1 : 0);
+        snapshot_read_cnt +=
+            ((snapshot->ReadData("init_actor_vtx_data", vtx_data, ReadMailboxDataImpl)) ? 1 : 0);
+        snapshot_read_cnt +=
+            ((snapshot->ReadData("init_actor_edge_data", edge_data, ReadMailboxDataImpl)) ? 1 : 0);
+        snapshot_read_cnt +=
+            ((snapshot->ReadData("init_actor_vtx_data_count", vtx_data_count, ReadMailboxDataImpl)) ? 1 : 0);
+        snapshot_read_cnt +=
+            ((snapshot->ReadData("init_actor_edge_data_count", edge_data_count, ReadMailboxDataImpl)) ? 1 : 0);
 
-        if(snapshot_read_cnt == 4)
-        {
+        if (snapshot_read_cnt == 4) {
             is_ready_ = true;
-        }
-        else
-        {
-            //atomic, all fail
+        } else {
+            // atomic, all fail
             vtx_data.resize(0);
             edge_data.resize(0);
             vtx_data_count.resize(0);
@@ -62,24 +75,22 @@ public:
         }
     }
 
-    virtual ~InitActor(){}
+    virtual ~InitActor() {}
 
-    void process(const vector<Actor_Object> & actor_objs, Message & msg){
-
+    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
         assert(actor_objs[msg.meta.step].params.size() >= 2);
         bool with_input = Tool::value_t2int(actor_objs[msg.meta.step].params[1]);
-        if(with_input){
+        if (with_input) {
             InitWithInput(tid, actor_objs, msg);
-        }
-        else if(actor_objs[msg.meta.step].params.size() == 2){
+        } else if (actor_objs[msg.meta.step].params.size() == 2) {
             InitWithoutIndex(tid, actor_objs, msg);
-        }else{
+        } else {
             InitWithIndex(tid, actor_objs, msg);
         }
     }
 
-private:
+ private:
     // Number of threads
     int num_thread_;
     int num_nodes_;
@@ -107,8 +118,8 @@ private:
     vector<AbstractMailbox::mailbox_data_t> vtx_data_count;
     vector<AbstractMailbox::mailbox_data_t> edge_data_count;
 
-    void InitData(){
-        if(is_ready_){
+    void InitData() {
+        if (is_ready_) {
             return;
         }
         MPISnapshot* snapshot = MPISnapshot::GetInstance();
@@ -134,7 +145,7 @@ private:
         cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
     }
 
-    void InitVtxData(Meta& m) {
+    void InitVtxData(const Meta& m) {
         vector<vid_t> vid_list;
         data_store_->GetAllVertices(vid_list);
         uint64_t count = vid_list.size();
@@ -150,13 +161,12 @@ private:
         vector<vid_t>().swap(vid_list);
 
         vector<Message> vtx_msgs;
-        do{
+        do {
             Message msg(m);
             msg.max_data_size = config_->max_data_size;
             msg.InsertData(data);
             vtx_msgs.push_back(move(msg));
-        }
-        while((data.size() != 0));
+        } while ((data.size() != 0));
 
         string num = "\t" + to_string(vtx_msgs.size());
         for (auto & msg_ : vtx_msgs) {
@@ -176,7 +186,7 @@ private:
         vtx_data_count.push_back(move(msg_data));
     }
 
-    void InitEdgeData(Meta& m) {
+    void InitEdgeData(const Meta& m) {
         vector<eid_t> eid_list;
         data_store_->GetAllEdges(eid_list);
         uint64_t count = eid_list.size();
@@ -192,13 +202,12 @@ private:
         vector<eid_t>().swap(eid_list);
 
         vector<Message> edge_msgs;
-        do{
+        do {
             Message msg(m);
             msg.max_data_size = config_->max_data_size;
             msg.InsertData(data);
             edge_msgs.push_back(move(msg));
-        }
-        while((data.size() != 0));
+        } while ((data.size() != 0));
 
         string num = "\t" + to_string(edge_msgs.size());
         for (auto & msg_ : edge_msgs) {
@@ -218,7 +227,7 @@ private:
         edge_data_count.push_back(move(msg_data));
     }
 
-    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
+    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
         Meta m = msg.meta;
         const Actor_Object& actor_obj = actor_objs[m.step];
 
@@ -226,7 +235,7 @@ private:
         msg.data.clear();
         msg.data.emplace_back(history_t(), vector<value_t>());
 
-        if(m.recver_nid == m.parent_nid){
+        if (m.recver_nid == m.parent_nid) {
             msg.data[0].second.insert(msg.data[0].second.end(),
                                 make_move_iterator(actor_obj.params.begin() + 2),
                                 make_move_iterator(actor_obj.params.end()));
@@ -240,7 +249,7 @@ private:
         }
     }
 
-    void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
+    void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
         Meta m = msg.meta;
         const Actor_Object& actor_obj = actor_objs[m.step];
 
@@ -248,9 +257,9 @@ private:
         vector<pair<int, PredicateValue>> pred_chain;
 
         // Get Params
-        assert((actor_obj.params.size() - 2) % 3 == 0); // make sure input format
+        assert((actor_obj.params.size() - 2) % 3 == 0);  // make sure input format
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-        int numParamsGroup = (actor_obj.params.size() - 2) / 3; // number of groups of params
+        int numParamsGroup = (actor_obj.params.size() - 2) / 3;  // number of groups of params
 
         // Create predicate chain for this query
         for (int i = 0; i < numParamsGroup; i++) {
@@ -277,15 +286,15 @@ private:
         }
     }
 
-    void InitWithoutIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg){
-        if(! is_ready_){
-            if(thread_mutex_.try_lock()){
+    void InitWithoutIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
+        if (!is_ready_) {
+            if (thread_mutex_.try_lock()) {
                 InitData();
                 is_ready_ = true;
                 thread_mutex_.unlock();
-            }else{
+            } else {
                 // wait until InitMsg finished
-                while(! thread_mutex_.try_lock());
+                while (!thread_mutex_.try_lock()) {}
                 thread_mutex_.unlock();
             }
         }
@@ -296,13 +305,13 @@ private:
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
         vector<AbstractMailbox::mailbox_data_t>* data_vec;
 
-        if(actor_objs[m.step + 1].actor_type == ACTOR_T::COUNT){
+        if (actor_objs[m.step + 1].actor_type == ACTOR_T::COUNT) {
             if (inType == Element_T::VERTEX) {
                 data_vec = &vtx_data_count;
             } else if (inType == Element_T::EDGE) {
                 data_vec = &edge_data_count;
             }
-        }else{
+        } else {
             if (inType == Element_T::VERTEX) {
                 data_vec = &vtx_data;
             } else if (inType == Element_T::EDGE) {
@@ -310,11 +319,10 @@ private:
             }
         }
 
-
         // update meta
-        m.step ++;
+        m.step++;
         m.msg_type = MSG_T::SPAWN;
-        if(actor_objs[m.step].IsBarrier()){
+        if (actor_objs[m.step].IsBarrier()) {
             m.msg_type = MSG_T::BARRIER;
             m.recver_nid = m.parent_nid;
         }
@@ -333,4 +341,4 @@ private:
     }
 };
 
-#endif /* INIT_ACTOR_HPP_ */
+#endif  // ACTOR_INIT_ACTOR_HPP_
