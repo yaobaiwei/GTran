@@ -1,3 +1,9 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Modified by Nick Fang (jcfang6@cse.cuhk.edu.hk)
+
+*/
+
 /*
  * Copyright (c) 2016 Shanghai Jiao Tong University.
  *     All rights reserved.
