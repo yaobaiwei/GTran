@@ -10,6 +10,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
+#include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
@@ -50,6 +51,15 @@ public:
 		Element_T outType = (Element_T) Tool::value_t2int(actor_obj.params.at(1));
 		Direction_T dir = (Direction_T) Tool::value_t2int(actor_obj.params.at(2));
 		int lid = Tool::value_t2int(actor_obj.params.at(3));
+
+        // Record Input Set
+        // TODO(Aaronchangji)
+        //  : Get trxID from message
+        //  : step_number is actually index_number for same step in transaction
+        for (auto & data_pair : msg.data) {
+            // v_obj.RecordInputSetValueT(trxID, step_num, inType, data_pair.second, step_num == 1 ? true : false);
+            v_obj.RecordInputSetValueT(m.qid, m.step, inType, data_pair.second, m.step == 1 ? true : false);
+        }
 
 		// Get Result
 		if (inType == Element_T::VERTEX) {
@@ -96,6 +106,9 @@ private:
 	// Cache
 	ActorCache cache;
 	Config* config_;
+
+    // Validation Store
+    ActorValidationObject v_obj;
 
 	//============Vertex===============
 	// Get IN/OUT/BOTH of Vertex

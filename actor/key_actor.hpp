@@ -10,6 +10,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
+#include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
@@ -36,6 +37,15 @@ public:
 
 		// Get Params
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
+
+        // Record Input Set
+        // TODO(Aaronchangji) 
+        //  : Get trxID from message
+        //  : step_number is actually index_number for same step in transaction  
+		for (auto & data_pair : msg.data) {
+            // v_obj.RecordInputSetValueT(trxID, step_num, inType, data_pair.second, step_num == 1 ? true : false);
+            v_obj.RecordInputSetValueT(m.qid, m.step, inType, data_pair.second, m.step == 1 ? true : false);
+		}
 
 		switch(inType) {
 			case Element_T::VERTEX:
@@ -67,6 +77,9 @@ private:
 
 	// Pointer of mailbox
 	AbstractMailbox * mailbox_;
+
+	// Validation Store
+	ActorValidationObject v_obj;
 
 	void VertexKeys(int tid, vector<pair<history_t, vector<value_t>>> & data) {
 		for (auto & data_pair : data) {

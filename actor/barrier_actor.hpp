@@ -8,6 +8,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 
 #include "actor/abstract_actor.hpp"
 #include "actor/actor_cache.hpp"
+#include "actor/actor_validation_object.hpp"
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tool.hpp"
@@ -624,6 +625,7 @@ private:
 
 	Config* config_;
 	ActorCache cache_;
+	ActorValidationObject v_obj;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
@@ -635,6 +637,15 @@ private:
 		Element_T element_type = (Element_T)Tool::value_t2int(actor.params[1]);
 		int keyProjection = Tool::value_t2int(actor.params[2]);
 		int valueProjection = Tool::value_t2int(actor.params[3]);
+
+        // Record Input Set
+        // TODO(Aaronchangji) 
+        //  : Get trxID from message
+        //  : step_number is actually index_number for same step in transaction  
+		for (auto & data_pair : msg.data) {
+            // v_obj.RecordInputSetValueT(trxID, step_num, element_type, data_pair.second, step_num == 1 ? true : false);
+            v_obj.RecordInputSetValueT(msg.meta.qid, msg.meta.step, element_type, data_pair.second, msg.meta.step == 1 ? true : false);
+		}
 
 		// get projection function by actor params
 		bool(*kp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
@@ -764,6 +775,7 @@ private:
 
 	ActorCache cache_;
 	Config* config_;
+	ActorValidationObject v_obj;
 
 	void do_work(int tid, const vector<Actor_Object> & actors, Message & msg, BarrierDataTable::accessor& ac, bool isReady){
 		auto& data_map = ac->second.data_map;
@@ -775,6 +787,15 @@ private:
 		assert(actor.params.size() == 3);
 		Element_T element_type = (Element_T)Tool::value_t2int(actor.params[0]);
 		int keyProjection = Tool::value_t2int(actor.params[1]);
+
+        // Record Input Set
+        // TODO(Aaronchangji) 
+        //  : Get trxID from message
+        //  : step_number is actually index_number for same step in transaction  
+		for (auto & data_pair : msg.data) {
+            // v_obj.RecordInputSetValueT(trxID, step_num, element_type, data_pair.second, step_num == 1 ? true : false);
+            v_obj.RecordInputSetValueT(msg.meta.qid, msg.meta.step, element_type, data_pair.second, msg.meta.step == 1 ? true : false);
+		}
 
 		// get projection function by actor params
 		bool(*kp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;

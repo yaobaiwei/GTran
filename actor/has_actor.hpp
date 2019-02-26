@@ -42,7 +42,6 @@ public:
 	// HasNot(params) : key -> [key = pid; pred = NONE; pred_params = -1]
 	// HasKey(params) : keys -> [key = pid; pred = ANY; pred_params = -1]
 	//
-	// TODO : Indexing
 	void process(const vector<Actor_Object> & actor_objs, Message & msg) {
 
 		int tid = TidMapper::GetInstance()->GetTid();
@@ -58,6 +57,15 @@ public:
 		assert(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 3 == 0); // make sure input format
 		Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 		int numParamsGroup = (actor_obj.params.size() - 1) / 3; // number of groups of params
+
+        // Record Input Set
+        // TODO(Aaronchangji) 
+        //  : Get trxID from message
+        //  : step_number is actually index_number for same step in transaction  
+		for (auto & data_pair : msg.data) {
+            // v_obj.RecordInputSetValueT(trxID, step_num, inType, data_pair.second, step_num == 1 ? true : false);
+            v_obj.RecordInputSetValueT(m.qid, m.step, inType, data_pair.second, m.step == 1 ? true : false);
+		}
 
 		// Create predicate chain for this query
 		for (int i = 0; i < numParamsGroup; i++) {
@@ -110,7 +118,6 @@ private:
 	ActorValidationObject v_obj;
 
 	void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
-
 		auto checkFunction = [&](value_t& value){
 			vid_t v_id(Tool::value_t2int(value));
 			Vertex* vtx = data_store_->GetVertex(v_id);
@@ -168,7 +175,6 @@ private:
 	}
 
 	void EvaluateEdge(int tid, vector<pair<history_t, vector<value_t>>> & data, vector<pair<int, PredicateValue>> & pred_chain) {
-
 		auto checkFunction = [&](value_t& value){
 			eid_t e_id;
 			uint2eid_t(Tool::value_t2uint64_t(value), e_id);

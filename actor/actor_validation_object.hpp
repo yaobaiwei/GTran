@@ -12,13 +12,34 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <tbb/concurrent_hash_map.h>
 
 #include "base/type.hpp"
+#include "utils/tool.hpp"
 
 class ActorValidationObject {
 
 public : 
 	ActorValidationObject(){}
 
-	void RecordInputSet(uint64_t TransactionID, int step_num, short data_type, vector<uint64_t> & input_set, bool recordALL){
+	void RecordInputSetValueT(uint64_t TransactionID, int step_num, Element_T data_type, vector<value_t> & input_set, bool recordALL){
+        vector<uint64_t> transformedInput;
+        switch (data_type) {
+            case Element_T::VERTEX:
+                for (auto & item : input_set) {
+                    transformedInput.emplace_back(Tool::value_t2int(item));
+                }
+                break;
+            case Element_T::EDGE:
+                for (auto & item : input_set) {
+                    transformedInput.emplace_back(Tool::value_t2uint64_t(item));
+                }
+                break;
+            default:
+                cout << "wrong input data type" << endl;
+                return;
+        }
+        RecordInputSet(TransactionID, step_num, transformedInput, recordALL);
+    }
+
+	void RecordInputSet(uint64_t TransactionID, int step_num, vector<uint64_t> & input_set, bool recordALL){
 		// Get TrxStepKey
 		validation_record_key_t key(TransactionID, step_num);
 
@@ -37,6 +58,7 @@ public :
 			dac->second.data.insert(dac->second.data.end(), input_set.begin(), input_set.end());
 	}
 
+
 	// Return Value : 
 	// 	True --> no conflict
 	// 	False --> conflict, do dependency check
@@ -48,7 +70,7 @@ public :
 
 			{
 				data_const_accessor daca;
-				if (validation_data.find(daca, key)) {
+				if (!validation_data.find(daca, key)) {
 					return true; // Did not find input_set --> validation success
 				}
 
@@ -73,7 +95,7 @@ public :
 		if (trx_to_step_table.find(tcac, TransactionID)) {
 			for (auto & step : tcac->second) {
 				validation_record_key_t key( TransactionID, step );	
-				validation_data.erase(key);	
+				validation_data.erase(key);
 			}
 
 			trx_to_step_table.erase(TransactionID);
@@ -99,6 +121,10 @@ private :
 			return false;
 		}
 
+        void DebugString() {
+            cout << "Transaction : " << trxID << " Step : " << step_num << endl;
+        }
+
 	};
 
 	struct validation_record_hash_compare {
@@ -122,6 +148,16 @@ private :
 		bool isAll;
 
 		validation_record_val_t() {}
+
+        void DebugString() {
+            cout << (isAll ? "True" : "False") << endl;
+            cout << "Data size : " << data.size() << endl;
+            if (!isAll) {
+                for (auto & item : data) {
+                    cout << item << endl;
+                }
+            }
+        }
 	};
 
 	tbb::concurrent_hash_map<uint64_t, vector<int>> trx_to_step_table;
