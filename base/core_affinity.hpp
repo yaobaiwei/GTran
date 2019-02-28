@@ -295,7 +295,7 @@ private:
         // CacheSeq
         actor_division[ACTOR_T::LABEL] = ActorDivisionType::CACHE_SEQ;
         actor_division[ACTOR_T::HASLABEL] = ActorDivisionType::CACHE_SEQ;
-        actor_division[ACTOR_T::PROPERTY] = ActorDivisionType::CACHE_SEQ;
+        actor_division[ACTOR_T::PROPERTIES] = ActorDivisionType::CACHE_SEQ;
         actor_division[ACTOR_T::VALUES] = ActorDivisionType::CACHE_SEQ;
         actor_division[ACTOR_T::HAS] = ActorDivisionType::CACHE_SEQ;
         actor_division[ACTOR_T::KEY] = ActorDivisionType::CACHE_SEQ;

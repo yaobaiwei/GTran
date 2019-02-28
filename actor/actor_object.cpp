@@ -60,6 +60,7 @@ string Actor_Object::DebugString() const
 ibinstream& operator<<(ibinstream& m, const Actor_Object& obj)
 {
 	m << obj.actor_type;
+    m << obj.index;
 	m << obj.next_actor;
 	m << obj.send_remote;
 	m << obj.params;
@@ -69,6 +70,7 @@ ibinstream& operator<<(ibinstream& m, const Actor_Object& obj)
 obinstream& operator>>(obinstream& m, Actor_Object& obj)
 {
 	m >> obj.actor_type;
+    m >> obj.index;
 	m >> obj.next_actor;
 	m >> obj.send_remote;
 	m >> obj.params;

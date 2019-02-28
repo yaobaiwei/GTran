@@ -80,7 +80,7 @@ public:
         actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::PROPERTIES] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));

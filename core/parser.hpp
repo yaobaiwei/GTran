@@ -31,7 +31,7 @@ private:
     Config * config;
     IndexStore * index_store;
 
-    enum IO_T { EDGE, VERTEX, INT, DOUBLE, CHAR, STRING, COLLECTION };
+    enum IO_T { EDGE, VERTEX, VP, EP, INT, DOUBLE, CHAR, STRING, COLLECTION };
     const static char *IOType[];
     // str to enum
     const static map<string, Step_T> str2step;        // step type
@@ -62,7 +62,7 @@ private:
     map<string, pair<int, IO_T>> place_holder;
 
     // Unique index of each actor object in transaction
-    int trx_index;
+    int actor_index;
 
     // Current line
     int line_index;
@@ -122,8 +122,9 @@ private:
     void ClearQuery();
 
     void AppendActor(Actor_Object& actor);
+    void RemoveLastActor();
 
-    void RegPlaceHolder(const string& var, int param_index, IO_T type);
+    void RegPlaceHolder(const string& var, int step, int param_index, IO_T type);
 
     // Parse each line of transaction
     bool ParseLine(const string& query, vector<Actor_Object>& vec, string& error_msg);
@@ -160,6 +161,9 @@ private:
 
     // Parse actors
     void ParseInit(const string& line, string& var_name, string& query);
+    void ParseAddE(const vector<string>& params);
+    void ParseFromTo(const vector<string>& params, Step_T type);
+    void ParseAddV(const vector<string>& params);
     void ParseAggregate(const vector<string>& params);
     void ParseAs(const vector<string>& params);
     void ParseBranch(const vector<string>& params);
@@ -167,6 +171,7 @@ private:
     void ParseCap(const vector<string>& params);
     void ParseCount(const vector<string>& params);
     void ParseDedup(const vector<string>& params);
+    void ParseDrop(const vector<string>& params);
     void ParseGroup(const vector<string>& params, Step_T type);    // should we support traversal projection?
     void ParseHas(const vector<string>& params, Step_T type);
     void ParseHasLabel(const vector<string>& params);
@@ -176,6 +181,7 @@ private:
     void ParseMath(const vector<string>& params, Step_T type);
     void ParseOrder(const vector<string>& params);
     void ParseProperties(const vector<string>& params);
+    void ParseProperty(const vector<string>& params);
     void ParseRange(const vector<string>& params, Step_T type);
     void ParseCoin(const vector<string>& params);
     void ParseRepeat(const vector<string>& params);

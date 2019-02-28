@@ -230,6 +230,7 @@ bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg){
     for(string& line : lines){
         Tool::trim(line, " ");
         if(!ParseLine(line, plan.query_plans_[line_index].actors, error_msg)){
+            plan.dependents_.clear();
             return false;
         }
         line_index ++;
@@ -282,6 +283,11 @@ bool Parser::ParseLine(const string& line, vector<Actor_Object>& vec, string& er
     }
 
     for (auto& actor : actors_){
+        if(actor.actor_type == ACTOR_T::ADDE && actor.params.size() == 1){
+            error_msg = error_prefix + to_string(line_index + 1) + ":\n"
+                        + line + "\n"+ "addE should be followed by from/to step";
+            return false;
+        }
         vec.push_back(move(actor));
     }
 
@@ -400,7 +406,7 @@ Parser::IO_T Parser::Value2IO(uint8_t type){
     }
 }
 
-void Parser::RegPlaceHolder(const string& var, int param_index, IO_T type){
+void Parser::RegPlaceHolder(const string& var, int step, int param_index, IO_T type){
     auto itr = place_holder.find(var);
 
     if(itr == place_holder.end()){
@@ -412,7 +418,7 @@ void Parser::RegPlaceHolder(const string& var, int param_index, IO_T type){
         throw ParserException("Expect " + string(IOType[type]) + " but get '" + var
                                + "' with type " + string(IOType[p.second]));
     }
-    trx_plan->RegPlaceHolder(p.first, line_index, actors_.size(), param_index);
+    trx_plan->RegPlaceHolder(p.first, line_index, step, param_index);
 }
 
 void Parser::ParseIndex(const string& param){
@@ -499,7 +505,7 @@ void Parser::ParseQuery(const string& query)
 
 void Parser::ClearTrx()
 {
-    trx_index = 0;
+    actor_index = 0;
     line_index = 0;
     place_holder.clear();
 }
@@ -517,10 +523,16 @@ void Parser::ClearQuery()
 
 void Parser::AppendActor(Actor_Object& actor){
     actor.next_actor = actors_.size() + 1;
+    actor.index = actor_index ++;
     actors_.push_back(move(actor));
 }
 
-bool Parser::CheckLastActor(ACTOR_T type){
+void Parser::RemoveLastActor() {
+    actors_.erase(actors_.end() - 1);
+    actor_index --;
+}
+
+bool Parser::CheckLastActor(ACTOR_T type) {
     int current = actors_.size();
     int itr = actors_.size() - 1;
 
@@ -730,7 +742,15 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
         vector<string> params;
         SplitParam(stepToken.second, params);
 
-        switch (type){
+        switch (type) {
+        //AddE Actor
+        case Step_T::ADDE:
+            ParseAddE(params); break;
+        case Step_T::FROM: case Step_T::TO:
+            ParseFromTo(params, type); break;
+        //AddV Actor:
+        case Step_T::ADDV:
+            ParseAddV(params); break;
         //AggregateActor
         case Step_T::AGGREGATE:
             ParseAggregate(params); break;
@@ -752,6 +772,9 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
         //Dedup Actor
         case Step_T::DEDUP:
             ParseDedup(params); break;
+        //Drop Actor
+        case Step_T::DROP:
+            ParseDrop(params); break;
         //Group Actor
         case Step_T::GROUP:case Step_T::GROUPCOUNT:
             ParseGroup(params, type); break;
@@ -776,9 +799,12 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
         //Order Actor
         case Step_T::ORDER:
             ParseOrder(params); break;
-        //Property Actor
+        //Properties Actor
         case Step_T::PROPERTIES:
             ParseProperties(params); break;
+        //Property Actor
+        case Step_T::PROPERTY:
+            ParseProperty(params); break;
         //Range Actor
         case Step_T::LIMIT:case Step_T::RANGE:case Step_T::SKIP:
             ParseRange(params, type); break;
@@ -956,7 +982,7 @@ void Parser::ParseInit(const string& line, string& var_name, string& query)
         throw ParserException("Execute query with g.V or g.E");
     }else if(idx > 4){
         string var = query.substr(4, idx - 4);
-        RegPlaceHolder(var, 2, io_type_);
+        RegPlaceHolder(var, 0, 2, io_type_);
         with_input =  true;
     }
 
@@ -971,8 +997,85 @@ void Parser::ParseInit(const string& line, string& var_name, string& query)
     AppendActor(actor);
 }
 
-void Parser::ParseAggregate(const vector<string>& params)
-{
+void Parser::ParseAddE(const vector<string>& params) {
+    //@ AddEActor params: (int label, Direction_T dir, bool isLabelStep, [vid_t vids....])
+    //  i_type = Vertex, o_type = Edge
+    Actor_Object actor(ACTOR_T::ADDE);
+    if (params.size() != 1) {
+        throw ParserException("expect one parameter for addE");
+    }
+
+    if (io_type_ != IO_T::VERTEX) {
+        throw ParserException("expect vertex before addE");
+    }
+    io_type_ = IO_T::EDGE;
+
+    int lid;
+    if (!ParseKeyId(params[0], true, lid)){
+        throw ParserException("unexpected label in addE : " + params[0] + ", expected is " + ExpectedKey(true));
+    }
+
+    actor.AddParam(lid);
+    AppendActor(actor);
+    io_type_ = IO_T::EDGE;
+}
+
+void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
+    // Append params to AddE Actor
+    if (!CheckLastActor(ACTOR_T::ADDE)) {
+        throw ParserException("expect 'addE()' before from/to");
+    }
+    Actor_Object &actor = actors_[actors_.size() - 1];
+    if (actor.params.size() > 1) {
+        throw ParserException("expect only one from/to after 'addE()'");
+    }
+    if(params.size() != 1){
+        throw ParserException("expect only one param in from/to");
+    }
+
+    Direction_T dir;
+    switch (type) {
+    case Step_T::FROM: dir = Direction_T::IN; break;
+    case Step_T::TO: dir = Direction_T::OUT; break;
+    default:
+        throw ParserException("unexpected error");
+    }
+
+    bool isLabelStep;
+    int labelKey = -1;
+    if(str2ls_.count(params[0]) != 0) {
+        isLabelStep = true;
+        labelKey = str2ls_[params[0]];
+    } else if (place_holder.count(params[0]) != 0) {
+        RegPlaceHolder(params[0], actors_.size() - 1, 3, IO_T::VERTEX);
+    } else {
+        throw ParserException("unexpected varaiable " + params[0]);
+    }
+
+    actor.AddParam(dir);
+    actor.AddParam(isLabelStep);
+    actor.AddParam(labelKey);
+}
+
+void Parser::ParseAddV(const vector<string>& params) {
+    //@ AddVActor params: (int label)
+    //  i_type = any, o_type = Vertex
+    Actor_Object actor(ACTOR_T::ADDV);
+    if (params.size() != 1) {
+        throw ParserException("expect one parameter for addV");
+    }
+
+    int lid;
+    if (!ParseKeyId(params[0], true, lid)){
+        throw ParserException("unexpected label in addV : " + params[0] + ", expected is " + ExpectedKey(true));
+    }
+
+    actor.AddParam(lid);
+    AppendActor(actor);
+    io_type_ = IO_T::VERTEX;
+}
+
+void Parser::ParseAggregate(const vector<string>& params) {
     //@ AggregateActor params: (int side_effect_key)
     //  i_type = o_type = any
     Actor_Object actor(ACTOR_T::AGGREGATE);
@@ -1107,6 +1210,27 @@ void Parser::ParseDedup(const vector<string>& params)
     }
 
     actor.send_remote = IsElement();
+    AppendActor(actor);
+}
+
+void Parser::ParseDrop(const vector<string>& params){
+    //@ DropActor params: (Element_T element_type, bool isProperty)
+    if (params.size() != 0) {
+        throw ParserException("expect no param in drop");
+    }
+    Actor_Object actor(ACTOR_T::DROP);
+    Element_T element_type;
+    bool isProperty = false;
+    switch (io_type_) {
+    case IO_T::VP:      isProperty = true;
+    case IO_T::VERTEX:  element_type = Element_T::VERTEX; break;
+    case IO_T::EP:      isProperty = true;
+    case IO_T::EDGE:    element_type = Element_T::EDGE; break;
+    default:
+        throw ParserException("Unexpected input type before drop");
+    }
+    actor.AddParam(element_type);
+    actor.AddParam(isProperty);
     AppendActor(actor);
 }
 
@@ -1286,8 +1410,8 @@ void Parser::ParseHas(const vector<string>& params, Step_T type)
 
             index_count_.push_back(count);
             // no predicate in has actor params
-            if(actor.params.size() == 1){
-                actors_.erase(actors_.end() - 1);
+            if (actor.params.size() == 1) {
+                RemoveLastActor();
             }
         }
     }
@@ -1330,8 +1454,8 @@ void Parser::ParseHasLabel(const vector<string>& params)
         PredicateValue pred(pred_type, pred_params);
 
         uint64_t count = 0;
-        if(index_store->IsIndexEnabled(element_type, 0, &pred, &count)){
-            actors_.erase(actors_.end() - 1);
+        if (index_store->IsIndexEnabled(element_type, 0, &pred, &count)) {
+            RemoveLastActor();
 
             value_t v;
             Tool::vec2value_t(pred_params, v);
@@ -1480,7 +1604,7 @@ void Parser::ParseProperties(const vector<string>& params)
 {
     //@ PropertiesActor params: (Element_T type, int pid...)
     //  i_type = VERTX/EDGE, o_type = COLLECTION
-    Actor_Object actor(ACTOR_T::PROPERTY);
+    Actor_Object actor(ACTOR_T::PROPERTIES);
 
     Element_T element_type;
     if (!IsElement(element_type)){
@@ -1497,7 +1621,36 @@ void Parser::ParseProperties(const vector<string>& params)
     }
 
     AppendActor(actor);
-    io_type_ = IO_T::COLLECTION;
+    io_type_ = (element_type == Element_T::VERTEX) ? IO_T::VP : IO_T::EP;
+}
+
+void Parser::ParseProperty(const vector<string>& params) {
+    //@ RangeActor params: (Element_T element_type, int pid, value_t value)
+    //  i_type = o_type = Vertex/Edge
+    Actor_Object actor(ACTOR_T::PROPERTY);
+
+    if(params.size() != 2){
+        throw ParserException("expect two params for property");
+    }
+
+    Element_T element_type;
+    if(!IsElement(element_type)){
+        throw ParserException("expect vertex/edge input for property");
+    }
+
+    int key;
+    uint8_t key_type;
+    if (!ParseKeyId(params[0], false, key, &key_type)){
+        throw ParserException("unexpected key in property: " + params[0] + ", expected is " + ExpectedKey(false));
+    }
+    int value_type = Tool::checktype(params[1]);
+    if(value_type != key_type){
+        throw ParserException("property key type no match with value type in property()");
+    }
+
+    actor.AddParam(key);
+    actor.AddParam(params[1]);
+    AppendActor(actor);
 }
 
 void Parser::ParseRange(const vector<string>& params, Step_T type)
@@ -1796,12 +1949,16 @@ const map<string, Step_T> Parser::str2step = {
     { "inV", Step_T::INV },
     { "outV", Step_T::OUTV },
     { "bothV", Step_T::BOTHV },
+    { "addE", Step_T::ADDE },
+    { "addV", Step_T::ADDV },
     { "and", Step_T::AND },
     { "aggregate", Step_T::AGGREGATE },
     { "as", Step_T::AS },
     { "cap", Step_T::CAP },
     { "count", Step_T::COUNT },
     { "dedup", Step_T::DEDUP },
+    { "drop", Step_T::DROP },
+    { "from", Step_T::FROM},
     { "group", Step_T::GROUP},
     { "groupCount", Step_T::GROUPCOUNT},
     { "has", Step_T::HAS },
@@ -1819,11 +1976,13 @@ const map<string, Step_T> Parser::str2step = {
     { "not", Step_T::NOT },
     { "or", Step_T::OR },
     { "order", Step_T::ORDER },
+    { "property", Step_T::PROPERTY },
     { "properties", Step_T::PROPERTIES },
     { "range", Step_T::RANGE },
     { "select", Step_T::SELECT },
     { "skip", Step_T::SKIP },
     { "sum", Step_T::SUM },
+    { "to", Step_T::TO},
     { "union", Step_T::UNION },
     { "values", Step_T::VALUES },
     { "where", Step_T::WHERE },
