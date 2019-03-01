@@ -13,6 +13,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <sstream>
 #include <string>
 #include <set>
+#include <vector>
 
 #include "base/node.hpp"
 #include "base/node_util.hpp"
