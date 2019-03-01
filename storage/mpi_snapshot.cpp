@@ -3,18 +3,18 @@
 Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
+#include <string>
 #include "mpi_snapshot.hpp"
 
 using namespace std;
 
-MPISnapshot::MPISnapshot(string path)
-{
+MPISnapshot::MPISnapshot(string path) {
     unique_namer_ = MPIUniqueNamer::GetInstance();
 
-    //get the snapshot path
+    // get the snapshot path
     path_ = path + "/" + unique_namer_->ExtractHash();
 
-    //mkdir
+    // mkdir
     string cmd = "mkdir -p " + path_;
     system(cmd.c_str());
 }

@@ -3,9 +3,8 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
-
-#ifndef COMMUNICATION_HPP_
-#define COMMUNICATION_HPP_
+#ifndef BASE_COMMUNICATION_HPP_
+#define BASE_COMMUNICATION_HPP_
 
 #include <mpi.h>
 
@@ -15,8 +14,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/global.hpp"
 #include "utils/unit.hpp"
 
-using namespace std;
-//============================================
+// ============================================
 
 int all_sum(int my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
@@ -30,28 +28,29 @@ bool all_lor(bool my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
 bool all_land(bool my_copy, MPI_Comm world = MPI_COMM_WORLD);
 
-//============================================
+// ============================================
 
 void send(void* buf, int size, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
-int recv(void* buf, int size, int src, MPI_Comm world, int tag = COMMUN_CHANNEL); //return the actual source, since "src" can be MPI_ANY_SOURCE
+// return the actual source, since "src" can be MPI_ANY_SOURCE
+int recv(void* buf, int size, int src, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
-//============================================
+// ============================================
 
 void send_ibinstream(ibinstream& m, int dst, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
 void recv_obinstream(obinstream& m, int src, MPI_Comm world, int tag = COMMUN_CHANNEL);
 
-//============================================
-//obj-level send/recv
+// ============================================
+// obj-level send/recv
 template <class T>
 void send_data(Node & node, const T& data, int dst, bool is_global, int tag = COMMUN_CHANNEL);
 
 template <class T>
 T recv_data(Node & node, int src, bool is_global, int tag = COMMUN_CHANNEL);
 
-//============================================
-//all-to-all
+// ============================================
+// all-to-all
 template <class T>
 void all_to_all(Node & node, bool is_global, std::vector<T>& to_exchange);
 
@@ -65,26 +64,27 @@ template <class T, class T1>
 void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, std::vector<T1>& to_exchange2);
 
 template <class T, class T1, class T2>
-void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1, std::vector<T1>& to_exchange2, std::vector<T2>& to_exchange3);
+void all_to_all_cat(Node & node, bool is_global, std::vector<T>& to_exchange1,
+            std::vector<T1>& to_exchange2, std::vector<T2>& to_exchange3);
 
-//============================================
-//scatter
+// ============================================
+// scatter
 template <class T>
 void master_scatter(Node & node, bool is_global, vector<T>& to_send);
 
 template <class T>
 void slave_scatter(Node & node, bool is_global, T& to_get);
 
-//================================================================
-//gather
+// ================================================================
+// gather
 template <class T>
 void master_gather(Node & node, bool is_global, vector<T>& to_get);
 
 template <class T>
 void slave_gather(Node & node, bool is_global, T& to_send);
 
-//================================================================
-//bcast
+// ================================================================
+// bcast
 template <class T>
 void master_bcast(Node & node, bool is_global, T& to_send);
 
@@ -93,4 +93,4 @@ void slave_bcast(Node & node, bool is_global, T& to_get);
 
 #include "communication.tpp"
 
-#endif /* COMMUNICATION_HPP_ */
+#endif  // BASE_COMMUNICATION_HPP_

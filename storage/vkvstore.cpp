@@ -5,27 +5,25 @@ Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
 */
 
 #include <assert.h>
+
+#include <algorithm>
+#include <string>
+
 #include "storage/vkvstore.hpp"
 #include "storage/mpi_snapshot.hpp"
 #include "storage/snapshot_func.hpp"
 
-
-using namespace std;
-
-void VKVStore::ReadSnapshot()
-{
+void VKVStore::ReadSnapshot() {
     MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
     auto snapshot_tmp_tuple = make_tuple(last_entry, mem_sz, mem);
 
-    if(snapshot->ReadData("vkvstore", snapshot_tmp_tuple, ReadKVStoreImpl))
-    {
+    if (snapshot->ReadData("vkvstore", snapshot_tmp_tuple, ReadKVStoreImpl)) {
         last_entry = get<0>(snapshot_tmp_tuple);
     }
 }
 
-void VKVStore::WriteSnapshot()
-{
+void VKVStore::WriteSnapshot() {
     MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
     auto snapshot_tmp_tuple = make_tuple(last_entry, mem_sz, mem);
@@ -34,7 +32,7 @@ void VKVStore::WriteSnapshot()
 
 // ==================VKVStore=======================
 uint64_t VKVStore::insert_id(uint64_t _pid) {
-	// pid is not hashed
+    // pid is not hashed
     uint64_t bucket_id = _pid % num_buckets;
     uint64_t slot_id = bucket_id * ASSOCIATIVITY;
     uint64_t lock_id = bucket_id % NUM_LOCKS;
@@ -43,9 +41,8 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
     pthread_spin_lock(&bucket_locks[lock_id]);
     while (slot_id < num_slots) {
         // the last slot of each bucket is reserved for pointer to indirect header
-        /// key.pid is used to store the bucket_id of indirect header
+        // key.pid is used to store the bucket_id of indirect header
         for (int i = 0; i < ASSOCIATIVITY - 1; i++, slot_id++) {
-            //assert(vertices[slot_id].key != key); // no duplicate key
             if (keys[slot_id].pid == _pid) {
                 // Cannot get the original pid
                 cout << "VKVStore ERROR: conflict at slot["
@@ -64,7 +61,7 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
         // whether the bucket_ext (indirect-header region) is used
         if (!keys[slot_id].is_empty()) {
             slot_id = keys[slot_id].pid * ASSOCIATIVITY;
-            continue; // continue and jump to next bucket
+            continue;  // continue and jump to next bucket
         }
 
 
@@ -77,8 +74,8 @@ uint64_t VKVStore::insert_id(uint64_t _pid) {
         keys[slot_id].pid = num_buckets + (last_ext++);
         pthread_spin_unlock(&bucket_ext_lock);
 
-        slot_id = keys[slot_id].pid * ASSOCIATIVITY; // move to a new bucket_ext
-        keys[slot_id].pid = _pid; // insert to the first slot
+        slot_id = keys[slot_id].pid * ASSOCIATIVITY;  // move to a new bucket_ext
+        keys[slot_id].pid = _pid;  // insert to the first slot
         goto done;
     }
 
@@ -95,7 +92,7 @@ void VKVStore::insert_single_vertex_property(VProperty* vp) {
     for (int i = 0; i < vp->plist.size(); i++) {
         V_KVpair v_kv = vp->plist[i];
         // insert key and get slot_id
-		// key do not need to be hash
+        // key do not need to be hash
         int slot_id = insert_id(v_kv.key.value());
 
         // get length of centent
@@ -109,7 +106,7 @@ void VKVStore::insert_single_vertex_property(VProperty* vp) {
         keys[slot_id].ptr = ptr;
 
         // insert type of value first
-        values[off++] = (char)v_kv.value.type;
+        values[off++] = static_cast<char>(v_kv.value.type);
 
         // insert value
         memcpy(&values[off], &v_kv.value.content[0], length);
@@ -137,9 +134,9 @@ void VKVStore::get_key_local(uint64_t pid, ikey_t & key) {
         for (int i = 0; i < ASSOCIATIVITY; i++) {
             uint64_t slot_id = bucket_id * ASSOCIATIVITY + i;
             if (i < ASSOCIATIVITY - 1) {
-                //data part
+                // data part
                 if (keys[slot_id].pid == pid) {
-                    //we found it
+                    // we found it
                     key = keys[slot_id];
                     return;
                 }
@@ -147,8 +144,8 @@ void VKVStore::get_key_local(uint64_t pid, ikey_t & key) {
                 if (keys[slot_id].is_empty())
                     return;
 
-                bucket_id = keys[slot_id].pid; // move to next bucket
-                break; // break for-loop
+                bucket_id = keys[slot_id].pid;  // move to next bucket
+                break;  // break for-loop
             }
         }
     }
@@ -156,7 +153,7 @@ void VKVStore::get_key_local(uint64_t pid, ikey_t & key) {
 
 // Get key by key remotely
 void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) {
-	assert(config_->global_use_rdma);
+    assert(config_->global_use_rdma);
 
     uint64_t bucket_id = pid % num_buckets;
 
@@ -166,11 +163,11 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
         uint64_t sz = ASSOCIATIVITY * sizeof(ikey_t);
 
         RDMA &rdma = RDMA::get_rdma();
-		//timer::start_timer(tid);
+        // timer::start_timer(tid);
         rdma.dev->RdmaRead(tid, dst_nid, buffer, sz, off);
-		//timer::stop_timer(tid);
+        // timer::stop_timer(tid);
 
-        ikey_t * keys = (ikey_t *)buffer;
+        ikey_t * keys = reinterpret_cast<ikey_t *>(buffer);
         for (int i = 0; i < ASSOCIATIVITY; i++) {
             if (i < ASSOCIATIVITY - 1) {
                 if (keys[i].pid == pid) {
@@ -179,22 +176,21 @@ void VKVStore::get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key) 
                 }
             } else {
                 if (keys[i].is_empty())
-                    return; // not found
+                    return;  // not found
 
-                bucket_id = keys[i].pid; // move to next bucket
-                break; // break for-loop
+                bucket_id = keys[i].pid;  // move to next bucket
+                break;  // break for-loop
             }
         }
     }
 }
 
-VKVStore::VKVStore(Buffer * buf) : buf_(buf)
-{
+VKVStore::VKVStore(Buffer * buf) : buf_(buf) {
     config_ = Config::GetInstance();
-	mem = config_->kvstore;
-	mem_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
+    mem = config_->kvstore;
+    mem_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
     offset = config_->kvstore_offset;
-	HD_RATIO = config_->key_value_ratio_in_rdma;
+    HD_RATIO = config_->key_value_ratio_in_rdma;
 
     // size for header and entry
     uint64_t header_sz = mem_sz * HD_RATIO / 100;
@@ -216,9 +212,9 @@ VKVStore::VKVStore(Buffer * buf) : buf_(buf)
          << "      entry region: " << num_entries << " entries" << std::endl;
 
     // Header
-    keys = (ikey_t *)(mem);
+    keys = reinterpret_cast<ikey_t *>(mem);
     // Entry
-    values = (char *)(mem + num_slots * sizeof(ikey_t));
+    values = reinterpret_cast<char *>(mem + num_slots * sizeof(ikey_t));
 
     pthread_spin_init(&entry_lock, 0);
     pthread_spin_init(&bucket_ext_lock, 0);
@@ -232,28 +228,27 @@ void VKVStore::init(vector<Node> & nodes) {
         keys[i] = ikey_t();
     }
 
-	if (!config_->global_use_rdma) {
-		requesters.resize(config_->global_num_machines);
-		for (int nid = 0; nid < config_->global_num_machines; nid++) {
-			Node & r_node = GetNodeById(nodes, nid + 1);
-			string ibname = r_node.ibname;
+    if (!config_->global_use_rdma) {
+        requesters.resize(config_->global_num_machines);
+        for (int nid = 0; nid < config_->global_num_machines; nid++) {
+            Node & r_node = GetNodeById(nodes, nid + 1);
+            string ibname = r_node.ibname;
 
-			requesters[nid] = new zmq::socket_t(context, ZMQ_REQ);
-			char addr[64] = "";
-			sprintf(addr, "tcp://%s:%d", ibname.c_str(), r_node.tcp_port + 1 + config_->global_num_threads);
-			requesters[nid]->connect(addr);
-		}
-    	pthread_spin_init(&req_lock, 0);
-	}
+            requesters[nid] = new zmq::socket_t(context, ZMQ_REQ);
+            char addr[64] = "";
+            snprintf(addr, sizeof(addr), "tcp://%s:%d", ibname.c_str(),
+                        r_node.tcp_port + 1 + config_->global_num_threads);
+            requesters[nid]->connect(addr);
+        }
+        pthread_spin_init(&req_lock, 0);
+    }
 }
 
 // Insert a list of Vertex properties
 void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
-
     MPISnapshot* snapshot = MPISnapshot::GetInstance();
-    if(!snapshot->TestRead("vkvstore"))
-    {
-        for (int i = 0; i < vplist.size(); i++){
+    if (!snapshot->TestRead("vkvstore")) {
+        for (int i = 0; i < vplist.size(); i++) {
             insert_single_vertex_property(vplist.at(i));
         }
     }
@@ -262,7 +257,7 @@ void VKVStore::insert_vertex_properties(vector<VProperty*> & vplist) {
 // Get properties by key locally
 void VKVStore::get_property_local(uint64_t pid, value_t & val) {
     ikey_t key;
-	// no need to hash pid
+    // no need to hash pid
     get_key_local(pid, key);
 
     if (key.is_empty()) {
@@ -275,64 +270,64 @@ void VKVStore::get_property_local(uint64_t pid, value_t & val) {
 
     // type : char to uint8_t
     val.type = values[off++];
-	val.content.resize(size);
+    val.content.resize(size);
 
-	char * ctt = &(values[off]);
-	std::copy(ctt, ctt+size, val.content.begin());
+    char * ctt = &(values[off]);
+    std::copy(ctt, ctt+size, val.content.begin());
 }
 
 // Get properties by key remotely
 void VKVStore::get_property_remote(int tid, int dst_nid, uint64_t pid, value_t & val) {
-	if (config_->global_use_rdma) {
-		ikey_t key;
-		// no need to hash pid
-		get_key_remote(tid, dst_nid, pid, key);
-		if (key.is_empty()) {
-			val.content.resize(0);
-			return;
-		}
+    if (config_->global_use_rdma) {
+        ikey_t key;
+        // no need to hash pid
+        get_key_remote(tid, dst_nid, pid, key);
+        if (key.is_empty()) {
+            val.content.resize(0);
+            return;
+        }
 
-		char * buffer = buf_->GetSendBuf(tid);
-		uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
-		uint64_t r_sz = key.ptr.size;
+        char * buffer = buf_->GetSendBuf(tid);
+        uint64_t r_off = offset + num_slots * sizeof(ikey_t) + key.ptr.off;
+        uint64_t r_sz = key.ptr.size;
 
-		RDMA &rdma = RDMA::get_rdma();
-		//timer::start_timer(tid);
-		rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
-		//timer::stop_timer(tid);
+        RDMA &rdma = RDMA::get_rdma();
+        // timer::start_timer(tid);
+        rdma.dev->RdmaRead(tid, dst_nid, buffer, r_sz, r_off);
+        // timer::stop_timer(tid);
 
-		// type : char to uint8_t
-		val.type = buffer[0];
-		val.content.resize(r_sz-1);
+        // type : char to uint8_t
+        val.type = buffer[0];
+        val.content.resize(r_sz-1);
 
-		char * ctt = &(buffer[1]);
-		std::copy(ctt, ctt + r_sz-1, val.content.begin());
-	} else {
-		ibinstream im;
-		obinstream um;
+        char * ctt = &(buffer[1]);
+        std::copy(ctt, ctt + r_sz-1, val.content.begin());
+    } else {
+        ibinstream im;
+        obinstream um;
 
-		im << pid;
-		im << Element_T::VERTEX;
-		pthread_spin_lock(&req_lock);
-		SendReq(dst_nid, im);
+        im << pid;
+        im << Element_T::VERTEX;
+        pthread_spin_lock(&req_lock);
+        SendReq(dst_nid, im);
 
-		RecvRep(dst_nid, um);
-		pthread_spin_unlock(&req_lock);
-		um >> val;
-	}
+        RecvRep(dst_nid, um);
+        pthread_spin_unlock(&req_lock);
+        um >> val;
+    }
 }
 
-void VKVStore::get_label_local(uint64_t pid, label_t & label){
-	value_t val;
-	get_property_local(pid, val);
-	label = (label_t)Tool::value_t2int(val);
+void VKVStore::get_label_local(uint64_t pid, label_t & label) {
+    value_t val;
+    get_property_local(pid, val);
+    label = (label_t)Tool::value_t2int(val);
 }
 
 
-void VKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label){
-	value_t val;
-	get_property_remote(tid, dst_nid, pid, val);
-	label = (label_t)Tool::value_t2int(val);
+void VKVStore::get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label) {
+    value_t val;
+    get_property_remote(tid, dst_nid, pid, val);
+    label = (label_t)Tool::value_t2int(val);
 }
 
 // analysis
@@ -378,20 +373,20 @@ void VKVStore::print_mem_usage() {
 }
 
 void VKVStore::SendReq(int dst_nid, ibinstream & m) {
-	zmq::message_t msg(m.size());
-	memcpy((void *)msg.data(), m.get_buf(), m.size());
-	requesters[dst_nid]->send(msg);
+    zmq::message_t msg(m.size());
+    memcpy(reinterpret_cast<void *>(msg.data()), m.get_buf(), m.size());
+    requesters[dst_nid]->send(msg);
 }
 
 bool VKVStore::RecvRep(int nid, obinstream & um) {
     zmq::message_t msg;
 
-	if (requesters[nid]->recv(&msg) < 0) {
-		return false;
-	}
+    if (requesters[nid]->recv(&msg) < 0) {
+        return false;
+    }
 
     char* buf = new char[msg.size()];
     memcpy(buf, msg.data(), msg.size());
     um.assign(buf, msg.size(), 0);
-	return true;
+    return true;
 }

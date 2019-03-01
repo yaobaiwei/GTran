@@ -3,14 +3,13 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
-#ifndef NODE_UTIL_HPP_
-#define NODE_UTIL_HPP_
+#ifndef BASE_NODE_UTIL_HPP_
+#define BASE_NODE_UTIL_HPP_
 
 #include <vector>
 #include <string>
 
 #include "base/node.hpp"
-
 #include "glog/logging.h"
 
 std::vector<Node> ParseFile(const std::string& filename);
@@ -24,4 +23,4 @@ bool CheckUniquePort(std::vector<Node>& nodes);
  */
 bool HasNode(std::vector<Node>& nodes, uint32_t id);
 
-#endif /* NODE_UTIL_HPP_ */
+#endif  // BASE_NODE_UTIL_HPP_

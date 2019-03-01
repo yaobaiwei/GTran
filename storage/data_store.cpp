@@ -3,6 +3,12 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
+#include <hash_map>
+#include <map>
+#include <utility>
+#include <unordered_map>
+#include <vector>
+
 #include "storage/data_store.hpp"
 #include "storage/mpi_snapshot.hpp"
 #include "storage/snapshot_func.hpp"

@@ -5,32 +5,34 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #pragma once
 
-#include "utils/mpi_unique_namer.hpp"
 #include <unistd.h>
+
+#include <map>
 #include <fstream>
+#include <string>
+
 #include "base/serialization.hpp"
+#include "utils/mpi_unique_namer.hpp"
 
-//make sure that the snapshot path exists
-//when this instance is called, make sure that MPIUniqueNamer is initialed.
+// make sure that the snapshot path exists
+// when this instance is called, make sure that MPIUniqueNamer is initialed.
 
-namespace std
-{
-class MPISnapshot
-{
-public:
-    //to do: better use const reference.
+namespace std {
+
+class MPISnapshot {
+ public:
+    // TODO(entityless): better use const reference.
 
     template<typename T>
-    bool WriteData(string key, T& data, bool(WriteFunc)(string, T&))
-    {
-        if(!write_enabled_)
+    bool WriteData(string key, T& data, bool(WriteFunc)(string, T&)) {
+        if (!write_enabled_)
             return false;
 
-        if(TestRead(key))
+        if (TestRead(key))
             return true;
 
-        //hash the key
-        string fn = path_ + "/" + unique_namer_->ultos(unique_namer_->GetHash(key));//dirty code
+        // hash the key
+        string fn = path_ + "/" + unique_namer_->ultos(unique_namer_->GetHash(key));
 
         WriteFunc(fn, data);
 
@@ -40,68 +42,63 @@ public:
     }
 
     template<typename T>
-    bool ReadData(string key, T& data, bool(ReadFunc)(string, T&))
-    {
-        if(!read_enabled_)
+    bool ReadData(string key, T& data, bool(ReadFunc)(string, T&)) {
+        if (!read_enabled_)
             return false;
 
-        //hash the key
-        string fn = path_ + "/" + unique_namer_->ultos(unique_namer_->GetHash(key));//dirty code
+        // hash the key
+        string fn = path_ + "/" + unique_namer_->ultos(unique_namer_->GetHash(key));
 
         read_map_[key] = ReadFunc(fn, data);
 
         return read_map_[key];
     }
 
-    //after read data of a specific key, this function will return true (for global usage)
-    bool TestRead(string key)
-    {
-        if(read_map_.count(key) == 0)
-            return false;//not found
-        if(read_map_[key])
+    // after read data of a specific key, this function will return true (for global usage)
+    bool TestRead(string key) {
+        if (read_map_.count(key) == 0)
+            return false;  // not found
+        if (read_map_[key])
             return true;
         return false;
     }
 
-    bool TestWrite(string key)
-    {
-        if(write_map_.count(key) == 0)
-            return false;//not found
-        if(write_map_[key])
+    bool TestWrite(string key) {
+        if (write_map_.count(key) == 0)
+            return false;  // not found
+        if (write_map_[key])
             return true;
         return false;
     }
 
-    //use this if you want to overwrite snapshot (e.g., the file is damaged.)
-    bool DisableRead(){read_enabled_ = false;}
-    //you can use this if you are test on a tiny dataset to avoid write snapshot
-    bool DisableWrite(){write_enabled_ = false;}
+    // use this if you want to overwrite snapshot (e.g., the file is damaged.)
+    bool DisableRead() { read_enabled_ = false; }
+    // you can use this if you are test on a tiny dataset to avoid write snapshot
+    bool DisableWrite() { write_enabled_ = false; }
 
-private:
+ private:
     MPIUniqueNamer* unique_namer_;
     string path_;
 
     map<string, bool> read_map_;
     map<string, bool> write_map_;
 
-    //by default, it is enabled
+    // by default, it is enabled
     bool read_enabled_ = true;
     bool write_enabled_ = true;
 
     MPISnapshot(string path);
-    // TODO: briefly show the statistics of snapshot reading
+    // TODO(entityless): briefly show the statistics of snapshot reading
 
-public:
-    static MPISnapshot* GetInstance(string path = "")
-    {
+ public:
+    static MPISnapshot* GetInstance(string path = "") {
         static MPISnapshot* snapshot_single_instance = NULL;
 
-        if(snapshot_single_instance == NULL)
-        {
+        if (snapshot_single_instance == NULL) {
             snapshot_single_instance = new MPISnapshot(path);
         }
 
         return snapshot_single_instance;
     }
 };
-};
+};  // namespace std

@@ -14,9 +14,13 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <tbb/concurrent_vector.h>
 
 #include <algorithm>
+#include <hash_map>
+#include <map>
 #include <mutex>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "glog/logging.h"
 

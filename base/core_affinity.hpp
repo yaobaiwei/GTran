@@ -4,23 +4,27 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
          Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
-#ifndef CORE_AFFINITY_HPP_
-#define CORE_AFFINITY_HPP_
+#ifndef BASE_CORE_AFFINITY_HPP_
+#define BASE_CORE_AFFINITY_HPP_
 
 #include <hwloc.h>
 #include <math.h>
-#include <boost/algorithm/string/predicate.hpp>
-#include <fstream>
-#include <algorithm>
-#include <mutex>
 
+#include <algorithm>
+#include <fstream>
+#include <map>
+#include <mutex>
+#include <string>
+#include <vector>
+#include <boost/algorithm/string/predicate.hpp>
+
+#include "base/cpuinfo_util.hpp"
+#include "base/node.hpp"
 #include "base/type.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
-#include "utils/timer.hpp"
-#include "base/cpuinfo_util.hpp"
-#include "base/node.hpp"
 #include "utils/simple_thread_safe_map.hpp"
+#include "utils/timer.hpp"
 
 /*
  * $numactl --hardware
@@ -492,26 +496,26 @@ class CoreAffinity {
     string DebugString(int type_) {
         string str;
         switch (type_) {
-            case 0:
-                str = "CacheSEQ";
-                break;
-            case 1:
-                str = "CacheBarr";
-                break;
-            case 2:
-                str = "Traversal";
-                break;
-            case 3:
-                str = "NormalBarr";
-                break;
-            case 4:
-                str = "NormalBranch";
-                break;
-            case 5:
-                str = "NormalSEQ";
-                break;
-            default:
-                str = "NotDeclare";
+          case 0:
+            str = "CacheSEQ";
+            break;
+          case 1:
+            str = "CacheBarr";
+            break;
+          case 2:
+            str = "Traversal";
+            break;
+          case 3:
+            str = "NormalBarr";
+            break;
+          case 4:
+            str = "NormalBranch";
+            break;
+          case 5:
+            str = "NormalSEQ";
+            break;
+          default:
+            str = "NotDeclare";
         }
 
         return str;
@@ -526,4 +530,4 @@ class CoreAffinity {
     }
 };
 
-#endif /* CORE_AFFINITY_HPP_ */
+#endif  // BASE_CORE_AFFINITY_HPP_
