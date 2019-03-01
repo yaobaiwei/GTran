@@ -7,10 +7,13 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #ifndef WORKER_HPP_
 #define WORKER_HPP_
 
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "utils/zmq.hpp"
-
 #include "base/core_affinity.hpp"
-
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "base/thread_safe_queue.hpp"
@@ -30,15 +33,14 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/parser.hpp"
 #include "core/result_collector.hpp"
 #include "storage/data_store.hpp"
-
 #include "storage/mpi_snapshot.hpp"
 
-struct Pack{
+struct Pack {
     qid_t id;
     vector<Actor_Object> actors;
 };
 
-class Worker{
+class Worker {
  public:
     Worker(Node & my_node, vector<Node> & workers, Node & master) :
             my_node_(my_node), workers_(workers), master_(master) {
@@ -273,14 +275,14 @@ class Worker{
             ibinstream m;
 
             switch (elem_type) {
-                case Element_T::VERTEX:
-                    datastore->tcp_helper->GetPropertyForVertex(id, val);
-                    break;
-                case Element_T::EDGE:
-                    datastore->tcp_helper->GetPropertyForEdge(id, val);
-                    break;
-                default:
-                    cout << "Wrong element type" << endl;
+              case Element_T::VERTEX:
+                datastore->tcp_helper->GetPropertyForVertex(id, val);
+                break;
+              case Element_T::EDGE:
+                datastore->tcp_helper->GetPropertyForEdge(id, val);
+                break;
+              default:
+                cout << "Wrong element type" << endl;
             }
 
             m << val;

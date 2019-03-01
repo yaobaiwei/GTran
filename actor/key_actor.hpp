@@ -55,14 +55,14 @@ class KeyActor : public AbstractActor {
             v_obj.RecordInputSetValueT(m.qid, m.step, inType, data_pair.second, m.step == 1 ? true : false);
         }
 
-        switch(inType) {
-            case Element_T::VERTEX:
-                VertexKeys(tid, msg.data);
-                break;
-            case Element_T::EDGE:
-                EdgeKeys(tid, msg.data);
-                break;
-            default:
+        switch (inType) {
+          case Element_T::VERTEX:
+            VertexKeys(tid, msg.data);
+            break;
+          case Element_T::EDGE:
+            EdgeKeys(tid, msg.data);
+            break;
+          default:
                 cout << "Wrong in type"  << endl;
         }
 

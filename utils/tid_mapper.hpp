@@ -8,41 +8,36 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <vector>
-#include <map>
-#include <string.h>
-#include <iostream>
 #include <assert.h>
 #include <pthread.h>
+#include <string.h>
+#include <vector>
+#include <map>
+#include <iostream>
 
+namespace std {
+class TidMapper {
+ private:
+    explicit TidMapper(const TidMapper&);
+    TidMapper& operator=(const TidMapper&);
+    ~TidMapper() {}
 
-namespace std
-{
-    class TidMapper
-    {
-    private:
-        TidMapper(const TidMapper&);
-        TidMapper& operator=(const TidMapper&);
-        ~TidMapper(){};
+    map<pthread_t, int> manual_tid_map_;
+    map<pthread_t, int> unique_tid_map_;
 
-        map<pthread_t, int> manual_tid_map_;
-        map<pthread_t, int> unique_tid_map_;
+    pthread_spinlock_t lock_;
 
-        pthread_spinlock_t lock_;
+ public:
+    static TidMapper* GetInstance() {
+        static TidMapper thread_mapper_single_instance;
+        return &thread_mapper_single_instance;
+    }
 
-    public:
+    void Register(int tid);
+    int GetTid();
+    int GetTidUnique();
 
-        static TidMapper* GetInstance()
-        {
-            static TidMapper thread_mapper_single_instance;
-            return &thread_mapper_single_instance;
-        }
-
-        void Register(int tid);
-        int GetTid();
-        int GetTidUnique();
-
-    private:
-        TidMapper();
-    };
+ private:
+    TidMapper();
 };
+}  // namespace std

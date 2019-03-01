@@ -51,15 +51,15 @@ class IndexActor : public AbstractActor {
 
         bool enabled = false;
         switch (inType) {
-            case Element_T::VERTEX:
-                enabled = BuildIndexVtx(tid, pid);
-                break;
-            case Element_T::EDGE:
-                enabled = BuildIndexEdge(tid, pid);
-                break;
-            default:
-                cout << "Wrong inType" << endl;
-                return;
+          case Element_T::VERTEX:
+            enabled = BuildIndexVtx(tid, pid);
+            break;
+          case Element_T::EDGE:
+            enabled = BuildIndexEdge(tid, pid);
+            break;
+          default:
+            cout << "Wrong inType" << endl;
+            return;
         }
 
         string ena = (enabled? "enabled":"disabled");

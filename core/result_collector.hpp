@@ -16,6 +16,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <queue>
 #include <string>
 #include <unordered_set>
+#include <utility>
 
 #include "base/type.hpp"
 #include "base/thread_safe_queue.hpp"

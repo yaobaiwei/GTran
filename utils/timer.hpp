@@ -14,7 +14,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <vector>
 
 class timer {
-public:
+ public:
     static uint64_t get_usec() {
         struct timespec tp;
         /* POSIX.1-2008: Applications should use the clock_gettime() function
@@ -28,29 +28,29 @@ public:
     static void cpu_relax(int u) {
         int t = 166 * u;
         while ((t--) > 0)
-            _mm_pause(); // a busy-wait loop
+            _mm_pause();  // a busy-wait loop
     }
 
-	static void init_timers(int size);
+    static void init_timers(int size);
 
-	static void reset_timers();
+    static void reset_timers();
 
-	static double get_current_time();
+    static double get_current_time();
 
-	static void start_timer(int i);
+    static void start_timer(int i);
 
-	static void reset_timer(int i);
+    static void reset_timer(int i);
 
-	static void stop_timer(int i);
+    static void stop_timer(int i);
 
-	static double get_timer(int i);
+    static double get_timer(int i);
 
-	static void print_timer(std::string str, int i);
+    static void print_timer(std::string str, int i);
 
-	static int N_Timers;
-	
-	static std::vector<double> _timers;	// timers
-	static std::vector<double> _acc_time;// accumulated time
+    static int N_Timers;
+
+    static std::vector<double> _timers;    // timers
+    static std::vector<double> _acc_time;  // accumulated time
 };
 
 #endif /* TIMER_HPP_ */

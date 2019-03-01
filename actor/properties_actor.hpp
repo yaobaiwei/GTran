@@ -60,13 +60,13 @@ class PropertiesActor : public AbstractActor {
         }
 
         switch (inType) {
-            case Element_T::VERTEX:
-                get_properties_for_vertex(tid, key_list, msg.data);
-                break;
-            case Element_T::EDGE:
-                get_properties_for_edge(tid, key_list, msg.data);
-                break;
-            default:
+          case Element_T::VERTEX:
+            get_properties_for_vertex(tid, key_list, msg.data);
+            break;
+          case Element_T::EDGE:
+            get_properties_for_edge(tid, key_list, msg.data);
+            break;
+          default:
                 cout << "Wrong in type" << endl;
         }
 

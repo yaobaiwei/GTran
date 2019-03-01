@@ -5,13 +5,13 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #pragma once
 
+#include <assert.h>
 #include <iostream>
 #include <vector>
-#include <assert.h>
 
 class mymath {
-public:
-    uint64_t static get_distribution(int r, std::vector<int>& distribution) {
+ public:
+    static uint64_t get_distribution(int r, std::vector<int>& distribution) {
         int sum = 0;
         for (int i = 0; i < distribution.size(); i++)
             sum += distribution[i];
@@ -26,7 +26,7 @@ public:
         assert(false);
     }
 
-    inline int static hash_mod(uint64_t n, int m) {
+    static inline int hash_mod(uint64_t n, int m) {
         if (m == 0)
             assert(false);
         return n % m;
@@ -34,11 +34,11 @@ public:
 
     // TomasWang's 64 bit integer hash
     static uint64_t hash_u64(uint64_t key) {
-        key = (~key) + (key << 21); // key = (key << 21) - key - 1;
+        key = (~key) + (key << 21);  // key = (key << 21) - key - 1;
         key = key ^ (key >> 24);
-        key = (key + (key << 3)) + (key << 8); // key * 265
+        key = (key + (key << 3)) + (key << 8);  // key * 265
         key = key ^ (key >> 14);
-        key = (key + (key << 2)) + (key << 4); // key * 21
+        key = (key + (key << 2)) + (key << 4);  // key * 21
         key = key ^ (key >> 28);
         key = key + (key << 31);
         return key;
@@ -82,8 +82,7 @@ public:
 
     static uint64_t hash_prime_u64(uint64_t upper) {
         if (upper >= (1l << 31)) {
-            std::cout << "WARNING: " << upper << " is too large!"
-                 << std::endl;
+            std::cout << "WARNING: " << upper << " is too large!" << std::endl;
             return upper;
         }
 
@@ -103,30 +102,27 @@ public:
         else if (upper >= 196613l) return 196613l;        // 2^17 ~ 2^18
         else if (upper >= 98317l) return 98317l;          // 2^16 ~ 2^17
 
-        std::cout << "WARNING: " << upper << " is too small!"
-             << std::endl;
+        std::cout << "WARNING: " << upper << " is too small!" << std::endl;
         return upper;
     }
 
-	//Hash128to64 function from Google's cityhash (available under the MIT License)
-	static uint64_t hash_u128_to_u64(uint64_t high, uint64_t low){
-		// Murmur-inspired hashing.
-		const uint64_t kMul = 0x9ddfea08eb382d69ULL;
-		uint64_t a = (low ^ high) * kMul;
-		a ^= (a >> 47);
-		uint64_t b = (high ^ a) * kMul;
-		b ^= (b >> 47);
-		b *= kMul;
-		return b;
-	}
+    // Hash128to64 function from Google's cityhash (available under the MIT License)
+    static uint64_t hash_u128_to_u64(uint64_t high, uint64_t low) {
+        // Murmur-inspired hashing.
+        const uint64_t kMul = 0x9ddfea08eb382d69ULL;
+        uint64_t a = (low ^ high) * kMul;
+        a ^= (a >> 47);
+        uint64_t b = (high ^ a) * kMul;
+        b ^= (b >> 47);
+        b *= kMul;
+        return b;
+    }
 
-    static void hash_combine(size_t& seed, int v)
-    {
+    static void hash_combine(size_t& seed, int v) {
         seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
 
-    static void hash_combine(size_t& seed, uint64_t v)
-    {
+    static void hash_combine(size_t& seed, uint64_t v) {
         seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
 };

@@ -88,14 +88,14 @@ class HasActor : public AbstractActor {
         }
 
         switch (inType) {
-            case Element_T::VERTEX:
-                EvaluateVertex(tid, msg.data, pred_chain);
-                break;
-            case Element_T::EDGE:
-                EvaluateEdge(tid, msg.data, pred_chain);
-                break;
-            default:
-                cout << "Wrong inType" << endl;
+          case Element_T::VERTEX:
+            EvaluateVertex(tid, msg.data, pred_chain);
+            break;
+          case Element_T::EDGE:
+            EvaluateEdge(tid, msg.data, pred_chain);
+            break;
+          default:
+            cout << "Wrong inType" << endl;
         }
 
         // Create Message

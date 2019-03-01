@@ -3,8 +3,6 @@
 Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
          Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
-
-
 #include <iostream>
 
 #include "core/parser.hpp"
@@ -289,8 +287,8 @@ void Parser::SplitParam(string& param, vector<string>& params) {
         // only split ',' which is not encased by '()'
         for (char i : itr) {
             switch (i) {
-            case '(': balance++; break;
-            case ')': balance--; break;
+              case '(': balance++; break;
+              case ')': balance--; break;
             }
         }
         p = p + "," + itr;
@@ -327,19 +325,19 @@ bool Parser::IsNumber() {
 }
 bool Parser::IsValue(uint8_t& type) {
     switch (io_type_) {
-    case IO_T::INT:
+      case IO_T::INT:
         type = 1;
         break;
-    case IO_T::DOUBLE:
+      case IO_T::DOUBLE:
         type = 2;
         break;
-    case IO_T::CHAR:
+      case IO_T::CHAR:
         type = 3;
         break;
-    case IO_T::STRING:
+      case IO_T::STRING:
         type = 4;
         break;
-    default:
+      default:
         return false;
     }
     return true;
@@ -351,27 +349,27 @@ bool Parser::IsElement() {
 
 bool Parser::IsElement(Element_T& type) {
     switch (io_type_) {
-    case IO_T::VERTEX:
+      case IO_T::VERTEX:
         type = Element_T::VERTEX;
         return true;
-    case IO_T::EDGE:
+      case IO_T::EDGE:
         type = Element_T::EDGE;
         return true;
-    default:
+      default:
         return false;
     }
 }
 Parser::IO_T Parser::Value2IO(uint8_t type) {
     switch (type) {
-    case 1:
+      case 1:
         return IO_T::INT;
-    case 2:
+      case 2:
         return IO_T::DOUBLE;
-    case 3:
+      case 3:
         return IO_T::CHAR;
-    case 4:
+      case 4:
         return IO_T::STRING;
-    default:
+      default:
         throw ParserException("unexpected error");
     }
 }
@@ -525,27 +523,27 @@ bool Parser::CheckIfQuery(const string& param) {
 
 int Parser::GetStepPriority(Step_T type) {
     switch (type) {
-    case Step_T::IS:
-    case Step_T::WHERE:
+      case Step_T::IS:
+      case Step_T::WHERE:
         return 0;
-    case Step_T::HAS:
-    case Step_T::HASNOT:
-    case Step_T::HASKEY:
-    case Step_T::HASVALUE:
+      case Step_T::HAS:
+      case Step_T::HASNOT:
+      case Step_T::HASKEY:
+      case Step_T::HASVALUE:
         return 1;
-    case Step_T::HASLABEL:
+      case Step_T::HASLABEL:
         return 2;
-    case Step_T::AND:
-    case Step_T::OR:
-    case Step_T::NOT:
+      case Step_T::AND:
+      case Step_T::OR:
+      case Step_T::NOT:
         return 3;
-    case Step_T::DEDUP:
+      case Step_T::DEDUP:
         return 4;
-    case Step_T::AS:
+      case Step_T::AS:
         return 5;
-    case Step_T::ORDER:
+      case Step_T::ORDER:
         return 6;
-    default:
+      default:
         return -1;
     }
 }
@@ -696,91 +694,91 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
         SplitParam(stepToken.second, params);
 
         switch (type) {
-        // AddE Actor
-        case Step_T::ADDE:
+          // AddE Actor
+          case Step_T::ADDE:
             ParseAddE(params); break;
-        case Step_T::FROM: case Step_T::TO:
+          case Step_T::FROM: case Step_T::TO:
             ParseFromTo(params, type); break;
-        // AddV Actor:
-        case Step_T::ADDV:
+          // AddV Actor:
+          case Step_T::ADDV:
             ParseAddV(params); break;
-        // AggregateActor
-        case Step_T::AGGREGATE:
+          // AggregateActor
+          case Step_T::AGGREGATE:
             ParseAggregate(params); break;
-        // As Actor
-        case Step_T::AS:
+          // As Actor
+          case Step_T::AS:
             ParseAs(params); break;
-        // Branch ActorsW
-        case Step_T::UNION:
+          // Branch ActorsW
+          case Step_T::UNION:
             ParseBranch(params); break;
-        // BranchFilter Actors
-        case Step_T::AND:case Step_T::NOT:case Step_T::OR:
+          // BranchFilter Actors
+          case Step_T::AND:case Step_T::NOT:case Step_T::OR:
             ParseBranchFilter(params, type); break;
-        // Cap Actor
-        case Step_T::CAP:
+          // Cap Actor
+          case Step_T::CAP:
             ParseCap(params); break;
-        // Count Actor
-        case Step_T::COUNT:
+          // Count Actor
+          case Step_T::COUNT:
             ParseCount(params); break;
-        // Dedup Actor
-        case Step_T::DEDUP:
+          // Dedup Actor
+          case Step_T::DEDUP:
             ParseDedup(params); break;
-        // Drop Actor
-        case Step_T::DROP:
+          // Drop Actor
+          case Step_T::DROP:
             ParseDrop(params); break;
-        // Group Actor
-        case Step_T::GROUP:case Step_T::GROUPCOUNT:
+          // Group Actor
+          case Step_T::GROUP:case Step_T::GROUPCOUNT:
             ParseGroup(params, type); break;
-        // Has Actors
-        case Step_T::HAS:case Step_T::HASKEY:case Step_T::HASVALUE:case Step_T::HASNOT:
+          // Has Actors
+          case Step_T::HAS:case Step_T::HASKEY:case Step_T::HASVALUE:case Step_T::HASNOT:
             ParseHas(params, type); break;
-        // HasLabel Actors
-        case Step_T::HASLABEL:
+          // HasLabel Actors
+          case Step_T::HASLABEL:
             ParseHasLabel(params); break;
-        // Is Actor
-        case Step_T::IS:
+          // Is Actor
+          case Step_T::IS:
             ParseIs(params); break;
-        // Key Actor
-        case Step_T::KEY:
+          // Key Actor
+          case Step_T::KEY:
             ParseKey(params); break;
-        // Label Actor
-        case Step_T::LABEL:
+          // Label Actor
+          case Step_T::LABEL:
             ParseLabel(params); break;
-        // Math Actor
-        case Step_T::MAX:case Step_T::MEAN:case Step_T::MIN:case Step_T::SUM:
+          // Math Actor
+          case Step_T::MAX:case Step_T::MEAN:case Step_T::MIN:case Step_T::SUM:
             ParseMath(params, type); break;
-        // Order Actor
-        case Step_T::ORDER:
+          // Order Actor
+          case Step_T::ORDER:
             ParseOrder(params); break;
-        // Properties Actor
-        case Step_T::PROPERTIES:
+          // Properties Actor
+          case Step_T::PROPERTIES:
             ParseProperties(params); break;
-        // Property Actor
-        case Step_T::PROPERTY:
+          // Property Actor
+          case Step_T::PROPERTY:
             ParseProperty(params); break;
-        // Range Actor
-        case Step_T::LIMIT:case Step_T::RANGE:case Step_T::SKIP:
+          // Range Actor
+          case Step_T::LIMIT:case Step_T::RANGE:case Step_T::SKIP:
             ParseRange(params, type); break;
-        // Coin Actor
-        case Step_T::COIN:
+          // Coin Actor
+          case Step_T::COIN:
             ParseCoin(params); break;
-        // Repeat Actor
-        case Step_T::REPEAT:
+          // Repeat Actor
+          case Step_T::REPEAT:
             ParseRepeat(params); break;
-        // Select Actor
-        case Step_T::SELECT:
+          // Select Actor
+          case Step_T::SELECT:
             ParseSelect(params); break;
-        // Traversal Actors
-        case Step_T::IN:case Step_T::OUT:case Step_T::BOTH:case Step_T::INE:case Step_T::OUTE:
-        case Step_T::BOTHE:case Step_T::INV:case Step_T::OUTV:case Step_T::BOTHV:
+          // Traversal Actors
+          case Step_T::IN:case Step_T::OUT:case Step_T::BOTH:case Step_T::INE:case Step_T::OUTE:
+          case Step_T::BOTHE:case Step_T::INV:case Step_T::OUTV:case Step_T::BOTHV:
             ParseTraversal(params, type); break;
-        // Values Actor
-        case Step_T::VALUES:
+          // Values Actor
+          case Step_T::VALUES:
             ParseValues(params); break;
-        // Where Actor
-        case Step_T::WHERE:
+          // Where Actor
+          case Step_T::WHERE:
             ParseWhere(params); break;
-        default:throw ParserException("Unexpected step");
+          default:throw ParserException("Unexpected step");
         }
     }
 }
@@ -859,9 +857,9 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 
     switch (pred_type) {
         // scalar predicate
-    case Predicate_T::GT:        case Predicate_T::GTE:        case Predicate_T::LT:
-    case Predicate_T::LTE:        case Predicate_T::EQ:        case Predicate_T::NEQ:
-    case Predicate_T::ANY:
+      case Predicate_T::GT: case Predicate_T::GTE: case Predicate_T::LT:
+      case Predicate_T::LTE: case Predicate_T::EQ: case Predicate_T::NEQ:
+      case Predicate_T::ANY:
         if (pred_params.size() != 1) {
             throw ParserException("expect only one param: " + param);
         }
@@ -872,11 +870,11 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
 
         // collection predicate
         // where (inside, outside, between) only accept 2 numbers
-    case Predicate_T::INSIDE:    case Predicate_T::OUTSIDE:    case Predicate_T::BETWEEN:
+      case Predicate_T::INSIDE: case Predicate_T::OUTSIDE: case Predicate_T::BETWEEN:
         if (pred_params.size() != 2) {
             throw ParserException("expect two params: " + param);
         }
-    case Predicate_T::WITHIN:    case Predicate_T::WITHOUT:
+      case Predicate_T::WITHIN: case Predicate_T::WITHOUT:
         if (!Tool::vec2value_t(pred_params, pred_param, type)) {
             throw ParserException("predicate type not match: " + param);
         }
@@ -981,9 +979,9 @@ void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
 
     Direction_T dir;
     switch (type) {
-    case Step_T::FROM: dir = Direction_T::IN; break;
-    case Step_T::TO: dir = Direction_T::OUT; break;
-    default:
+      case Step_T::FROM: dir = Direction_T::IN; break;
+      case Step_T::TO: dir = Direction_T::OUT; break;
+      default:
         throw ParserException("unexpected error");
     }
 
@@ -1088,10 +1086,10 @@ void Parser::ParseBranchFilter(const vector<string>& params, Step_T type) {
 
     int filterType;
     switch (type) {
-    case Step_T::AND:    filterType = Filter_T::AND; break;
-    case Step_T::OR:    filterType = Filter_T::OR; break;
-    case Step_T::NOT:    filterType = Filter_T::NOT; break;
-    default:    throw ParserException("unexpected error");
+      case Step_T::AND:    filterType = Filter_T::AND; break;
+      case Step_T::OR:    filterType = Filter_T::OR; break;
+      case Step_T::NOT:    filterType = Filter_T::NOT; break;
+      default:    throw ParserException("unexpected error");
     }
     actor.AddParam(filterType);
 
@@ -1160,11 +1158,11 @@ void Parser::ParseDrop(const vector<string>& params) {
     Element_T element_type;
     bool isProperty = false;
     switch (io_type_) {
-    case IO_T::VP:      isProperty = true;
-    case IO_T::VERTEX:  element_type = Element_T::VERTEX; break;
-    case IO_T::EP:      isProperty = true;
-    case IO_T::EDGE:    element_type = Element_T::EDGE; break;
-    default:
+      case IO_T::VP:      isProperty = true;
+      case IO_T::VERTEX:  element_type = Element_T::VERTEX; break;
+      case IO_T::EP:      isProperty = true;
+      case IO_T::EDGE:    element_type = Element_T::EDGE; break;
+      default:
         throw ParserException("Unexpected input type before drop");
     }
     actor.AddParam(element_type);
@@ -1236,7 +1234,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
     uint8_t vtype = 0;
 
     switch (type) {
-    case Step_T::HAS:
+      case Step_T::HAS:
         /*
             key                   = params[0]
             pred_type         = parse(params[1])
@@ -1255,7 +1253,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         actor.AddParam(key);
         ParsePredicate(pred_param, vtype, actor, false);
         break;
-    case Step_T::HASVALUE:
+      case Step_T::HASVALUE:
         /*
             key                   = -1
             pred_type         = EQ
@@ -1270,7 +1268,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
             }
         }
         break;
-    case Step_T::HASNOT:
+      case Step_T::HASNOT:
         /*
             key                   = params[0]
             pred_type         = NONE
@@ -1287,7 +1285,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         actor.AddParam(Predicate_T::NONE);
         actor.AddParam(-1);
         break;
-    case Step_T::HASKEY:
+      case Step_T::HASKEY:
         /*
             key                   = params[0]
             pred_type         = ANY
@@ -1304,7 +1302,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         actor.AddParam(Predicate_T::ANY);
         actor.AddParam(-1);
         break;
-    default: throw ParserException("unexpected error");
+      default: throw ParserException("unexpected error");
     }
 
     // When has actor is after init actor
@@ -1333,8 +1331,11 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
                     if (*itr / index_ratio >= min_count_) {
                         itr = index_count_.erase(itr);
                         int first = 1 + 3 * i;
-                        move(init_actor.params.begin() + first, init_actor.params.begin() + first + 3, back_inserter(actor.params));
-                        init_actor.params.erase(init_actor.params.begin() + first, init_actor.params.begin() + first + 3);
+                        move(init_actor.params.begin() + first,
+                            init_actor.params.begin() + first + 3,
+                            back_inserter(actor.params));
+                        init_actor.params.erase(init_actor.params.begin() + first,
+                                                init_actor.params.begin() + first + 3);
                     } else {
                         itr++;
                         i++;
@@ -1473,11 +1474,11 @@ void Parser::ParseMath(const vector<string>& params, Step_T type) {
 
     int mathType;
     switch (type) {
-    case Step_T::MAX:    mathType = Math_T::MAX; break;
-    case Step_T::MEAN:    mathType = Math_T::MEAN; break;
-    case Step_T::MIN:    mathType = Math_T::MIN; break;
-    case Step_T::SUM:    mathType = Math_T::SUM; break;
-    default: throw ParserException("unexpected error");
+      case Step_T::MAX:    mathType = Math_T::MAX; break;
+      case Step_T::MEAN:    mathType = Math_T::MEAN; break;
+      case Step_T::MIN:    mathType = Math_T::MIN; break;
+      case Step_T::SUM:    mathType = Math_T::SUM; break;
+      default: throw ParserException("unexpected error");
     }
     actor.AddParam(mathType);
 
@@ -1593,26 +1594,26 @@ void Parser::ParseRange(const vector<string>& params, Step_T type) {
     int start = 0;
     int end = -1;
     switch (type) {
-    case Step_T::RANGE:
+      case Step_T::RANGE:
         if (params.size() != 2) {
             throw ParserException("expect two parameters for range");
         }
         start = vec[0];
         end = vec[1];
         break;
-    case Step_T::LIMIT:
+      case Step_T::LIMIT:
         if (params.size() != 1) {
             throw ParserException("expect one parameter for limit");
         }
         end = vec[0] - 1;
         break;
-    case Step_T::SKIP:
+      case Step_T::SKIP:
         if (params.size() != 1) {
             throw ParserException("expect one parameter for skip");
         }
         start = vec[0];
         break;
-    default: throw ParserException("unexpected error");
+      default: throw ParserException("unexpected error");
     }
     actor.AddParam(start);
     actor.AddParam(end);

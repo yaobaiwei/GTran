@@ -263,9 +263,9 @@ class BranchFilterActor : public LabelledBranchActorBase<BranchData::branch_filt
             // get filter function according to filter type
             bool (*pass)(uint32_t, int);
             switch (filter_type) {
-                case Filter_T::AND:    pass = all_success;  break;
-                case Filter_T::OR:    pass = any_success;  break;
-                case Filter_T::NOT:    pass = none_success; break;
+              case Filter_T::AND:    pass = all_success;  break;
+              case Filter_T::OR:    pass = any_success;  break;
+              case Filter_T::NOT:    pass = none_success; break;
             }
 
             vector<pair<history_t, vector<value_t>>> &data = ac->second.data;

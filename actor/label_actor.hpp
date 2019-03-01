@@ -51,13 +51,13 @@ class LabelActor : public AbstractActor {
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 
         switch (inType) {
-            case Element_T::VERTEX:
-                VertexLabel(tid, msg.data);
-                break;
-            case Element_T::EDGE:
-                EdgeLabel(tid, msg.data);
-                break;
-            default:
+          case Element_T::VERTEX:
+            VertexLabel(tid, msg.data);
+            break;
+          case Element_T::EDGE:
+            EdgeLabel(tid, msg.data);
+            break;
+          default:
                 cout << "Wrong in type"  << endl;
         }
 

@@ -3,24 +3,21 @@
 Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
-#include "mpi_unique_namer.hpp"
 
-#include <cstdio>
-#include <cstdlib>
+#include <memory.h>
+#include <signal.h>
 #include <termios.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <iostream>
 #include <list>
-#include <memory.h>
-#include <signal.h>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <functional>
+#include "mpi_unique_namer.hpp"
 
-using namespace std;
-
-void MPIUniqueNamer::GetHostsStr()
-{
+void MPIUniqueNamer::GetHostsStr() {
     char tmp_hn[1000];
     int hn_len;
     MPI_Get_processor_name(tmp_hn, &hn_len);
@@ -32,14 +29,13 @@ void MPIUniqueNamer::GetHostsStr()
 
     MPI_Allgather(&hn_len, 1, MPI_INT, hn_lens, 1, MPI_INT, comm_);
 
-    //after gathered this, call gatherv to merge hostname
+    // after gathered this, call gatherv to merge hostname
 
     int total_len = hn_lens[0];
     hn_displs[0] = 0;
 
 
-    for(int i = 1; i < comm_sz_; i++)
-    {
+    for (int i = 1; i < comm_sz_; i++) {
         hn_displs[i] = total_len;
         total_len += hn_lens[i];
     }
@@ -53,36 +49,32 @@ void MPIUniqueNamer::GetHostsStr()
     string hn_cat(tmp_hn_cat);
     string rank_str = ultos(my_rank_);
 
-    hn_cat_ = rank_str + hn_cat;//make sure that different host has different dir name, which enables debug on NFS
+    hn_cat_ = rank_str + hn_cat;  // make sure that different host has different dir name, which enables debug on NFS
 
     delete hn_lens;
     delete hn_displs;
     delete tmp_hn_cat;
 }
 
-unsigned long MPIUniqueNamer::GetHash(string s)
-{
+unsigned long MPIUniqueNamer::GetHash(string s) {
     hash<string> str_hash;
     return str_hash(s);
 }
 
-string MPIUniqueNamer::ultos(unsigned long ul)
-{
+string MPIUniqueNamer::ultos(unsigned long ul) {
     char c[50];
-    sprintf(c, "%lu", ul);
+    snprintf(c, sizeof(c), "%lu", ul);
     return string(c);
 }
 
-void MPIUniqueNamer::AppendHash(string to_append)
-{
-    if(hashed_str_.size() != 0)
+void MPIUniqueNamer::AppendHash(string to_append) {
+    if (hashed_str_.size() != 0)
         hashed_str_ = hashed_str_ + "_";
 
     hashed_str_ += ultos(GetHash(to_append));
 }
 
-string MPIUniqueNamer::ExtractHash()
-{
+string MPIUniqueNamer::ExtractHash() {
     // //debug
     // for(int i = 0; i < comm_sz_; i++)
     // {
@@ -92,8 +84,5 @@ string MPIUniqueNamer::ExtractHash()
     //     }
     //     MPI_Barrier(comm_);
     // }
-
-
     return hashed_str_;
 }
-

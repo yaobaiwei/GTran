@@ -22,19 +22,19 @@ class ActorValidationObject {
     void RecordInputSetValueT(uint64_t TransactionID, int step_num, Element_T data_type, const vector<value_t> & input_set, bool recordALL) {
         vector<uint64_t> transformedInput;
         switch (data_type) {
-            case Element_T::VERTEX:
-                for (auto & item : input_set) {
-                    transformedInput.emplace_back(Tool::value_t2int(item));
-                }
-                break;
-            case Element_T::EDGE:
-                for (auto & item : input_set) {
-                    transformedInput.emplace_back(Tool::value_t2uint64_t(item));
-                }
-                break;
-            default:
-                cout << "wrong input data type" << endl;
-                return;
+          case Element_T::VERTEX:
+            for (auto & item : input_set) {
+                transformedInput.emplace_back(Tool::value_t2int(item));
+            }
+            break;
+          case Element_T::EDGE:
+            for (auto & item : input_set) {
+                transformedInput.emplace_back(Tool::value_t2uint64_t(item));
+            }
+            break;
+          default:
+            cout << "wrong input data type" << endl;
+            return;
         }
         RecordInputSet(TransactionID, step_num, transformedInput, recordALL);
     }

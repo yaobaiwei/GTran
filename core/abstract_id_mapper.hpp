@@ -10,7 +10,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 
 class AbstractIdMapper {
-public:
+ public:
   virtual ~AbstractIdMapper() {}
 
   virtual bool IsVertex(uint64_t v_id) = 0;
