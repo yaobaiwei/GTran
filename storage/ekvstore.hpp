@@ -4,14 +4,15 @@ Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
          Modified Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
-#ifndef EKVSTORE_HPP_
-#define EKVSTORE_HPP_
+#ifndef STORAGE_EKVSTORE_HPP_
+#define STORAGE_EKVSTORE_HPP_
 
-#include <stdint.h> // uint64_t
+#include <stdint.h>  // uint64_t
 #include <string.h>
+#include <pthread.h>
+
 #include <vector>
 #include <iostream>
-#include <pthread.h>
 
 #include "base/rdma.hpp"
 #include "base/type.hpp"
@@ -27,8 +28,7 @@ Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
 #include "storage/layout.hpp"
 
 class EKVStore {
-public:
-
+ public:
     // EKVStore: key (main-header and indirect-header region) | value (entry region)
     //         head region is a cluster chaining hash-table (with associativity)
     //         entry region is a varying-size array
@@ -52,11 +52,10 @@ public:
     // Get label by key remotely
     void get_label_remote(int tid, int dst_nid, uint64_t pid, label_t & label);
 
-	// Get key locally
+    // Get key locally
     void get_key_local(uint64_t pid, ikey_t & key);
 
-	// Get key remotely
-    //TODO: tid --> SEND_BUF MAY NOT BE thread-safe
+    // Get key remotely
     void get_key_remote(int tid, int dst_nid, uint64_t pid, ikey_t & key);
 
     // analysis
@@ -64,9 +63,8 @@ public:
 
     void ReadSnapshot();
     void WriteSnapshot();
-    
-private:
 
+ private:
     Config * config_;
     Buffer * buf_;
 
@@ -83,8 +81,8 @@ private:
     //        Size get from user
     //
     //    These two parameters should be put into config later
-    int HD_RATIO; // header / (header + entry)
-    static const int MHD_RATIO = 80; // main-header / (main-header + indirect-header)
+    int HD_RATIO;  // header / (header + entry)
+    static const int MHD_RATIO = 80;  // main-header / (main-header + indirect-header)
 
     // size of ekvstore and offset to rdma start point
     char* mem;
@@ -96,10 +94,10 @@ private:
     // kvstore value
     char* values;
 
-    uint64_t num_slots;       // 1 bucket = ASSOCIATIVITY slots
-    uint64_t num_buckets;     // main-header region (static)
-    uint64_t num_buckets_ext; // indirect-header region (dynamical)
-    uint64_t num_entries;     // entry region (dynamical)
+    uint64_t num_slots;        // 1 bucket = ASSOCIATIVITY slots
+    uint64_t num_buckets;      // main-header region (static)
+    uint64_t num_buckets_ext;  // indirect-header region (dynamical)
+    uint64_t num_entries;      // entry region (dynamical)
 
     // used
     uint64_t last_ext;
@@ -107,7 +105,7 @@ private:
 
     pthread_spinlock_t entry_lock;
     pthread_spinlock_t bucket_ext_lock;
-    pthread_spinlock_t bucket_locks[NUM_LOCKS]; // lock virtualization (see paper: vLokc CGO'13)
+    pthread_spinlock_t bucket_locks[NUM_LOCKS];  // lock virtualization (see paper: vLokc CGO'13)
 
     // cluster chaining hash-table (see paper: DrTM SOSP'15)
     uint64_t insert_id(uint64_t _pid);
@@ -117,14 +115,14 @@ private:
 
     uint64_t sync_fetch_and_alloc_values(uint64_t n);
 
-	// For TCP use
-	zmq::context_t context;
-	vector<zmq::socket_t *> requesters;
+    // For TCP use
+    zmq::context_t context;
+    vector<zmq::socket_t *> requesters;
     pthread_spinlock_t req_lock;
 
-	void SendReq(int dst_nid, ibinstream & m);
-	bool RecvRep(int nid, obinstream & um);
+    void SendReq(int dst_nid, ibinstream & m);
+    bool RecvRep(int nid, obinstream & um);
 };
 
 
-#endif /* EKVSTORE_HPP_ */
+#endif  // STORAGE_EKVSTORE_HPP_
