@@ -28,10 +28,15 @@ void TrxPlan::FillResult(vector<value_t>& vec) {
     // Fill place holder
     for (auto& pos : dependents_[query_index_]) {
         Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
-        if (actor.actor_type == ACTOR_T::INIT) {
-            // TODO(nick): Better move eids/vids to message data instead of actor params
-            actor.params.insert(actor.params.end(), vec.begin(), vec.end());
-        } else {
+        if (pos.param == -1) {
+            pos.param = actor.params.size();
+        }
+        switch (actor.actor_type) {
+        case ACTOR_T::INIT:
+        case ACTOR_T::ADDE:
+            actor.params.insert(actor.params.begin() + pos.param, vec.begin(), vec.end());
+            break;
+        default:
             value_t result;
             if (vec.size() == 1) {
                 result = vec[0];
@@ -39,6 +44,7 @@ void TrxPlan::FillResult(vector<value_t>& vec) {
                 Tool::vec2value_t(vec, result);
             }
             actor.params[pos.param] = result;
+            break;
         }
     }
 

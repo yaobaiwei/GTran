@@ -25,19 +25,19 @@ bool Actor_Object::AddParam(string s) {
 
 bool Actor_Object::IsBarrier() const {
     switch (actor_type) {
-        case ACTOR_T::AGGREGATE:
-        case ACTOR_T::COUNT:
-        case ACTOR_T::CAP:
-        case ACTOR_T::GROUP:
-        case ACTOR_T::DEDUP:
-        case ACTOR_T::MATH:
-        case ACTOR_T::ORDER:
-        case ACTOR_T::RANGE:
-        case ACTOR_T::COIN:
-        case ACTOR_T::END:
-            return true;
-        default:
-            return false;
+      case ACTOR_T::AGGREGATE:
+      case ACTOR_T::COUNT:
+      case ACTOR_T::CAP:
+      case ACTOR_T::GROUP:
+      case ACTOR_T::DEDUP:
+      case ACTOR_T::MATH:
+      case ACTOR_T::ORDER:
+      case ACTOR_T::RANGE:
+      case ACTOR_T::COIN:
+      case ACTOR_T::END:
+        return true;
+      default:
+        return false;
     }
 }
 
@@ -55,6 +55,7 @@ string Actor_Object::DebugString() const {
 
 ibinstream& operator<<(ibinstream& m, const Actor_Object& obj) {
     m << obj.actor_type;
+    m << obj.index;
     m << obj.next_actor;
     m << obj.send_remote;
     m << obj.params;
@@ -63,6 +64,7 @@ ibinstream& operator<<(ibinstream& m, const Actor_Object& obj) {
 
 obinstream& operator>>(obinstream& m, Actor_Object& obj) {
     m >> obj.actor_type;
+    m >> obj.index;
     m >> obj.next_actor;
     m >> obj.send_remote;
     m >> obj.params;

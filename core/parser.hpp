@@ -17,10 +17,9 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 using namespace std;
 
-class Parser
-{
-private:
-    //for debug usage
+class Parser {
+ private:
+    // for debug usage
     string TokenToStr(pair<Step_T, string> token);
     string TokensToStr(vector<pair<Step_T, string>> tokens);
     string StepToStr(int step);
@@ -31,11 +30,11 @@ private:
     Config * config;
     IndexStore * index_store;
 
-    enum IO_T { EDGE, VERTEX, INT, DOUBLE, CHAR, STRING, COLLECTION };
-    const static char *IOType[];
+    enum IO_T { EDGE, VERTEX, VP, EP, INT, DOUBLE, CHAR, STRING, COLLECTION };
+    static const char *IOType[];
     // str to enum
-    const static map<string, Step_T> str2step;        // step type
-    const static map<string, Predicate_T> str2pred;    // predicate type
+    static const map<string, Step_T> str2step;         // step type
+    static const map<string, Predicate_T> str2pred;    // predicate type
 
     // str to id, for property key and label key
     map<string, uint32_t> str2vpk;
@@ -43,8 +42,7 @@ private:
     map<string, uint32_t> str2epk;
     map<string, uint32_t> str2el;
 
-    //after the above 4 key map, a vector of keys will be implemented.
-
+    // after the above 4 key map, a vector of keys will be implemented.
     vector<string> vpks, vlks, epks, elks;
 
     string vpks_str, vlks_str, epks_str, elks_str;
@@ -53,7 +51,7 @@ private:
     map<uint32_t, uint8_t> vpk2vptype;
     map<uint32_t, uint8_t> epk2eptype;
 
-    const static int index_ratio = 3;
+    static const int index_ratio = 3;
 
 /*-----------------local members for one transaction----------------------------
 ------------------------------------------------------------------------------*/
@@ -62,7 +60,7 @@ private:
     map<string, pair<int, IO_T>> place_holder;
 
     // Unique index of each actor object in transaction
-    int trx_index;
+    int actor_index;
 
     // Current line
     int line_index;
@@ -86,8 +84,8 @@ private:
     uint64_t min_count_;
 
     // str to id
-    map<string, int> str2ls_; // label step
-    map<string, int> str2se_; // side-effect
+    map<string, int> str2ls_;  // label step
+    map<string, int> str2se_;  // side-effect
 
     // id to enm
     map<int, IO_T> ls2type_;  // label step output type
@@ -122,8 +120,9 @@ private:
     void ClearQuery();
 
     void AppendActor(Actor_Object& actor);
+    void RemoveLastActor();
 
-    void RegPlaceHolder(const string& var, int param_index, IO_T type);
+    void RegPlaceHolder(const string& var, int step, int param_index, IO_T type);
 
     // Parse each line of transaction
     bool ParseLine(const string& query, vector<Actor_Object>& vec, string& error_msg);
@@ -149,7 +148,7 @@ private:
     // mapping string to label key or property key
     bool ParseKeyId(string key, bool isLabel, int& id, uint8_t* type = NULL);
 
-    //error message for unexpected key
+    // error message for unexpected key
     string ExpectedKey(bool isLabel);
 
     // Parse sub-query for branching actors
@@ -160,6 +159,9 @@ private:
 
     // Parse actors
     void ParseInit(const string& line, string& var_name, string& query);
+    void ParseAddE(const vector<string>& params);
+    void ParseFromTo(const vector<string>& params, Step_T type);
+    void ParseAddV(const vector<string>& params);
     void ParseAggregate(const vector<string>& params);
     void ParseAs(const vector<string>& params);
     void ParseBranch(const vector<string>& params);
@@ -167,6 +169,7 @@ private:
     void ParseCap(const vector<string>& params);
     void ParseCount(const vector<string>& params);
     void ParseDedup(const vector<string>& params);
+    void ParseDrop(const vector<string>& params);
     void ParseGroup(const vector<string>& params, Step_T type);    // should we support traversal projection?
     void ParseHas(const vector<string>& params, Step_T type);
     void ParseHasLabel(const vector<string>& params);
@@ -176,6 +179,7 @@ private:
     void ParseMath(const vector<string>& params, Step_T type);
     void ParseOrder(const vector<string>& params);
     void ParseProperties(const vector<string>& params);
+    void ParseProperty(const vector<string>& params);
     void ParseRange(const vector<string>& params, Step_T type);
     void ParseCoin(const vector<string>& params);
     void ParseRepeat(const vector<string>& params);
@@ -184,12 +188,11 @@ private:
     void ParseValues(const vector<string>& params);
     void ParseWhere(const vector<string>& params);
 
-public:
+ public:
     // Parse query string
     bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);
 
-    Parser(IndexStore* index_store_): index_store(index_store_)
-    {
+    explicit Parser(IndexStore* index_store_): index_store(index_store_) {
         config = Config::GetInstance();
     }
 
@@ -201,12 +204,11 @@ public:
     // load property and label mapping
     void LoadMapping();
 
-    //parsing exception
-    struct ParserException{
+    // parsing exception
+    struct ParserException {
         string message;
 
-        ParserException(const std::string &message) : message(message){}
-        ParserException(const char *message) : message(message){}
+        explicit ParserException(const std::string &message) : message(message){}
+        explicit ParserException(const char *message) : message(message){}
     };
-
 };

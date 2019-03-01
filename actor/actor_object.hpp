@@ -20,6 +20,8 @@ class Actor_Object {
 
     // index of next actor
     int next_actor;
+    // index of current actor(Identifier in transaction), for validation
+    int index;
 
     // flag for sending data to remote nodes
     bool send_remote;
