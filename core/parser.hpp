@@ -8,6 +8,8 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include <string>
 #include <vector>
 #include <map>
+#include <utility>
+
 #include "base/type.hpp"
 #include "core/exec_plan.hpp"
 #include "core/index_store.hpp"
@@ -208,7 +210,7 @@ class Parser {
     struct ParserException {
         string message;
 
-        explicit ParserException(const std::string &message) : message(message){}
-        explicit ParserException(const char *message) : message(message){}
+        explicit ParserException(const std::string &message) : message(message) {}
+        explicit ParserException(const char *message) : message(message) {}
     };
 };

@@ -3,6 +3,10 @@
 Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 */
 #pragma once
+#include <string>
+#include <map>
+#include <vector>
+
 #include "actor/actor_object.hpp"
 #include "base/serialization.hpp"
 #include "base/type.hpp"

@@ -2,6 +2,7 @@
 
 Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 */
+#include <utility>
 #include "core/exec_plan.hpp"
 
 ibinstream& operator<<(ibinstream& m, const QueryPlan& plan) {
@@ -32,11 +33,11 @@ void TrxPlan::FillResult(vector<value_t>& vec) {
             pos.param = actor.params.size();
         }
         switch (actor.actor_type) {
-        case ACTOR_T::INIT:
-        case ACTOR_T::ADDE:
+          case ACTOR_T::INIT:
+          case ACTOR_T::ADDE:
             actor.params.insert(actor.params.begin() + pos.param, vec.begin(), vec.end());
             break;
-        default:
+          default:
             value_t result;
             if (vec.size() == 1) {
                 result = vec[0];
