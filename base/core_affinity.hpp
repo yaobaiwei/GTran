@@ -7,26 +7,20 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #ifndef CORE_AFFINITY_HPP_
 #define CORE_AFFINITY_HPP_
 
-#include <fstream>
-#include <algorithm>
-#include <mutex>
-
 #include <hwloc.h>
 #include <math.h>
 #include <boost/algorithm/string/predicate.hpp>
+#include <fstream>
+#include <algorithm>
+#include <mutex>
 
 #include "base/type.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
 #include "utils/timer.hpp"
-
 #include "base/cpuinfo_util.hpp"
-
 #include "base/node.hpp"
-
 #include "utils/simple_thread_safe_map.hpp"
-
-using namespace std;
 
 /*
  * $numactl --hardware
@@ -39,21 +33,18 @@ using namespace std;
  * node 1 free: 20081 MB
  *
  * node distances:
- * node   0   1 
- *   0:  10  20 
+ * node   0   1
+ *   0:  10  20
  *   1:  20  10
  */
 
 class CoreAffinity {
-public:
-
-    CoreAffinity ()
-    {
+ public:
+    CoreAffinity() {
         config_ = Config::GetInstance();
     }
 
     Node node_;
-
 
     void Init() {
         node_ = Node::StaticInstance();
@@ -70,7 +61,7 @@ public:
         // Assign thread id to each division according to last function
         get_core_id_for_each_division();
 
-        // Pair Actor Type and ActorDivisionType 
+        // Pair Actor Type and ActorDivisionType
         load_actor_division();
 
         // Pair CoreId and ThreadId
@@ -80,10 +71,9 @@ public:
         load_steal_list();
     }
 
-    bool BindToCore(int tid)
-    {
-        //notice that this function is called in 
-        //void ThreadExecutor(int tid) {
+    bool BindToCore(int tid) {
+        // notice that this function is called in
+        // void ThreadExecutor(int tid) {
         //    if (config_->global_enable_core_binding) {
         //        core_affinity_->BindToCore(tid);
 
@@ -91,21 +81,22 @@ public:
         cpu_set_t mask;
         CPU_ZERO(&mask);
         CPU_SET(core, &mask);
-        if (sched_setaffinity(0, sizeof(mask), &mask) != 0)
+        if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
             cout << "Failed to set affinity (core: " << core << ")" << endl;
-        else
-        {
+        } else {
             int global_core = cpuinfo_->GetCoreInGlobalMappingVector(core);
 
             vector<int> counter = core_counter_.GetAndLock(global_core);
             int counter_sz = counter.size();
 
-            // if you are worry that "two thread on the same physical core" reduces the performance, you can uncomment the code below
+            // if you are worry that "two thread on the same physical core" reduces the performance,
+            // you can uncomment the code below
             // if(counter_sz != 0)
             // {
             //     if(node_.get_local_rank() == 0)
             //     {
-            //         printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n", global_core, counter_sz, counter[0]);
+            //         printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n",
+            //              global_core, counter_sz, counter[0]);
             //     }
             // }
             // else
@@ -116,16 +107,16 @@ public:
             //     }
             // }
 
-            counter.push_back(core);//not global core
+            counter.push_back(core);  // not global core
 
             core_counter_.SetAndUnlock(global_core, counter);
         }
 
-        //to insert into a map
+        // to insert into a map
         // core_counter_
     }
 
-    void GetStealList (int tid, vector<int> & list) {
+    void GetStealList(int tid, vector<int> & list) {
         int core_id = thread_to_core_map[tid];
         for (auto itr = stealing_table[core_id].begin(); itr != stealing_table[core_id].end(); itr++) {
             list.push_back(core_to_thread_map[*itr]);
@@ -133,16 +124,15 @@ public:
     }
 
     int GetThreadIdForActor(ACTOR_T type) {
-        if (config_->global_enable_actor_division)
+        if (config_->global_enable_actor_division) {
             return core_to_thread_map[get_core_id_by_actor(type)];
-        else {
+        } else {
             counter++;
             return counter % config_->global_num_threads;
         }
     }
 
-private:
-
+ private:
     // Config
     Config * config_;
     int counter = 0;
@@ -156,7 +146,7 @@ private:
     CPUInfoUtil* cpuinfo_ = CPUInfoUtil::GetInstance();
 
     // Full core_id for each division
-    //on 2 * 8 core
+    // on 2 * 8 core
     /*
     int potential_thread_pool_[6][6] = {
         {0, 12, 2, 14, 4, 16},
@@ -169,15 +159,15 @@ private:
 
     vector<int> potential_core_pool_[NUM_THREAD_DIVISION];
     vector<int> potential_thread_pool_[NUM_THREAD_DIVISION];
-    //this will be initialed via cpuinfo_
+    // this will be initialed via cpuinfo_
 
-    //this is a const array, implemented from the last line of type.hpp
+    // this is a const array, implemented from the last line of type.hpp
 
-    //{the sum of numerator} / {denominator} == 1
+    // {the sum of numerator} / {denominator} == 1
     const int division_numerator_[NUM_THREAD_DIVISION] = {3, 2, 1, 2, 2, 2};
     const int division_denominator_ = 12;
 
-    //on 2 * 8 core
+    // on 2 * 8 core
     // int potential_thread_pool_[6][8] = {
     //     {0, 16, 2, 18, 4, 20, 6, 22},
     //     {8, 24, 10, 26},
@@ -201,97 +191,89 @@ private:
     map<int, int> core_to_thread_map;
     map<int, int> thread_to_core_map;
 
-    SimpleThreadSafeMap<int, vector<int>> core_counter_;//this is implemented in case of bad affinity implementation
+    SimpleThreadSafeMap<int, vector<int>> core_counter_;  // this is implemented in case of bad affinity implementation
 
-    //to do:
+    // to do:
     //    to consider NUMA when assigning cores
     //    thread level assignment if core count is insufficient
-    void init_potential_core_pool()
-    {
-        //first, try to divide via core
+    void init_potential_core_pool() {
+        // first, try to divide via core
         int cur_step = 0;
-        int last_div = 0;//last division core
+        int last_div = 0;  // last division core
 
         int core_cnt = cpuinfo_->GetTotalCoreCount();
 
-        for(int i = 0; i < core_cnt; i++)
-        {
-            core_counter_.Set(i, vector<int>());//initial
+        for (int i = 0; i < core_cnt; i++) {
+            core_counter_.Set(i, vector<int>());  // initial
         }
 
-        //init potential pool via cpuinfo
-        for(int i = 0; i < NUM_THREAD_DIVISION; i++)
-        {
+        // init potential pool via cpuinfo
+        for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
             cur_step += division_numerator_[i] * core_cnt;
 
             int cur_div = cur_step / division_denominator_;
             int cur_core_cnt = cur_div - last_div;
 
-            //guarantee that at least one core will be given
-            if(cur_core_cnt == 0)
-            {
+            // guarantee that at least one core will be given
+            if (cur_core_cnt == 0) {
                 cur_step = (last_div + 1) * core_cnt;
                 cur_div = cur_step / core_cnt;
             }
 
-            for(int j = last_div; j < cur_div; j++)
+            for (int j = last_div; j < cur_div; j++)
                 potential_core_pool_[i].push_back(j);
 
             last_div = cur_div;
         }
-        
-        //the thread pool will be initialed after the core pool initialized
-        //the loop sequence must be so.
-        for(int j = 0; j < cpuinfo_->GetThreadPerCore(); j++)
-        for(int i = 0; i < NUM_THREAD_DIVISION; i++)
-        for(auto core_id : potential_core_pool_[i])
-        {
-            potential_thread_pool_[i].push_back(cpuinfo_->GetCoreThreads(core_id)[j]);
+
+        // the thread pool will be initialed after the core pool initialized
+        // the loop sequence must be so.
+        for (int j = 0; j < cpuinfo_->GetThreadPerCore(); j++) {
+            for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
+                for (auto core_id : potential_core_pool_[i]) {
+                    potential_thread_pool_[i].push_back(cpuinfo_->GetCoreThreads(core_id)[j]);
+                }
+            }
         }
 
-        //local_rank_ == 0  node 0: cores: 
-        //[ 0 1 2 3], 
-        //[ 4 5], 
-        //[ 6 7], 
-        //[ 8 9], 
-        //[ 10 11 12], 
-        //[ 13 14 15],  
-        //threads: 
-        //[ 0 2 4 6 16 18 20 22], 
-        //[ 8 10 24 26], 
-        //[ 12 14 28 30], 
-        //[ 1 3 17 19], 
-        //[ 5 7 9 21 23 25], 
-        //[ 11 13 15 27 29 31], 
+        // local_rank_ == 0  node 0: cores:
+        // [ 0 1 2 3],
+        // [ 4 5],
+        // [ 6 7],
+        // [ 8 9],
+        // [ 10 11 12],
+        // [ 13 14 15],
+        // threads:
+        // [ 0 2 4 6 16 18 20 22],
+        // [ 8 10 24 26],
+        // [ 12 14 28 30],
+        // [ 1 3 17 19],
+        // [ 5 7 9 21 23 25],
+        // [ 11 13 15 27 29 31],
 
 
-        //debug; would be necessarty if run on nodes with different CPU configuration
+        // debug; would be necessarty if run on nodes with different CPU configuration
         std::stringstream ss;
-        ss<<"node "<<node_.get_local_rank()<<": cores: ";
-        for(auto cores : potential_core_pool_)
-        {
-            ss<<"[";
-            for(auto core : cores)
-            {
-                ss<<" "<<core;
+        ss << "node " << node_.get_local_rank() << ": cores: ";
+        for (auto cores : potential_core_pool_) {
+            ss << "[";
+            for (auto core : cores) {
+                ss << " " << core;
             }
-            ss<<"], ";
+            ss << "], ";
         }
-        ss<<" threads: ";
-        for(auto threads : potential_thread_pool_)
-        {
-            ss<<"[";
-            for(auto thread : threads)
-            {
-                ss<<" "<<thread;
+        ss << " threads: ";
+        for (auto threads : potential_thread_pool_) {
+            ss << "[";
+            for (auto thread : threads) {
+                ss << " " << thread;
             }
-            ss<<"], ";
+            ss << "], ";
         }
         node_.LocalSequentialDebugPrint(ss.str());
     }
 
-    void load_actor_division()
-    {
+    void load_actor_division() {
         // CacheSeq
         actor_division[ACTOR_T::LABEL] = ActorDivisionType::CACHE_SEQ;
         actor_division[ACTOR_T::HASLABEL] = ActorDivisionType::CACHE_SEQ;
@@ -328,8 +310,7 @@ private:
         actor_division[ACTOR_T::IS] = ActorDivisionType::NORMAL_SEQ;
     }
 
-    void dump_node_topo(vector<vector<int>> topo)
-    {
+    void dump_node_topo(vector<vector<int>> topo) {
         cout << "TOPO: " << topo.size() << " nodes:" << endl;
         for (int nid = 0; nid < topo.size(); nid++) {
             cout << "node " << nid << " cores: ";
@@ -340,8 +321,7 @@ private:
         cout << endl;
     }
 
-    void load_node_topo()
-    {
+    void load_node_topo() {
         hwloc_topology_t topology;
 
         hwloc_topology_init(&topology);
@@ -393,8 +373,8 @@ private:
      *
      */
     bool get_num_thread_for_each_division(int num_thread) {
-        // For better performance, dont allow more than num_cores threads exist 
-        assert(num_thread > 0 && num_thread <= num_cores - NUM_RESIDENT_THREAD); 
+        // For better performance, dont allow more than num_cores threads exist
+        assert(num_thread > 0 && num_thread <= num_cores - NUM_RESIDENT_THREAD);
 
         int division_level = num_thread / NUM_THREAD_DIVISION;
         int free_to_assign = num_thread % NUM_THREAD_DIVISION;
@@ -435,7 +415,7 @@ private:
 
     void get_core_id_for_each_division() {
         for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
-            //it will crash if not enough logical core to assign
+            // it will crash if not enough logical core to assign
             for (int j = 0; j < num_threads[i]; j++) {
                 core_pool_table[i].push_back(potential_thread_pool_[i][j]);
             }
@@ -451,7 +431,7 @@ private:
     void load_core_to_thread_map() {
         int thread_id = 0;
         for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
-            for(auto & core_id : core_pool_table[i]) {
+            for (auto & core_id : core_pool_table[i]) {
                 core_to_thread_map[core_id] = thread_id;
                 thread_to_core_map[thread_id] = core_id;
                 thread_id++;
@@ -461,12 +441,15 @@ private:
 
     void load_steal_list() {
         for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
-            for(auto & id : core_pool_table[i]) {
+            for (auto & id : core_pool_table[i]) {
                 // Add self division
-                stealing_table[id].insert(stealing_table[id].end(), core_pool_table[i].begin(), core_pool_table[i].end());
+                stealing_table[id].insert(stealing_table[id].end(),
+                                        core_pool_table[i].begin(),
+                                        core_pool_table[i].end());
 
                 // Erase itself
-                stealing_table[id].erase(remove(stealing_table[id].begin(), stealing_table[id].end(), id), stealing_table[id].end());
+                stealing_table[id].erase(remove(stealing_table[id].begin(), stealing_table[id].end(), id),
+                                        stealing_table[id].end());
 
                 // Add other division
                 if (id % 2 == 0) {
@@ -508,7 +491,7 @@ private:
 
     string DebugString(int type_) {
         string str;
-        switch(type_) {
+        switch (type_) {
             case 0:
                 str = "CacheSEQ";
                 break;
@@ -534,14 +517,13 @@ private:
         return str;
     }
 
-    int multi_floor (int a, double b) {
-        return (int)floor(a * b);
+    int multi_floor(int a, double b) {
+        return static_cast<int>(floor(a * b));
     }
 
-    int multi_ceil (int a, double b) {
-        return (int)ceil(a * b);
+    int multi_ceil(int a, double b) {
+        return static_cast<int>(ceil(a * b));
     }
-
 };
 
 #endif /* CORE_AFFINITY_HPP_ */

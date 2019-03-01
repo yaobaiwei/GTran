@@ -8,11 +8,12 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #ifndef ACTORS_ADAPTER_HPP_
 #define ACTORS_ADAPTER_HPP_
 
+#include <omp.h>
+#include <tbb/concurrent_hash_map.h>
 #include <map>
 #include <vector>
 #include <atomic>
 #include <thread>
-#include <tbb/concurrent_hash_map.h>
 
 #include "actor/abstract_actor.hpp"
 #include "actor/as_actor.hpp"
@@ -43,29 +44,25 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "storage/data_store.hpp"
 #include "utils/config.hpp"
 #include "utils/timer.hpp"
-
-#include <omp.h>
-
 #include "utils/tid_mapper.hpp"
 
 using namespace std;
 
 class ActorAdapter {
-public:
-    ActorAdapter(Node & node, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) 
-    {
+ public:
+    ActorAdapter(Node & node, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) {
         config_ = Config::GetInstance();
         num_thread_ = config_->global_num_threads;
         times_.resize(num_thread_, 0);
     }
 
-    void Init(){
+    void Init() {
         int id = 0;
-        actors_[ACTOR_T::AGGREGATE] = unique_ptr<AbstractActor>(new AggregateActor(id ++, data_store_, node_.get_local_size() ,num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::AGGREGATE] = unique_ptr<AbstractActor>(new AggregateActor(id ++, data_store_, node_.get_local_size(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, &id_allocator_));
-        actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, data_store_ ,num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
@@ -88,45 +85,45 @@ public:
         actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        //TODO add more
+        // TODO add more
 
         timer::init_timers((actors_.size() + timer_offset) * num_thread_);
     }
 
-    void Start(){
+    void Start() {
         Init();
-        TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();//in case of initial in parallel region
+        TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();  // in case of initial in parallel region
 
-        for(int i = 0; i < num_thread_; ++i)
+        for (int i = 0; i < num_thread_; ++i)
             thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
     }
 
-    void Stop(){
+    void Stop() {
       for (auto &thread : thread_pool_)
         thread.join();
     }
 
-    void execute(int tid, Message & msg){
+    void execute(int tid, Message & msg) {
         Meta & m = msg.meta;
-        if(m.msg_type == MSG_T::INIT){
+        if (m.msg_type == MSG_T::INIT) {
             // acquire write lock for insert
             accessor ac;
             msg_logic_table_.insert(ac, m.qid);
             ac->second = move(m.actors);
-        }else if(m.msg_type == MSG_T::FEED){
+        } else if (m.msg_type == MSG_T::FEED) {
             assert(msg.data.size() == 1);
             agg_t agg_key(m.qid, m.step);
             data_store_->InsertAggData(agg_key, msg.data[0].second);
 
-            return ;
-        }else if(m.msg_type == MSG_T::EXIT){
+            return;
+        } else if (m.msg_type == MSG_T::EXIT) {
             const_accessor ac;
             msg_logic_table_.find(ac, m.qid);
 
             // erase aggregate result
             int i = 0;
-            for(auto& act : ac->second){
-                if(act.actor_type == ACTOR_T::AGGREGATE){
+            for (auto& act : ac->second) {
+                if (act.actor_type == ACTOR_T::AGGREGATE) {
                     agg_t agg_key(m.qid, i);
                     data_store_->DeleteAggData(agg_key);
                 }
@@ -141,7 +138,7 @@ public:
 
         const_accessor ac;
         // qid not found
-        if(! msg_logic_table_.find(ac, m.qid)){
+        if (!msg_logic_table_.find(ac, m.qid)) {
             // throw msg to the same thread as init msg
             msg.meta.recver_tid = msg.meta.parent_tid;
             mailbox_->Send(tid, msg);
@@ -149,16 +146,11 @@ public:
         }
 
         int current_step;
-        do{
+        do {
             current_step = msg.meta.step;
             ACTOR_T next_actor = ac->second[current_step].actor_type;
-            //int offset = (actors_[next_actor]->GetActorId() + timer_offset) * num_thread_;
-
-            //timer::start_timer(tid + offset);
-            actors_[next_actor]->process(ac->second, msg);//this will modify msg??
-            //timer::stop_timer(tid + offset);
-        }while(current_step != msg.meta.step);    // process next actor directly if step is modified
-
+            actors_[next_actor]->process(ac->second, msg);
+        }while(current_step != msg.meta.step);  // process next actor directly if step is modified
     }
 
     void ThreadExecutor(int tid) {
@@ -172,41 +164,31 @@ public:
         core_affinity_->GetStealList(tid, steal_list);
 
         while (true) {
-            //timer::start_timer(tid + 2 * num_thread_);
             mailbox_->Sweep(tid);
 
             Message recv_msg;
-            //timer::start_timer(tid + 3 * num_thread_);
             bool success = mailbox_->TryRecv(tid, recv_msg);
             times_[tid] = timer::get_usec();
-            if(success){
-                //timer::stop_timer(tid + 3 * num_thread_);
+            if (success) {
                 execute(tid, recv_msg);
                 times_[tid] = timer::get_usec();
-                //timer::stop_timer(tid + 2 * num_thread_);
             } else {
                 if (!config_->global_enable_workstealing)
                     continue;
-                
-                if (steal_list.size() == 0) { // num_thread_ < 6
+
+                if (steal_list.size() == 0) {  // num_thread_ < 6
                     success = mailbox_->TryRecv((tid + 1) % num_thread_, recv_msg);
-                    if(success){
-                        //timer::stop_timer(tid + 3 * num_thread_);
+                    if (success) {
                         execute(tid, recv_msg);
-                        //timer::stop_timer(tid + 2 * num_thread_);
                     }
-                } else { // num_thread_ >= 6
+                } else {  // num_thread_ >= 6
                     for (auto itr = steal_list.begin(); itr != steal_list.end(); itr++) {
-                        if(times_[tid] < times_[*itr] + STEALTIMEOUT)
+                        if (times_[tid] < times_[*itr] + STEALTIMEOUT)
                                 continue;
 
-                        //timer::start_timer(tid + 2 * num_thread_);
-                        //timer::start_timer(tid + 3 * num_thread_);
                         success = mailbox_->TryRecv(*itr, recv_msg);
-                        if(success){
-                            //timer::stop_timer(tid + 3 * num_thread_);
+                        if (success) {
                             execute(tid, recv_msg);
-                            //timer::stop_timer(tid + 2 * num_thread_);
                             break;
                         }
                     }
@@ -214,9 +196,9 @@ public:
                 times_[tid] = timer::get_usec();
             }
         }
-    };
+    }
 
-private:
+ private:
     AbstractMailbox * mailbox_;
     Result_Collector * rc_;
     DataStore * data_store_;
@@ -229,22 +211,22 @@ private:
     // Actors pool <actor_type, [actors]>
     map<ACTOR_T, unique_ptr<AbstractActor>> actors_;
 
-    //global map to record the vec<actor_obj> of query
-    //avoid repeatedly transfer vec<actor_obj> for message
+    // global map to record the vec<actor_obj> of query
+    // avoid repeatedly transfer vec<actor_obj> for message
     tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
     typedef tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>>::accessor accessor;
     typedef tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>>::const_accessor const_accessor;
     // Thread pool
     vector<thread> thread_pool_;
 
-    //clocks
+    // clocks
     vector<uint64_t> times_;
     int num_thread_;
 
     // 5 more timers for total, recv , send, serialization, create msg
-    const static int timer_offset = 5;
+    static const int timer_offset = 5;
 
-    const static uint64_t STEALTIMEOUT = 1000;
+    static const uint64_t STEALTIMEOUT = 1000;
 };
 
 

@@ -28,7 +28,7 @@ void TrxPlan::FillResult(vector<value_t>& vec) {
     // Fill place holder
     for (auto& pos : dependents_[query_index_]) {
         Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
-        if(pos.param == -1){
+        if (pos.param == -1) {
             pos.param = actor.params.size();
         }
         switch (actor.actor_type) {
