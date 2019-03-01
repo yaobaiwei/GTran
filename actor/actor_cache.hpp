@@ -4,16 +4,16 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
          Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
-#ifndef ACTOR_CACHE_HPP_
-#define ACTOR_CACHE_HPP_
+#ifndef ACTOR_ACTOR_CACHE_HPP_
+#define ACTOR_ACTOR_CACHE_HPP_
+
+#include <pthread.h>
 
 #include <string>
 #include <vector>
 #include <type_traits>
-#include <pthread.h>
 
 #include "core/message.hpp"
-
 
 #define USE_BLOCK_KEY_CACHE  1
 #define BLOCK_KEY_SIZE       8
@@ -21,113 +21,96 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 // #define NATIVE_ARRANGE_LRU
 
 class ActorCache {
+ public:
+    bool get_label_from_cache(uint64_t id, label_t & label) {
+        value_t val;
+        if (!lookup(id, val)) {
+            return false;
+        }
 
-public:
+        label = Tool::value_t2int(val);
+        return true;
+    }
 
-	bool get_label_from_cache(uint64_t id, label_t & label) {
-		value_t val;
-		if (!lookup(id, val)) {
-			return false;
-		}
+    bool get_property_from_cache(uint64_t id, value_t & val) {
+        if (!lookup(id, val)) {
+            return false;
+        }
+        return true;
+    }
 
-		label = Tool::value_t2int(val);
-		return true;
-	}
+    void insert_properties(uint64_t id, value_t & val) {
+        insert(id, val);
+    }
 
-	bool get_property_from_cache(uint64_t id, value_t & val) {
-		if (!lookup(id, val)) {
-			return false;
-		}
-		return true;
-	}
+    void insert_label(uint64_t id, label_t & label) {
+        value_t val;
+        Tool::str2int(to_string(label), val);
+        insert(id, val);
+    }
 
-	void insert_properties(uint64_t id, value_t & val) {
-		insert(id, val);
-	}
-
-	void insert_label(uint64_t id, label_t & label) {
-		value_t val;
-		Tool::str2int(to_string(label), val);
-
-		insert(id, val);
-	}
-
-	//commented
-	// void print_cache() {
-	// 	int counter = 0;
-	// 	for (auto & item : items) {
-	// 		if (!item.isEmpty) counter++;
-	// 	}
-
-	// 	cout << "[Cache] Use Ratio : " << to_string(counter) << "/" << to_string(NUM_CACHE) << endl;
-	// }
-
-private:
-
-	static_assert(USE_BLOCK_KEY_CACHE == 0 || USE_BLOCK_KEY_CACHE == 1, "wrong macro USE_BLOCK_KEY_CACHE value");
+ private:
+    static_assert(USE_BLOCK_KEY_CACHE == 0 || USE_BLOCK_KEY_CACHE == 1, "wrong macro USE_BLOCK_KEY_CACHE value");
 
 #if USE_BLOCK_KEY_CACHE == 0
 
-	struct CacheItem {
-		pthread_spinlock_t lock;
-		uint64_t id; // epid_t, vpid_t, eid_t, vid_t
-		value_t value; // properties or labels
-		bool isEmpty;
+    struct CacheItem {
+        pthread_spinlock_t lock;
+        uint64_t id;  // epid_t, vpid_t, eid_t, vid_t
+        value_t value;  // properties or labels
+        bool isEmpty;
 
-		CacheItem() {
-			isEmpty = true;
-			pthread_spin_init(&lock, 0);
-		}
-	};
+        CacheItem() {
+            isEmpty = true;
+            pthread_spin_init(&lock, 0);
+        }
+    };
 
+    static const int NUM_CACHE = ACTOR_NUM_CACHE;
+    CacheItem items[NUM_CACHE];
 
-	static const int NUM_CACHE = ACTOR_NUM_CACHE;
-	CacheItem items[NUM_CACHE];
+    bool lookup(uint64_t id, value_t & val) {
+        bool isFound = false;
 
-	bool lookup(uint64_t id, value_t & val) {
-		bool isFound = false;
+        int key = mymath::hash_u64(id) % NUM_CACHE;
 
-		int key = mymath::hash_u64(id) % NUM_CACHE;
+        pthread_spin_lock(&(items[key].lock));
+        if (items[key].id == id) {
+            val = items[key].value;
+            isFound = true;
+        }
+        pthread_spin_unlock(&(items[key].lock));
 
-		pthread_spin_lock(&(items[key].lock));
-		if (items[key].id == id) {
-			val = items[key].value;
-			isFound = true;
-		}
-		pthread_spin_unlock(&(items[key].lock));
+        return isFound;
+    }
 
-		return isFound;
-	}
-
-	void insert(uint64_t id, value_t & val) {
-		int key = mymath::hash_u64(id) % NUM_CACHE;
-		pthread_spin_lock(&(items[key].lock));
-		items[key].id = id;
-		items[key].value = val;
-		items[key].isEmpty = false;
-		pthread_spin_unlock(&(items[key].lock));
-	}
+    void insert(uint64_t id, value_t & val) {
+        int key = mymath::hash_u64(id) % NUM_CACHE;
+        pthread_spin_lock(&(items[key].lock));
+        items[key].id = id;
+        items[key].value = val;
+        items[key].isEmpty = false;
+        pthread_spin_unlock(&(items[key].lock));
+    }
 #else
 
-    //keys that fill in a cache line
-    //data in a specific cache block will be able to be fetched
-    struct CacheBlock
-    {
-        //so this takes actually 128B
-        //wasting 52B, to make sure that only one spin lock inside of one cache line
+    // keys that fill in a cache line
+    // data in a specific cache block will be able to be fetched
+    struct CacheBlock {
+        // so this takes actually 128B
+        // wasting 52B, to make sure that only one spin lock inside of one cache line
         // pthread_spinlock_t lock __attribute__((aligned(64)));
 
-        //cacheline 0
+        // cacheline 0
         pthread_spinlock_t lock;
         int pos;
 
-        //cacheline 1
+        // cacheline 1
         uint64_t id_block[BLOCK_KEY_SIZE] __attribute__((aligned(64)));
 
-        //CacheBlock(){memset(0, id_block, 64);}
-        CacheBlock()
-        {
-            for(int i = 0; i < BLOCK_KEY_SIZE; i++)
+        // CacheBlock(){memset(0, id_block, 64);}
+        CacheBlock() {
+            for (int i = 0; i < BLOCK_KEY_SIZE; i++)
                 {id_block[i] = 0xFFFFFFFFFFFFFFFF;}
             pos = 0;
             pthread_spin_init(&lock, 0);
@@ -143,39 +126,29 @@ private:
 
     bool lookup(uint64_t id, value_t & val) {
         int key = mymath::hash_u64(id) % NUM_CACHE;
-
-        // int ret = pthread_spin_trylock(&(blocks[key].lock));
-        // if(ret == EBUSY)
-        //     return false;
-
         pthread_spin_lock(&(blocks[key].lock));
 
-        //then, traversal inside the block
-        for(int i = 0; i < BLOCK_KEY_SIZE; i++)
-        {
-            if(blocks[key].id_block[i] == id)
-            {
-                //found
+        // then, traversal inside the block
+        for (int i = 0; i < BLOCK_KEY_SIZE; i++) {
+            if (blocks[key].id_block[i] == id) {
+                // found
                 val = values[key][i];
 
 #ifdef NATIVE_ARRANGE_LRU
 #warning "NATIVE_ARRANGE_LRU defined"
-                //shuffle the block to archive LRU feature inside the block
-                if((i + 1) % BLOCK_KEY_SIZE != blocks[key].pos)
-                {
+                // shuffle the block to archive LRU feature inside the block
+                if ((i + 1) % BLOCK_KEY_SIZE != blocks[key].pos) {
                     int mod_pos = i, mod_pos_next;
-                    while(true)
-                    {
+                    while (true) {
                         mod_pos_next = (mod_pos + 1) % BLOCK_KEY_SIZE;
 
-                        if(mod_pos_next == blocks[key].pos)
+                        if (mod_pos_next == blocks[key].pos)
                             break;
 
                         blocks[key].id_block[mod_pos] = blocks[key].id_block[mod_pos_next];
 
                         mod_pos = mod_pos_next;
                     }
-
                     blocks[key].id_block[mod_pos] = id;
                 }
 #endif
@@ -185,18 +158,17 @@ private:
         }
 
         pthread_spin_unlock(&(blocks[key].lock));
-
         return false;
     }
 
     void insert(uint64_t id, value_t & val) {
         int key = mymath::hash_u64(id) % NUM_CACHE;
         pthread_spin_lock(&(blocks[key].lock));
-        //insert into the key map
+        // insert into the key map
         blocks[key].id_block[blocks[key].pos] = id;
-        //insert into the value map
+        // insert into the value map
         values[key][blocks[key].pos] = val;
-        //modify the tail
+        // modify the tail
         blocks[key].pos = (blocks[key].pos + 1) % BLOCK_KEY_SIZE;
 
         pthread_spin_unlock(&(blocks[key].lock));
@@ -205,4 +177,4 @@ private:
 #endif
 };
 
-#endif /* ACTOR_CACHE_HPP_ */
+#endif  // ACTOR_ACTOR_CACHE_HPP_

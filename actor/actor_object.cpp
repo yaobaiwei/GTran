@@ -5,6 +5,8 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #include "actor/actor_object.hpp"
 
+#include <utility>
+
 void Actor_Object::AddParam(int key) {
     value_t v;
     Tool::str2int(to_string(key), v);
@@ -23,18 +25,18 @@ bool Actor_Object::AddParam(string s) {
 
 bool Actor_Object::IsBarrier() const {
     switch (actor_type) {
-    case ACTOR_T::AGGREGATE:
-    case ACTOR_T::COUNT:
-    case ACTOR_T::CAP:
-    case ACTOR_T::GROUP:
-    case ACTOR_T::DEDUP:
-    case ACTOR_T::MATH:
-    case ACTOR_T::ORDER:
-    case ACTOR_T::RANGE:
-    case ACTOR_T::COIN:
-    case ACTOR_T::END:
+      case ACTOR_T::AGGREGATE:
+      case ACTOR_T::COUNT:
+      case ACTOR_T::CAP:
+      case ACTOR_T::GROUP:
+      case ACTOR_T::DEDUP:
+      case ACTOR_T::MATH:
+      case ACTOR_T::ORDER:
+      case ACTOR_T::RANGE:
+      case ACTOR_T::COIN:
+      case ACTOR_T::END:
         return true;
-    default:
+      default:
         return false;
     }
 }
