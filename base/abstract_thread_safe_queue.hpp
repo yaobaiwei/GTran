@@ -6,7 +6,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 template <typename T>
 class AbstractThreadSafeQueue {
-public:
+ public:
     virtual ~AbstractThreadSafeQueue() {}
     virtual void Push(T) = 0;
     virtual void WaitAndPop(T&) = 0;

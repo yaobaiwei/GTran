@@ -3,8 +3,8 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
-#ifndef TYPE_HPP_
-#define TYPE_HPP_
+#ifndef BASE_TYPE_HPP_
+#define BASE_TYPE_HPP_
 
 #include <string.h>
 #include <stdint.h>
@@ -576,5 +576,4 @@ static const int NUM_RESIDENT_THREAD = 4;
 enum Primitive_T { IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP, COUNT };
 enum ID_T { VID, EID, VPID, EPID };
 
-// ====For Validation=====
-#endif /* TYPE_HPP_ */
+#endif  // BASE_TYPE_HPP_

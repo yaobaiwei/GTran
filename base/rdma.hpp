@@ -24,10 +24,12 @@
 
 #pragma GCC diagnostic warning "-fpermissive"
 
-#include <vector>
-#include <string>
-#include <iostream>     // std::cout
+#include <algorithm>
 #include <fstream>      // std::ifstream
+#include <iostream>     // std::cout
+#include <map>
+#include <string>
+#include <vector>
 #include "base/node.hpp"
 
 struct rdma_mem_t{
@@ -158,7 +160,7 @@ class RDMA {
                 }
             }
             // Maximum number of outstanding work request
-            int max_wr = min(UD_MAX_RECV_SIZE, (int)(mem_info.mem_dgram_recv_sz / RDMA_UD_RECV_BUF_SZ));
+            int max_wr = min(UD_MAX_RECV_SIZE, static_cast<int>(mem_info.mem_dgram_recv_sz / RDMA_UD_RECV_BUF_SZ));
             // Post recv wr for each worker
             for (int i = 0; i < max_wr; i++) {
                 char* buf_addr = mem_info.mem_dgram_recv + i * RDMA_UD_RECV_BUF_SZ;
@@ -176,7 +178,7 @@ class RDMA {
                 if (status != Qp::IOStatus::IO_SUCC) {
                     return 1;
                 }
-                char* buf_addr = (char*)rid;
+                char* buf_addr = reinterpret_cast<char*>(rid);
                 // skip GRH header
                 buf_addr += 40;
 
@@ -201,7 +203,7 @@ class RDMA {
                     msg.received_packet[header->packet_id] = true;
                 }
                 // re-post wr
-                status = qp->ud_post_recv((char*)rid, RDMA_UD_RECV_BUF_SZ);
+                status = qp->ud_post_recv(reinterpret_cast<char*>(rid), RDMA_UD_RECV_BUF_SZ);
                 if (status != Qp::IOStatus::IO_SUCC) {
                     return 1;
                 }
