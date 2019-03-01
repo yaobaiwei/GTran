@@ -68,14 +68,14 @@ class HasLabelActor : public AbstractActor {
         }
 
         switch (inType) {
-            case Element_T::VERTEX:
-                VertexHasLabel(tid, lid_list, msg.data);
-                break;
-            case Element_T::EDGE:
-                EdgeHasLabel(tid, lid_list, msg.data);
-                break;
-            default:
-                cout << "Wrong in type"  << endl;
+          case Element_T::VERTEX:
+            VertexHasLabel(tid, lid_list, msg.data);
+            break;
+          case Element_T::EDGE:
+            EdgeHasLabel(tid, lid_list, msg.data);
+            break;
+          default:
+            cout << "Wrong in type"  << endl;
         }
         // Create Message
         vector<Message> msg_vec;

@@ -1252,11 +1252,11 @@ class MathActor : public BarrierActorBase<BarrierData::math_data> {
         Math_T math_type = (Math_T)Tool::value_t2int(actor.params[0]);
         void (*op)(BarrierData::math_meta_t&, value_t&);
         switch (math_type) {
-            case Math_T::SUM:
-            case Math_T::MEAN:    op = sum; break;
-            case Math_T::MAX:    op = max; break;
-            case Math_T::MIN:    op = min; break;
-            default:             cout << "Unexpected math type in MathActor" << endl;
+          case Math_T::SUM:
+          case Math_T::MEAN:    op = sum; break;
+          case Math_T::MAX:    op = max; break;
+          case Math_T::MIN:    op = min; break;
+          default:             cout << "Unexpected math type in MathActor" << endl;
         }
 
         // process msg data
@@ -1312,12 +1312,12 @@ class MathActor : public BarrierActorBase<BarrierData::math_data> {
         value_t temp = data.value;
         data.value.content.clear();
         switch (v.type) {
-            case 1:
-                Tool::str2int(to_string(Tool::value_t2int(temp) + Tool::value_t2int(v)), data.value);
-                break;
-            case 2:
-                Tool::str2double(to_string(Tool::value_t2double(temp) + Tool::value_t2double(v)), data.value);
-                break;
+          case 1:
+            Tool::str2int(to_string(Tool::value_t2int(temp) + Tool::value_t2int(v)), data.value);
+            break;
+          case 2:
+            Tool::str2double(to_string(Tool::value_t2double(temp) + Tool::value_t2double(v)), data.value);
+            break;
         }
     }
 
@@ -1343,12 +1343,12 @@ class MathActor : public BarrierActorBase<BarrierData::math_data> {
 
         data.value.content.clear();
         switch (data.value.type) {
-            case 1:
-                Tool::str2double(to_string(static_cast<double>(Tool::value_t2int(temp)) / count), data.value);
-                break;
-            case 2:
-                Tool::str2double(to_string(Tool::value_t2double(temp) / count), data.value);
-                break;
+          case 1:
+            Tool::str2double(to_string(static_cast<double>(Tool::value_t2int(temp)) / count), data.value);
+            break;
+          case 2:
+            Tool::str2double(to_string(Tool::value_t2double(temp) / count), data.value);
+            break;
         }
     }
 };
