@@ -122,6 +122,15 @@ class Master {
         }
     }
 
+    // pop from queue and process requests of accessing the tables
+    void ProcessTrxTableWriteReqs(){
+
+    }
+
+    void ListenTrxTableWriteReqs(){
+
+    }
+
     void Start() {
         // Register RDMA
         Buffer* buf = Buffer::GetInstance(&node_);
