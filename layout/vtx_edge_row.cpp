@@ -4,13 +4,13 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 
-#include "vtx_edge_row.hpp"
+#include "layout/vtx_edge_row.hpp"
 
 extern OffsetConcurrentMemPool<VertexEdgeRow>* global_ve_row_pool;
 extern OffsetConcurrentMemPool<TopoMVCC>* global_topo_mvcc_pool;
 
-void VertexEdgeRow::InsertElement(const bool& is_out, const vid_t& conn_vtx_id, const label_t& label, EdgePropertyRow* ep_row)
-{
+void VertexEdgeRow::InsertElement(const bool& is_out, const vid_t& conn_vtx_id,
+                                  const label_t& label, EdgePropertyRow* ep_row) {
     int element_id = edge_count_++;
     int element_id_in_row = element_id % VE_ROW_ITEM_COUNT;
 
@@ -18,14 +18,12 @@ void VertexEdgeRow::InsertElement(const bool& is_out, const vid_t& conn_vtx_id, 
 
     VertexEdgeRow* my_row = this;
 
-    for(int i = 0; i < next_count; i++)
-    {
+    for (int i = 0; i < next_count; i++) {
         // TODO(entityless): faster traversal on supernodes
         my_row = my_row->next_;
     }
 
-    if(element_id > 0 && element_id % VE_ROW_ITEM_COUNT == 0)
-    {
+    if (element_id > 0 && element_id % VE_ROW_ITEM_COUNT == 0) {
         my_row->next_ = global_ve_row_pool->Get();
         my_row = my_row->next_;
         my_row->next_ = nullptr;

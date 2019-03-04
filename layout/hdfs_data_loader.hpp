@@ -17,16 +17,14 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/timer.hpp"
 #include "utils/tool.hpp"
 
-namespace std
-{
+namespace std {
 
-class HDFSDataLoader
-{
-private:
+class HDFSDataLoader {
+ private:
     Config* config_;
     Node node_;
 
-    HDFSDataLoader(){}
+    HDFSDataLoader() {}
     HDFSDataLoader(const HDFSDataLoader&);
 
     // free them after calling Shuffle()
@@ -47,40 +45,31 @@ private:
 
     // ep just follows the src_v
     // src_v -> e -> dst_v
-    inline int VidMapping(vid_t vid)
-    {
+    inline int VidMapping(vid_t vid) {
         return vid.value() % node_.get_local_size();
     }
 
-    inline int EidMapping(eid_t eid)
-    {
+    inline int EidMapping(eid_t eid) {
         return eid.out_v % node_.get_local_size();
     }
 
-    inline int VPidMapping(vpid_t vpid)
-    {
+    inline int VPidMapping(vpid_t vpid) {
         return vpid.vid % node_.get_local_size();
     }
 
-    inline int EPidMappingIn(epid_t epid)
-    {
+    inline int EPidMappingIn(epid_t epid) {
         return epid.in_vid % node_.get_local_size();
     }
 
-    inline int EPidMapping(epid_t epid)
-    {
+    inline int EPidMapping(epid_t epid) {
         return epid.out_vid % node_.get_local_size();
     }
 
-public:
-    
-    //// Non-storage function
-    static HDFSDataLoader* GetInstance()
-    {
+ public:
+    static HDFSDataLoader* GetInstance() {
         static HDFSDataLoader* hdfs_data_loader_instance_ptr = nullptr;
 
-        if(hdfs_data_loader_instance_ptr == nullptr)
-        {
+        if (hdfs_data_loader_instance_ptr == nullptr) {
             hdfs_data_loader_instance_ptr = new HDFSDataLoader();
             hdfs_data_loader_instance_ptr->Initial();
         }
@@ -110,5 +99,4 @@ public:
     vector<TMPEdge> shuffled_edge_;
 };
 
-}
-
+}  // namespace std

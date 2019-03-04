@@ -7,12 +7,12 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include <atomic>
 
-#include "mvcc_concurrent_ll.hpp"
-#include "mvcc_definition.hpp"
+#include "layout/mvcc_concurrent_ll.hpp"
+#include "layout/mvcc_definition.hpp"
 #include "layout/layout_type.hpp"
+#include "layout/mvcc_kv_store.hpp"
 
-struct EPHeader
-{
+struct EPHeader {
     epid_t pid;
     PropertyMVCC* mvcc_head = nullptr;
 };
@@ -20,8 +20,7 @@ struct EPHeader
 #define EP_ROW_ITEM_COUNT std::InferElementCount<EPHeader>(256, sizeof(std::atomic_int) + sizeof(void*))
 
 // always fetch the object from memory pool
-class EdgePropertyRow
-{
+class EdgePropertyRow {
  private:
     std::atomic_int property_count_;
     EdgePropertyRow* next_;

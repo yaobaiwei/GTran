@@ -13,8 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "mvcc_definition.hpp"
 #include "layout/layout_type.hpp"
 
-struct EdgeHeader
-{
+struct EdgeHeader {
     bool is_out;//if this vtx is a, true: a -> b, false: a <- b
     label_t label;
     vid_t conn_vtx_id;
@@ -24,9 +23,7 @@ struct EdgeHeader
 
 #define VE_ROW_ITEM_COUNT std::InferElementCount<EdgeHeader>(320, sizeof(std::atomic_int) + sizeof(void*))
 
-
-class VertexEdgeRow
-{
+class VertexEdgeRow {
     //notice that there are default value of some member variable
 private:
     // TODO(entityless): disable initial outside memory pool
@@ -37,7 +34,7 @@ private:
 public:
 
     // call this after MemPool::Get()
-    void Initial(){edge_count_ = 0; next_ = nullptr;}
+    void Initial() {edge_count_ = 0; next_ = nullptr;}
 
     // TODO(entityless): add thread safety
     void InsertElement(const bool& is_out, const vid_t& conn_vtx_id, const label_t& label, EdgePropertyRow* ep_row);

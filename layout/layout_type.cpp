@@ -7,8 +7,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 using namespace std;
 
-ibinstream& operator<<(ibinstream& m, const TMPVertex& v)
-{
+ibinstream& operator<<(ibinstream& m, const TMPVertex& v) {
     m << v.id;
     m << v.label;
     m << v.in_nbs;
@@ -18,8 +17,7 @@ ibinstream& operator<<(ibinstream& m, const TMPVertex& v)
     return m;
 }
 
-obinstream& operator>>(obinstream& m, TMPVertex& v)
-{
+obinstream& operator>>(obinstream& m, TMPVertex& v) {
     m >> v.id;
     m >> v.label;
     m >> v.in_nbs;
@@ -29,8 +27,7 @@ obinstream& operator>>(obinstream& m, TMPVertex& v)
     return m;
 }
 
-ibinstream& operator<<(ibinstream& m, const TMPEdge& e)
-{
+ibinstream& operator<<(ibinstream& m, const TMPEdge& e) {
     m << e.id;
     m << e.label;
     m << e.ep_label_list;
@@ -38,8 +35,7 @@ ibinstream& operator<<(ibinstream& m, const TMPEdge& e)
     return m;
 }
 
-obinstream& operator>>(obinstream& m, TMPEdge& e)
-{
+obinstream& operator>>(obinstream& m, TMPEdge& e) {
     m >> e.id;
     m >> e.label;
     m >> e.ep_label_list;
@@ -47,24 +43,19 @@ obinstream& operator>>(obinstream& m, TMPEdge& e)
     return m;
 }
 
-string TMPVertex::DebugString() const
-{
+string TMPVertex::DebugString() const {
     string ret = "vid: " + to_string(id.value()) + ", label: " + to_string(label);
 
     ret += ", in_nbs: [";
-    for(int i = 0; i < in_nbs.size(); i++)
-    {
-        if(i != 0)
-        {
+    for (int i = 0; i < in_nbs.size(); i++) {
+        if (i != 0) {
             ret += ", ";
         }
         ret += to_string(in_nbs[i].value());
     }
     ret += "], out_nbs: [";
-    for(int i = 0; i < out_nbs.size(); i++)
-    {
-        if(i != 0)
-        {
+    for (int i = 0; i < out_nbs.size(); i++) {
+        if (i != 0) {
             ret += ", ";
         }
         ret += to_string(out_nbs[i].value());
@@ -72,10 +63,8 @@ string TMPVertex::DebugString() const
 
     ret += "], properties: [";
 
-    for(int i = 0; i < vp_label_list.size(); i++)
-    {
-        if(i != 0)
-        {
+    for (int i = 0; i < vp_label_list.size(); i++) {
+        if (i != 0) {
             ret += ", ";
         }
         ret += "{" + to_string(vp_label_list[i]) + ", " + Tool::DebugString(vp_value_list[i]) + "}";
@@ -85,17 +74,13 @@ string TMPVertex::DebugString() const
     return ret;
 }
 
-string TMPEdge::DebugString() const
-{
-    
+string TMPEdge::DebugString() const {
     string ret = "eid: " + to_string(id.out_v) + "->" + to_string(id.in_v) + ", label: " + to_string(label);
 
     ret += ", properties: [";
 
-    for(int i = 0; i < ep_label_list.size(); i++)
-    {
-        if(i != 0)
-        {
+    for (int i = 0; i < ep_label_list.size(); i++) {
+        if (i != 0) {
             ret += ", ";
         }
         ret += "{" + to_string(ep_label_list[i]) + ", " + Tool::DebugString(ep_value_list[i]) + "}";

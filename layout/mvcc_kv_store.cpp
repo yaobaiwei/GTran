@@ -4,16 +4,14 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 
-#include "mvcc_kv_store.hpp"
+#include "layout/mvcc_kv_store.hpp"
 
-MVCCKVStore::MVCCKVStore(bool is_vp)
-{
-    buf_ = Buffer::GetInstance();
+MVCCKVStore::MVCCKVStore(char* mem, uint64_t mem_sz) {
     config_ = Config::GetInstance();
 
-    mem_ = config_->kvstore;
-    mem_sz_ = GiB2B(config_->global_vertex_property_kv_sz_gb);
-    offset_ = config_->kvstore_offset;
+    mem_ = mem;
+    mem_sz_ = mem_sz;
+
     HD_RATIO_ = config_->key_value_ratio_in_rdma;
 
     // size for header and entry
@@ -41,8 +39,7 @@ MVCCKVStore::MVCCKVStore(bool is_vp)
         pthread_spin_init(&bucket_locks_[i], 0);
 }
 
-ptr_t MVCCKVStore::Insert(const MVCCHeader& key, value_t& value)
-{
+ptr_t MVCCKVStore::Insert(const MVCCHeader& key, const value_t& value) {
     // insert key and get slot_id
     int slot_id = InsertId(key);
 
@@ -112,7 +109,6 @@ uint64_t MVCCKVStore::InsertId(const MVCCHeader& _mvcc_header) {
             continue; // continue and jump to next bucket
         }
 
-
         // allocate and link a new indirect header
         pthread_spin_lock(&bucket_ext_lock_);
         if (last_ext_ >= num_buckets_ext_) {
@@ -134,3 +130,13 @@ done:
     return slot_id;
 }
 
+void MVCCKVStore::Get(ptr_t ptr, value_t& val) {
+    uint64_t off = ptr.off;
+    uint64_t size = ptr.size - 1;
+
+    val.type = values_[off++];
+    val.content.resize(size);
+
+    char* ctt = &(values_[off]);
+    std::copy(ctt, ctt + size, val.content.begin());
+}

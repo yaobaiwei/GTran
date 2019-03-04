@@ -11,11 +11,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "utils/tool.hpp"
 
-namespace std
-{
-//// tmp datatype for shuffle
-struct TMPVertex
-{
+namespace std {
+// tmp datatype for shuffle
+struct TMPVertex {
     vid_t id;
     label_t label;
     vector<vid_t> in_nbs;  // this_vtx <- in_nbs
@@ -26,9 +24,8 @@ struct TMPVertex
     string DebugString() const;
 };
 
-struct TMPEdge
-{
-    eid_t id; // id.out_v -> e -> id.in_v, follows out_v
+struct TMPEdge {
+    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
     label_t label;
     vector<label_t> ep_label_list;
     vector<value_t> ep_value_list;
@@ -37,15 +34,13 @@ struct TMPEdge
 };
 
 // used in KVStore
-struct MVCCHeader
-{
+struct MVCCHeader {
     uint64_t tid;
     uint64_t pid;  // for ep and vp
 
-    MVCCHeader(uint64_t _tid, uint64_t _pid) : tid(_tid), pid(_pid){};
+    MVCCHeader(uint64_t _tid, uint64_t _pid) : tid(_tid), pid(_pid) {}
 
-    inline uint64_t HashToUint64() const
-    {
+    inline uint64_t HashToUint64() const {
         const uint64_t k_mul = 0x9ddfea08eb382d69ULL;
         uint64_t a = (tid ^ pid) * k_mul;
         a ^= (a >> 47);
@@ -55,8 +50,7 @@ struct MVCCHeader
         return b;
     }
 
-    bool operator==(const MVCCHeader& right_header)
-    {
+    bool operator==(const MVCCHeader& right_header) {
         return (tid == right_header.tid) && (pid == right_header.pid);
     }
 };
@@ -68,10 +62,9 @@ obinstream& operator>>(obinstream& m, TMPEdge& v);
 
 // To infer how many elements a row contains at compiling
 template <class T>
-constexpr int InferElementCount(int preferred_size, int taken_size)
-{
+constexpr int InferElementCount(int preferred_size, int taken_size) {
     return (preferred_size - taken_size) / sizeof(T);
 }
 
-};
+}    // namespace std
 
