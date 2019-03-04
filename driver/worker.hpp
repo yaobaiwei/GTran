@@ -36,6 +36,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "storage/mpi_snapshot.hpp"
 
 #include "layout/pmt_rct_table.hpp"
+#include "layout/data_storage.hpp"
 
 struct Pack {
     qid_t id;
@@ -474,6 +475,11 @@ class Worker {
                 << ": DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
 
+        // test new layout
+        data_storage_ = DataStorage::GetInstance();
+        data_storage_->Initial();
+        return;  //TODO(entityless): remove this after finishing DataStorage
+
         AbstractMailbox * mailbox;
         if (config_->global_use_rdma)
             mailbox = new RdmaMailbox(my_node_, master_, buf);
@@ -581,5 +587,7 @@ class Worker {
     map<uint64_t, TrxPlan> plans_;
     map<uint64_t, uint64_t> qid2trx_;
     vector<zmq::socket_t *> senders_;
+
+    DataStorage* data_storage_ = nullptr;
 };
 #endif /* WORKER_HPP_ */
