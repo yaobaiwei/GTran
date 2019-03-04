@@ -283,7 +283,7 @@ class EndActor : public BarrierActorBase<BarrierData::end_data> {
     EndActor(int id,
             DataStore* data_store,
             int num_nodes,
-            Result_Collector * rc,
+            ResultCollector * rc,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
         BarrierActorBase<BarrierData::end_data>(id, data_store, core_affinity),
@@ -292,7 +292,7 @@ class EndActor : public BarrierActorBase<BarrierData::end_data> {
         mailbox_(mailbox) {}
 
  private:
-    Result_Collector * rc_;
+    ResultCollector * rc_;
     AbstractMailbox * mailbox_;
     int num_nodes_;
 

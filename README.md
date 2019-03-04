@@ -17,7 +17,7 @@ noted by Hongzhi CHEN
 
 Set environment variable GQUERY_HOME. If you are in the working directory, you can run:
 ```
-export GQUERT_HOME=$PWD
+export GQUERY_HOME=$PWD
 ```
 
 ## Build

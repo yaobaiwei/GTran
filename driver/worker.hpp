@@ -66,8 +66,8 @@ class Worker {
         parser_ = new Parser(index_store_);
         receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
         w_listener_ = new zmq::socket_t(context_, ZMQ_REP);
-        thpt_monitor_ = new Throughput_Monitor();
-        rc_ = new Result_Collector;
+        thpt_monitor_ = new ThroughputMonitor();
+        rc_ = new ResultCollector;
         char addr[64];
         char w_addr[64];
         snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port);
@@ -541,12 +541,12 @@ class Worker {
     Parser* parser_;
     IndexStore* index_store_;
     ThreadSafeQueue<Pack> queue_;
-    Result_Collector * rc_;
+    ResultCollector * rc_;
     Monitor * monitor_;
     uint32_t num_query;
 
     bool is_emu_mode_;
-    Throughput_Monitor * thpt_monitor_;
+    ThroughputMonitor * thpt_monitor_;
 
     zmq::context_t context_;
     zmq::socket_t * receiver_;

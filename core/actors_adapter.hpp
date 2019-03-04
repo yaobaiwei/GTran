@@ -52,7 +52,7 @@ using namespace std;
 
 class ActorAdapter {
  public:
-    ActorAdapter(Node & node, Result_Collector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) {
+    ActorAdapter(Node & node, ResultCollector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) {
         config_ = Config::GetInstance();
         num_thread_ = config_->global_num_threads;
         times_.resize(num_thread_, 0);
@@ -199,7 +199,7 @@ class ActorAdapter {
 
  private:
     AbstractMailbox * mailbox_;
-    Result_Collector * rc_;
+    ResultCollector * rc_;
     DataStore * data_store_;
     IndexStore * index_store_;
     Config * config_;

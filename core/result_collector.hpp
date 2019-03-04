@@ -28,7 +28,7 @@ struct reply {
     vector<value_t> results;
 };
 
-class Result_Collector {
+class ResultCollector {
  public:
     void Register(uint64_t qid) {
         lock_guard<mutex> lck(m_mutex_);

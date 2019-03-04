@@ -15,9 +15,9 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #include "utils/timer.hpp"
 
-class Throughput_Monitor {
+class ThroughputMonitor {
  public:
-    Throughput_Monitor() : is_emu_(false) {}
+    ThroughputMonitor() : is_emu_(false) {}
 
     void StartEmu() {
         {
