@@ -124,7 +124,7 @@ class Master {
 
     void Start() {
         // Register RDMA
-        Buffer* buf = new Buffer(node_);
+        Buffer* buf = Buffer::GetInstance(&node_);
         AbstractMailbox * mailbox;
         if (config_->global_use_rdma)
             mailbox = new RdmaMailbox(node_, node_, buf);

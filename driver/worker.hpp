@@ -441,7 +441,7 @@ class Worker {
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init Core Affinity" << endl;
 
         // set the in-memory layout for RDMA buf
-        Buffer * buf = new Buffer(my_node_);
+        Buffer* buf = Buffer::GetInstance(&my_node_);
         cout << "Worker" << my_node_.get_local_rank()
                 << ": DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
