@@ -17,8 +17,6 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
 
-using namespace std;
-
 class Parser {
  private:
     // for debug usage
@@ -172,7 +170,7 @@ class Parser {
     void ParseCount(const vector<string>& params);
     void ParseDedup(const vector<string>& params);
     void ParseDrop(const vector<string>& params);
-    void ParseGroup(const vector<string>& params, Step_T type);    // should we support traversal projection?
+    void ParseGroup(const vector<string>& params, Step_T type);
     void ParseHas(const vector<string>& params, Step_T type);
     void ParseHasLabel(const vector<string>& params);
     void ParseIs(const vector<string>& params);
@@ -180,6 +178,7 @@ class Parser {
     void ParseLabel(const vector<string>& params);
     void ParseMath(const vector<string>& params, Step_T type);
     void ParseOrder(const vector<string>& params);
+    void ParseProject(Element_T type, int key_id, int value_id);
     void ParseProperties(const vector<string>& params);
     void ParseProperty(const vector<string>& params);
     void ParseRange(const vector<string>& params, Step_T type);
