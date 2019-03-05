@@ -5,7 +5,7 @@ Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
 
 #pragma once
 
-#include "storage/tcp_helper.hpp"
+#include "base/tcp_helper.hpp"
 
 TCPHelper::TCPHelper(VKVStore * vpstore, EKVStore * epstore, bool use_rdma) :
     vpstore_(vpstore), epstore_(epstore), use_rdma_(use_rdma) {}
