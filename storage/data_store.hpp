@@ -26,7 +26,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "storage/vkvstore.hpp"
 #include "storage/ekvstore.hpp"
-#include "storage/tcp_helper.hpp"
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
 #include "utils/hdfs_core.hpp"
@@ -37,6 +36,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/node_util.hpp"
 #include "base/communication.hpp"
+#include "base/tcp_helper.hpp"
 
 
 using __gnu_cxx::hash_map;
