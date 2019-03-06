@@ -7,7 +7,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #ifndef BASE_CORE_AFFINITY_HPP_
 #define BASE_CORE_AFFINITY_HPP_
 
-#include <hwloc.h>
 #include <math.h>
 
 #include <algorithm>
