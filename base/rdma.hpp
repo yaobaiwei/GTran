@@ -1,3 +1,9 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+*        Modified by Nick Fang (jcfang6@cse.cuhk.edu.hk)
+*/
+
 /*
  * Copyright (c) 2016 Shanghai Jiao Tong University.
  *     All rights reserved.
@@ -100,7 +106,7 @@ class RDMA {
 
             Qp* ud_qp;
             // Init QP connection
-            if (nid == num_workers) {
+            if (nid == num_workers) { //Master Rank
                 ctrl->start_server();
                 // UD connection between master and workers
                 ud_qp = ctrl->create_ud_qp(0, 0, 1, 0);
@@ -370,7 +376,7 @@ class RDMA {
     ~RDMA() { }
 
     void init_dev(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master) {
-        dev = new RDMA_Device(num_nodes, num_threads, nid, mem_info, nodes, master);
+        dev = new RDMA_Device(num_workers, num_threads, nid, mem_info, nodes, master);
     }
 
     inline static bool has_rdma() { return false; }

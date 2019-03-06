@@ -890,7 +890,7 @@ void Parser::ParseInit(const string& line, string& var_name, string& query) {
     // o_type = E/V
     Actor_Object actor(ACTOR_T::INIT);
 
-    // Check "=" sign , extract return varibale name and query string
+    // Check "=" sign , extract return variable name and query string
     std::size_t idx = line.find("=");
     if (idx != string::npos) {
         var_name = line.substr(0, idx);
@@ -923,7 +923,7 @@ void Parser::ParseInit(const string& line, string& var_name, string& query) {
     if (idx == string::npos) {
         throw ParserException("Execute query with g.V() or g.E()");
     } else if (idx < 4) {
-        throw ParserException("Execute query with g.V or g.E");
+        throw ParserException("Execute query with g.V() or g.E()");
     } else if (idx > 4) {
         string var = query.substr(4, idx - 4);
         RegPlaceHolder(var, 0, 2, io_type_);
@@ -1236,7 +1236,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
     switch (type) {
       case Step_T::HAS:
         /*
-            key                   = params[0]
+            key               = params[0]
             pred_type         = parse(params[1])
             pred_value        = parse(params[1])
         */
@@ -1255,7 +1255,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         break;
       case Step_T::HASVALUE:
         /*
-            key                   = -1
+            key               = -1
             pred_type         = EQ
             pred_value        = parse(param)
         */
@@ -1270,7 +1270,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         break;
       case Step_T::HASNOT:
         /*
-            key                   = params[0]
+            key               = params[0]
             pred_type         = NONE
             pred_value        = -1
         */
@@ -1287,7 +1287,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         break;
       case Step_T::HASKEY:
         /*
-            key                   = params[0]
+            key               = params[0]
             pred_type         = ANY
             pred_value        = -1
         */
