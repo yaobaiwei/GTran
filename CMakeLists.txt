@@ -21,7 +21,6 @@ set(ZMQ_ROOT "/data/hzchen/lib/zmq")
 set(GLOG_ROOT "/data/hzchen/lib/glog")
 set(HDFS2_ROOT "/data/opt/hadoop-2.6.0")
 set(IBVERB_ROOT "/data/miao/lib/libibverbs-1.2.0")
-set(HWLOC_ROOT "/data/miao/lib/hwloc-1.11.7")
 set(TBB_ROOT "/data/miao/lib/tbb44_20151115oss")
 set(MKL_ROOT "/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux")
 
@@ -36,7 +35,6 @@ include(cmake/modules/glog.cmake)
 include(cmake/modules/hdfs.cmake)
 include(cmake/modules/ibverbs.cmake)
 include(cmake/modules/zmq.cmake)
-include(cmake/modules/hwloc.cmake)
 include(cmake/modules/tbb.cmake)
 
 # MKL
@@ -46,8 +44,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmkl_blas95_lp64 -lmkl_lapack95_lp64 -l
 
 
 set(DEPS_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_party)
-set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR}  ${ZMQ_INCLUDE_DIR} ${HWLOC_INCLUDE_DIR} ${TBB_INCLUDE_DIR} ${DEPS_INCLUDE_DIR})
-set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${ZMQ_LIBRARIES} ${HWLOC_LIBRARIES} ${TBB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS})
+set(GQUERY_EXTERNAL_INCLUDES  ${GLOG_INCLUDE_DIR} ${HDFS2_INCLUDE_DIR} ${IBVERB_INCLUDE_DIR}  ${ZMQ_INCLUDE_DIR} ${TBB_INCLUDE_DIR} ${DEPS_INCLUDE_DIR})
+set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBRARIES} ${ZMQ_LIBRARIES} ${TBB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${COMMON_LINK_LIBS})
 
 add_subdirectory(actor)
 add_subdirectory(base)
