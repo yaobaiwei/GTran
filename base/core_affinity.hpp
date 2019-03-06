@@ -55,7 +55,7 @@ class CoreAffinity {
         //
         init_potential_core_pool();
 
-        load_node_topo();
+        num_cores_ = cpuinfo_->GetTotalThreadCount();
         // Calculate Number of threads for each thread division
         // Fail when number of threads < 6
         if (!get_num_thread_for_each_division(config_->global_num_threads)) {
@@ -141,11 +141,11 @@ class CoreAffinity {
     Config * config_;
     int counter = 0;
 
-    vector<vector<int>> cpu_topo;
-    int num_cores = 0;
+    vector<vector<int>> cpu_topo_;
+    int num_cores_ = 0;
 
     // bool enable_binding = false;
-    vector<int> core_bindings;
+    vector<int> core_bindings_;
 
     CPUInfoUtil* cpuinfo_ = CPUInfoUtil::GetInstance();
 
@@ -325,60 +325,13 @@ class CoreAffinity {
         cout << endl;
     }
 
-    void load_node_topo() {
-        hwloc_topology_t topology;
-
-        hwloc_topology_init(&topology);
-        hwloc_topology_load(topology);
-
-        // Currently, nnodes may return 0 while the NUMANODEs in cpulist is 1
-        // (hwloc think there is actually no numa-node).
-        // Fortunately, it can detect the number of processing units (PU) correctly
-        // when MT processing is on, the number of PU will be twice as #cores
-        int nnodes = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_NUMANODE);
-        if (nnodes != 0) {
-            cpu_topo.resize(nnodes);
-            for (int i = 0; i < nnodes; i++) {
-                hwloc_obj_t obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_NUMANODE, i);
-                hwloc_cpuset_t cpuset = hwloc_bitmap_dup(obj->cpuset);
-
-                unsigned int core = 0;
-                hwloc_bitmap_foreach_begin(core, cpuset);
-                cpu_topo[i].push_back(core);
-                core_bindings.push_back(core);
-                hwloc_bitmap_foreach_end();
-
-                hwloc_bitmap_free(cpuset);
-            }
-        } else {
-            cpu_topo.resize(1);
-            int nPUs = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_PU);
-            for (int i = 0; i < nPUs; i++) {
-                hwloc_obj_t obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PU, i);
-                hwloc_cpuset_t cpuset = hwloc_bitmap_dup(obj->cpuset);
-
-                unsigned int core = 0;
-                hwloc_bitmap_foreach_begin(core, cpuset);
-                cpu_topo[0].push_back(core);
-                core_bindings.push_back(core);
-                hwloc_bitmap_foreach_end();
-
-                hwloc_bitmap_free(cpuset);
-            }
-        }
-
-        num_cores = core_bindings.size();
-
-        // dump_node_topo(cpu_topo);
-    }
-
     /*
      * Create Thread Division by number of threads given
      *
      */
     bool get_num_thread_for_each_division(int num_thread) {
-        // For better performance, dont allow more than num_cores threads exist
-        assert(num_thread > 0 && num_thread <= num_cores - NUM_RESIDENT_THREAD);
+        // For better performance, dont allow more than num_cores_ threads exist
+        assert(num_thread > 0 && num_thread <= num_cores_ - NUM_RESIDENT_THREAD);
 
         int division_level = num_thread / NUM_THREAD_DIVISION;
         int free_to_assign = num_thread % NUM_THREAD_DIVISION;
