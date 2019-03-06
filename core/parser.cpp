@@ -10,7 +10,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "storage/snapshot_func.hpp"
 
 void Parser::ReadSnapshot() {
-    // TODO: find a more elegant way to write these code
+    // TODO(Entityless): find a more elegant way to write these code
     MPISnapshot* snapshot = MPISnapshot::GetInstance();
 
     snapshot->ReadData("parser_str2vl", str2vl, ReadSerImpl);
@@ -963,6 +963,7 @@ void Parser::ParseAddE(const vector<string>& params) {
     actor.AddParam(lid);
     AppendActor(actor);
     io_type_ = IO_T::EDGE;
+    trx_plan->trx_type_ |= TRX_ADD;
 }
 
 void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
@@ -1018,6 +1019,7 @@ void Parser::ParseAddV(const vector<string>& params) {
     actor.AddParam(lid);
     AppendActor(actor);
     io_type_ = IO_T::VERTEX;
+    trx_plan->trx_type_ |= TRX_ADD;
 }
 
 void Parser::ParseAggregate(const vector<string>& params) {
@@ -1169,11 +1171,11 @@ void Parser::ParseDrop(const vector<string>& params) {
     actor.AddParam(element_type);
     actor.AddParam(isProperty);
     AppendActor(actor);
+    trx_plan->trx_type_ |= TRX_DELETE;
 }
 
 void Parser::ParseGroup(const vector<string>& params, Step_T type) {
-    //@ GroupActor params: (bool isCount, Element_T type, int keyProjection, int valueProjection)
-    // -1 indicating no projection
+    //@ GroupActor params: (bool isCount, Element_T type, int label_step_key)
     //  i_type = any, o_type = collection
     Actor_Object actor(ACTOR_T::GROUP);
     if (params.size() > 2) {
@@ -1184,28 +1186,27 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type) {
     actor.AddParam(isCount);
 
     Element_T element_type;
+    int ls_key = -1;
     if (params.size() > 0) {
         if (!IsElement(element_type)) {
             throw ParserException("expect vertex/edge input for group by key");
         }
-    }
-    actor.AddParam(element_type);
 
-    // add projection actor
-    for (string param : params) {
-        int key = 0;
-        if (param != "label") {
-            if (!ParseKeyId(param, false, key)) {
-                throw ParserException("no such property key: " + param + ", expected is " + ExpectedKey(false));
+        int proj_key[2] = {-1, -1};
+        for (int i = 0; i < params.size(); i++) {
+            if (params[i] != "label") {
+                if (!ParseKeyId(params[i], false, proj_key[i])) {
+                    throw ParserException("no such property key: " + params[i] + ", expected is " + ExpectedKey(false));
+                }
+            } else {
+                proj_key[i] = 0;
             }
         }
-        actor.AddParam(key);
+        ls_key = actors_.size();
+        ParseProject(element_type, proj_key[0], proj_key[1]);
     }
 
-    // add default
-    while (actor.params.size() != 4) {
-        actor.AddParam(-1);
-    }
+    actor.AddParam(ls_key);
 
     AppendActor(actor);
     io_type_ = COLLECTION;
@@ -1488,7 +1489,7 @@ void Parser::ParseMath(const vector<string>& params, Step_T type) {
 }
 
 void Parser::ParseOrder(const vector<string>& params) {
-    //@ OrderActor params: (Element_T element_type, int projectionKey, Order_T order) where -1 indicating no projection
+    //@ OrderActor params: (Element_T element_type, int label_step_key, Order_T order)
     //  i_type = o_type = any
 
     Actor_Object actor(ACTOR_T::ORDER);
@@ -1497,7 +1498,7 @@ void Parser::ParseOrder(const vector<string>& params) {
     }
 
     Element_T element_type;
-    int key = -1;
+    int ls_key = -1;  // label step key of project actor, -1 indicating no projection
     Order_T order = Order_T::INCR;
 
     for (string param : params) {
@@ -1509,20 +1510,30 @@ void Parser::ParseOrder(const vector<string>& params) {
             if (!IsElement(element_type)) {
                 throw ParserException("expect vertex/edge input for order by key");
             }
+            int key = 0;
             if (param != "label") {
                 if (!ParseKeyId(param, false, key)) {
                     throw ParserException("no such property key:" + param + ", expected is " + ExpectedKey(false));
                 }
-            } else {
-                key = 0;
             }
+            ls_key = actors_.size();
+            ParseProject(element_type, key, -1);
         }
     }
 
-    actor.AddParam(element_type);
-    actor.AddParam(key);
+    actor.AddParam(ls_key);  // Label step key of project actor
     actor.AddParam(order);
     actor.send_remote = IsElement();
+    AppendActor(actor);
+}
+
+void Parser::ParseProject(Element_T element_type, int key_id, int value_id) {
+    //@ ProjectActor params: (Element_T type, int key_id, int value_id)
+    // Project V/E to key value pair according to property id
+    Actor_Object actor(ACTOR_T::PROJECT);
+    actor.AddParam(element_type);
+    actor.AddParam(key_id);
+    actor.AddParam(value_id);
     AppendActor(actor);
 }
 
@@ -1577,6 +1588,7 @@ void Parser::ParseProperty(const vector<string>& params) {
     actor.AddParam(key);
     actor.AddParam(params[1]);
     AppendActor(actor);
+    trx_plan->trx_type_ |= TRX_UPDATE;
 }
 
 void Parser::ParseRange(const vector<string>& params, Step_T type) {

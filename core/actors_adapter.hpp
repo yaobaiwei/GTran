@@ -30,6 +30,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "actor/key_actor.hpp"
 #include "actor/label_actor.hpp"
 #include "actor/labelled_branch_actor.hpp"
+#include "actor/project_actor.hpp"
 #include "actor/properties_actor.hpp"
 #include "actor/select_actor.hpp"
 #include "actor/traversal_actor.hpp"
@@ -79,6 +80,7 @@ class ActorAdapter {
         actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::PROJECT] = unique_ptr<AbstractActor>(new ProjectActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::PROPERTIES] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));

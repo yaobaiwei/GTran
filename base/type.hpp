@@ -12,6 +12,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <ext/hash_set>
 #include <sstream>
 #include <unordered_map>
+#include <string>
+#include <vector>
 
 #include "utils/mymath.hpp"
 #include "base/serialization.hpp"
@@ -395,14 +397,14 @@ obinstream& operator>>(obinstream& m, MSG_T& type);
 
 enum class ACTOR_T : char {
     INIT, ADDE, ADDV, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, CONFIG, COUNT, DEDUP, DROP,
-    GROUP, HAS, HASLABEL, INDEX, IS, KEY, LABEL, MATH, ORDER, PROPERTIES, PROPERTY, RANGE,
+    GROUP, HAS, HASLABEL, INDEX, IS, KEY, LABEL, MATH, ORDER, PROJECT, PROPERTIES, PROPERTY, RANGE,
     SELECT, TRAVERSAL, VALUES, WHERE, COIN, REPEAT, END, VALIDATION
 };
 
 static const char *ActorType[] = {"INIT", "ADDE", "ADDV", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "CONFIG",
                                 "COUNT", "DEDUP", "DROP", "GROUP", "HAS", "HASLABEL", "INDEX", "IS", "KEY", "LABEL",
-                                "MATH", "ORDER", "PROPERTIES", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES",
-                                "WHERE" , "COIN", "REPEAT", "END", "VALIDATION"};
+                                "MATH", "ORDER", "PROJECT", "PROPERTIES", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL",
+                                "VALUES", "WHERE" , "COIN", "REPEAT", "END", "VALIDATION"};
 
 enum class Step_T{
     IN, OUT, BOTH, INE, OUTE, BOTHE, INV, OUTV, BOTHV, ADDE, ADDV, AND, AGGREGATE, AS, CAP, COUNT, DEDUP,

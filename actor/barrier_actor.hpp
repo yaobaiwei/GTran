@@ -6,6 +6,13 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #pragma once
 #include <limits.h>
 #include <mkl_vsl.h>
+#include <string>
+#include <map>
+#include <set>
+#include <unordered_map>
+#include <vector>
+#include <algorithm>
+#include <utility>
 
 #include "actor/abstract_actor.hpp"
 #include "actor/actor_cache.hpp"
@@ -88,25 +95,32 @@ class BarrierActorBase :  public AbstractActor {
         return key;
     }
 
-    // get branch value assigned by labelled branch actor from history
-    static int get_branch_value(history_t& his, int branch_key, bool erase_his = true) {
-        int branch_value = -1;
-        if (branch_key >= 0) {
+    // get history value by given key
+    static bool get_history_value(history_t& his, int history_key, value_t& val, bool erase_his = false) {
+        if (history_key >= 0) {
             // find key from history
             auto his_itr = std::find_if(his.begin(), his.end(),
-                [&branch_key](const pair<int, value_t>& element)
-                    { return element.first == branch_key; });
+                [&history_key](const pair<int, value_t>& element)
+                    { return element.first == history_key; });
 
             if (his_itr != his.end()) {
-                // convert branch value to int
-                branch_value = Tool::value_t2int(his_itr->second);
+                val = move(his_itr->second);
                 // some barrier actors will remove hisotry after branch key
                 if (erase_his) {
                     his.erase(his_itr + 1, his.end());
                 }
+                return true;
             }
         }
-        return branch_value;
+        return false;
+    }
+
+    static int get_branch_value(history_t& his, int branch_key, bool erase_his = true) {
+        value_t val;
+        if (!get_history_value(his, branch_key, val, erase_his)) {
+            return -1;
+        }
+        return Tool::value_t2int(val);
     }
 
     static inline bool is_next_barrier(const vector<Actor_Object>& actors, int step) {
@@ -701,8 +715,6 @@ class GroupActor : public BarrierActorBase<BarrierData::group_data> {
     AbstractMailbox * mailbox_;
 
     Config* config_;
-    ActorCache cache_;
-    ActorValidationObject v_obj;
 
     void do_work(int tid,
             const vector<Actor_Object> & actors,
@@ -714,43 +726,18 @@ class GroupActor : public BarrierActorBase<BarrierData::group_data> {
 
         // get actor params
         const Actor_Object& actor = actors[msg.meta.step];
-        assert(actor.params.size() == 4);
-        Element_T element_type = (Element_T)Tool::value_t2int(actor.params[1]);
-        int keyProjection = Tool::value_t2int(actor.params[2]);
-        int valueProjection = Tool::value_t2int(actor.params[3]);
+        assert(actor.params.size() == 2);
+        int label_step = Tool::value_t2int(actor.params[1]);
 
-        // Record Input Set
-        // TODO(Aaronchangji)
-        //  : Get trxID from message
-        //  : step_number is actually index_number for same step in transaction
-        for (auto & data_pair : msg.data) {
-            // v_obj.RecordInputSetValueT(trxID, step_num, element_type,
-            //                          data_pair.second, step_num == 1 ? true : false);
-            v_obj.RecordInputSetValueT(msg.meta.qid, msg.meta.step, element_type,
-                                        data_pair.second, msg.meta.step == 1 ? true : false);
-        }
-
-        // get projection function by actor params
-        bool(*kp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
-        bool(*vp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
-        if (keyProjection == 0) {
-            kp = (element_type == Element_T::VERTEX) ? project_label_vertex : project_label_edge;
-        } else if (keyProjection > 0) {
-            kp = (element_type == Element_T::VERTEX) ? project_property_vertex : project_property_edge;
-        }
-
-        if (valueProjection == 0) {
-            vp = (element_type == Element_T::VERTEX) ? project_label_vertex : project_label_edge;
-        } else if (valueProjection > 0) {
-            vp = (element_type == Element_T::VERTEX) ? project_property_vertex : project_property_edge;
-        }
-
-        ActorCache * cache = NULL;
-        if (config_->global_enable_caching) {
-            cache = &cache_;
-        }
         // process msg data
         for (auto& p : msg.data) {
+            // Get projected key if any
+            value_t k;
+            string key;
+            if (get_history_value(p.first, label_step, k)) {
+                key = Tool::DebugString(k);
+            }
+
             int branch_value = get_branch_value(p.first, branch_key);
 
             // get <history_t, map<string, vector<value_t>> pair by branch_value
@@ -761,16 +748,10 @@ class GroupActor : public BarrierActorBase<BarrierData::group_data> {
             auto& map_ = itr_data->second.second;
 
             for (auto& val : p.second) {
-                value_t k = val;
-                value_t v = val;
-                if (!kp(tid, k, keyProjection, data_store_, cache)) {
-                    continue;
+                if (label_step == -1) {
+                    key = Tool::DebugString(val);
                 }
-                if (!vp(tid, v, valueProjection, data_store_, cache)) {
-                    continue;
-                }
-                string key = Tool::DebugString(k);
-                map_[key].push_back(move(v));
+                map_[key].push_back(move(val));
             }
         }
 
@@ -864,9 +845,7 @@ class OrderActor : public BarrierActorBase<BarrierData::order_data> {
     int num_thread_;
     AbstractMailbox * mailbox_;
 
-    ActorCache cache_;
     Config* config_;
-    ActorValidationObject v_obj;
 
     void do_work(int tid,
             const vector<Actor_Object> & actors,
@@ -879,49 +858,22 @@ class OrderActor : public BarrierActorBase<BarrierData::order_data> {
 
         // get actor params
         const Actor_Object& actor = actors[msg.meta.step];
-        assert(actor.params.size() == 3);
-        Element_T element_type = (Element_T)Tool::value_t2int(actor.params[0]);
-        int keyProjection = Tool::value_t2int(actor.params[1]);
-
-        // Record Input Set
-        // TODO(Aaronchangji)
-        //  : Get trxID from message
-        //  : step_number is actually index_number for same step in transaction
-        for (auto & data_pair : msg.data) {
-            // v_obj.RecordInputSetValueT(trxID, step_num, element_type,
-            //                          data_pair.second, step_num == 1 ? true : false);
-            v_obj.RecordInputSetValueT(msg.meta.qid, msg.meta.step, element_type,
-                                        data_pair.second, msg.meta.step == 1 ? true : false);
-        }
-
-        // get projection function by actor params
-        bool(*kp)(int, value_t&, int, DataStore*, ActorCache*) = project_none;
-        if (keyProjection == 0) {
-            kp = (element_type == Element_T::VERTEX) ? project_label_vertex : project_label_edge;
-        } else if (keyProjection > 0) {
-            kp = (element_type == Element_T::VERTEX) ? project_property_vertex : project_property_edge;
-        }
-
-        ActorCache * cache = NULL;
-        if (config_->global_enable_caching) {
-            cache = &cache_;
-        }
+        assert(actor.params.size() == 2);
+        int label_step = Tool::value_t2int(actor.params[0]);
 
         // process msg data
         for (auto& p : msg.data) {
+            value_t key;
+            get_history_value(p.first, label_step, key);
             int branch_value = get_branch_value(p.first, branch_key);
-
-            if (keyProjection < 0) {
+            if (label_step < 0) {
                 // get <history_t, multiset<value_t>> pair by branch_value
                 auto itr_data = data_set.find(branch_value);
                 if (itr_data == data_set.end()) {
                     itr_data = data_set.insert(itr_data, {branch_value, {move(p.first), multiset<value_t>()}});
                 }
                 auto& set_ = itr_data->second.second;
-
-                for (auto& val : p.second) {
-                    set_.insert(move(val));
-                }
+                set_.insert(make_move_iterator(p.second.begin()), make_move_iterator(p.second.end()));
             } else {
                 // get <history_t, map<value_t, multiset<value_t>>> pair by branch_value
                 auto itr_data = data_map.find(branch_value);
@@ -931,21 +883,15 @@ class OrderActor : public BarrierActorBase<BarrierData::order_data> {
                 }
                 auto& map_ = itr_data->second.second;
 
-                for (auto& val : p.second) {
-                    value_t key = val;
-                    if (!kp(tid, key, keyProjection, data_store_, cache)) {
-                        continue;
-                    }
-                    map_[key].insert(move(val));
-                }
+                map_[key].insert(make_move_iterator(p.second.begin()), make_move_iterator(p.second.end()));
             }
         }
 
         // all msg are collected
         if (isReady) {
-            Order_T order = (Order_T)Tool::value_t2int(actor.params[2]);
+            Order_T order = (Order_T)Tool::value_t2int(actor.params[1]);
             vector<pair<history_t, vector<value_t>>> msg_data;
-            if (keyProjection < 0) {
+            if (label_step < 0) {
                 for (auto& p : data_set) {
                     vector<value_t> val_vec;
                     auto& set_ = p.second.second;
