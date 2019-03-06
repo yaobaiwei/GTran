@@ -3,8 +3,7 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
-#ifndef BASE_TYPE_HPP_
-#define BASE_TYPE_HPP_
+#pragma once
 
 #include <string.h>
 #include <stdint.h>
@@ -47,7 +46,7 @@ struct ptr_t {
         return false;
     }
 
-    uint64_t value() {
+    uint64_t value() const {
         uint64_t r = 0;
         r += off;
         r <<= NBITS_SIZE;
@@ -121,7 +120,7 @@ struct vid_t {
         return *this;
     }
 
-    uint32_t value() {
+    uint32_t value() const {
         return (uint32_t)vid;
     }
 
@@ -174,7 +173,7 @@ uint64_t out_v : VID_BITS;
         return false;
     }
 
-    uint64_t value() {
+    uint64_t value() const {
         uint64_t r = 0;
         r += in_v;
         r <<= VID_BITS;
@@ -237,7 +236,7 @@ uint64_t pid : PID_BITS;
         return false;
     }
 
-    uint64_t value() {
+    uint64_t value() const {
         uint64_t r = 0;
         r += vid;
         r <<= VID_BITS;
@@ -291,7 +290,7 @@ uint64_t pid : PID_BITS;
         return false;
     }
 
-    uint64_t value() {
+    uint64_t value() const {
         uint64_t r = 0;
         r += in_vid;
         r <<= VID_BITS;
@@ -575,5 +574,3 @@ static const int NUM_RESIDENT_THREAD = 4;
 // value to each element.
 enum Primitive_T { IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP, COUNT };
 enum ID_T { VID, EID, VPID, EPID };
-
-#endif  // BASE_TYPE_HPP_

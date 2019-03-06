@@ -7,6 +7,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include <mpi.h>
 #include <omp.h>
+#include <stdarg.h>
 
 #include <iostream>
 #include <string>
@@ -96,14 +97,48 @@ class Node {
         for (int i = 0; i < local_size_; i++) {
             if (i == local_rank_) {
                 cout << "local_rank_ == " << local_rank_ << "  " << s <<endl;
-                fflush(stdout);
             }
             MPI_Barrier(local_comm);
+            fflush(stdout);
         }
     }
 
     void LocalSingleDebugPrint(string s) {
-        printf("node single dbg from local_rank_ %d, str = \"%s\"", s.c_str());
+        printf("dbg from local_rank_ %d, str = \"%s\"", local_rank_, s.c_str());
+    }
+
+    void Rank0Printf(const char *format, ...) {
+        va_list arglist;
+        va_start(arglist, format);
+        if (local_rank_ == 0) {
+            vprintf(format, arglist);
+        }
+        va_end(arglist);
+    }
+
+    void Rank0PrintfWithWorkerBarrier(const char *format, ...) {
+        MPI_Barrier(local_comm);
+        va_list arglist;
+        va_start(arglist, format);
+        if (local_rank_ == 0) {
+            vprintf(format, arglist);
+        }
+        va_end(arglist);
+    }
+
+    // start of sequential execution region among workers
+    void LocalSequentialStart() {
+        int barrier_count = local_rank_;
+        for (int i = 0; i < barrier_count; i++)
+            MPI_Barrier(local_comm);
+        fflush(nullptr);
+    }
+
+    void LocalSequentialEnd() {
+        int barrier_count = local_size_ - local_rank_;
+        for (int i = 0; i < barrier_count; i++)
+            MPI_Barrier(local_comm);
+        fflush(nullptr);
     }
 
     double WtimeSinceStart() {

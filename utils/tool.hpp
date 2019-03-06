@@ -327,7 +327,7 @@ class Tool{
         v.type = e.type;
     }
 
-    static string DebugString(value_t & v) {
+    static string DebugString(const value_t & v) {
         double d;
         int i;
         uint64_t u;

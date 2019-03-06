@@ -15,32 +15,12 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 class Buffer {
  public:
-    explicit Buffer(Node & node) : node_(node) {
-        config_ = Config::GetInstance();
-        if (config_->global_use_rdma) {
-            if (node.get_world_rank() != 0) {
-                // Workers
-                buffer_ = new char[config_->buffer_sz];
-                memset(buffer_, 0, config_->buffer_sz);
-                config_->kvstore = buffer_ + config_->kvstore_offset;
-                config_->send_buf = buffer_ + config_->send_buffer_offset;
-                config_->recv_buf = buffer_ + config_->recv_buffer_offset;
-                config_->local_head_buf = buffer_ + config_->local_head_buffer_offset;
-                config_->remote_head_buf = buffer_ + config_->remote_head_buffer_offset;
-                config_->dgram_send_buf = buffer_ + config_->dgram_send_buffer_offset;
-                config_->dgram_recv_buf = buffer_ + config_->dgram_recv_buffer_offset;
-            } else {
-                // Master
-                buffer_ = new char[config_->dgram_buf_sz];
-                memset(buffer_, 0, config_->dgram_buf_sz);
-                config_->dgram_send_buf = buffer_;
-                config_->dgram_recv_buf = buffer_ + config_->dgram_send_buffer_sz;
-            }
-        } else if (node.get_world_rank() != 0) {
-            buffer_ = new char[config_->kvstore_sz];
-            memset(buffer_, 0, config_->kvstore_sz);
-            config_->kvstore = buffer_ + config_->kvstore_offset;
+    static Buffer* GetInstance(Node * node = nullptr) {
+        static Buffer* buffer_instance_ptr = nullptr;
+        if (buffer_instance_ptr == nullptr) {
+            buffer_instance_ptr = new Buffer(*node);
         }
+        return buffer_instance_ptr;
     }
 
     ~Buffer() {
@@ -92,7 +72,8 @@ class Buffer {
         assert(config_->global_use_rdma);
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_machines);
-        return config_->recv_buf + (tid * config_->global_num_machines + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
+        return config_->recv_buf +
+               (tid * config_->global_num_machines + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
     inline uint64_t GetRecvBufSize() {
@@ -104,7 +85,8 @@ class Buffer {
         assert(config_->global_use_rdma);
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_machines);
-        return config_->recv_buffer_offset + (tid * config_->global_num_machines + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
+        return config_->recv_buffer_offset +
+               (tid * config_->global_num_machines + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
     inline char* GetLocalHeadBuf(int tid, int nid) {
@@ -150,4 +132,25 @@ class Buffer {
     char* buffer_;
     Config* config_;
     Node & node_;
+
+    explicit Buffer(Node & node) : node_(node) {
+        config_ = Config::GetInstance();
+        if (config_->global_use_rdma) {
+            buffer_ = new char[config_->buffer_sz];
+            memset(buffer_, 0, config_->buffer_sz);
+            config_->kvstore = buffer_ + config_->kvstore_offset;
+            config_->send_buf = buffer_ + config_->send_buffer_offset;
+            config_->recv_buf = buffer_ + config_->recv_buffer_offset;
+            config_->local_head_buf = buffer_ + config_->local_head_buffer_offset;
+            config_->remote_head_buf = buffer_ + config_->remote_head_buffer_offset;
+            config_->dgram_send_buf = buffer_ + config_->dgram_send_buffer_offset;
+            config_->dgram_recv_buf = buffer_ + config_->dgram_recv_buffer_offset;
+        } else if (node.get_world_rank() != 0) {
+            buffer_ = new char[config_->kvstore_sz];
+            memset(buffer_, 0, config_->kvstore_sz);
+            config_->kvstore = buffer_ + config_->kvstore_offset;
+        }
+    }
+
+    Buffer(const Buffer&);
 };
