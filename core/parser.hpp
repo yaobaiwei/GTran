@@ -13,6 +13,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "core/exec_plan.hpp"
 #include "core/index_store.hpp"
+#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"
@@ -29,6 +30,7 @@ class Parser {
 
     Config * config;
     IndexStore * index_store;
+    string_index * indexes;
 
     enum IO_T { EDGE, VERTEX, VP, EP, INT, DOUBLE, CHAR, STRING, COLLECTION };
     static const char *IOType[];
@@ -36,20 +38,11 @@ class Parser {
     static const map<string, Step_T> str2step;         // step type
     static const map<string, Predicate_T> str2pred;    // predicate type
 
-    // str to id, for property key and label key
-    map<string, uint32_t> str2vpk;
-    map<string, uint32_t> str2vl;
-    map<string, uint32_t> str2epk;
-    map<string, uint32_t> str2el;
 
     // after the above 4 key map, a vector of keys will be implemented.
     vector<string> vpks, vlks, epks, elks;
 
     string vpks_str, vlks_str, epks_str, elks_str;
-
-    // id to value type
-    map<uint32_t, uint8_t> vpk2vptype;
-    map<uint32_t, uint8_t> epk2eptype;
 
     static const int index_ratio = 3;
 
@@ -193,17 +186,14 @@ class Parser {
     // Parse query string
     bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);
 
-    explicit Parser(IndexStore* index_store_): index_store(index_store_) {
+    Parser( IndexStore* index_store_): index_store(index_store_) {
         config = Config::GetInstance();
     }
 
     int GetPid(Element_T type, string& property);
 
-    void ReadSnapshot();
-    void WriteSnapshot();
-
     // load property and label mapping
-    void LoadMapping();
+    void LoadMapping(DataStore * data_store);
 
     // parsing exception
     struct ParserException {

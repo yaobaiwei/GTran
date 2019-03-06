@@ -462,7 +462,6 @@ class Worker {
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Init()" << endl;
 
         // read snapshot area
-        parser_->ReadSnapshot();
         datastore->ReadSnapshot();
 
         datastore->LoadDataFromHDFS();
@@ -478,11 +477,10 @@ class Worker {
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Datastore->DataConverter()" << endl;
 
-        parser_->LoadMapping();
+        parser_->LoadMapping(datastore);
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Parser_->LoadMapping()" << endl;
 
         // write snapshot area
-        parser_->WriteSnapshot();
         datastore->WriteSnapshot();
 
         thread recvreq(&Worker::RecvRequest, this);

@@ -118,14 +118,15 @@ class DataStore {
         return static_instance_p_;
     }
 
+    // load the index and data from HDFS
+    string_index indexes;  // index is global, no need to shuffle
+
  private:
     Buffer * buffer_;
     AbstractIdMapper* id_mapper_;
     Config* config_;
     Node & node_;
 
-    // load the index and data from HDFS
-    string_index indexes;  // index is global, no need to shuffle
     hash_map<vid_t, Vertex*> v_table;
     hash_map<eid_t, Edge*> e_table;
 
@@ -153,11 +154,6 @@ class DataStore {
     vector<VProperty*> vplist;  // x
     vector<EProperty*> eplist;  // x
     vector<vp_list*> vp_buf;  // x
-
-    typedef map<string, uint8_t> type_map;
-    typedef map<string, uint8_t>::iterator type_map_itr;
-    type_map vtx_pty_key_to_type;  // x
-    type_map edge_pty_key_to_type;  // x
 
     // ==========tmp usage=========
 

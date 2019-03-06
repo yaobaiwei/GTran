@@ -377,10 +377,12 @@ struct string_index{
     unordered_map<label_t, string> el2str;
     unordered_map<string, label_t> str2epk;  // map to edge's property key
     unordered_map<label_t, string> epk2str;
+    unordered_map<string, uint8_t> str2eptype;
     unordered_map<string, label_t> str2vl;  // map to vtx_label
     unordered_map<label_t, string> vl2str;
     unordered_map<string, label_t> str2vpk;  // map to vtx's property key
     unordered_map<label_t, string> vpk2str;
+    unordered_map<string, uint8_t> str2vptype;
 };
 
 enum Index_T { E_LABEL, E_PROPERTY, V_LABEL, V_PROPERTY };
