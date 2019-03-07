@@ -107,4 +107,89 @@ class NaiveIdMapper : public AbstractIdMapper {
     Node my_node_;
 };
 
+class SimpleIdMapper : public AbstractIdMapper {
+ public:
+    bool IsVertex(uint64_t v_id) {
+        bool has_v = v_id & _VIDFLAG;
+        return has_v;
+    }
+
+    bool IsEdge(uint64_t e_id) {
+        bool has_out_v = e_id & _VIDFLAG;
+        e_id >>= VID_BITS;
+        bool has_in_v = e_id & _VIDFLAG;
+        return has_out_v && has_in_v;
+    }
+
+    bool IsVProperty(uint64_t vp_id) {
+        bool has_p = vp_id & _PIDLFLAG;
+        vp_id >>= PID_BITS;
+        vp_id >>= VID_BITS;
+        bool has_v = vp_id & _VIDFLAG;
+        return has_p && has_v;
+    }
+
+    bool IsEProperty(uint64_t ep_id) {
+        bool has_p = ep_id & _PIDLFLAG;
+        ep_id >>= PID_BITS;
+        bool has_out_v = ep_id & _VIDFLAG;
+        ep_id >>= VID_BITS;
+        bool has_in_v = ep_id & _VIDFLAG;
+        return has_p && has_out_v && has_in_v;
+    }
+
+    // judge if vertex/edge/property local
+    bool IsVertexLocal(const vid_t v_id) {
+        return GetMachineIdForVertex(v_id) == my_node_.get_local_rank();
+    }
+
+    bool IsEdgeLocal(const eid_t e_id) {
+        return GetMachineIdForEdge(e_id) == my_node_.get_local_rank();
+    }
+
+    bool IsVPropertyLocal(const vpid_t vp_id) {
+        return GetMachineIdForVProperty(vp_id) == my_node_.get_local_rank();
+    }
+
+    bool IsEPropertyLocal(const epid_t ep_id) {
+        return GetMachineIdForEProperty(ep_id) == my_node_.get_local_rank();
+    }
+
+    // vertex/edge/property -> machine index mapping
+    int GetMachineIdForVertex(vid_t v_id) {
+        return v_id.value() % my_node_.get_local_size();
+    }
+
+    int GetMachineIdForEdge(eid_t e_id) {
+        return e_id.out_v % my_node_.get_local_size();
+    }
+
+    int GetMachineIdForVProperty(vpid_t vp_id) {
+        return vp_id.vid % my_node_.get_local_size();
+    }
+
+    int GetMachineIdForEProperty(epid_t ep_id) {
+        return ep_id.out_vid % my_node_.get_local_size();
+    }
+
+    static SimpleIdMapper* GetInstance(Node* node = nullptr) {
+        static SimpleIdMapper* p = nullptr;
+
+        // null and var avail
+        if (p == nullptr && node != nullptr) {
+            p = new SimpleIdMapper(*node);
+        }
+
+        return p;
+    }
+
+ private:
+    Config * config_;
+    Node my_node_;
+
+    explicit SimpleIdMapper(Node & node) : my_node_(node) {
+        config_ = Config::GetInstance();
+    }
+};
+
 #endif /* IDMAPPER_HPP_ */

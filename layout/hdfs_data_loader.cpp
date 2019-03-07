@@ -11,6 +11,7 @@ using namespace std;
 void HDFSDataLoader::Initial() {
     config_ = Config::GetInstance();
     node_ = Node::StaticInstance();
+    id_mapper_ = SimpleIdMapper::GetInstance();
 
     indexes_ = new string_index;
 }
@@ -28,7 +29,7 @@ void HDFSDataLoader::GetStringIndexes() {
             char * pch;
             pch = strtok(line, "\t");
             string key(pch);
-            pch = strtok(NULL, "\t");
+            pch = strtok(nullptr, "\t");
             label_t id = atoi(pch);
 
             // both string and ID are unique
@@ -53,9 +54,9 @@ void HDFSDataLoader::GetStringIndexes() {
             char * pch;
             pch = strtok(line, "\t");
             string key(pch);
-            pch = strtok(NULL, "\t");
+            pch = strtok(nullptr, "\t");
             label_t id = atoi(pch);
-            pch = strtok(NULL, "\t");
+            pch = strtok(nullptr, "\t");
             edge_pty_key_to_type_[to_string(id)] = atoi(pch);
 
             // both string and ID are unique
@@ -80,7 +81,7 @@ void HDFSDataLoader::GetStringIndexes() {
             char * pch;
             pch = strtok(line, "\t");
             string key(pch);
-            pch = strtok(NULL, "\t");
+            pch = strtok(nullptr, "\t");
             label_t id = atoi(pch);
 
             // both string and ID are unique
@@ -105,9 +106,9 @@ void HDFSDataLoader::GetStringIndexes() {
             char * pch;
             pch = strtok(line, "\t");
             string key(pch);
-            pch = strtok(NULL, "\t");
+            pch = strtok(nullptr, "\t");
             label_t id = atoi(pch);
-            pch = strtok(NULL, "\t");
+            pch = strtok(nullptr, "\t");
             vtx_pty_key_to_type_[to_string(id)] = atoi(pch);
 
             // both string and ID are unique
@@ -172,16 +173,16 @@ Vertex* HDFSDataLoader::ToVertex(char* line) {
     vid_t vid(atoi(pch));
     v->id = vid;
 
-    pch = strtok(NULL, "\t");
+    pch = strtok(nullptr, "\t");
     int num_in_nbs = atoi(pch);
     for (int i = 0 ; i < num_in_nbs; i++) {
-        pch = strtok(NULL, " ");
+        pch = strtok(nullptr, " ");
         v->in_nbs.push_back(atoi(pch));
     }
-    pch = strtok(NULL, "\t");
+    pch = strtok(nullptr, "\t");
     int num_out_nbs = atoi(pch);
     for (int i = 0 ; i < num_out_nbs; i++) {
-        pch = strtok(NULL, " ");
+        pch = strtok(nullptr, " ");
         v->out_nbs.push_back(atoi(pch));
     }
     return v;
@@ -236,7 +237,7 @@ void HDFSDataLoader::ToVP(char* line) {
     vid_t vid(atoi(pch));
     vp->id = vid;
 
-    pch = strtok(NULL, "\t");
+    pch = strtok(nullptr, "\t");
     label_t label = (label_t)atoi(pch);
 
     // insert label to VProperty
@@ -246,7 +247,7 @@ void HDFSDataLoader::ToVP(char* line) {
     // push to property_list of v
     vp->plist.push_back(v_pair);
 
-    pch = strtok(NULL, "");
+    pch = strtok(nullptr, "");
     string s(pch);
 
     vector<string> kvpairs;
@@ -310,14 +311,14 @@ void HDFSDataLoader::ToEP(char* line) {
     char * pch;
     pch = strtok(line, "\t");
     int out_v = atoi(pch);
-    pch = strtok(NULL, "\t");
+    pch = strtok(nullptr, "\t");
     int in_v = atoi(pch);
 
     eid_t eid(in_v, out_v);
     e->id = eid;
     ep->id = eid;
 
-    pch = strtok(NULL, "\t");
+    pch = strtok(nullptr, "\t");
     label_t label = (label_t)atoi(pch);
     // insert label to EProperty
     E_KVpair e_pair;
@@ -326,7 +327,7 @@ void HDFSDataLoader::ToEP(char* line) {
     // push to property_list of v
     ep->plist.push_back(e_pair);
 
-    pch = strtok(NULL, "");
+    pch = strtok(nullptr, "");
     string s(pch);
     vector<label_t> pkeys;
 
@@ -365,12 +366,12 @@ void HDFSDataLoader::Shuffle() {
     vtx_parts.resize(node_.get_local_size());
     for (int i = 0; i < vertices_.size(); i++) {
         Vertex* v = vertices_[i];
-        vtx_parts[VidMapping(v->id)].push_back(v);
+        vtx_parts[id_mapper_->GetMachineIdForVertex(v->id)].push_back(v);
     }
     all_to_all(node_, false, vtx_parts);
     vertices_.clear();
     if (node_.get_local_rank() == 0) {
-        cout << "Shuffle vertex done" << endl;
+        cout << "HDFSDataLoader Shuffle vertex done" << endl;
     }
 
     for (int i = 0; i < node_.get_local_size(); i++) {
@@ -384,11 +385,11 @@ void HDFSDataLoader::Shuffle() {
     edges_parts.resize(node_.get_local_size());
     for (int i = 0; i < edges_.size(); i++) {
         Edge* e = edges_[i];
-        edges_parts[EidMapping(e->id)].push_back(e);
+        edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
     }
     all_to_all(node_, false, edges_parts);
     if (node_.get_local_rank() == 0) {
-        cout << "Shuffle edge done" << endl;
+        cout << "HDFSDataLoader Shuffle edge done" << endl;
     }
 
     edges_.clear();
@@ -405,7 +406,7 @@ void HDFSDataLoader::Shuffle() {
         VProperty* vp = vplist_[i];
         map<int, vector<V_KVpair>> node_map;
         for (auto& kv_pair : vp->plist)
-            node_map[VPidMapping(kv_pair.key)].push_back(kv_pair);
+            node_map[id_mapper_->GetMachineIdForVProperty(kv_pair.key)].push_back(kv_pair);
         for (auto& item : node_map) {
             VProperty* vp_ = new VProperty();
             vp_->id = vp->id;
@@ -418,7 +419,7 @@ void HDFSDataLoader::Shuffle() {
     all_to_all(node_, false, vp_parts);
 
     if (node_.get_local_rank() == 0) {
-        cout << "Shuffle vp done" << endl;
+        cout << "HDFSDataLoader Shuffle vp done" << endl;
     }
 
     vplist_.clear();
@@ -436,9 +437,10 @@ void HDFSDataLoader::Shuffle() {
         EProperty* ep = eplist_[i];
         map<int, vector<E_KVpair>> node_map;
         for (auto& kv_pair : ep->plist) {
-            node_map[EPidMapping(kv_pair.key)].push_back(kv_pair);
+            node_map[id_mapper_->GetMachineIdForEProperty(kv_pair.key)].push_back(kv_pair);
+            // label should be stored on two side
             if (kv_pair.key.pid == 0)
-                node_map[EPidMappingIn(kv_pair.key)].push_back(kv_pair);
+                node_map[id_mapper_->GetMachineIdForVertex(vid_t(kv_pair.key.in_vid))].push_back(kv_pair);
         }
         for (auto& item : node_map) {
             EProperty* ep_ = new EProperty();
@@ -452,7 +454,7 @@ void HDFSDataLoader::Shuffle() {
     all_to_all(node_, false, ep_parts);
 
     if (node_.get_local_rank() == 0) {
-        cout << "Shuffle ep done" << endl;
+        cout << "HDFSDataLoader Shuffle ep done" << endl;
     }
 
     eplist_.clear();
@@ -527,26 +529,6 @@ void HDFSDataLoader::Shuffle() {
             }
         }
     }
-
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::Construct all finished\n");
-
-    node_.LocalSequentialDebugPrint(to_string(shuffled_vtx_.size()));
-    node_.LocalSequentialDebugPrint(to_string(shuffled_edge_.size()));
-
-    // debug print
-    string dbg_str = "";
-    for (auto v : shuffled_vtx_) {
-        dbg_str += "\n" + v.DebugString();
-    }
-    // for (auto e : shuffled_edge_) { // property edge only
-    //     dbg_str += "\n" + e.DebugString();
-    // }
-
-    for (auto e : edge_part_map_) { // property edge and ghost edge
-        assert(e.first == e.second->id.value());
-        dbg_str += "\n" + e.second->DebugString();
-    }
-    node_.LocalSequentialDebugPrint(dbg_str);
 
     // free shuffled buffer's memory
     for (auto p : edges_)

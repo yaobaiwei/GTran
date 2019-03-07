@@ -457,7 +457,8 @@ class Worker {
         // snapshot->DisableWrite();
 
         // ===================prepare stage=================
-        NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
+        // SimpleIdMapper * id_mapper = new SimpleIdMapper(my_node_);
+        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
 
         // init core affinity
         CoreAffinity * core_affinity = new CoreAffinity();
@@ -478,7 +479,7 @@ class Worker {
         // test new layout
         data_storage_ = DataStorage::GetInstance();
         data_storage_->Initial();
-        return;  //TODO(entityless): remove this after finishing DataStorage
+        // return;  //TODO(entityless): remove this after finishing DataStorage
 
         AbstractMailbox * mailbox;
         if (config_->global_use_rdma)

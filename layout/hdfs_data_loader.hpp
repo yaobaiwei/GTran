@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/communication.hpp"
 #include "base/node.hpp"
+#include "core/id_mapper.hpp"
 #include "layout/layout_type.hpp"
 #include "storage/layout.hpp"
 #include "utils/config.hpp"
@@ -43,28 +44,6 @@ class HDFSDataLoader {
     void ToVP(char* line);
     void ToEP(char* line);
 
-    // ep just follows the src_v
-    // src_v -> e -> dst_v
-    inline int VidMapping(vid_t vid) {
-        return vid.value() % node_.get_local_size();
-    }
-
-    inline int EidMapping(eid_t eid) {
-        return eid.out_v % node_.get_local_size();
-    }
-
-    inline int VPidMapping(vpid_t vpid) {
-        return vpid.vid % node_.get_local_size();
-    }
-
-    inline int EPidMappingIn(epid_t epid) {
-        return epid.in_vid % node_.get_local_size();
-    }
-
-    inline int EPidMapping(epid_t epid) {
-        return epid.out_vid % node_.get_local_size();
-    }
-
  public:
     static HDFSDataLoader* GetInstance() {
         static HDFSDataLoader* hdfs_data_loader_instance_ptr = nullptr;
@@ -97,6 +76,10 @@ class HDFSDataLoader {
     hash_map<uint64_t, TMPEdge*> edge_part_map_;
     vector<TMPVertex> shuffled_vtx_;
     vector<TMPEdge> shuffled_edge_;
+
+    // ep just follows the src_v
+    // src_v -> e -> dst_v
+    SimpleIdMapper* id_mapper_ = nullptr;
 };
 
 }  // namespace std

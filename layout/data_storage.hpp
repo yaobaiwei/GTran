@@ -13,6 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/edge_property_row.hpp"
 #include "layout/hdfs_data_loader.hpp"
 #include "layout/mvcc_kv_store.hpp"
+#include "layout/mvcc_list.hpp"
 #include "layout/vtx_edge_row.hpp"
 #include "layout/vtx_property_row.hpp"
 #include "utils/config.hpp"
@@ -30,6 +31,11 @@ struct VertexItem {
     VertexPropertyRow* vp_row;
 };
 
+struct EdgeItem {
+    label_t label;
+    EdgePropertyRow* ep_row;
+};
+
 class DataStorage {
  private:
     DataStorage() {}
@@ -44,9 +50,9 @@ class DataStorage {
     Node node_;
 
     // from vid & eid to the first row of the entity
-    tbb::concurrent_hash_map<uint64_t, EdgePropertyRow*> edge_map_;
-    typedef tbb::concurrent_hash_map<uint64_t, EdgePropertyRow*>::accessor EdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, EdgePropertyRow*>::const_accessor EdgeConstAccessor;
+    tbb::concurrent_hash_map<uint64_t, EdgeItem> edge_map_;
+    typedef tbb::concurrent_hash_map<uint64_t, EdgeItem>::accessor EdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, EdgeItem>::const_accessor EdgeConstAccessor;
     tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::accessor VertexAccessor;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::const_accessor VertexConstAccessor;
@@ -57,7 +63,7 @@ class DataStorage {
     HDFSDataLoader* hdfs_data_loader_ = nullptr;
 
     // "schema" (indexes)
-    string_index* indexes_;
+    string_index* indexes_ = nullptr;
 
     // Containers
     OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
@@ -71,34 +77,54 @@ class DataStorage {
     //// they will be defined after the implementation of data loading.
 
     //// Data modification, must be thread safe
-    // topo
 
     // TODO(entityless): figure out (discussion) how to define Timestamp?
-
-    void AddEdge(eid_t eid);
-    void AddVertex(vid_t vid);
-    void DropEdge(eid_t eid);
-    void DropVertex(vid_t vid);
+    void AddEdge(eid_t eid, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void AddVertex(vid_t vid, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void DropEdge(eid_t eid, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void DropVertex(vid_t vid, uint64_t trx_id, uint64_t begin_time);  // unfinished
 
     // property
     // construct a new PropertyMVCC list
-    void AddVP();
-    void AddEP();
+    void AddVP(vpid_t pid, value_t value, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void AddEP(epid_t pid, value_t value, uint64_t trx_id, uint64_t begin_time);  // unfinished
     // append to existing PropertyMVCC list
-    void ModifyVP(vpid_t pid, const value_t value);
-    void ModifyEP(epid_t pid, const value_t value);
-    void DropVP(vpid_t pid);
-    void DropEP(epid_t pid);
+    void ModifyVP(vpid_t pid, const value_t& value, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void ModifyEP(epid_t pid, const value_t& value, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void DropVP(vpid_t pid, uint64_t trx_id, uint64_t begin_time);  // unfinished
+    void DropEP(epid_t pid, uint64_t trx_id, uint64_t begin_time);  // unfinished
+
+    // "Get" prefix in DataStorage while "Read" prefix in 3 "Row" classes
 
     // data access
-    value_t ReadVP(vpid_t pid);
-    value_t ReadEP(epid_t pid);
+    value_t GetVP(vpid_t pid, uint64_t trx_id, uint64_t begin_time);
+    value_t GetEP(epid_t pid, uint64_t trx_id, uint64_t begin_time);
+    vector<pair<label_t, value_t>> GetVP(vid_t vid, uint64_t trx_id, uint64_t begin_time);
+    vector<pair<label_t, value_t>> GetEP(eid_t eid, uint64_t trx_id, uint64_t begin_time);
+    label_t GetVL(vid_t vid, uint64_t trx_id, uint64_t begin_time);
+    label_t GetEL(eid_t eid, uint64_t trx_id, uint64_t begin_time);
 
-    vector<uint64_t> GetInEdgeList();
-    vector<uint64_t> GetOutEdgeList();
-    vector<uint64_t> GetBothEdgeList();
 
-    //// Indexed data access, TBD
+    // do not need to implement traversal from edge
+    // since eid_t contains in_v and out_v
+
+    // traversal from vertex
+    // if label == 0, then do not filter by label
+    vector<eid_t> GetInEdgeList(vid_t vid, label_t edge_label, uint64_t trx_id, uint64_t begin_time);
+    vector<eid_t> GetOutEdgeList(vid_t vid, label_t edge_label, uint64_t trx_id, uint64_t begin_time);
+    vector<eid_t> GetBothEdgeList(vid_t vid, label_t edge_label, uint64_t trx_id, uint64_t begin_time);
+    vector<vid_t> GetInVertexList(vid_t vid, label_t edge_label, uint64_t trx_id, uint64_t begin_time);
+    vector<vid_t> GetOutVertexList(vid_t vid, label_t edge_label, uint64_t trx_id, uint64_t begin_time);
+    vector<vid_t> GetBothVertexList(vid_t vid, label_t edge_label, uint64_t trx_id, uint64_t begin_time);
+
+    // TODO(entityless): Figure out how to construct InitMsg
+    // TODO(entityless): Use mvcc info for two function below
+    // as InitMsg (used by g.V(), g.E() without index) will be changed over time
+    vector<vid_t> GetAllVertex(uint64_t trx_id, uint64_t begin_time);  // unfinished
+    vector<eid_t> GetAllEdge(uint64_t trx_id, uint64_t begin_time);  // unfinished
+
+    //// Indexed data access
+    void GetNameFromIndex(Index_T type, label_t id, string& str);
 
     //// Non-storage function
     static DataStorage* GetInstance() {

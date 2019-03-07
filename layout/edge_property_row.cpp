@@ -28,13 +28,51 @@ void EdgePropertyRow::InsertElement(const epid_t& pid, const value_t& value) {
         my_row->next_ = nullptr;
     }
 
-    PropertyMVCC* property_mvcc = global_property_mvcc_pool->Get();
-    property_mvcc->begin_time = PropertyMVCC::MIN_TIME;
-    property_mvcc->end_time = PropertyMVCC::MAX_TIME;
-    property_mvcc->tid = PropertyMVCC::INITIAL_TID;
-    property_mvcc->next = nullptr;
-    property_mvcc->kv_ptr = global_ep_store->Insert(MVCCHeader(0, pid.value()), value);
+    MVCCList<PropertyMVCC>* mvcc_list = new MVCCList<PropertyMVCC>;
+
+    mvcc_list->AppendVersion(global_ep_store->Insert(MVCCHeader(0, pid.value()), value), 0, 0);
 
     my_row->elements_[element_id_in_row].pid = pid;
-    my_row->elements_[element_id_in_row].mvcc_head = property_mvcc;
+    my_row->elements_[element_id_in_row].mvcc_list = mvcc_list;
+}
+
+value_t EdgePropertyRow::ReadProperty(epid_t pid, const uint64_t& trx_id, const uint64_t& begin_time) {
+    value_t ret;
+
+    EdgePropertyRow* current_row = this;
+
+    for (int i = 0; i < property_count_; i++) {
+        int element_id_in_row = i % EP_ROW_ITEM_COUNT;
+        if (i > 0 && element_id_in_row == 0) {
+            current_row = current_row->next_;
+        }
+        if (current_row->elements_[element_id_in_row].pid == pid) {
+            global_ep_store->Get(current_row->elements_[element_id_in_row].
+                                 mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue(), ret);
+            break;
+        }
+    }
+
+    return ret;
+}
+
+vector<pair<label_t, value_t>> EdgePropertyRow::ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time) {
+    vector<pair<label_t, value_t>> ret;
+
+    EdgePropertyRow* current_row = this;
+
+    for (int i = 0; i < property_count_; i++) {
+        int element_id_in_row = i % EP_ROW_ITEM_COUNT;
+        if (i > 0 && element_id_in_row == 0) {
+            current_row = current_row->next_;
+        }
+
+        value_t v;
+        label_t label = current_row->elements_[element_id_in_row].pid.pid;
+        global_ep_store->Get(current_row->elements_[element_id_in_row].
+                             mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue(), v);
+        ret.push_back(make_pair(label, v));
+    }
+
+    return ret;
 }

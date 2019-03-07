@@ -21,8 +21,7 @@ struct KVKey {
     bool is_empty() { return mvcc_header.pid == 0; }
 };
 
-class MVCCKVStore
-{
+class MVCCKVStore {
  private:
     MVCCKVStore(const MVCCKVStore&);
 
@@ -59,6 +58,6 @@ class MVCCKVStore
 
  public:
     MVCCKVStore(char* mem, uint64_t mem_sz);
-    ptr_t Insert(const MVCCHeader& key, const value_t& value);  //TODO: replace to ptr_t
+    ptr_t Insert(const MVCCHeader& key, const value_t& value);
     void Get(ptr_t, value_t&);
 };

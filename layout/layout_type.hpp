@@ -35,14 +35,14 @@ struct TMPEdge {
 
 // used in KVStore
 struct MVCCHeader {
-    uint64_t tid;
+    uint64_t begin_time;
     uint64_t pid;  // for ep and vp
 
-    MVCCHeader(uint64_t _tid, uint64_t _pid) : tid(_tid), pid(_pid) {}
+    MVCCHeader(uint64_t _begin_time, uint64_t _pid) : begin_time(_begin_time), pid(_pid) {}
 
     inline uint64_t HashToUint64() const {
         const uint64_t k_mul = 0x9ddfea08eb382d69ULL;
-        uint64_t a = (tid ^ pid) * k_mul;
+        uint64_t a = (begin_time ^ pid) * k_mul;
         a ^= (a >> 47);
         uint64_t b = (pid ^ a) * k_mul;
         b ^= (b >> 47);
@@ -51,7 +51,7 @@ struct MVCCHeader {
     }
 
     bool operator==(const MVCCHeader& right_header) {
-        return (tid == right_header.tid) && (pid == right_header.pid);
+        return (begin_time == right_header.begin_time) && (pid == right_header.pid);
     }
 };
 

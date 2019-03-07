@@ -9,7 +9,11 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 MVCCKVStore::MVCCKVStore(char* mem, uint64_t mem_sz) {
     config_ = Config::GetInstance();
 
-    mem_ = mem;
+    if (mem != nullptr)
+        mem_ = mem;
+    else
+        mem_ = new char[mem_sz];  // TODO(entityless): Memory alignment
+
     mem_sz_ = mem_sz;
 
     HD_RATIO_ = config_->key_value_ratio_in_rdma;
@@ -87,7 +91,7 @@ uint64_t MVCCKVStore::InsertId(const MVCCHeader& _mvcc_header) {
         // the last slot of each bucket is reserved for pointer to indirect header
         /// key.mvcc_header is used to store the bucket_id of indirect header
         for (int i = 0; i < ASSOCIATIVITY - 1; i++, slot_id++) {
-            //assert(vertices[slot_id].key != key); // no duplicate key
+            // assert(vertices[slot_id].key != key); // no duplicate key
             if (keys_[slot_id].mvcc_header == _mvcc_header) {
                 // Cannot get the original mvcc_header
                 cout << "MVCCKVStore ERROR: conflict at slot["
