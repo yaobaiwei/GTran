@@ -280,6 +280,6 @@ obinstream& operator>>(obinstream& m, ACTOR_T& type) {
 }
 
 void uint2qid_t(uint64_t v, qid_t & qid) {
-    qid.nid = (v & _32LFLAG);
-    qid.qr = ((v >> 32) & _32LFLAG);
+    qid.id = (v & _8LFLAG);
+    qid.trxid = ((v >> 8) & _56LFLAG);
 }

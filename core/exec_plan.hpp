@@ -53,8 +53,8 @@ class TrxPlan {
     // Fill in placeholder and trx result after query done
     void FillResult(vector<value_t>& vec);
 
-    // Get exection plan, false if finished
-    bool NextQuery(QueryPlan& plan);
+    // Get exection plan, return -1 if finished
+    int NextQuery(QueryPlan& plan);
 
     uint64_t trxid;
 
@@ -79,7 +79,7 @@ class TrxPlan {
     char trx_type_;
 
     // indicate current query line
-    int query_index_;
+    uint8_t query_index_;
 
     // Info of all queries
     vector<QueryPlan> query_plans_;
