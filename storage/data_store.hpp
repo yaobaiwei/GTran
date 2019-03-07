@@ -94,12 +94,6 @@ class DataStore {
     void GetAggData(agg_t key, vector<value_t> & data);
     void DeleteAggData(agg_t key);
 
-    // Validation : Get RCT data
-    void GetRecentActionSet(int p, vector<uint64_t> & trxIDList,
-            set<uint64_t> & rct_set);
-    void InsertRecentActionSet(int p, uint64_t trxIDList,
-            vector<uint64_t> & data);
-
     // For TCP use
     TCPHelper * tcp_helper;
 
@@ -135,18 +129,6 @@ class DataStore {
 
     VKVStore * vpstore_;
     EKVStore * epstore_;
-
-    // Validation Use
-    //     Insert V/E, Delete V/E (4 tables)
-    //     Insert/Modify/Delete VP/EP (6 tables)
-    //     TrxID --> ObjectList
-    //         Insert -> multi-thread
-    //         Read -> single-thread
-    typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_vector<uint64_t>> rct_type;
-    typedef rct_type::accessor rct_accessor;
-    typedef rct_type::const_accessor rct_const_accessor;
-    // Primitive_T -> rct
-    hash_map<uint32_t, rct_type> rct;
 
     // =========tmp usage=========
     vector<Vertex*> vertices;  // x

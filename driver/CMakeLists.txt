@@ -8,6 +8,7 @@ add_library(all-deps STATIC
   $<TARGET_OBJECTS:base-objs>
   $<TARGET_OBJECTS:actor-objs>
   $<TARGET_OBJECTS:rdma-objs>
+  $<TARGET_OBJECTS:layout-objs>
   )
 
 add_executable(client client.cpp )

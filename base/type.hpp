@@ -576,5 +576,14 @@ static const int NUM_RESIDENT_THREAD = 4;
 
 // COUNT in Primitive_T is used for iterating enum and do not assign any
 // value to each element.
-enum Primitive_T { IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP, COUNT };
+enum class Primitive_T { IV, IE, DV, DE, IVP, IEP, DVP, DEP, MVP, MEP, COUNT };
 enum ID_T { VID, EID, VPID, EPID };
+
+struct PrimitiveEnumClassHash {
+    std::size_t operator()(Primitive_T t) const {
+        return static_cast<std::size_t>(t);
+    }
+    static bool equal(const Primitive_T& t1, const Primitive_T& t2) {
+        return t1 == t2;
+    }
+};

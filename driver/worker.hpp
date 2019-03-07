@@ -35,6 +35,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "storage/data_store.hpp"
 #include "storage/mpi_snapshot.hpp"
 
+#include "layout/pmt_rct_table.hpp"
+
 struct Pack {
     qid_t id;
     vector<Actor_Object> actors;
@@ -440,6 +442,11 @@ class Worker {
         core_affinity->Init();
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init Core Affinity" << endl;
 
+        // init PrimitiveRCTTable
+        PrimitiveRCTTable * pmt_rct_table_ = new PrimitiveRCTTable();
+        pmt_rct_table_->Init();
+        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init PrimitiveRCTTable" << endl;
+
         // set the in-memory layout for RDMA buf
         Buffer* buf = Buffer::GetInstance(&my_node_);
         cout << "Worker" << my_node_.get_local_rank()
@@ -497,7 +504,7 @@ class Worker {
         worker_barrier(my_node_);
 
         // actor driver starts
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_);
+        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_, pmt_rct_table_);
         actor_adapter->Start();
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> actor_adapter->Start()" << endl;
         worker_barrier(my_node_);
