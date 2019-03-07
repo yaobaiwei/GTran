@@ -44,6 +44,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
 #include "core/index_store.hpp"
+#include "layout/pmt_rct_table.hpp"
 #include "storage/data_store.hpp"
 #include "utils/config.hpp"
 #include "utils/timer.hpp"
@@ -53,7 +54,20 @@ using namespace std;
 
 class ActorAdapter {
  public:
-    ActorAdapter(Node & node, ResultCollector * rc, AbstractMailbox * mailbox, DataStore* data_store, CoreAffinity* core_affinity, IndexStore * index_store) : node_(node), rc_(rc), mailbox_(mailbox), data_store_(data_store), core_affinity_(core_affinity), index_store_(index_store) {
+    ActorAdapter(Node & node,
+            ResultCollector * rc,
+            AbstractMailbox * mailbox,
+            DataStore * data_store,
+            CoreAffinity * core_affinity,
+            IndexStore * index_store,
+            PrimitiveRCTTable * pmt_rct_table) :
+        node_(node),
+        rc_(rc),
+        mailbox_(mailbox),
+        data_store_(data_store),
+        core_affinity_(core_affinity),
+        index_store_(index_store),
+        pmt_rct_table_(pmt_rct_table) {
         config_ = Config::GetInstance();
         num_thread_ = config_->global_num_threads;
         times_.resize(num_thread_, 0);
@@ -208,6 +222,8 @@ class ActorAdapter {
     CoreAffinity * core_affinity_;
     msg_id_alloc id_allocator_;
     Node node_;
+    // Validation
+    PrimitiveRCTTable * pmt_rct_table_;
 
     // Actors pool <actor_type, [actors]>
     map<ACTOR_T, unique_ptr<AbstractActor>> actors_;

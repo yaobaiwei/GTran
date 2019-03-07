@@ -50,6 +50,7 @@ set(GQUERY_EXTERNAL_LIBRARIES ${GLOG_LIBRARIES} ${HDFS2_LIBRARIES} ${IBVERB_LIBR
 add_subdirectory(actor)
 add_subdirectory(base)
 add_subdirectory(core)
+add_subdirectory(layout)
 add_subdirectory(storage)
 add_subdirectory(utils)
 add_subdirectory(third_party)

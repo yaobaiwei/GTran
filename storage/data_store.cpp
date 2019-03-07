@@ -453,26 +453,6 @@ void DataStore::DeleteAggData(agg_t key) {
     }
 }
 
-void DataStore::GetRecentActionSet(int p, vector<uint64_t> & trxIDList, set<uint64_t> & rct_set) {
-    for (auto & trxID : trxIDList) {
-        rct_const_accessor rctca;
-        if (rct[p].find(rctca, trxID)) {
-            for (auto & item : rctca->second) {
-                rct_set.emplace(item);
-            }
-        }
-    }
-}
-
-void DataStore::InsertRecentActionSet(int p, uint64_t trxID, vector<uint64_t> & data) {
-    rct_accessor rcta;
-    rct[p].insert(rcta, trxID);
-
-    for (auto & val : data) {
-        rcta->second.emplace_back(val);
-    }
-}
-
 void DataStore::get_string_indexes() {
     hdfsFS fs = get_hdfs_fs();
 
