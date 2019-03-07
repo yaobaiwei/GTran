@@ -55,12 +55,12 @@ class Worker {
         for (int i = 0; i < senders_.size(); i++) {
             delete senders_[i];
         }
-
-        delete receiver_;
+        delete rc_;
+        delete thpt_monitor_;
         delete w_listener_;
+        delete receiver_;
         delete parser_;
         delete index_store_;
-        delete rc_;
     }
 
     void Init() {
@@ -70,6 +70,7 @@ class Worker {
         w_listener_ = new zmq::socket_t(context_, ZMQ_REP);
         thpt_monitor_ = new ThroughputMonitor();
         rc_ = new ResultCollector;
+
         char addr[64];
         char w_addr[64];
         snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port);
@@ -258,6 +259,10 @@ class Worker {
     }
     */
 
+    /*
+     * For TCP(IBOIP) usage, to receive the req and give response
+     * req: vpid or epid
+     */
     void WorkerListener(DataStore * datastore) {
         while (1) {
             zmq::message_t request;
@@ -294,6 +299,9 @@ class Worker {
         }
     }
 
+    /**
+     * Parse the query string into TrxPlan
+     */
     void ParseTransaction(string query, uint64_t trxid, uint64_t st, string client_host) {
         TrxPlan plan(trxid, st, client_host);
         string error_msg;
@@ -316,6 +324,9 @@ class Worker {
         }
     }
 
+    /**
+     *  regular recv thread for transaction processing request
+     */
     void RecvRequest() {
         // Fake id and start time
         while (1) {
@@ -349,6 +360,10 @@ class Worker {
         }
     }
 
+    /**
+     * To split one query (one line) from the current TrxPlan,
+     * to form a package after assigning the qid
+     */
     bool RegisterQuery(TrxPlan& plan) {
         static mutex qid_mutex;
         uint32_t num_query_;
@@ -374,6 +389,9 @@ class Worker {
         return false;
     }
 
+    /**
+     * Send the results of Tran back to the Client
+     */
     void ReplyClient(TrxPlan& plan) {
         ibinstream m;
         m << plan.client_host;  // client hostname
@@ -395,6 +413,9 @@ class Worker {
         monitor_->IncreaseCounter(1);
     }
 
+    /**
+     * For one package, parse it and create the init messages to all workers for ACTOR:INIT
+     */
     void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
         while (1) {
             Pack pkg;
