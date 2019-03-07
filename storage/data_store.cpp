@@ -71,9 +71,6 @@ void DataStore::LoadDataFromHDFS() {
     }
     cout << "Node " << node_.get_local_rank() <<
         " Get_eplist() DONE !" << endl;
-
-    vtx_pty_key_to_type.clear();
-    edge_pty_key_to_type.clear();
 }
 
 void DataStore::ReadSnapshot() {
@@ -515,7 +512,7 @@ void DataStore::get_string_indexes() {
             pch = strtok(NULL, "\t");
             label_t id = atoi(pch);
             pch = strtok(NULL, "\t");
-            edge_pty_key_to_type[to_string(id)] = atoi(pch);
+            indexes.str2eptype[to_string(id)] = atoi(pch);
 
 
             // both string and ID are unique
@@ -564,7 +561,7 @@ void DataStore::get_string_indexes() {
             pch = strtok(NULL, "\t");
             label_t id = atoi(pch);
             pch = strtok(NULL, "\t");
-            vtx_pty_key_to_type[to_string(id)] = atoi(pch);
+            indexes.str2vptype[to_string(id)] = atoi(pch);
 
             // both string and ID are unique
             assert(indexes.str2vpk.find(key) == indexes.str2vpk.end());
@@ -723,7 +720,7 @@ void DataStore::to_vp(char* line, vector<VProperty*> & vplist, vector<vp_list*> 
     assert(kvpairs.size() % 2 == 0);
     for (int i = 0 ; i < kvpairs.size(); i += 2) {
         kv_pair p;
-        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], vtx_pty_key_to_type[kvpairs[i]], p);
+        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], indexes.str2vptype[kvpairs[i]], p);
         V_KVpair v_pair;
         v_pair.key = vpid_t(vid, p.key);
         v_pair.value = p.value;
@@ -817,7 +814,7 @@ void DataStore::to_ep(char* line, vector<EProperty*> & eplist) {
 
     for (int i = 0 ; i < kvpairs.size(); i += 2) {
         kv_pair p;
-        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], edge_pty_key_to_type[kvpairs[i]], p);
+        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], indexes.str2eptype[kvpairs[i]], p);
 
         E_KVpair e_pair;
         e_pair.key = epid_t(in_v, out_v, p.key);

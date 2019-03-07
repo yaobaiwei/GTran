@@ -6,166 +6,25 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include <iostream>
 
 #include "core/parser.hpp"
-#include "storage/mpi_snapshot.hpp"
-#include "storage/snapshot_func.hpp"
 
-void Parser::ReadSnapshot() {
-    // TODO(Entityless): find a more elegant way to write these code
-    MPISnapshot* snapshot = MPISnapshot::GetInstance();
-
-    snapshot->ReadData("parser_str2vl", str2vl, ReadSerImpl);
-    snapshot->ReadData("parser_str2vpk", str2vpk, ReadSerImpl);
-    snapshot->ReadData("parser_vpk2vptype", vpk2vptype, ReadSerImpl);
-    snapshot->ReadData("parser_str2el", str2el, ReadSerImpl);
-    snapshot->ReadData("parser_str2epk", str2epk, ReadSerImpl);
-    snapshot->ReadData("parser_epk2eptype", epk2eptype, ReadSerImpl);
-}
-
-
-void Parser::WriteSnapshot() {
-    MPISnapshot* snapshot = MPISnapshot::GetInstance();
-
-    snapshot->WriteData("parser_str2vl", str2vl, WriteSerImpl);
-    snapshot->WriteData("parser_str2vpk", str2vpk, WriteSerImpl);
-    snapshot->WriteData("parser_vpk2vptype", vpk2vptype, WriteSerImpl);
-    snapshot->WriteData("parser_str2el", str2el, WriteSerImpl);
-    snapshot->WriteData("parser_str2epk", str2epk, WriteSerImpl);
-    snapshot->WriteData("parser_epk2eptype", epk2eptype, WriteSerImpl);
-}
-
-void Parser::LoadMapping() {
-    hdfsFS fs = get_hdfs_fs();
-
-    MPISnapshot* snapshot = MPISnapshot::GetInstance();
-    // try to snapshot vtx_label
-
-    bool read_str2vl_snapshot_ok = snapshot->TestRead("parser_str2vl");
-
-    if (!read_str2vl_snapshot_ok) {
-        // load vertex label
-        string vl_path = config->HDFS_INDEX_PATH + "./vtx_label";
-        hdfsFile vl_file = get_r_handle(vl_path.c_str(), fs);
-        LineReader vl_reader(fs, vl_file);
-        while (true) {
-            vl_reader.read_line();
-            if (!vl_reader.eof()) {
-                char * line = vl_reader.get_line();
-                char * pch;
-                pch = strtok(line, "\t");
-                string key(pch);
-                pch = strtok(NULL, "\t");
-                label_t id = atoi(pch);
-
-                str2vl[key] = id;
-            } else {
-                break;
-            }
-        }
-        hdfsCloseFile(fs, vl_file);
-
-        // write file to snapshot
-    }
-
-    bool read_str2vpk_snapshot_ok = snapshot->TestRead("parser_str2vpk");
-    bool read_vpk2vptype_snapshot_ok = snapshot->TestRead("parser_vpk2vptype");
-
-    if (!(read_str2vpk_snapshot_ok && read_vpk2vptype_snapshot_ok)) {
-        // load vertex property key and type
-        string vp_path = config->HDFS_INDEX_PATH + "./vtx_property_index";
-        hdfsFile vp_file = get_r_handle(vp_path.c_str(), fs);
-        LineReader vp_reader(fs, vp_file);
-        while (true) {
-            vp_reader.read_line();
-            if (!vp_reader.eof()) {
-                char * line = vp_reader.get_line();
-                char * pch;
-                pch = strtok(line, "\t");
-                string key(pch);
-                pch = strtok(NULL, "\t");
-                uint32_t id = atoi(pch);
-                pch = strtok(NULL, "\t");
-                uint8_t type = atoi(pch);
-
-                str2vpk[key] = id;
-                vpk2vptype[id] = type;
-            } else {
-                break;
-            }
-        }
-        hdfsCloseFile(fs, vp_file);
-    }
-
-    bool read_str2el_snapshot_ok = snapshot->TestRead("parser_str2el");
-
-    if (!read_str2el_snapshot_ok) {
-        // load edge label
-        string el_path = config->HDFS_INDEX_PATH + "./edge_label";
-        hdfsFile el_file = get_r_handle(el_path.c_str(), fs);
-        LineReader el_reader(fs, el_file);
-        while (true) {
-            el_reader.read_line();
-            if (!el_reader.eof()) {
-                char * line = el_reader.get_line();
-                char * pch;
-                pch = strtok(line, "\t");
-                string key(pch);
-                pch = strtok(NULL, "\t");
-                label_t id = atoi(pch);
-
-                str2el[key] = id;
-            } else {
-                break;
-            }
-        }
-        hdfsCloseFile(fs, el_file);
-    }
-
-    bool read_str2epk_snapshot_ok = snapshot->TestRead("parser_str2epk");
-    bool read_epk2eptype_snapshot_ok = snapshot->TestRead("parser_epk2eptype");
-
-    if (!(read_str2epk_snapshot_ok && read_epk2eptype_snapshot_ok)) {
-        // load edge property key and type
-        string ep_path = config->HDFS_INDEX_PATH + "./edge_property_index";
-        hdfsFile ep_file = get_r_handle(ep_path.c_str(), fs);
-        LineReader ep_reader(fs, ep_file);
-        while (true) {
-            ep_reader.read_line();
-            if (!ep_reader.eof()) {
-                char * line = ep_reader.get_line();
-                char * pch;
-                pch = strtok(line, "\t");
-                string key(pch);
-                pch = strtok(NULL, "\t");
-                uint32_t id = atoi(pch);
-                pch = strtok(NULL, "\t");
-                uint8_t type = atoi(pch);
-
-                str2epk[key] = id;
-                epk2eptype[id] = type;
-            } else {
-                break;
-            }
-        }
-        hdfsCloseFile(fs, ep_file);
-    }
-
-    hdfsDisconnect(fs);
+void Parser::LoadMapping(DataStore* data_store) {
+    indexes = &(data_store->indexes);
 
     // these *_str will be used when given error key in a query (return to the client as error message)
-    for (auto vpk_pair : str2vpk) {
+    for (auto vpk_pair : indexes->str2vpk) {
         vpks.push_back(vpk_pair.first);
         vpks_str += vpk_pair.first + " ";
     }
-    for (auto epk_pair : str2epk) {
+    for (auto epk_pair : indexes->str2epk) {
         epks.push_back(epk_pair.first);
         epks_str += epk_pair.first + " ";
     }
 
-    for (auto vlk_pair : str2vl) {
+    for (auto vlk_pair : indexes->str2vl) {
         vlks.push_back(vlk_pair.first);
         vlks_str += vlk_pair.first + " ";
     }
-    for (auto elk_pair : str2el) {
+    for (auto elk_pair : indexes->str2el) {
         elks.push_back(elk_pair.first);
         elks_str += elk_pair.first + " ";
     }
@@ -175,16 +34,16 @@ int Parser::GetPid(Element_T type, string& property) {
     if (property == "label") {
         return 0;
     } else {
-        map<string, uint32_t>::iterator itr;
+        unordered_map<string, label_t>::iterator itr;
         if (type == Element_T::VERTEX) {
-            itr = str2vpk.find(property);
-            if (itr == str2vpk.end()) {
+            itr = indexes->str2vpk.find(property);
+            if (itr == indexes->str2vpk.end()) {
                 cout << "wrong property : " << property << endl;
                 return -1;
             }
         } else {
-            itr = str2epk.find(property);
-            if (itr == str2epk.end()) {
+            itr = indexes->str2epk.find(property);
+            if (itr == indexes->str2epk.end()) {
                 cout << "wrong property : " << property << endl;
                 return -1;
             }
@@ -549,17 +408,17 @@ int Parser::GetStepPriority(Step_T type) {
 }
 
 bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type) {
-    map<string, uint32_t> *kmap;
-    map<uint32_t, uint8_t> *vmap;
+    unordered_map<string, label_t> *kmap;
+    unordered_map<string, uint8_t> *vmap;
 
     key = Tool::trim(key, "\"\'");
 
     if (io_type_ == VERTEX) {
-        kmap = isLabel ? &str2vl : &str2vpk;
-        vmap = &vpk2vptype;
+        kmap = isLabel ? &(indexes->str2vl) : &(indexes->str2vpk);
+        vmap = &(indexes->str2vptype);
     } else if (io_type_ == EDGE) {
-        kmap = isLabel ? &str2el : &str2epk;
-        vmap = &epk2eptype;
+        kmap = isLabel ? &(indexes->str2el) : &(indexes->str2epk);
+        vmap = &(indexes->str2eptype);
     } else {
         return false;
     }
@@ -570,7 +429,7 @@ bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type) {
 
     id = kmap->at(key);
     if (!isLabel && type != NULL) {
-        *type = vmap->at(id);
+        *type = vmap->at(to_string(id));
     }
     return true;
 }
