@@ -14,6 +14,9 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 
 int main(int argc, char* argv[]) {
+    // zj debug
+    FLAGS_log_dir = "/data/jzhang/log/";
+    FLAGS_logtostderr = 1; 
     google::InitGoogleLogging(argv[0]);
 
     Node my_node;
@@ -51,7 +54,6 @@ int main(int argc, char* argv[]) {
     if (my_node.get_world_rank() == MASTER_RANK) {
         Master master(my_node, nodes);
         master.Init();
-
         master.Start();
     } else {
         Worker worker(my_node, nodes, master);

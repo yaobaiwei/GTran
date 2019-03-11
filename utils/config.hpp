@@ -11,6 +11,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/unit.hpp"
 #include "utils/hdfs_core.hpp"
 #include "glog/logging.h"
+#include <core/common.hpp>
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,8 +92,8 @@ class Config{
 
     int max_data_size;
 
-    //================================================================
-    //mutable_config
+    // ================================================================
+    // mutable_config
 
     // kvstore = vertex_property_kv_sz + edge_property_kv_sz
     uint64_t kvstore_sz;
@@ -121,6 +122,12 @@ class Config{
     // transaction status table on master
     uint64_t trx_table_sz;
     uint64_t trx_table_offset;
+    uint64_t ASSOCIATIVITY = 8;
+    uint64_t MI_RATIO = 80;
+    uint64_t num_total_buckets;
+    uint64_t num_main_buckets;
+    uint64_t num_indirect_buckets;
+    uint64_t num_slots;
 
     // two sided send buffer sz = global_per_send_buffer_sz_mb
     uint64_t dgram_send_buffer_sz;
@@ -145,8 +152,8 @@ class Config{
     int key_value_ratio_in_rdma;
 
 
-    //================================================================
-    //settle down after data loading
+    // ================================================================
+    // settle down after data loading
     char * kvstore;
     char * send_buf;
     char * recv_buf;
@@ -161,96 +168,94 @@ class Config{
     uint32_t num_vertex_property;
     uint32_t num_edge_property;
 
-    void Init(){
+    void Init() {
         dictionary *ini;
         int val, val_not_found = -1;
         char *str, *str_not_found = "null";
 
         Node node = Node::StaticInstance();
-
+    
         const char* GQUERY_HOME = getenv("GQUERY_HOME");
-        if(GQUERY_HOME == NULL)
-        {
+        if (GQUERY_HOME == NULL) {
             fprintf(stderr, "must conf the ENV: GQUERY_HOME. exits.\n");
             exit(-1);
         }
         string conf_path(GQUERY_HOME);
         conf_path.append("/gquery-conf.ini");
         ini = iniparser_load(conf_path.c_str());
-        if(ini == NULL)
-        {
+        if (ini == NULL) {
             fprintf(stderr, "can not open %s. exits.\n", "gquery-conf.ini");
             exit(-1);
         }
 
         // [HDFS]
-        str = iniparser_getstring(ini,"HDFS:HDFS_HOST_ADDRESS", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_HOST_ADDRESS = str;
-        else
-        {
+        str = iniparser_getstring(ini, "HDFS:HDFS_HOST_ADDRESS", str_not_found);
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_HOST_ADDRESS = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_HOST_ADDRESS. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getint(ini, "HDFS:HDFS_PORT", val_not_found);
-        if(val!=val_not_found) HDFS_PORT=val;
-        else
-        {
+        if (val != val_not_found) {
+            HDFS_PORT = val;
+        } else {
             fprintf(stderr, "must enter the HDFS_PORT. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "HDFS:HDFS_INPUT_PATH", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_INPUT_PATH=str;
-        else
-        {
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_INPUT_PATH = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_INPUT_PATH. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "HDFS:HDFS_INDEX_PATH", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_INDEX_PATH=str;
-        else
-        {
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_INDEX_PATH = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_INDEX_PATH. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "HDFS:HDFS_VTX_SUBFOLDER", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_VTX_SUBFOLDER=str;
-        else
-        {
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_VTX_SUBFOLDER = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_VTX_SUBFOLDER. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "HDFS:HDFS_VP_SUBFOLDER", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_VP_SUBFOLDER=str;
-        else
-        {
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_VP_SUBFOLDER = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_VP_SUBFOLDER. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "HDFS:HDFS_EP_SUBFOLDER", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_EP_SUBFOLDER=str;
-        else
-        {
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_EP_SUBFOLDER = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_EP_SUBFOLDER. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "HDFS:HDFS_OUTPUT_PATH", str_not_found);
-        if(strcmp(str, str_not_found)!=0) HDFS_OUTPUT_PATH=str;
-        else
-        {
+        if (strcmp(str, str_not_found) != 0) {
+            HDFS_OUTPUT_PATH = str;
+        } else {
             fprintf(stderr, "must enter the HDFS_OUTPUT_PATH. exits.\n");
             exit(-1);
         }
 
         // // [SYSTEM]
         // val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
-        // if (val != val_not_found) global_num_workers=val;
+        // if (val != val_not_found) global_num_machines=val;
         // else
         // {
         //     fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
@@ -260,50 +265,50 @@ class Config{
         global_num_workers = node.get_world_size() - 1;
 
         val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
-        if(val!=val_not_found) global_num_threads=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_num_threads = val;
+        } else {
             fprintf(stderr, "must enter the NUM_THREADS. exits.\n");
             exit(-1);
         }
 
 
         val = iniparser_getint(ini, "SYSTEM:VTX_P_KV_SZ_GB", val_not_found);
-        if(val!=val_not_found) global_vertex_property_kv_sz_gb=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_vertex_property_kv_sz_gb = val;
+        } else {
             fprintf(stderr, "must enter the VTX_P_KV_SZ_GB. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getint(ini, "SYSTEM:EDGE_P_KV_SZ_GB", val_not_found);
-        if(val!=val_not_found) global_edge_property_kv_sz_gb=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_edge_property_kv_sz_gb = val;
+        } else {
             fprintf(stderr, "must enter the EDGE_P_KV_SZ_GB. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getint(ini, "SYSTEM:PER_SEND_BUF_SZ_MB", val_not_found);
-        if(val!=val_not_found) global_per_send_buffer_sz_mb=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_per_send_buffer_sz_mb = val;
+        } else {
             fprintf(stderr, "must enter the PER_SEND_BUF_SZ_MB. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getint(ini, "SYSTEM:PER_RECV_BUF_SZ_MB", val_not_found);
-        if(val!=val_not_found) global_per_recv_buffer_sz_mb=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_per_recv_buffer_sz_mb = val;
+        } else {
             fprintf(stderr, "must enter the PER_RECV_BUF_SZ_MB. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getint(ini, "SYSTEM:KEY_VALUE_RATIO", val_not_found);
-        if(val!=val_not_found) key_value_ratio_in_rdma=val;
-        else
-        {
+        if (val != val_not_found) {
+            key_value_ratio_in_rdma = val;
+        } else {
             fprintf(stderr, "must enter the KEY_VALUE_RATIO. exits.\n");
             exit(-1);
         }
@@ -357,93 +362,89 @@ class Config{
         }     
 
         val = iniparser_getboolean(ini, "SYSTEM:USE_RDMA", val_not_found);
-        if(val!=val_not_found) global_use_rdma=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_use_rdma = val;
+        } else {
             fprintf(stderr, "must enter the USE_RDMA. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getboolean(ini, "SYSTEM:ENABLE_CACHE", val_not_found);
-        if(val!=val_not_found) global_enable_caching=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_enable_caching = val;
+        } else {
             fprintf(stderr, "must enter the ENABLE_CACHE. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getboolean(ini, "SYSTEM:ENABLE_CORE_BIND", val_not_found);
-        if(val!=val_not_found) global_enable_core_binding=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_enable_core_binding = val;
+        } else {
             fprintf(stderr, "must enter the ENABLE_CORE_BIND. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getboolean(ini, "SYSTEM:ENABLE_ACTOR_DIVISION", val_not_found);
-        if(val!=val_not_found) global_enable_actor_division=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_enable_actor_division = val;
+        } else {
             fprintf(stderr, "must enter the ENABLE_ACTOR_DIVISION. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getboolean(ini, "SYSTEM:ENABLE_STEP_REORDER", val_not_found);
-        if(val!=val_not_found) global_enable_step_reorder=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_enable_step_reorder = val;
+        } else {
             fprintf(stderr, "must enter the ENABLE_ACTOR_REORDER. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getboolean(ini, "SYSTEM:ENABLE_INDEXING", val_not_found);
-        if(val!=val_not_found) global_enable_indexing=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_enable_indexing = val;
+        } else {
             fprintf(stderr, "must enter the ENABLE_INDEXING. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getboolean(ini, "SYSTEM:ENABLE_STEALING", val_not_found);
-        if(val!=val_not_found) global_enable_workstealing=val;
-        else
-        {
+        if (val != val_not_found) {
+            global_enable_workstealing = val;
+        } else {
             fprintf(stderr, "must enter the ENABLE_STEALING. exits.\n");
             exit(-1);
         }
 
         val = iniparser_getint(ini, "SYSTEM:MAX_MSG_SIZE", val_not_found);
-        if(val!=val_not_found) max_data_size=val;
-        else
-        {
+        if (val != val_not_found) {
+            max_data_size = val;
+        } else {
             fprintf(stderr, "must enter the MAX_MSG_SIZE. exits.\n");
             exit(-1);
         }
 
         str = iniparser_getstring(ini, "SYSTEM:SNAPSHOT_PATH", str_not_found);
 
-        if(strcmp(str, str_not_found)!=0)
-        {
-            //analyse snapshot_path to absolute path
+        if (strcmp(str, str_not_found) != 0) {
+            // analyse snapshot_path to absolute path
             string ori_str = str;
             string str_to_process = str;
 
-            if(str_to_process[0] == '~')
-            {
+            if (str_to_process[0] == '~') {
                 string sub = str_to_process.substr(1);
 
                 str_to_process = string(getenv("HOME")) + sub;
             }
 
             // SNAPSHOT_PATH = string(realpath(str_to_process.c_str(), NULL));
-            //throw null pointer to a directory that do not exists
+            // throw null pointer to a directory that do not exists
             SNAPSHOT_PATH = str_to_process;
 
-            if(node.get_world_rank() == 0)
+            if (node.get_world_rank() == MASTER_RANK)
                 printf("given SNAPSHOT_PATH = %s, processed = %s\n", ori_str.c_str(), SNAPSHOT_PATH.c_str());
-        }
-        else
-        {
+        } else {
             // fprintf(stderr, "must enter the SNAPSHOT_PATH. exits.\n");
             // exit(-1);
             SNAPSHOT_PATH = "";
@@ -451,8 +452,8 @@ class Config{
 
         iniparser_freedict(ini);
 
-
-        if (node.get_world_rank() != 0) {
+        trx_table_sz = MiB2B(trx_table_sz_mb); // this should be shared by master and workers, workers need to this to compute num_total_buckets...
+        if (node.get_world_rank() != MASTER_RANK) {
             // Workers
             kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
             kvstore_offset = 0;
@@ -480,11 +481,10 @@ class Config{
             dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
 
         } else {
-            // Master
+            // Master: 
             kvstore_sz = send_buffer_sz = recv_buffer_sz = local_head_buffer_sz = remote_head_buffer_sz = 0;
-            kvstore_offset = send_buffer_sz = recv_buffer_sz = local_head_buffer_offset = remote_head_buffer_offset = 0;
+            kvstore_offset = send_buffer_offset = recv_buffer_offset = local_head_buffer_offset = remote_head_buffer_offset = 0;
             // RC rdma
-            trx_table_sz = MiB2B(trx_table_sz_mb);
             trx_table_offset = kvstore_offset + kvstore_sz;  // 0
             // UD rdma
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
@@ -495,13 +495,17 @@ class Config{
             conn_buf_sz =  trx_table_sz;
             dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
         }
-
+     
         buffer_sz = conn_buf_sz + dgram_buf_sz;
 
-        //init hdfs
-        hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);
+        num_total_buckets = trx_table_sz / (ASSOCIATIVITY * sizeof(TidStatus));
+        num_main_buckets = num_total_buckets * MI_RATIO / 100;
+        num_indirect_buckets = num_total_buckets - num_main_buckets;
+        num_slots = num_total_buckets * ASSOCIATIVITY;
 
-        LOG(INFO) << DebugString();
+        // init hdfs
+        hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);
+        LOG(INFO) << "[Config] rank " << node.get_world_rank() << DebugString();
     }
 
     string DebugString() const {
@@ -514,11 +518,23 @@ class Config{
         ss << "HDFS_VP_SUBFOLDER : " << HDFS_VP_SUBFOLDER << endl;
         ss << "HDFS_EP_SUBFOLDER : " << HDFS_EP_SUBFOLDER << endl;
         ss << "HDFS_OUTPUT_PATH : " << HDFS_OUTPUT_PATH << endl;
-        ss << "SNAPSHOT_PATH : " << SNAPSHOT_PATH << endl;
-        ss << "global_num_workers : " << global_num_workers << endl;
-        ss << "global_num_machines : " << global_num_machines << endl;
-        ss << "global_num_threads : " << global_num_threads << endl;
+        ss << "SNAPSHOT_PATH : " << SNAPSHOT_PATH << endl; 
+        
+        ss << "kvstore_sz : " << kvstore_sz << endl;
+        ss << "send_buffer_sz : " << send_buffer_sz << endl;
+        ss << "recv_buffer_sz : " << recv_buffer_sz << endl;
+        ss << "local_head_buffer_sz : " << local_head_buffer_sz << endl;
+        ss << "remote_head_buffer_sz : " << remote_head_buffer_sz << endl;
         ss << "trx_table_sz_mb : " << trx_table_sz_mb << endl;
+        ss << "dgram_send_buffer_sz : " << dgram_send_buffer_sz << endl;
+        ss << "dgram_recv_buffer_sz : " << dgram_recv_buffer_sz << endl;
+        ss << "num_total_buckets : " << num_total_buckets << endl;
+        ss << "num_main_buckets : " << num_main_buckets << endl;
+        ss << "num_indirect_buckets : " << num_indirect_buckets<< endl;
+        ss << "num_slots : " << num_slots << endl;
+        
+        ss << "global_num_workers : " << global_num_workers << endl;
+        ss << "global_num_threads : " << global_num_threads << endl;
         ss << "global_vertex_property_kv_sz_gb : " << global_vertex_property_kv_sz_gb << endl;
         ss << "global_edge_property_kv_sz_gb : " << global_edge_property_kv_sz_gb << endl;
         ss << "global_per_send_buffer_sz_mb : " << global_per_send_buffer_sz_mb << endl;

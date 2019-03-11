@@ -37,6 +37,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <string>
 #include <vector>
 #include "base/node.hpp"
+#include "glog/logging.h"
 
 struct rdma_mem_t{
     char* mem_conn;
@@ -106,8 +107,37 @@ class RDMA {
 
             Qp* ud_qp;
             // Init QP connection
+            ctrl->set_connect_mr(mem_info.mem_conn, mem_info.mem_conn_sz);
+            ctrl->register_connect_mr();
+            ctrl->start_server();
+
             if (nid == num_workers) { //Master Rank
-                ctrl->start_server();
+                // RC connection betweenq
+                for (uint j = 0; j < num_threads; ++j) {
+                    for (uint i = 0; i < num_workers; ++i) {
+                        Qp *qp = ctrl->create_rc_qp(num_threads + j, i, 0, 1);
+                        assert(qp != NULL);
+                    } 
+                }
+                
+                while (1) {
+                    int connected = 0;
+                    for (uint j = 0; j < num_threads; ++j) {
+                        for (uint i = 0; i < num_workers; ++i) {
+                            Qp *qp = ctrl->create_rc_qp(num_threads + j, i, 0, 1);
+                            if (qp->inited_) {
+                                connected += 1;
+                            } else if (qp->connect_rc()) {
+                                connected += 1;
+                            }
+                        }
+                    }
+                    if (connected == num_workers * num_threads)
+                        break;
+                    else
+                        sleep(1);
+                }
+
                 // UD connection between master and workers
                 ud_qp = ctrl->create_ud_qp(0, 0, 1, 0);
                 assert(ud_qp != NULL);
@@ -125,15 +155,34 @@ class RDMA {
                         sleep(1);
                 }
             } else {
-                ctrl->set_connect_mr(mem_info.mem_conn, mem_info.mem_conn_sz);
-                ctrl->register_connect_mr();
-                ctrl->start_server();
+
                 // RC connection between workers
                 for (uint j = 0; j < num_threads * 2; ++j) {
                     for (uint i = 0; i < num_workers; ++i) {
                         Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
                         assert(qp != NULL);
                     }
+                }
+
+                for(uint j = 0; j < num_threads; ++ j){
+                    Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 ,1);
+                    CHECK(qp != NULL);
+                }
+
+                while(1){
+                    int connected = 0;
+                    for(uint j = 0; j < num_threads; ++ j) {
+                        Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 ,1);
+                        if (qp->inited_) {
+                            connected += 1;
+                        } else if (qp->connect_rc()) {
+                            connected += 1;
+                        }
+                    }
+                    if (connected == num_threads)
+                        break;
+                    else
+                        sleep(1);
                 }
 
                 while (1) {

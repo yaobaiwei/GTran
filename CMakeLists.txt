@@ -24,7 +24,6 @@ set(IBVERB_ROOT "/data/miao/lib/libibverbs-1.2.0")
 set(TBB_ROOT "/data/miao/lib/tbb44_20151115oss")
 set(MKL_ROOT "/data/cghuan/ps2017u7/compilers_and_libraries_2017.7.259/linux")
 
-
 add_definitions(-DUSE_HDFS2_)  #use hdfs v2.x.x by defalut
 add_definitions(-DHAS_RDMA)  #use RDMA
 
