@@ -36,6 +36,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "storage/mpi_snapshot.hpp"
 
 #include "layout/pmt_rct_table.hpp"
+#include "layout/data_storage.hpp"
 
 struct Pack {
     qid_t id;
@@ -456,7 +457,8 @@ class Worker {
         // snapshot->DisableWrite();
 
         // ===================prepare stage=================
-        NaiveIdMapper * id_mapper = new NaiveIdMapper(my_node_);
+        // SimpleIdMapper * id_mapper = new SimpleIdMapper(my_node_);
+        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
 
         // init core affinity
         CoreAffinity * core_affinity = new CoreAffinity();
@@ -473,6 +475,11 @@ class Worker {
         cout << "Worker" << my_node_.get_local_rank()
                 << ": DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
+
+        // test new layout
+        data_storage_ = DataStorage::GetInstance();
+        data_storage_->Init();
+        // return;  //TODO(entityless): remove this after finishing DataStorage
 
         AbstractMailbox * mailbox;
         if (config_->global_use_rdma)
@@ -581,5 +588,7 @@ class Worker {
     map<uint64_t, TrxPlan> plans_;
     map<uint64_t, uint64_t> qid2trx_;
     vector<zmq::socket_t *> senders_;
+
+    DataStorage* data_storage_ = nullptr;
 };
 #endif /* WORKER_HPP_ */

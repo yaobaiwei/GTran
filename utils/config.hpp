@@ -60,6 +60,13 @@ class Config{
     int global_vertex_property_kv_sz_gb;
     int global_edge_property_kv_sz_gb;
 
+    // memory pool elememt count
+    int global_ve_row_pool_size;
+    int global_vp_row_pool_size;
+    int global_ep_row_pool_size;
+    int global_topo_mvcc_pool_size;
+    int global_property_mvcc_pool_size;
+
 
     // send_buffer_sz should be equal or less than recv_buffer_sz
     // per send buffer should be exactly ONE msg size
@@ -288,6 +295,46 @@ class Config{
             key_value_ratio_in_rdma = val;
         } else {
             fprintf(stderr, "must enter the KEY_VALUE_RATIO. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:VE_ROW_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_ve_row_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the VE_ROW_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:VP_ROW_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_vp_row_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the VP_ROW_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:EP_ROW_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_ep_row_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the EP_ROW_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:TOPO_MVCC_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_topo_mvcc_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the TOPO_MVCC_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:PROPERTY_MVCC_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_property_mvcc_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the PROPERTY_MVCC_POOL_SIZE. exits.\n");
             exit(-1);
         }
 

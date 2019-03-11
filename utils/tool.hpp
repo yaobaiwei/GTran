@@ -343,9 +343,9 @@ class Tool{
           case 2:
             d = Tool::value_t2double(v);
             temp = to_string(d);
-            if (abs(d) >= 1) {
-                temp = trim(temp, ".0");
-            }
+            temp.resize(temp.find_last_not_of("0") + 1);
+            if (temp.back() == '.')
+                temp += "0";
             return temp;
           case 1:
             i = Tool::value_t2int(v);

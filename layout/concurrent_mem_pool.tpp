@@ -4,7 +4,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 template<class ItemT, class OffsetT>
-void OffsetConcurrentMemPool<ItemT, OffsetT>::Initial(ItemT* mem, size_t element_cnt) {
+void OffsetConcurrentMemPool<ItemT, OffsetT>::Init(ItemT* mem, size_t element_cnt) {
     if (mem != nullptr)
         attached_mem_ = mem;
     else

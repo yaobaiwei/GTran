@@ -118,6 +118,8 @@ class Node {
 
     void Rank0PrintfWithWorkerBarrier(const char *format, ...) {
         MPI_Barrier(local_comm);
+        fflush(stdout);
+        MPI_Barrier(local_comm);
         va_list arglist;
         va_start(arglist, format);
         if (local_rank_ == 0) {
@@ -128,17 +130,20 @@ class Node {
 
     // start of sequential execution region among workers
     void LocalSequentialStart() {
+        fflush(stdout);
         int barrier_count = local_rank_;
         for (int i = 0; i < barrier_count; i++)
             MPI_Barrier(local_comm);
-        fflush(nullptr);
+        fflush(stdout);
     }
 
     void LocalSequentialEnd() {
+        fflush(stdout);
         int barrier_count = local_size_ - local_rank_;
         for (int i = 0; i < barrier_count; i++)
             MPI_Barrier(local_comm);
-        fflush(nullptr);
+        MPI_Barrier(local_comm);
+        fflush(stdout);
     }
 
     double WtimeSinceStart() {
