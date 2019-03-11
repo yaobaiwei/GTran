@@ -53,7 +53,7 @@ class Config{
     string SNAPSHOT_PATH;  // if can be left to blank
 
     // ==========================System Parameters==========================
-    int global_num_machines;
+    int global_num_workers;
     int global_num_threads;
 
 
@@ -233,14 +233,14 @@ class Config{
 
         // // [SYSTEM]
         // val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
-        // if (val != val_not_found) global_num_machines=val;
+        // if (val != val_not_found) global_num_workers=val;
         // else
         // {
         //     fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
         //     exit(-1);
         // }
 
-        global_num_machines = node.get_world_size() - 1;
+        global_num_workers = node.get_world_size() - 1;
 
         val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
         if (val != val_not_found) {
@@ -391,13 +391,13 @@ class Config{
             send_buffer_sz = (global_num_threads + 1) * MiB2B(global_per_send_buffer_sz_mb);
             send_buffer_offset = kvstore_offset + kvstore_sz;
 
-            recv_buffer_sz = global_num_machines * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
+            recv_buffer_sz = global_num_workers * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
             recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
-            local_head_buffer_sz = global_num_machines * global_num_threads * sizeof(uint64_t);
+            local_head_buffer_sz = global_num_workers * global_num_threads * sizeof(uint64_t);
             local_head_buffer_offset = recv_buffer_sz + recv_buffer_offset;
 
-            remote_head_buffer_sz = global_num_machines * global_num_threads * sizeof(uint64_t);
+            remote_head_buffer_sz = global_num_workers * global_num_threads * sizeof(uint64_t);
             remote_head_buffer_offset = local_head_buffer_sz + local_head_buffer_offset;
 
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
@@ -436,7 +436,7 @@ class Config{
         ss << "HDFS_OUTPUT_PATH : " << HDFS_OUTPUT_PATH << endl;
         ss << "SNAPSHOT_PATH : " << SNAPSHOT_PATH << endl;
 
-        ss << "global_num_machines : " << global_num_machines << endl;
+        ss << "global_num_workers : " << global_num_workers << endl;
         ss << "global_num_threads : " << global_num_threads << endl;
 
         ss << "global_vertex_property_kv_sz_gb : " << global_vertex_property_kv_sz_gb << endl;

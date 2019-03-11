@@ -229,8 +229,8 @@ void VKVStore::init(vector<Node> & nodes) {
     }
 
     if (!config_->global_use_rdma) {
-        requesters.resize(config_->global_num_machines);
-        for (int nid = 0; nid < config_->global_num_machines; nid++) {
+        requesters.resize(config_->global_num_workers);
+        for (int nid = 0; nid < config_->global_num_workers; nid++) {
             Node & r_node = GetNodeById(nodes, nid + 1);
             string ibname = r_node.ibname;
 
