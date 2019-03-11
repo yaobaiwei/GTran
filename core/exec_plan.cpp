@@ -22,14 +22,17 @@ obinstream& operator>>(obinstream& m, QueryPlan& plan) {
 }
 
 void TrxPlan::RegPlaceHolder(int src_index, int dst_index, int actor_index, int param_index) {
+    // Record the position of placeholder
+    // When src_index is finished, results will be inserted into recorded positions.
     dependents_[src_index].emplace_back(dst_index, actor_index, param_index);
 }
 
 void TrxPlan::FillResult(vector<value_t>& vec) {
-    // Fill place holder
+    // Find placeholders that depend on results of query_index_
     for (auto& pos : dependents_[query_index_]) {
         Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
         if (pos.param == -1) {
+            // insert to the end of params
             pos.param = actor.params.size();
         }
         switch (actor.actor_type) {
@@ -57,16 +60,16 @@ void TrxPlan::FillResult(vector<value_t>& vec) {
     results.insert(results.end(), make_move_iterator(vec.begin()), make_move_iterator(vec.end()));
 }
 
-bool TrxPlan::NextQuery(QueryPlan& plan) {
+int TrxPlan::NextQuery(QueryPlan& plan) {
     query_index_++;
     if (query_index_ == query_plans_.size()) {
-        return false;
+        return -1;
     }
     plan.actors = move(query_plans_[query_index_].actors);
     plan.trxid = trxid;
     plan.st = st_;
     plan.trx_type = trx_type_;
-    return true;
+    return query_index_;
 }
 
 inline bool isTrxReadyOnly(char trx_type) {

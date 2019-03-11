@@ -28,9 +28,11 @@ using namespace std;
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
 
+static uint64_t _56LFLAG = 0xFFFFFFFFFFFFFF;
 static uint64_t _32LFLAG = 0xFFFFFFFF;
 static uint64_t _28LFLAG = 0xFFFFFFF;
 static uint64_t _12LFLAG = 0xFFF;
+static uint64_t _8LFLAG  = 0xFF;
 
 struct ptr_t {
     uint64_t size: NBITS_SIZE;
@@ -426,25 +428,27 @@ enum Direction_T{ IN, OUT, BOTH };
 enum Order_T {INCR, DECR};
 enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSIDE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
+enum {NBITS_TRXID = 56};
+
 struct qid_t{
-    uint32_t nid;
-    uint32_t qr;
+    uint64_t trxid : NBITS_TRXID;
+    uint8_t id;
 
-    qid_t(): nid(0), qr(0) {}
+    qid_t(): trxid(0), id(0) {}
 
-    qid_t(uint32_t _nid, uint32_t _qr): nid(_nid), qr(_qr) {  }
+    qid_t(uint64_t _trxid, uint8_t _id): trxid(_trxid), id(_id) {  }
 
     bool operator == (const qid_t & qid) {
-        if ((nid == qid.nid) && (qr == qid.qr))
+        if ((trxid == qid.trxid) && (id == qid.id))
             return true;
         return false;
     }
 
     uint64_t value() {
         uint64_t r = 0;
-        r += qr;
-        r <<= 32;
-        r += nid;
+        r += trxid;
+        r <<= 8;
+        r += id;
         return r;
     }
 };
@@ -497,32 +501,27 @@ struct MkeyHashCompare {
 };
 
 // Aggregate data Key
-//  qr | nid | label_key
-//  32 |  16 |        16
-enum { NBITS_QR = 32 };
-enum { NBITS_NID = 16 };
-enum { NBITS_SEK = 16 };
+//  trxid | side_effect_key
+//  56  |        8
+enum { NBITS_SEK = 8 };
 struct agg_t {
-    uint64_t qr : NBITS_QR;
-    uint64_t nid : NBITS_NID;
+    uint64_t trxid : NBITS_TRXID;
     uint64_t label_key : NBITS_SEK;
 
-    agg_t() : qr(0), nid(0), label_key(0) {}
+    agg_t() : trxid(0), label_key(0) {}
     agg_t(qid_t _qid, int _label_key) : label_key(_label_key) {
-        qr = _qid.qr;
-        nid = _qid.nid;
+        trxid = _qid.trxid;
     }
 
     agg_t(uint64_t qid_value, int _label_key) : label_key(_label_key) {
         qid_t _qid;
         uint2qid_t(qid_value, _qid);
 
-        qr = _qid.qr;
-        nid = _qid.nid;
+        trxid = _qid.trxid;
     }
 
     bool operator==(const agg_t & key) const {
-        if ((qr == key.qr) && (nid == key.nid) && (label_key == key.label_key)) {
+        if ((trxid == key.trxid) && (label_key == key.label_key)) {
             return true;
         }
         return false;
@@ -530,10 +529,8 @@ struct agg_t {
 
     uint64_t value() {
         uint64_t r = 0;
-        r += qr;
-        r <<= NBITS_QR;
-        r += nid;
-        r <<= NBITS_NID;
+        r += trxid;
+        r <<= NBITS_SEK;
         r += label_key;
         return r;
     }
@@ -547,13 +544,11 @@ namespace std {
 template <>
 struct hash<agg_t> {
     size_t operator()(const agg_t& key) const {
-        int k1 = static_cast<int>(key.qr);
-        int k2 = static_cast<int>(key.nid);
-        int k3 = static_cast<int>(key.label_key);
+        uint64_t k1 = static_cast<int>(key.trxid);
+        int k2 = static_cast<int>(key.label_key);
         size_t seed = 0;
         mymath::hash_combine(seed, k1);
         mymath::hash_combine(seed, k2);
-        mymath::hash_combine(seed, k3);
         return seed;
     }
 };

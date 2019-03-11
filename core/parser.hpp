@@ -56,7 +56,7 @@ class Parser {
     int actor_index;
 
     // Current line
-    int line_index;
+    uint8_t line_index;
 
     TrxPlan* trx_plan;
 

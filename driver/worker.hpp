@@ -48,7 +48,6 @@ class Worker {
     Worker(Node & my_node, vector<Node> & workers, Node & master) :
             my_node_(my_node), workers_(workers), master_(master) {
         config_ = Config::GetInstance();
-        num_query = 0;
         is_emu_mode_ = false;
     }
 
@@ -310,7 +309,9 @@ class Worker {
 
         if (success) {
             if (RegisterQuery(plan)) {
-                plans_[trxid] = move(plan);
+                // Only take lower 56 bits of trxid
+                // Since qid = (trxid : 56, query_index : 8)
+                plans_[trxid & _56LFLAG] = move(plan);
             } else {
                 error_msg = "Error: Empty transaction";
                 goto ERROR;
@@ -366,21 +367,15 @@ class Worker {
      * to form a package after assigning the qid
      */
     bool RegisterQuery(TrxPlan& plan) {
-        static mutex qid_mutex;
-        uint32_t num_query_;
-
-        // Two threads will call register
-        {
-            unique_lock<mutex> lock(qid_mutex);
-            num_query_ = ++num_query;
-        }
-
         QueryPlan qplan;
-        if (plan.NextQuery(qplan)) {
-            qid_t qid(my_node_.get_local_rank(), num_query_);
+        // Get next query plan if any
+        int query_index = plan.NextQuery(qplan);
+        if (query_index >= 0) {
+            // Register qid in result collector
+            qid_t qid(plan.trxid, query_index);
             rc_->Register(qid.value());
-            qid2trx_[qid.value()] = plan.trxid;
 
+            // Push query plan to SendQueryMsg queue
             Pack pkg;
             pkg.id = qid;
             pkg.actors = move(qplan.actors);
@@ -546,12 +541,14 @@ class Worker {
             reply re;
             rc_->Pop(re);
 
-            auto itr = qid2trx_.find(re.qid);
-            assert(itr != qid2trx_.end());
+            // Get trxid from replied qid
+            qid_t qid;
+            uint2qid_t(re.qid, qid);
 
-            TrxPlan& plan = plans_[itr->second];
+            TrxPlan& plan = plans_[qid.trxid];
             plan.FillResult(re.results);
             if (!RegisterQuery(plan) && !is_emu_mode_) {
+                // Reply to client when transaction is finished
                 ReplyClient(plan);
             }
         }
@@ -576,7 +573,6 @@ class Worker {
     ThreadSafeQueue<Pack> queue_;
     ResultCollector * rc_;
     Monitor * monitor_;
-    uint32_t num_query;
 
     bool is_emu_mode_;
     ThroughputMonitor * thpt_monitor_;
@@ -586,7 +582,6 @@ class Worker {
     zmq::socket_t * w_listener_;
 
     map<uint64_t, TrxPlan> plans_;
-    map<uint64_t, uint64_t> qid2trx_;
     vector<zmq::socket_t *> senders_;
 
     DataStorage* data_storage_ = nullptr;
