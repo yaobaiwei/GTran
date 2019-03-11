@@ -15,12 +15,10 @@ class MVCCList {
     static_assert(std::is_base_of<AbstractMVCC, MVCC>::value, "MVCC must derive from AbstractMVCC");
  public:
     // TODO(entityless): Implement thread safe when modifying data
-    // TODO(entityless): Function naming?
-    // The initial value of an MVCC
     MVCC* GetCurrentVersion(const uint64_t& trx_id, const uint64_t& begin_time);
 
     void AppendVersion(decltype(MVCC::val) val, const uint64_t& trx_id, const uint64_t& begin_time);
-    void CommitVersion(const uint64_t& trx_id, const uint64_t& begin_time);
+    void CommitVersion(const uint64_t& trx_id, const uint64_t& begin_time);  // TODO(entityless): Finish this
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<MVCC>* pool_ptr) {
         pool_ptr_ = pool_ptr;

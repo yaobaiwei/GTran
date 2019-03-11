@@ -59,5 +59,5 @@ class MVCCKVStore {
  public:
     MVCCKVStore(char* mem, uint64_t mem_sz);
     ptr_t Insert(const MVCCHeader& key, const value_t& value);
-    void Get(ptr_t, value_t&);
+    void Get(const ptr_t&, value_t&);
 };

@@ -8,7 +8,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 using namespace std;
 
-void HDFSDataLoader::Initial() {
+void HDFSDataLoader::Init() {
     config_ = Config::GetInstance();
     node_ = Node::StaticInstance();
     id_mapper_ = SimpleIdMapper::GetInstance();

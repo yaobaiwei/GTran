@@ -50,7 +50,7 @@ class HDFSDataLoader {
 
         if (hdfs_data_loader_instance_ptr == nullptr) {
             hdfs_data_loader_instance_ptr = new HDFSDataLoader();
-            hdfs_data_loader_instance_ptr->Initial();
+            hdfs_data_loader_instance_ptr->Init();
         }
 
         return hdfs_data_loader_instance_ptr;
@@ -62,7 +62,7 @@ class HDFSDataLoader {
     void GetVPList();
     void GetEPList();
 
-    void Initial();
+    void Init();
     void LoadData();
     void Shuffle();
     void FreeMemory();

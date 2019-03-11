@@ -13,17 +13,17 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct AbstractMVCC {
  private:
-    uint64_t begin_time;
+    uint64_t begin_time;  // highest bit 1 -> trx_id, 0 -> begin_time
     uint64_t end_time;
     AbstractMVCC* next;
 
-    // no trx_id will be 0
     // TODO(entityless): Test these functions if they're right
-    uint64_t GetTransactionID() {return (begin_time >> 63) * (begin_time & 0xEFFFFFFFFFFFFFFF);}
+    // if begin_time field is not a transaction id, return 0. else, return trx_id starts from 1 | 0x8000000000000000.
+    uint64_t GetTransactionID() {return (begin_time >> 63) * begin_time;}
 
-    uint64_t Initial(const uint64_t& _trx_id, const uint64_t& _begin_time) {
-        begin_time = _trx_id | 0x8000000000000000;
-        end_time = _begin_time;
+    uint64_t Init(const uint64_t& _trx_id, const uint64_t& _begin_time) {
+        begin_time = _trx_id;
+        end_time = _begin_time;  // notice that this is not commit time
     }
 
     uint64_t Commit(AbstractMVCC* last) {
@@ -54,8 +54,8 @@ struct PropertyMVCC : public AbstractMVCC {
     template<class MVCC> friend class MVCCList;
 };
 
-// TopoMVCC is only used in VertexEdgeRowTable
-struct TopoMVCC : public AbstractMVCC {
+// TopologyMVCC is only used in VertexEdgeRowTable
+struct TopologyMVCC : public AbstractMVCC {
  private:
     bool val;  // whether the edge exists or not
     void SetValue(const bool& _val) {val = _val;}

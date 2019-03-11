@@ -3,16 +3,10 @@
 Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
-// template<class MVCC>
-// MVCC* MVCCList<MVCC>::GetCurrentVersion(const uint64_t& trx_id, const uint64_t& begin_time) {
-//     MVCC* ret = head_;
-//     return ret;
-// }
-
 template<class MVCC>
 void MVCCList<MVCC>::AppendVersion(decltype(MVCC::val) val, const uint64_t& trx_id, const uint64_t& begin_time) {
     if(head_ == nullptr) {
-        // initial
+        // load data
         MVCC* initial_mvcc = pool_ptr_->Get();
 
         initial_mvcc->begin_time = MVCC::MIN_TIME;
@@ -38,6 +32,8 @@ MVCC* MVCCList<MVCC>::GetCurrentVersion(const uint64_t& trx_id, const uint64_t& 
         // if suitable, break
         if (ret->GetTransactionID() == trx_id || begin_time < ret->end_time)
             break;
+
+        ret = (MVCC*)ret->next;
     }
 
     return ret;

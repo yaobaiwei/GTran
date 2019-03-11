@@ -478,7 +478,7 @@ class Worker {
 
         // test new layout
         data_storage_ = DataStorage::GetInstance();
-        data_storage_->Initial();
+        data_storage_->Init();
         // return;  //TODO(entityless): remove this after finishing DataStorage
 
         AbstractMailbox * mailbox;

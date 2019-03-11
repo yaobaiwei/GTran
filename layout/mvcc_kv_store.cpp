@@ -89,7 +89,7 @@ uint64_t MVCCKVStore::InsertId(const MVCCHeader& _mvcc_header) {
     pthread_spin_lock(&bucket_locks_[lock_id]);
     while (slot_id < num_slots_) {
         // the last slot of each bucket is reserved for pointer to indirect header
-        /// key.mvcc_header is used to store the bucket_id of indirect header
+        // key.mvcc_header is used to store the bucket_id of indirect header
         for (int i = 0; i < ASSOCIATIVITY - 1; i++, slot_id++) {
             // assert(vertices[slot_id].key != key); // no duplicate key
             if (keys_[slot_id].mvcc_header == _mvcc_header) {
@@ -110,7 +110,7 @@ uint64_t MVCCKVStore::InsertId(const MVCCHeader& _mvcc_header) {
         // whether the bucket_ext (indirect-header region) is used
         if (!keys_[slot_id].is_empty()) {
             slot_id = keys_[slot_id].mvcc_header.pid * ASSOCIATIVITY;
-            continue; // continue and jump to next bucket
+            continue;  // continue and jump to next bucket
         }
 
         // allocate and link a new indirect header
@@ -122,8 +122,8 @@ uint64_t MVCCKVStore::InsertId(const MVCCHeader& _mvcc_header) {
         keys_[slot_id].mvcc_header.pid = num_buckets_ + (last_ext_++);  // ??????
         pthread_spin_unlock(&bucket_ext_lock_);
 
-        slot_id = keys_[slot_id].mvcc_header.pid * ASSOCIATIVITY; // move to a new bucket_ext
-        keys_[slot_id].mvcc_header = _mvcc_header; // insert to the first slot
+        slot_id = keys_[slot_id].mvcc_header.pid * ASSOCIATIVITY;  // move to a new bucket_ext
+        keys_[slot_id].mvcc_header = _mvcc_header;  // insert to the first slot
         goto done;
     }
 
@@ -134,7 +134,7 @@ done:
     return slot_id;
 }
 
-void MVCCKVStore::Get(ptr_t ptr, value_t& val) {
+void MVCCKVStore::Get(const ptr_t& ptr, value_t& val) {
     uint64_t off = ptr.off;
     uint64_t size = ptr.size - 1;
 
