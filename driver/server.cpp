@@ -41,10 +41,10 @@ int main(int argc, char* argv[]) {
     config->Init();
 
     // Erase redundant nodes
-    if (nodes.size() > config->global_num_machines) {
-        nodes.erase(nodes.begin() + config->global_num_machines, nodes.end());
+    if (nodes.size() > config->global_num_workers) {
+        nodes.erase(nodes.begin() + config->global_num_workers, nodes.end());
     }
-    assert(nodes.size() == config->global_num_machines);
+    assert(nodes.size() == config->global_num_workers);
 
     cout  << "DONE -> Config->Init()" << endl;
 

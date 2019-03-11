@@ -27,7 +27,7 @@ void TCPMailbox::Init(vector<Node> & nodes) {
         receivers_[tid]->bind(addr);
     }
 
-    for (int nid = 0; nid < config_->global_num_machines; nid++) {
+    for (int nid = 0; nid < config_->global_num_workers; nid++) {
         Node & r_node = GetNodeById(nodes, nid + 1);
         string ibname = r_node.ibname;
 
@@ -42,8 +42,8 @@ void TCPMailbox::Init(vector<Node> & nodes) {
         }
     }
 
-    locks = (pthread_spinlock_t *)malloc(sizeof(pthread_spinlock_t) * (config_->global_num_threads * config_->global_num_machines));
-    for (int n = 0; n < config_->global_num_machines; n++) {
+    locks = (pthread_spinlock_t *)malloc(sizeof(pthread_spinlock_t) * (config_->global_num_threads * config_->global_num_workers));
+    for (int n = 0; n < config_->global_num_workers; n++) {
         for (int t = 0; t < config_->global_num_threads; t++)
             pthread_spin_init(&locks[n * config_->global_num_threads + t], 0);
     }

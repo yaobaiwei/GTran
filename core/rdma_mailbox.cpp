@@ -20,11 +20,11 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     int nid = node_.get_local_rank();
     // Avoid conflict of master and worker 0
     if (node_.get_world_rank() == 0) {
-        nid = config_->global_num_machines;
+        nid = config_->global_num_workers;
     }
-    RDMA_init(config_->global_num_machines, config_->global_num_threads + 1, nid, mem_info, nodes, master_);
+    RDMA_init(config_->global_num_workers, config_->global_num_threads + 1, nid, mem_info, nodes, master_);
 
-    int nrbfs = config_->global_num_machines * config_->global_num_threads;
+    int nrbfs = config_->global_num_workers * config_->global_num_threads;
 
     rmetas = (rbf_rmeta_t *)malloc(sizeof(rbf_rmeta_t) * nrbfs);
     memset(rmetas, 0, sizeof(rbf_rmeta_t) * nrbfs);
@@ -180,7 +180,7 @@ bool RdmaMailbox::TryRecv(int tid, Message & msg) {
 }
 
 bool RdmaMailbox::CheckRecvBuf(int tid, int nid) {
-    rbf_lmeta_t *lmeta = &lmetas[tid * config_->global_num_machines + nid];
+    rbf_lmeta_t *lmeta = &lmetas[tid * config_->global_num_workers + nid];
     char * rbf = buffer_->GetRecvBuf(tid, nid);
     uint64_t rbf_sz = buffer_->GetRecvBufSize();
     volatile uint64_t msg_size = *(volatile uint64_t *)(rbf + lmeta->head % rbf_sz);  // header
@@ -188,7 +188,7 @@ bool RdmaMailbox::CheckRecvBuf(int tid, int nid) {
 }
 
 void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
-    rbf_lmeta_t *lmeta = &lmetas[tid * config_->global_num_machines + nid];
+    rbf_lmeta_t *lmeta = &lmetas[tid * config_->global_num_workers + nid];
     char * rbf = buffer_->GetRecvBuf(tid, nid);
     uint64_t rbf_sz = buffer_->GetRecvBufSize();
     volatile uint64_t pop_msg_size = *(volatile uint64_t *)(rbf + lmeta->head % rbf_sz);  // header
