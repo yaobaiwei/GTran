@@ -1,4 +1,5 @@
-/* Copyright 2019 Husky Data Lab, CUHK
+/**
+ * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 
@@ -20,6 +21,7 @@ RCTable::RCTable() {
 }
 
 int RCTable::trxid2int(uint64_t trx_id) {
+    CHECK_EQ(trx_id & 0x7FFFFFFF00000000, 0) << "[RCTable] trxid2int: uint64_t converted to int, information lost";  // make sure will not lose infomation due to being capped
     return (trx_id << 1) >> 1;
 }
 
@@ -28,22 +30,23 @@ uint64_t RCTable::int2trxid(int trx_id) {
 }
 
 int RCTable::ct2int(uint64_t ct) {
+    CHECK_EQ(ct & 0xFFFFFFFF00000000, 0) << "[RCTable] ct2int: uint64_t converted to int, information lost";  // make sure will not lose infomation due to being capped
     return (int) ct;
 }
 
-bool RCTable::insertTransaction(uint64_t ct, uint64_t trx_id) {
+bool RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
     CHECK(is_valid_trx_id(trx_id));
     CHECK(is_valid_time(ct));
 
     int inner_trx_id = trxid2int(trx_id);
     int inner_ct = ct2int(ct);
-    DLOG(INFO) << "[RCT] insertTransaction: " << inner_ct << " trx_id " << inner_trx_id << " inserted" << endl;
+    DLOG(INFO) << "[RCT] insert_trx: " << inner_ct << " trx_id " << inner_trx_id << " inserted" << endl;
 
     bplus_tree_put(tree_, inner_ct, inner_trx_id);
     return true;
 }
 
-bool RCTable::queryTransactions(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) {
+bool RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) {
     CHECK(is_valid_time(ct));
     CHECK(is_valid_time(bt));
 
@@ -55,7 +58,7 @@ bool RCTable::queryTransactions(uint64_t bt, uint64_t ct, std::set<uint64_t>& tr
     return true;
 }
 
-bool RCTable::delete_single_transaction(uint64_t ct) {
+bool RCTable::delete_transaction(uint64_t ct) {
     CHECK(is_valid_time(ct));
 
     bplus_tree_put(tree_, ct, 0);

@@ -1,8 +1,13 @@
+/**
+ * Copyright 2019 Husky Data Lab, CUHK
+ * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ */
+
 #include <core/worker_master_message.hpp>
 
-TrxTableStubImpl * TrxTableStubImpl::instance_ = nullptr;
+TrxTableStub * TrxTableStub::instance_ = nullptr;
 
-bool TrxTableStubImpl::update_status(uint64_t trx_id, TRX_STAT new_status) {
+bool TrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status) {
     ibinstream in;
     int status_i = int(new_status);
     in << node_.get_local_rank() << trx_id << status_i;
@@ -10,7 +15,7 @@ bool TrxTableStubImpl::update_status(uint64_t trx_id, TRX_STAT new_status) {
     return true;
 }
 
-bool TrxTableStubImpl::read_status(uint64_t trx_id, TRX_STAT &status) {
+bool TrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
     CHECK(is_valid_trx_id(trx_id));
 
     int t_id = TidMapper::GetInstance()->GetTid();

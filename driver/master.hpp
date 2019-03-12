@@ -156,11 +156,11 @@ class Master {
                 trx_p -> print_single_item(req.trx_id);
 
                 // insert this transaction into RCT
-                rct -> insertTransaction(ct, req.trx_id);
+                rct -> insert_trx(ct, req.trx_id);
 
                 // query RCT
                 std::set<uint64_t> trx_ids;
-                rct -> queryTransactions(bt, ct, trx_ids);
+                rct -> query_trx(bt, ct, trx_ids);
 
                 ibinstream in;
                 in << trx_ids;
@@ -204,7 +204,7 @@ class Master {
             mailbox = new TCPMailbox(node_);
         mailbox->Init(workers_);
 
-        trx_p = Transactions::GetInstance();
+        trx_p = TrxGlobalCoordinator::GetInstance();
         rct = RCTable::GetInstance();
 
         // // ================Test====================
@@ -246,7 +246,7 @@ class Master {
     map<int, Progress> progress_map_;
     int client_num;
     ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_table_updates_;
-    Transactions * trx_p;
+    TrxGlobalCoordinator * trx_p;
     RCTable * rct;
     AbstractMailbox * mailbox;
 

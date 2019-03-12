@@ -1,12 +1,13 @@
-/* Copyright 2019 Husky Data Lab, CUHK
+/**
+ * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 
 #include "core/transactions_table.hpp"
 
-Transactions* Transactions::t_table_ = nullptr;
+TrxGlobalCoordinator* TrxGlobalCoordinator::t_table_ = nullptr;
 
-Transactions::Transactions() {
+TrxGlobalCoordinator::TrxGlobalCoordinator() {
     config_ = Config::GetInstance();
 
     // release version
@@ -17,30 +18,19 @@ Transactions::Transactions() {
     num_indirect_buckets_ = config_ -> num_indirect_buckets;
     num_slots_ = config_ -> num_slots;
 
-    // for test
-    // {
-    //     buffer_sz_ = 67108864;
-    //     buffer_ = new char[buffer_sz_];
-    //     memset(buffer_, 0, buffer_sz_);
-    //     num_total_buckets_ = 1048576;
-    //     num_main_buckets_ = 838860;
-    //     num_indirect_buckets_ = 209716;
-    //     num_slots_ = 8388608;
-    // }
-
     table_ = (TidStatus*) buffer_;
     last_ext_ = 0;
     next_time_ = 1;
     next_trx_id_ = next_time_;
 }
 
-Transactions* Transactions::GetInstance() {
+TrxGlobalCoordinator* TrxGlobalCoordinator::GetInstance() {
     if (t_table_ == nullptr)
-        t_table_ = new Transactions();
+        t_table_ = new TrxGlobalCoordinator();
     return t_table_;
 }
 
-bool Transactions::query_bt(uint64_t trx_id, uint64_t& bt) {
+bool TrxGlobalCoordinator::query_bt(uint64_t trx_id, uint64_t& bt) {
     // CHECK(bt.find(trx_id) != bt.endl())
     CHECK(is_valid_trx_id(trx_id));
 
@@ -50,7 +40,7 @@ bool Transactions::query_bt(uint64_t trx_id, uint64_t& bt) {
     return true;
 }
 
-bool Transactions::query_ct(uint64_t trx_id, uint64_t& ct) {
+bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
     // CHECK(bt.find(trx_id) != bt.endl())
     CHECK(is_valid_trx_id(trx_id));
     btct_table_const_accessor ac;
@@ -59,7 +49,7 @@ bool Transactions::query_ct(uint64_t trx_id, uint64_t& ct) {
     return true;
 }
 
-bool Transactions::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
+bool TrxGlobalCoordinator::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
     // trx_id is inner representation now
     if (!allocate_trx_id(trx_id))
         return false;
@@ -115,7 +105,7 @@ done:
     return true;
 }
 
-bool Transactions::modify_status(uint64_t trx_id, TRX_STAT new_status) {
+bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     CHECK(is_valid_trx_id(trx_id));
 
     TRX_STAT old_status;
@@ -154,7 +144,7 @@ bool Transactions::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     return false;
 }
 
-bool Transactions::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct) {
+bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct) {
     CHECK(is_valid_trx_id(trx_id));
 
     allocate_ct(ct);
@@ -165,7 +155,7 @@ bool Transactions::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t&
     return modify_status(trx_id, new_status);
 }
 
-bool Transactions::print_single_item(uint64_t trx_id) {
+bool TrxGlobalCoordinator::print_single_item(uint64_t trx_id) {
     CHECK(is_valid_trx_id(trx_id));
 
     TidStatus * p = nullptr;
@@ -180,12 +170,12 @@ bool Transactions::print_single_item(uint64_t trx_id) {
         CHECK(p != nullptr);
         printf("[TRX Table] print_single_item: trx_id=%llx; P=%d; V=%d; C=%d; A=%d; occupied=%d; bt=%ld; ct=%ld\n", (long long)trx_id, p->P, p->V, p->C, p->A, p->occupied, bt, ct);
     } else {
-        printf("[TRX Table] Not Found");
+        printf("[TRX Table] print_single_item: Not Found");
         return false;
     }
 }
 
-bool Transactions::delete_single_item(uint64_t trx_id) {
+bool TrxGlobalCoordinator::delete_single_item(uint64_t trx_id) {
     CHECK(is_valid_trx_id(trx_id));
     bool op_succ_1 = deregister_btct(trx_id);
 
@@ -204,11 +194,11 @@ bool Transactions::delete_single_item(uint64_t trx_id) {
 
 // private functions part:
 
-uint64_t Transactions::next_trx_id() {
+uint64_t TrxGlobalCoordinator::next_trx_id() {
     return 0x8000000000000000 | next_trx_id_;
 }
 
-bool Transactions::allocate_trx_id(uint64_t& trx_id) {
+bool TrxGlobalCoordinator::allocate_trx_id(uint64_t& trx_id) {
     // no need to check, since you need to write this trx_id variable in this function
 
     trx_id = next_trx_id();
@@ -218,18 +208,18 @@ bool Transactions::allocate_trx_id(uint64_t& trx_id) {
     return true;
 }
 
-bool Transactions::allocate_bt(uint64_t& bt) {
+bool TrxGlobalCoordinator::allocate_bt(uint64_t& bt) {
     bt = next_time_ ++;
     return true;
 }
 
 /* delete with check existance */
-bool Transactions::allocate_ct(uint64_t& ct) {
+bool TrxGlobalCoordinator::allocate_ct(uint64_t& ct) {
     ct = next_time_ ++;
     return true;
 }
 
-bool Transactions::find_trx(uint64_t trx_id, TidStatus** p) {
+bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
     CHECK(is_valid_trx_id(trx_id));
 
     uint64_t bucket_id = trx_id % num_main_buckets_;
@@ -259,7 +249,7 @@ bool Transactions::find_trx(uint64_t trx_id, TidStatus** p) {
     return false;
 }
 
-bool Transactions::register_ct(uint64_t trx_id, uint64_t ct) {
+bool TrxGlobalCoordinator::register_ct(uint64_t trx_id, uint64_t ct) {
     CHECK(is_valid_trx_id(trx_id) && is_valid_time(ct));
 
     btct_table_accessor ac;
@@ -268,7 +258,7 @@ bool Transactions::register_ct(uint64_t trx_id, uint64_t ct) {
     return true;
 }
 
-bool Transactions::deregister_btct(uint64_t trx_id) {
+bool TrxGlobalCoordinator::deregister_btct(uint64_t trx_id) {
     CHECK(is_valid_trx_id(trx_id));
 
     btct_table_accessor ac;
@@ -277,7 +267,7 @@ bool Transactions::deregister_btct(uint64_t trx_id) {
     return true;
 }
 
-bool Transactions::register_bt(uint64_t trx_id, uint64_t bt) {
+bool TrxGlobalCoordinator::register_bt(uint64_t trx_id, uint64_t bt) {
     CHECK(is_valid_trx_id(trx_id) && is_valid_time(bt));
 
     btct_table_accessor ac;

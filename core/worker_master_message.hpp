@@ -1,3 +1,8 @@
+/**
+ * Copyright 2019 Husky Data Lab, CUHK
+ * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ */
+
 #pragma once
 
 #include <core/common.hpp>
@@ -10,13 +15,13 @@
 #include "glog/logging.h"
 #include <iostream>
 
-class TrxTableStubImpl{
+class TrxTableStub{
 private:
     AbstractMailbox * mailbox_;
     Config* config_;
     Node node_;
     Buffer* buf_;
-    static TrxTableStubImpl * instance_;
+    static TrxTableStub * instance_;
 
     uint64_t num_total_buckets_;
     uint64_t num_main_buckets_;
@@ -28,7 +33,7 @@ private:
 
     uint64_t ASSOCIATIVITY_;
 
-    TrxTableStubImpl(AbstractMailbox * mailbox){
+    TrxTableStub(AbstractMailbox * mailbox){
         config_ = Config::GetInstance();
         mailbox_ = mailbox;
         node_ = Node::StaticInstance();
@@ -49,10 +54,10 @@ private:
 
 public:
 
-    static TrxTableStubImpl* GetInstance(AbstractMailbox * mailbox){
+    static TrxTableStub* GetInstance(AbstractMailbox * mailbox){
         CHECK(mailbox);
         if(instance_ == nullptr){
-            instance_ = new TrxTableStubImpl(mailbox);
+            instance_ = new TrxTableStub(mailbox);
         }
         return instance_;
     }

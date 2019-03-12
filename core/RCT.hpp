@@ -1,28 +1,26 @@
-/* Copyright 2019 Husky Data Lab, CUHK
+/**
+ * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 
 #pragma once
 
 #include <stdint.h>
+#include <inttypes.h>
 #include <set>
 #include <iostream>
-#include <inttypes.h>
 #include "glog/logging.h"
 #include "core/common.hpp"
-
 extern "C" {
     #include "bplustreelib/bplustree.h"
 }
-
-
-using namespace std;
 
 struct bplus_tree_config {
         int order;
         int entries;
 };
 
+// TODO(zj): modify the B+ tree lib to support uint64
 class RCTable {  // RecentCommittedTrxTable
  private:
     RCTable();
@@ -45,8 +43,8 @@ class RCTable {  // RecentCommittedTrxTable
         }
         return rct_;
     }
-    bool insertTransaction(uint64_t ct, uint64_t t_id);
-    bool queryTransactions(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids);
-    bool delete_single_transaction(uint64_t ct);
+    bool insert_trx(uint64_t ct, uint64_t t_id);
+    bool query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids);
+    bool delete_transaction(uint64_t ct);
 };
 

@@ -1,18 +1,18 @@
-/* Copyright 2019 Husky Data Lab, CUHK
+/**
+ * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 #pragma once
 
-#include <map>
-#include "base/type.hpp"
-#include <pthread.h>
-#include <utility>
 #include <tbb/concurrent_hash_map.h>
 #include <stdint.h>
+#include <pthread.h>
+#include <map>
+#include <utility>
+#include "base/type.hpp"
 #include "utils/config.hpp"
 #include "core/common.hpp"
 #include "glog/logging.h"
-
 
 /*
  * a table of transactions
@@ -22,12 +22,12 @@
  * This class is responsible for managering this region and provide public interfaces   * to access this memory region
  */
 
-class Transactions{
+class TrxGlobalCoordinator{
  private:
-    static Transactions * t_table_;
+    static TrxGlobalCoordinator * t_table_;
 
-    Transactions();
-    // ~Transactions();
+    TrxGlobalCoordinator();
+    // ~TrxGlobalCoordinator();
 
     /* core fields */
     uint64_t next_trx_id_;
@@ -46,7 +46,7 @@ class Transactions{
     TidStatus * table_;
 
     const uint64_t ASSOCIATIVITY_ = 8;
-    const double MI_RATIO_ = 0.8; // the ratio of main buckets vs indirect buckets
+    const double MI_RATIO_ = 0.8;  // the ratio of main buckets vs indirect buckets
     uint64_t num_total_buckets_;
     uint64_t num_main_buckets_;
     uint64_t num_indirect_buckets_;
@@ -59,8 +59,6 @@ class Transactions{
     /* secondary fields: used to operate on external objects and the objects above*/
     Config * config_;
 
-    // lock
-    pthread_spinlock_t spinlock_;
     bool find_trx(uint64_t trx_id, TidStatus** p);
 
     bool allocate_trx_id(uint64_t& trx_id);
@@ -79,12 +77,14 @@ class Transactions{
     uint64_t next_trx_id();
 
  public:
-    // called if not P->V
-    bool modify_status(uint64_t trx_id, TRX_STAT new_status);
-
-    static Transactions* GetInstance();
+    static TrxGlobalCoordinator* GetInstance();
 
     bool insert_single_trx(uint64_t& trx_id, uint64_t& bt);
+
+    bool delete_single_item(uint64_t trx_id);
+
+    // called if not P->V
+    bool modify_status(uint64_t trx_id, TRX_STAT new_status);
 
     // called if p->V
     bool modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct);
@@ -95,6 +95,5 @@ class Transactions{
 
     bool print_single_item(uint64_t trx_id);
 
-    bool delete_single_item(uint64_t trx_id);
 };
 

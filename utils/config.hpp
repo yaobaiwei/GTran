@@ -255,7 +255,7 @@ class Config{
 
         // // [SYSTEM]
         // val = iniparser_getint(ini, "SYSTEM:NUM_WORKER_NODES", val_not_found);
-        // if (val != val_not_found) global_num_machines=val;
+        // if (val != val_not_found) global_num_workers=val;
         // else
         // {
         //     fprintf(stderr, "must enter the NUM_MACHINES. exits.\n");
@@ -505,7 +505,7 @@ class Config{
 
         // init hdfs
         hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);
-        LOG(INFO) << "[Config] rank " << node.get_world_rank() << DebugString();
+        LOG(INFO) << "[Config] rank " << node.get_world_rank() << " " << DebugString();
     }
 
     string DebugString() const {
