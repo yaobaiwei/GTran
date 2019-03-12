@@ -23,6 +23,11 @@ void OffsetConcurrentMemPool<ItemT, OffsetT>::Init(ItemT* mem, size_t element_cn
 
     pthread_spin_init(&head_lock_, 0);
     pthread_spin_init(&tail_lock_, 0);
+
+    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    get_counter_ = 0;
+    free_counter_ = 0;
+    #endif  // OFFSET_MEMORY_POOL_DEBUG
 }
 
 template<class ItemT, class OffsetT>
@@ -38,6 +43,10 @@ ItemT* OffsetConcurrentMemPool<ItemT, OffsetT>::Get() {
         head_ = next_offset_[ori_head];
     }
     pthread_spin_unlock(&head_lock_);
+    assert(ret != nullptr);
+    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    get_counter_++;
+    #endif  // OFFSET_MEMORY_POOL_DEBUG
     return ret;
 }
 
@@ -49,5 +58,16 @@ void OffsetConcurrentMemPool<ItemT, OffsetT>::Free(ItemT* element) {
     next_offset_[ori_tail] = mem_off;
     tail_ = mem_off;
     pthread_spin_unlock(&tail_lock_);
+    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    free_counter_++;
+    #endif  // OFFSET_MEMORY_POOL_DEBUG
 }
 
+#ifdef OFFSET_MEMORY_POOL_DEBUG
+template<class ItemT, class OffsetT>
+std::string OffsetConcurrentMemPool<ItemT, OffsetT>::UsageString() {
+    int get_counter = get_counter_;
+    int free_counter = free_counter_;
+    return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter);
+}
+#endif  // OFFSET_MEMORY_POOL_DEBUG

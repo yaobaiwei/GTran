@@ -439,9 +439,11 @@ class Worker {
                       config_->HDFS_VTX_SUBFOLDER +
                       config_->HDFS_VP_SUBFOLDER +
                       config_->HDFS_EP_SUBFOLDER +
-                      p->ultos(config_->key_value_ratio_in_rdma) +
-                      p->ultos(config_->global_vertex_property_kv_sz_gb) +
-                      p->ultos(config_->global_edge_property_kv_sz_gb));
+                      to_string(config_->key_value_ratio_in_rdma) +
+                      to_string(config_->global_vertex_property_kv_sz_gb) +
+                      to_string(config_->global_edge_property_kv_sz_gb) +
+                      " Using SimpleIdMapper");
+        // Since new IdMapper is used, recent snapshot will become invalid.
 
         // initial MPISnapshot
         MPISnapshot* snapshot = MPISnapshot::GetInstance(config_->SNAPSHOT_PATH);

@@ -123,6 +123,7 @@ class Node {
         va_list arglist;
         va_start(arglist, format);
         if (local_rank_ == 0) {
+            printf("time = %f, ", WtimeSinceStart());
             vprintf(format, arglist);
         }
         va_end(arglist);

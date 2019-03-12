@@ -13,6 +13,7 @@ OffsetConcurrentMemPool<VertexEdgeRow>* TopologyRowList::pool_ptr_ = nullptr;
 void DataStorage::Init() {
     config_ = Config::GetInstance();
     node_ = Node::StaticInstance();
+    snapshot_manager_ = MPISnapshotManager::GetInstance();
 
     node_.Rank0Printf("VE_ROW_ITEM_COUNT = %d, sizeof(EdgeHeader) = %d, sizeof(VertexEdgeRow) = %d\n",
                        VE_ROW_ITEM_COUNT, sizeof(EdgeHeader), sizeof(VertexEdgeRow));
@@ -24,11 +25,19 @@ void DataStorage::Init() {
                        sizeof(TopologyMVCC), sizeof(PropertyMVCC));
 
     CreateContainer();
+
+    snapshot_manager_->SetRootPath(config_->SNAPSHOT_PATH);
+    snapshot_manager_->AppendConfig("HDFS_INDEX_PATH", config_->HDFS_INDEX_PATH);
+    snapshot_manager_->AppendConfig("HDFS_VTX_SUBFOLDER", config_->HDFS_VTX_SUBFOLDER);
+    snapshot_manager_->AppendConfig("HDFS_VP_SUBFOLDER", config_->HDFS_VP_SUBFOLDER);
+    snapshot_manager_->AppendConfig("HDFS_EP_SUBFOLDER", config_->HDFS_EP_SUBFOLDER);
+    snapshot_manager_->SetComm(node_.local_comm);
+    snapshot_manager_->ConfirmConfig();
+
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
     hdfs_data_loader_->LoadData();
-    hdfs_data_loader_->Shuffle();
     FillContainer();
-    // PrintLoadedData();
+    PrintLoadedData();
     hdfs_data_loader_->FreeMemory();
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::Init() all finished\n");
@@ -100,18 +109,25 @@ void DataStorage::FillContainer() {
             v_accessor->second.vp_row_list->InsertElement(vpid_t(vtx.id, vtx.vp_label_list[i]), vtx.vp_value_list[i]);
         }
     }
+    node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() load vtx finished\n");
 
     // fill EdgePropertyRow
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
         EdgeConstAccessor e_accessor;
         edge_map_.find(e_accessor, edge.id.value());
 
-        auto& ep_row_ref = *e_accessor->second.ep_row_list;
+        auto& ep_row_list_ref = *e_accessor->second.ep_row_list;
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
-            ep_row_ref.InsertElement(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
+            ep_row_list_ref.InsertElement(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
         }
     }
+    node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("vp_row_pool_: " + vp_row_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("ep_row_pool_: " + ep_row_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("topology_mvcc_pool_: " + topology_mvcc_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("property_mvcc_pool_: " + property_mvcc_pool_->UsageString());
+    node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
 }
 
 void DataStorage::GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret) {
@@ -188,7 +204,7 @@ void DataStorage::GetAllEdge(const uint64_t& trx_id, const uint64_t& begin_time,
     // TODO(entityless): Simplify the code by editing eid_t::value()
     for (auto i = edge_map_.begin(); i != edge_map_.end(); i++) {
         uint64_t eid_fetched = i->first;
-        eid_t* tmp_eid_p = (eid_t*)(&eid_fetched);
+        eid_t* tmp_eid_p = reinterpret_cast<eid_t*>(&eid_fetched);
 
         ret.emplace_back(eid_t(tmp_eid_p->out_v, tmp_eid_p->in_v));
     }
@@ -234,7 +250,7 @@ void DataStorage::GetNameFromIndex(const Index_T& type, const label_t& id, strin
 void DataStorage::PrintLoadedData() {
     node_.LocalSequentialStart();
 
-    if (hdfs_data_loader_->shuffled_vtx_.size() < 20 || hdfs_data_loader_->shuffled_edge_.size() < 40) {
+    if (hdfs_data_loader_->shuffled_vtx_.size() < 20 && hdfs_data_loader_->shuffled_edge_.size() < 40) {
         for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
             TMPVertex tmp_vtx;
             tmp_vtx.id = vtx.id;

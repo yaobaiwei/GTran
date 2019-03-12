@@ -5,11 +5,16 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #pragma once
 
-#include <cstdio>
+#include <assert.h>
 #include <memory.h>
 #include <pthread.h>
 #include <stdint.h>
 
+#include <atomic>
+#include <cstdio>
+#include <string>
+
+#define OFFSET_MEMORY_POOL_DEBUG
 
 // if element_cnt is small than 65535, OffsetT can be set to uint16_t
 // if element_cnt is larger than 4G, OffsetT can be set to uint64_t
@@ -25,6 +30,10 @@ class OffsetConcurrentMemPool {
     // TODO(entityless): find out a way to avoid false sharing
     ItemT* attached_mem_;
     size_t element_cnt_;
+
+    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    std::atomic_int get_counter_, free_counter_;
+    #endif  // OFFSET_MEMORY_POOL_DEBUG
 
     // simple implemention with acceptable performance
     OffsetT head_, tail_;
@@ -47,6 +56,9 @@ class OffsetConcurrentMemPool {
 
     ItemT* Get();
     void Free(ItemT* element);
+    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    std::string UsageString();
+    #endif  // OFFSET_MEMORY_POOL_DEBUG
 };
 
 #include "concurrent_mem_pool.tpp"

@@ -12,6 +12,7 @@ void HDFSDataLoader::Init() {
     config_ = Config::GetInstance();
     node_ = Node::StaticInstance();
     id_mapper_ = SimpleIdMapper::GetInstance();
+    snapshot_manager_ = MPISnapshotManager::GetInstance();
 
     indexes_ = new string_index;
 }
@@ -354,10 +355,48 @@ void HDFSDataLoader::ToEP(char* line) {
 }
 
 void HDFSDataLoader::LoadData() {
-    GetStringIndexes();
-    GetVertices();
-    GetVPList();
-    GetEPList();
+    if (!ReadSnapshot()) {
+        vector<TMPVertex>().swap(shuffled_vtx_);
+        vector<TMPEdge>().swap(shuffled_edge_);
+        vector<TMPEdge>().swap(shuffled_in_edge_);
+        GetStringIndexes();
+        GetVertices();
+        GetVPList();
+        GetEPList();
+        Shuffle();
+        WriteSnapshot();
+    }
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::LoadData() finished\n");
+}
+
+bool HDFSDataLoader::ReadSnapshot() {
+    // return false;
+
+    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, ReadBySerialization))
+        return false;
+    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_edge_", shuffled_edge_, ReadBySerialization))
+        return false;
+    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, ReadBySerialization))
+        return false;
+
+    for (auto& item : shuffled_vtx_)
+        vtx_part_map_[item.id.vid] = &item;
+    for (auto& item : shuffled_edge_)
+        edge_part_map_[item.id.value()] = &item;
+    for (auto& item : shuffled_in_edge_)
+        edge_part_map_[item.id.value()] = &item;
+
+    return true;
+}
+
+void HDFSDataLoader::WriteSnapshot() {
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_vtx_\n");
+    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, WriteBySerialization);
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_edge_\n");
+    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_edge_", shuffled_edge_, WriteBySerialization);
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_in_edge_\n");
+    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, WriteBySerialization);
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() finished\n");
 }
 
 void HDFSDataLoader::Shuffle() {
@@ -370,9 +409,8 @@ void HDFSDataLoader::Shuffle() {
     }
     all_to_all(node_, false, vtx_parts);
     vertices_.clear();
-    if (node_.get_local_rank() == 0) {
-        cout << "HDFSDataLoader Shuffle vertex done" << endl;
-    }
+
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle vertex done\n");
 
     for (int i = 0; i < node_.get_local_size(); i++) {
         vertices_.insert(vertices_.end(), vtx_parts[i].begin(), vtx_parts[i].end());
@@ -388,9 +426,7 @@ void HDFSDataLoader::Shuffle() {
         edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
     }
     all_to_all(node_, false, edges_parts);
-    if (node_.get_local_rank() == 0) {
-        cout << "HDFSDataLoader Shuffle edge done" << endl;
-    }
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle edge done\n");
 
     edges_.clear();
     for (int i = 0; i < node_.get_local_size(); i++) {
@@ -418,9 +454,7 @@ void HDFSDataLoader::Shuffle() {
 
     all_to_all(node_, false, vp_parts);
 
-    if (node_.get_local_rank() == 0) {
-        cout << "HDFSDataLoader Shuffle vp done" << endl;
-    }
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle vp done\n");
 
     vplist_.clear();
 
@@ -453,9 +487,7 @@ void HDFSDataLoader::Shuffle() {
 
     all_to_all(node_, false, ep_parts);
 
-    if (node_.get_local_rank() == 0) {
-        cout << "HDFSDataLoader Shuffle ep done" << endl;
-    }
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle ep done\n");
 
     eplist_.clear();
     for (int i = 0; i < node_.get_local_size(); i++) {
@@ -512,9 +544,12 @@ void HDFSDataLoader::Shuffle() {
     for (auto eps : eplist_) {
         // just construct a new edge to insert the label
         if (edge_part_map_.count(eps->id.value()) == 0) {
-            edge_part_map_[eps->id.value()] = new TMPEdge;
-            edge_part_map_[eps->id.value()]->id = eid_t(eps->plist[0].key.in_vid, eps->plist[0].key.out_vid);
-            edge_part_map_[eps->id.value()]->label = Tool::value_t2int(eps->plist[0].value);
+            TMPEdge tmp_in_edge;
+            tmp_in_edge.id = eid_t(eps->plist[0].key.in_vid, eps->plist[0].key.out_vid);
+            tmp_in_edge.label = Tool::value_t2int(eps->plist[0].value);
+
+            shuffled_in_edge_.push_back(tmp_in_edge);
+            edge_part_map_[eps->id.value()] = &(shuffled_in_edge_[shuffled_in_edge_.size() - 1]);
         }
 
         TMPEdge& edge_ref = *edge_part_map_[eps->id.value()];
@@ -550,4 +585,5 @@ void HDFSDataLoader::FreeMemory() {
     edge_part_map_ = hash_map<uint64_t, TMPEdge*>();
     vector<TMPVertex>().swap(shuffled_vtx_);
     vector<TMPEdge>().swap(shuffled_edge_);
+    vector<TMPEdge>().swap(shuffled_in_edge_);
 }
