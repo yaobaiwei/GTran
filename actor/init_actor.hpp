@@ -77,16 +77,18 @@ class InitActor : public AbstractActor {
 
     virtual ~InitActor() {}
 
-    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
-        assert(actor_objs[msg.meta.step].params.size() >= 2);
-        bool with_input = Tool::value_t2int(actor_objs[msg.meta.step].params[1]);
+
+        Actor_Object actor_obj = qplan.actors[msg.meta.step];
+        assert(actor_obj.params.size() >= 2);
+        bool with_input = Tool::value_t2int(actor_obj.params[1]);
         if (with_input) {
-            InitWithInput(tid, actor_objs, msg);
-        } else if (actor_objs[msg.meta.step].params.size() == 2) {
-            InitWithoutIndex(tid, actor_objs, msg);
+            InitWithInput(tid, qplan.actors, msg);
+        } else if (actor_obj.params.size() == 2) {
+            InitWithoutIndex(tid, qplan.actors, msg);
         } else {
-            InitWithIndex(tid, actor_objs, msg);
+            InitWithIndex(tid, qplan.actors, msg);
         }
     }
 

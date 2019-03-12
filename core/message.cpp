@@ -36,7 +36,9 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta) {
     m << meta.parent_tid;
     m << meta.msg_path;
     m << meta.branch_infos;
-    m << meta.actors;
+    if (meta.msg_type == MSG_T::INIT) {
+        m << meta.qplan;
+    }
     return m;
 }
 
@@ -50,7 +52,9 @@ obinstream& operator>>(obinstream& m, Meta& meta) {
     m >> meta.parent_tid;
     m >> meta.msg_path;
     m >> meta.branch_infos;
-    m >> meta.actors;
+    if (meta.msg_type == MSG_T::INIT) {
+        m >> meta.qplan;
+    }
     return m;
 }
 
@@ -83,7 +87,7 @@ std::string Meta::DebugString() const {
     ss << ", paraent thread: " << parent_tid;
     if (msg_type == MSG_T::INIT) {
         ss << ", actors [";
-        for (auto &actor : actors) {
+        for (auto &actor : qplan.actors) {
             ss  << ActorType[static_cast<int>(actor.actor_type)];
         }
         ss << "]";
@@ -109,7 +113,7 @@ obinstream& operator>>(obinstream& m, Message& msg) {
 }
 
 void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
-                        const vector<Actor_Object>& actors, vector<Message>& vec) {
+                        const QueryPlan& qplan, vector<Message>& vec) {
     // assign receiver thread id
     Meta m;
     m.qid = qid;
@@ -120,7 +124,7 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
     m.parent_tid = recv_tid;
     m.msg_type = MSG_T::INIT;
     m.msg_path = to_string(nodes_num);
-    m.actors = actors;
+    m.qplan = qplan;
 
     for (int i = 0; i < nodes_num; i++) {
         Message msg;

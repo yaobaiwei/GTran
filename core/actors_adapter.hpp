@@ -124,7 +124,7 @@ class ActorAdapter {
             // acquire write lock for insert
             accessor ac;
             msg_logic_table_.insert(ac, m.qid);
-            ac->second = move(m.actors);
+            ac->second = move(m.qplan);
         } else if (m.msg_type == MSG_T::FEED) {
             assert(msg.data.size() == 1);
             agg_t agg_key(m.qid, m.step);
@@ -137,7 +137,7 @@ class ActorAdapter {
 
             // erase aggregate result
             int i = 0;
-            for (auto& act : ac->second) {
+            for (auto& act : ac->second.actors) {
                 if (act.actor_type == ACTOR_T::AGGREGATE) {
                     agg_t agg_key(m.qid, i);
                     data_store_->DeleteAggData(agg_key);
@@ -163,7 +163,7 @@ class ActorAdapter {
         int current_step;
         do {
             current_step = msg.meta.step;
-            ACTOR_T next_actor = ac->second[current_step].actor_type;
+            ACTOR_T next_actor = ac->second.actors[current_step].actor_type;
             actors_[next_actor]->process(ac->second, msg);
         }while(current_step != msg.meta.step);  // process next actor directly if step is modified
     }
@@ -230,9 +230,9 @@ class ActorAdapter {
 
     // global map to record the vec<actor_obj> of query
     // avoid repeatedly transfer vec<actor_obj> for message
-    tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>> msg_logic_table_;
-    typedef tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>>::accessor accessor;
-    typedef tbb::concurrent_hash_map<uint64_t, vector<Actor_Object>>::const_accessor const_accessor;
+    tbb::concurrent_hash_map<uint64_t, QueryPlan> msg_logic_table_;
+    typedef tbb::concurrent_hash_map<uint64_t, QueryPlan>::accessor accessor;
+    typedef tbb::concurrent_hash_map<uint64_t, QueryPlan>::const_accessor const_accessor;
     // Thread pool
     vector<thread> thread_pool_;
 

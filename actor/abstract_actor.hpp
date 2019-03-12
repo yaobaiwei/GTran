@@ -28,7 +28,7 @@ class AbstractActor {
 
     virtual ~AbstractActor() {}
     const int GetActorId() { return id_; }
-    virtual void process(const vector<Actor_Object> & actors, Message & msg) = 0;
+    virtual void process(const QueryPlan & qplan, Message & msg) = 0;
 
  protected:
     // Data Store
