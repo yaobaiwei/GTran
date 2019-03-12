@@ -38,11 +38,11 @@ class PropertiesActor : public AbstractActor {
     }
 
     // inType, [key]+
-    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         Meta & m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
+        Actor_Object actor_obj = qplan.actors[m.step];
 
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
         vector<int> key_list;
@@ -71,7 +71,7 @@ class PropertiesActor : public AbstractActor {
         }
 
         vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {

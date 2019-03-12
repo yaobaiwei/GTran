@@ -52,12 +52,12 @@ class HasActor : public AbstractActor {
     // HasNot(params) : key -> [key = pid; pred = NONE; pred_params = -1]
     // HasKey(params) : keys -> [key = pid; pred = ANY; pred_params = -1]
     //
-    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         // Get Actor_Object
         Meta & m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
+        Actor_Object actor_obj = qplan.actors[m.step];
 
         // store all predicate
         vector<pair<int, PredicateValue>> pred_chain;
@@ -100,7 +100,7 @@ class HasActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {

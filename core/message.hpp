@@ -19,6 +19,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/predicate.hpp"
 #include "actor/actor_object.hpp"
 #include "storage/data_store.hpp"
+#include "core/exec_plan.hpp"
 
 #include "base/node.hpp"
 
@@ -65,8 +66,8 @@ struct Meta {
     // branch info
     vector<Branch_Info> branch_infos;
 
-    // actors chain
-    vector<Actor_Object> actors;
+    // Query Plan
+    QueryPlan qplan;
 
     std::string DebugString() const;
 };
@@ -110,7 +111,7 @@ class Message {
     // recv_tid = qid % thread_pool.size()
     // parent_node = _my_node.get_local_rank()
     static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
-                        const vector<Actor_Object>& actors, vector<Message>& vec);
+                        const QueryPlan& qplan, vector<Message>& vec);
 
     // create exit msg, notifying ending of one query
     void CreateExitMsg(int nodes_num, vector<Message>& vec);

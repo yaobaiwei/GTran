@@ -51,11 +51,11 @@ class LabelledBranchActorBase :  public AbstractActor {
         mailbox_(mailbox),
         id_allocator_(allocator) {}
 
-    void process(const vector<Actor_Object> & actors,  Message & msg) {
+    void process(const QueryPlan & qplan,  Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         if (msg.meta.msg_type == MSG_T::SPAWN) {
-            uint64_t msg_id = send_branch_msg(tid, actors, msg);
+            uint64_t msg_id = send_branch_msg(tid, qplan.actors, msg);
 
             // set up data for sub branch collection
             int index = 0;
@@ -67,7 +67,7 @@ class LabelledBranchActorBase :  public AbstractActor {
 
             typename BranchDataTable::accessor ac;
             data_table_.insert(ac, key);
-            ac->second.branch_counter = make_pair(get_steps_count(actors[msg.meta.step]), 0);
+            ac->second.branch_counter = make_pair(get_steps_count(qplan.actors[msg.meta.step]), 0);
 
             process_spawn(msg, ac);
         } else if (msg.meta.msg_type == MSG_T::BRANCH) {
@@ -81,7 +81,7 @@ class LabelledBranchActorBase :  public AbstractActor {
 
             bool isReady = IsReady(ac, msg.meta, end_path);
 
-            process_branch(tid, actors, msg, ac, isReady);
+            process_branch(tid, qplan.actors, msg, ac, isReady);
 
             if (isReady) {
                 data_table_.erase(ac);

@@ -37,12 +37,12 @@ class IndexActor : public AbstractActor {
         index_store_(index_store),
         type_(ACTOR_T::HAS) {}
 
-    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         // Get Actor_Object
         Meta & m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
+        Actor_Object actor_obj = qplan.actors[m.step];
 
         // Get Params
         assert(actor_obj.params.size() == 2);  // make sure input format
@@ -69,7 +69,7 @@ class IndexActor : public AbstractActor {
         msg.data.emplace_back(history_t(), vector<value_t>{v});
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {

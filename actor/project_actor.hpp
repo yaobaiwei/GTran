@@ -39,11 +39,11 @@ class ProjectActor : public AbstractActor {
     }
 
     // inType, key_projection, value_projection
-    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         Meta & m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
+        Actor_Object actor_obj = qplan.actors[m.step];
 
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
         int key_id, value_id;
@@ -83,7 +83,7 @@ class ProjectActor : public AbstractActor {
         }
 
         vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, newData, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, newData, num_thread_, data_store_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {

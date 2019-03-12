@@ -40,12 +40,12 @@ class WhereActor : public AbstractActor {
     //  e.g. g.V().as('a'),,,.where(neq('a'))
     //       g.V().as('a'),,,.as('b').,,,.where('a', neq('b'))
     //
-    void process(const vector<Actor_Object> & actor_objs, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         // Get Actor_Object
         Meta & m = msg.meta;
-        Actor_Object actor_obj = actor_objs[m.step];
+        Actor_Object actor_obj = qplan.actors[m.step];
 
         // store all predicate
         vector<PredicateHistory> pred_chain;
@@ -101,7 +101,7 @@ class WhereActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {

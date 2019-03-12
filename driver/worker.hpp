@@ -40,7 +40,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 struct Pack {
     qid_t id;
-    vector<Actor_Object> actors;
+    QueryPlan qplan;
 };
 
 class Worker {
@@ -378,7 +378,7 @@ class Worker {
             // Push query plan to SendQueryMsg queue
             Pack pkg;
             pkg.id = qid;
-            pkg.actors = move(qplan.actors);
+            pkg.qplan = move(qplan);
             queue_.Push(pkg);
             return true;
         }
@@ -423,7 +423,7 @@ class Worker {
                 my_node_.get_local_rank(),
                 my_node_.get_local_size(),
                 core_affinity->GetThreadIdForActor(ACTOR_T::INIT),
-                pkg.actors,
+                pkg.qplan,
                 msgs);
             for (int i = 0 ; i < my_node_.get_local_size(); i++) {
                 mailbox->Send(config_->global_num_threads, msgs[i]);

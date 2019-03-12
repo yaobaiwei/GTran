@@ -42,7 +42,7 @@ class BarrierActorBase :  public AbstractActor {
             CoreAffinity* core_affinity) :
         AbstractActor(id, data_store, core_affinity) {}
 
-    void process(const vector<Actor_Object> & actors, Message & msg) {
+    void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         // get msg info
@@ -55,6 +55,7 @@ class BarrierActorBase :  public AbstractActor {
 
         bool isReady = IsReady(ac, msg.meta, end_path);
 
+        const vector<Actor_Object>& actors = qplan.actors;
         do_work(tid, actors, msg, ac, isReady);
 
         if (isReady) {
@@ -85,7 +86,7 @@ class BarrierActorBase :  public AbstractActor {
 
     // get labelled branch key if in branch
     static int get_branch_key(Meta & m) {
-        // check if count actor in branch
+        // check if barrier actor in branch
         // run locally if true
         int branch_depth = m.branch_infos.size();
         int key = - 1;

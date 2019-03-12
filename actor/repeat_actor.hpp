@@ -21,15 +21,15 @@ class RepeatActor : public AbstractActor {
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
-    void process(const vector<Actor_Object> & actors,  Message & msg) {
+    void process(const QueryPlan & qplan,  Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
         if (msg.meta.msg_type == MSG_T::SPAWN) {
             vector<int> step_vec;
-            get_steps(actors[msg.meta.step], step_vec);
+            get_steps(qplan.actors[msg.meta.step], step_vec);
 
             vector<Message> msg_vec;
-            msg.CreateBranchedMsg(actors, step_vec, num_thread_, data_store_, core_affinity_, msg_vec);
+            msg.CreateBranchedMsg(qplan.actors, step_vec, num_thread_, data_store_, core_affinity_, msg_vec);
 
             for (auto& m : msg_vec) {
                 mailbox_->Send(tid, m);
