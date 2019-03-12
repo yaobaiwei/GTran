@@ -86,7 +86,6 @@ class Worker {
                 senders_.push_back(sender);
             }
         }
-
     }
 
     /* Not suitable for transaction base emulation, should be modified later

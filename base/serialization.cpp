@@ -94,6 +94,12 @@ ibinstream& operator<<(ibinstream& m, const vector<char>& v) {
     return m;
 }
 
+ibinstream& operator<<(ibinstream& m, const vector<uint64_t>& v) {
+    m << v.size();
+    m.raw_bytes(&v[0], v.size() * sizeof(uint64_t));
+    return m;
+}
+
 ibinstream& operator<<(ibinstream& m, const string& str) {
     m << str.length();
     m.raw_bytes(str.c_str(), str.length());
@@ -211,6 +217,14 @@ obinstream& operator>>(obinstream& m, vector<char>& v) {
     return m;
 }
 
+obinstream& operator>>(obinstream& m, vector<uint64_t>& v){
+    size_t size;
+    m >> size;
+    v.resize(size);
+    uint64_t* data = (uint64_t*)m.raw_bytes(sizeof(uint64_t) * size);
+    v.assign(data, data + size);
+    return m;
+}
 obinstream& operator>>(obinstream& m, string& str) {
     size_t length;
     m >> length;

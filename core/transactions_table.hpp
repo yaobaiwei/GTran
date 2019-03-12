@@ -24,7 +24,7 @@
 
 class TrxGlobalCoordinator{
  private:
-    static TrxGlobalCoordinator * t_table_;
+    static TrxGlobalCoordinator * trx_coordinator;
 
     TrxGlobalCoordinator();
     // ~TrxGlobalCoordinator();
@@ -47,10 +47,10 @@ class TrxGlobalCoordinator{
 
     const uint64_t ASSOCIATIVITY_ = 8;
     const double MI_RATIO_ = 0.8;  // the ratio of main buckets vs indirect buckets
-    uint64_t num_total_buckets_;
-    uint64_t num_main_buckets_;
-    uint64_t num_indirect_buckets_;
-    uint64_t num_slots_;
+    uint64_t trx_num_total_buckets_;
+    uint64_t trx_num_main_buckets_;
+    uint64_t trx_num_indirect_buckets_;
+    uint64_t trx_num_slots_;
 
     // the next available bucket.
     // table[last_ext]
@@ -94,6 +94,5 @@ class TrxGlobalCoordinator{
     bool query_ct(uint64_t trx_id, uint64_t& ct);
 
     bool print_single_item(uint64_t trx_id);
-
 };
 

@@ -111,15 +111,15 @@ class RDMA {
             ctrl->register_connect_mr();
             ctrl->start_server();
 
-            if (nid == num_workers) { //Master Rank
+            if (nid == num_workers) {  // Master Rank
                 // RC connection betweenq
                 for (uint j = 0; j < num_threads; ++j) {
                     for (uint i = 0; i < num_workers; ++i) {
                         Qp *qp = ctrl->create_rc_qp(num_threads + j, i, 0, 1);
                         assert(qp != NULL);
-                    } 
+                    }
                 }
-                
+
                 while (1) {
                     int connected = 0;
                     for (uint j = 0; j < num_threads; ++j) {
@@ -155,7 +155,6 @@ class RDMA {
                         sleep(1);
                 }
             } else {
-
                 // RC connection between workers
                 for (uint j = 0; j < num_threads * 2; ++j) {
                     for (uint i = 0; i < num_workers; ++i) {
@@ -164,15 +163,15 @@ class RDMA {
                     }
                 }
 
-                for(uint j = 0; j < num_threads; ++ j){
-                    Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 ,1);
+                for (uint j = 0; j < num_threads; ++ j) {
+                    Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 , 1);
                     CHECK(qp != NULL);
                 }
 
-                while(1){
+                while (1) {
                     int connected = 0;
-                    for(uint j = 0; j < num_threads; ++ j) {
-                        Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 ,1);
+                    for (uint j = 0; j < num_threads; ++ j) {
+                        Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 , 1);
                         if (qp->inited_) {
                             connected += 1;
                         } else if (qp->connect_rc()) {

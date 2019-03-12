@@ -53,7 +53,6 @@ class Master {
         time_stamp_ = 0;
         // TODO(nick): set initial trxid > all time stamp
         trxid_ = 0;
-       
     }
 
     ~Master() {
@@ -136,9 +135,8 @@ class Master {
     }
 
     // pop from queue and process requests of accessing the tables
-    void ProcessTrxTableWriteReqs(){
-      
-        while(true){
+    void ProcessTrxTableWriteReqs() {
+        while (true) {
             // pop a req
             UpdateTrxStatusReq req;
             pending_trx_table_updates_.WaitAndPop(req);
@@ -146,24 +144,32 @@ class Master {
             DLOG(INFO) << "[Master] Processed a req: " << req.n_id << "\t" << req.trx_id << "\t" << (int)req.new_status << "\t" << std::endl;
 
             // check if P->V
-            if(req.new_status == TRX_STAT::VALIDATING){
+            if (req.new_status == TRX_STAT::VALIDATING) {
                 uint64_t bt, ct;
 
                 // query bt
                 trx_p -> query_bt(req.trx_id, bt);
+
                 // update state and get a ct
                 trx_p -> modify_status(req.trx_id, req.new_status, ct);
                 trx_p -> print_single_item(req.trx_id);
 
-                // insert this transaction into RCT
-                rct -> insert_trx(ct, req.trx_id);
-
                 // query RCT
                 std::set<uint64_t> trx_ids;
                 rct -> query_trx(bt, ct, trx_ids);
+                // printf("[Master] trx_ids: ");
+                // for (uint64_t trx_id : trx_ids) {
+                //     printf("%llx\t", (long long)trx_id);
+                // }
+                // printf("\n");
+
+                // insert this transaction into RCT
+                rct -> insert_trx(ct, req.trx_id);
+
+                std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
 
                 ibinstream in;
-                in << trx_ids;
+                in << trx_ids_vec;
                 // only when worker send P->V, it should wait for a reply
                 mailbox -> Send_Notify(req.n_id, in);
             } else {
@@ -174,7 +180,7 @@ class Master {
         }
     }
 
-    void ListenTrxTableWriteReqs(){
+    void ListenTrxTableWriteReqs() {
         int n_id;
         uint64_t trx_id;
         int status_i;
@@ -183,7 +189,7 @@ class Master {
             obinstream out;
             mailbox -> Recv_Notify(out);
 
-            TRX_STAT new_status;           
+            TRX_STAT new_status;
             out >> n_id >> trx_id >> status_i;
 
             printf("Master recvs a update state req: %llx\t%llx\t%d\n", n_id, trx_id, status_i);
@@ -194,10 +200,10 @@ class Master {
     }
 
     void Start() {
-        cout << "[Master] Start()" <<endl; 
+        cout << "[Master] Start()" <<endl;
         // Register RDMA
-        Buffer* buf = Buffer::GetInstance(&node_);     
-        
+        Buffer* buf = Buffer::GetInstance(&node_);
+
         if (config_->global_use_rdma)
             mailbox = new RdmaMailbox(node_, node_, buf);
         else
@@ -207,21 +213,9 @@ class Master {
         trx_p = TrxGlobalCoordinator::GetInstance();
         rct = RCTable::GetInstance();
 
-        // // ================Test====================
-        // DLOG(INFO) << "[Master] Start() Test";
-        // TRX_STAT status = TRX_STAT::VALIDATING;
-        // uint64_t trx_id1 = 0x8000000000000001;
-        // uint64_t trx_id2 = 0x8000000000000002;
-        // uint64_t trx_id3 = 0x8000000000000003;
-        // uint64_t ct;
-        // trx_p -> print_single_item(trx_id1);
-        // trx_p -> print_single_item(trx_id2);
-        // trx_p -> print_single_item(trx_id3);
-        // ================Test====================
-
         thread listen(&Master::ProgListener, this);
         thread process(&Master::ProcessREQ, this);
-    
+
         thread trx_table_write_listener(&Master::ListenTrxTableWriteReqs, this);
         thread trx_table_write_executor(&Master::ProcessTrxTableWriteReqs, this);
 

@@ -5,7 +5,7 @@
 
 #include "core/transactions_table.hpp"
 
-TrxGlobalCoordinator* TrxGlobalCoordinator::t_table_ = nullptr;
+TrxGlobalCoordinator* TrxGlobalCoordinator::trx_coordinator = nullptr;
 
 TrxGlobalCoordinator::TrxGlobalCoordinator() {
     config_ = Config::GetInstance();
@@ -13,10 +13,10 @@ TrxGlobalCoordinator::TrxGlobalCoordinator() {
     // release version
     buffer_ = config_ -> trx_table;
     buffer_sz_ = config_ -> trx_table_sz;
-    num_total_buckets_ = config_ -> num_total_buckets;
-    num_main_buckets_ = config_ -> num_main_buckets;
-    num_indirect_buckets_ = config_ -> num_indirect_buckets;
-    num_slots_ = config_ -> num_slots;
+    trx_num_total_buckets_ = config_ -> trx_num_total_buckets;
+    trx_num_main_buckets_ = config_ -> trx_num_main_buckets;
+    trx_num_indirect_buckets_ = config_ -> trx_num_indirect_buckets;
+    trx_num_slots_ = config_ -> trx_num_slots;
 
     table_ = (TidStatus*) buffer_;
     last_ext_ = 0;
@@ -25,9 +25,9 @@ TrxGlobalCoordinator::TrxGlobalCoordinator() {
 }
 
 TrxGlobalCoordinator* TrxGlobalCoordinator::GetInstance() {
-    if (t_table_ == nullptr)
-        t_table_ = new TrxGlobalCoordinator();
-    return t_table_;
+    if (trx_coordinator == nullptr)
+        trx_coordinator = new TrxGlobalCoordinator();
+    return trx_coordinator;
 }
 
 bool TrxGlobalCoordinator::query_bt(uint64_t trx_id, uint64_t& bt) {
@@ -61,12 +61,12 @@ bool TrxGlobalCoordinator::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
     if (!register_bt(trx_id, bt))
         return false;
 
-    uint64_t bucket_id = trx_id % num_main_buckets_;
+    uint64_t bucket_id = trx_id % trx_num_main_buckets_;
 
     printf("[Trx Table] bucket %d found\n", bucket_id);
     uint64_t slot_id = bucket_id * ASSOCIATIVITY_;  // used as cursor to traverse the target bucket
 
-    while (slot_id < num_slots_) {
+    while (slot_id < trx_num_slots_) {
         for (int i = 0; i < ASSOCIATIVITY_ -1; ++i, ++slot_id) {
             if (table_[slot_id].trx_id == trx_id) {
                 // already exists
@@ -88,18 +88,18 @@ bool TrxGlobalCoordinator::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
         }
 
         // allocate a new bucket
-        if (last_ext_ >= num_indirect_buckets_) {
+        if (last_ext_ >= trx_num_indirect_buckets_) {
             cerr << "Transaction Status Table Error: out of indirect-header region." << endl;
             CHECK(false);
         }
-        table_[slot_id].trx_id = num_main_buckets_ + last_ext_;
+        table_[slot_id].trx_id = trx_num_main_buckets_ + last_ext_;
         ++last_ext_;
         slot_id = table_[slot_id].trx_id * ASSOCIATIVITY_;
         table_[slot_id].enterProcessState(trx_id);
     }
 
 done:
-    CHECK(slot_id < num_slots_) << "slot is not enough";
+    CHECK(slot_id < trx_num_slots_) << "slot is not enough";
     CHECK(table_[slot_id].trx_id == trx_id);
 
     return true;
@@ -222,7 +222,7 @@ bool TrxGlobalCoordinator::allocate_ct(uint64_t& ct) {
 bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
     CHECK(is_valid_trx_id(trx_id));
 
-    uint64_t bucket_id = trx_id % num_main_buckets_;
+    uint64_t bucket_id = trx_id % trx_num_main_buckets_;
     // printf("[TRX] find_trx bucket_id %d, table_ = %llx\n, trx_id = %llx", bucket_id, table_, trx_id);
     while (true) {
         for (int i = 0; i < ASSOCIATIVITY_; ++i) {

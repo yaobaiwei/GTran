@@ -23,10 +23,10 @@ private:
     Buffer* buf_;
     static TrxTableStub * instance_;
 
-    uint64_t num_total_buckets_;
-    uint64_t num_main_buckets_;
-    uint64_t num_indirect_buckets_;
-    uint64_t num_slots_;
+    uint64_t trx_num_total_buckets_;
+    uint64_t trx_num_main_buckets_;
+    uint64_t trx_num_indirect_buckets_;
+    uint64_t trx_num_slots_;
 
     uint64_t mem_sz_;
     uint64_t base_offset_;
@@ -39,10 +39,10 @@ private:
         node_ = Node::StaticInstance();
         buf_ = Buffer::GetInstance();
 
-        num_total_buckets_ = config_ -> num_total_buckets;
-        num_main_buckets_ = config_ -> num_main_buckets;
-        num_indirect_buckets_ = config_ -> num_indirect_buckets;
-        num_slots_ = config_ -> num_slots;
+        trx_num_total_buckets_ = config_ -> trx_num_total_buckets;
+        trx_num_main_buckets_ = config_ -> trx_num_main_buckets;
+        trx_num_indirect_buckets_ = config_ -> trx_num_indirect_buckets;
+        trx_num_slots_ = config_ -> trx_num_slots;
 
         mem_sz_ = config_ -> trx_table_sz;
         base_offset_ = config_ -> trx_table_offset;
@@ -62,7 +62,7 @@ public:
         return instance_;
     }
 
-    bool update_status(uint64_t trx_id, TRX_STAT new_status);
+    bool TrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr);
 
     bool read_status(uint64_t trx_id, TRX_STAT& status);
 };
