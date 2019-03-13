@@ -19,7 +19,7 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
 
     int nid = node_.get_local_rank();
     // Avoid conflict of master and worker 0
-    if (node_.get_world_rank() == 0) {
+    if (node_.get_world_rank() == MASTER_RANK) {
         nid = config_->global_num_workers;
     }
     RDMA_init(config_->global_num_workers, config_->global_num_threads + 1, nid, mem_info, nodes, master_);

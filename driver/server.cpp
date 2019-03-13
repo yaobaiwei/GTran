@@ -51,7 +51,6 @@ int main(int argc, char* argv[]) {
     if (my_node.get_world_rank() == MASTER_RANK) {
         Master master(my_node, nodes);
         master.Init();
-
         master.Start();
     } else {
         Worker worker(my_node, nodes, master);

@@ -358,6 +358,7 @@ class Worker {
             }else{
                 ParseAndSendQuery(query, client_host);
             }*/
+            // parse and insert into plans_
             ParseTransaction(query, trxid, st, client_host);
         }
     }

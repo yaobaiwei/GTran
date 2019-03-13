@@ -135,7 +135,8 @@ class Buffer {
 
     explicit Buffer(Node & node) : node_(node) {
         config_ = Config::GetInstance();
-        if (config_->global_use_rdma) {
+
+        if (config_->global_use_rdma) {  // rdma
             buffer_ = new char[config_->buffer_sz];
             memset(buffer_, 0, config_->buffer_sz);
             config_->kvstore = buffer_ + config_->kvstore_offset;
@@ -143,12 +144,19 @@ class Buffer {
             config_->recv_buf = buffer_ + config_->recv_buffer_offset;
             config_->local_head_buf = buffer_ + config_->local_head_buffer_offset;
             config_->remote_head_buf = buffer_ + config_->remote_head_buffer_offset;
+            config_->trx_table = buffer_ + config_->trx_table_offset;
             config_->dgram_send_buf = buffer_ + config_->dgram_send_buffer_offset;
             config_->dgram_recv_buf = buffer_ + config_->dgram_recv_buffer_offset;
-        } else if (node.get_world_rank() != 0) {
-            buffer_ = new char[config_->kvstore_sz];
-            memset(buffer_, 0, config_->kvstore_sz);
-            config_->kvstore = buffer_ + config_->kvstore_offset;
+        } else {  // without rdma
+            if (node.get_world_rank() != 0) {  // workers
+                buffer_ = new char[config_->kvstore_sz];
+                memset(buffer_, 0, config_->kvstore_sz);
+                config_->kvstore = buffer_ + config_->kvstore_offset;
+            } else {  // master
+                buffer_ = new char[config_->trx_table_sz];
+                memset(buffer_, 0, config_->trx_table_sz);
+                config_->trx_table = buffer_ + config_->trx_table_offset;
+            }
         }
     }
 

@@ -11,6 +11,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/unit.hpp"
 #include "utils/hdfs_core.hpp"
 #include "glog/logging.h"
+#include <core/common.hpp>
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,7 +77,10 @@ class Config{
     // per recv buffer should be able to contain up to N msg
     int global_per_recv_buffer_sz_mb;
 
+    // transaction table
+    int trx_table_sz_mb;
 
+    // read the configuration from gquery-ini
     bool global_use_rdma;
     bool global_enable_caching;
     bool global_enable_core_binding;
@@ -115,6 +119,16 @@ class Config{
     // remote_head_buffer_offset = local_head_buffer_sz * local_head_buffer_offset
     uint64_t remote_head_buffer_offset;
 
+    // transaction status table on master
+    uint64_t trx_table_sz;
+    uint64_t trx_table_offset;
+    uint64_t ASSOCIATIVITY = 8;
+    uint64_t MI_RATIO = 80;
+    uint64_t trx_num_total_buckets;
+    uint64_t trx_num_main_buckets;
+    uint64_t trx_num_indirect_buckets;
+    uint64_t trx_num_slots;
+
     // two sided send buffer sz = global_per_send_buffer_sz_mb
     uint64_t dgram_send_buffer_sz;
     // two sided send buffer offset = remote_head_buffer_sz + remote_head_buffer_offset;
@@ -145,6 +159,7 @@ class Config{
     char * recv_buf;
     char * local_head_buf;
     char * remote_head_buf;
+    char * trx_table;
     char * dgram_send_buf;
     char * dgram_recv_buf;
 
@@ -338,6 +353,14 @@ class Config{
             exit(-1);
         }
 
+        val = iniparser_getint(ini, "SYSTEM:TRX_TABLE_SZ_MB", val_not_found);
+        if (val != val_not_found) {
+            trx_table_sz_mb = val;
+        } else {
+            fprintf(stderr, "must enter the TRX_TABLE_SZ_MB. exits.\n");
+            exit(-1);
+        }
+
         val = iniparser_getboolean(ini, "SYSTEM:USE_RDMA", val_not_found);
         if (val != val_not_found) {
             global_use_rdma = val;
@@ -419,7 +442,7 @@ class Config{
             // throw null pointer to a directory that do not exists
             SNAPSHOT_PATH = str_to_process;
 
-            if (node.get_world_rank() == 0)
+            if (node.get_world_rank() == MASTER_RANK)
                 printf("given SNAPSHOT_PATH = %s, processed = %s\n", ori_str.c_str(), SNAPSHOT_PATH.c_str());
         } else {
             // fprintf(stderr, "must enter the SNAPSHOT_PATH. exits.\n");
@@ -429,7 +452,8 @@ class Config{
 
         iniparser_freedict(ini);
 
-        if (node.get_world_rank() != 0) {
+        trx_table_sz = MiB2B(trx_table_sz_mb);  // this should be shared by master and workers,workers need to this to compute trx_num_total_buckets...
+        if (node.get_world_rank() != MASTER_RANK) {
             // Workers
             kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
             kvstore_offset = 0;
@@ -449,26 +473,39 @@ class Config{
 
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
             dgram_send_buffer_offset = remote_head_buffer_offset + remote_head_buffer_sz;
+
             dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
             dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
+
+            conn_buf_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz;
+            dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
+
         } else {
-            // Master
+            // Master:
             kvstore_sz = send_buffer_sz = recv_buffer_sz = local_head_buffer_sz = remote_head_buffer_sz = 0;
+            kvstore_offset = send_buffer_offset = recv_buffer_offset = local_head_buffer_offset = remote_head_buffer_offset = 0;
+            // RC rdma
+            trx_table_offset = kvstore_offset + kvstore_sz;  // 0
+            // UD rdma
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
-            dgram_send_buffer_offset = 0;
+            dgram_send_buffer_offset = trx_table_sz + trx_table_offset;
             dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
             dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
+
+            conn_buf_sz =  trx_table_sz;
+            dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
         }
 
-        conn_buf_sz =  kvstore_sz + send_buffer_sz + recv_buffer_sz
-                       + local_head_buffer_sz + remote_head_buffer_sz;
-        dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
         buffer_sz = conn_buf_sz + dgram_buf_sz;
+
+        trx_num_total_buckets = trx_table_sz / (ASSOCIATIVITY * sizeof(TidStatus));
+        trx_num_main_buckets = trx_num_total_buckets * MI_RATIO / 100;
+        trx_num_indirect_buckets = trx_num_total_buckets - trx_num_main_buckets;
+        trx_num_slots = trx_num_total_buckets * ASSOCIATIVITY;
 
         // init hdfs
         hdfs_init(HDFS_HOST_ADDRESS, HDFS_PORT);
-
-        LOG(INFO) << DebugString();
+        LOG(INFO) << "[Config] rank " << node.get_world_rank() << " " << DebugString();
     }
 
     string DebugString() const {
@@ -483,9 +520,21 @@ class Config{
         ss << "HDFS_OUTPUT_PATH : " << HDFS_OUTPUT_PATH << endl;
         ss << "SNAPSHOT_PATH : " << SNAPSHOT_PATH << endl;
 
+        ss << "kvstore_sz : " << kvstore_sz << endl;
+        ss << "send_buffer_sz : " << send_buffer_sz << endl;
+        ss << "recv_buffer_sz : " << recv_buffer_sz << endl;
+        ss << "local_head_buffer_sz : " << local_head_buffer_sz << endl;
+        ss << "remote_head_buffer_sz : " << remote_head_buffer_sz << endl;
+        ss << "trx_table_sz_mb : " << trx_table_sz_mb << endl;
+        ss << "dgram_send_buffer_sz : " << dgram_send_buffer_sz << endl;
+        ss << "dgram_recv_buffer_sz : " << dgram_recv_buffer_sz << endl;
+        ss << "trx_num_total_buckets : " << trx_num_total_buckets << endl;
+        ss << "trx_num_main_buckets : " << trx_num_main_buckets << endl;
+        ss << "trx_num_indirect_buckets : " << trx_num_indirect_buckets<< endl;
+        ss << "trx_num_slots : " << trx_num_slots << endl;
+
         ss << "global_num_workers : " << global_num_workers << endl;
         ss << "global_num_threads : " << global_num_threads << endl;
-
         ss << "global_vertex_property_kv_sz_gb : " << global_vertex_property_kv_sz_gb << endl;
         ss << "global_edge_property_kv_sz_gb : " << global_edge_property_kv_sz_gb << endl;
         ss << "global_per_send_buffer_sz_mb : " << global_per_send_buffer_sz_mb << endl;
