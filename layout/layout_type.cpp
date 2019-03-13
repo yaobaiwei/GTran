@@ -5,7 +5,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/layout_type.hpp"
 
-using namespace std;
+namespace std {
 
 ibinstream& operator<<(ibinstream& m, const TMPVertex& v) {
     m << v.id;
@@ -89,3 +89,5 @@ string TMPEdge::DebugString() const {
 
     return ret;
 }
+
+}  // namespace std

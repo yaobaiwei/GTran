@@ -33,9 +33,9 @@ MVCCKVStore::MVCCKVStore(char* mem, uint64_t mem_sz) {
     last_entry_ = 0;
 
     // Header
-    keys_ = (KVKey*)(mem_);
+    keys_ = reinterpret_cast<KVKey*>(mem_);
     // Entry
-    values_ = (char *)(mem_ + num_slots_ * sizeof(KVKey));
+    values_ = reinterpret_cast<char *>(mem_ + num_slots_ * sizeof(KVKey));
 
     pthread_spin_init(&entry_lock_, 0);
     pthread_spin_init(&bucket_ext_lock_, 0);
@@ -58,7 +58,7 @@ ptr_t MVCCKVStore::Insert(const MVCCHeader& key, const value_t& value) {
     keys_[slot_id].ptr = ptr;
 
     // insert type of value first
-    values_[off++] = (char)value.type;
+    values_[off++] = static_cast<char>(value.type);
 
     // insert value
     memcpy(&values_[off], &value.content[0], length);
@@ -72,7 +72,7 @@ uint64_t MVCCKVStore::SyncFetchAndAllocValues(uint64_t n) {
     orig = last_entry_;
     last_entry_ += n;
     if (last_entry_ >= num_entries_) {
-        cout << "MVCCKVStore ERROR: out of entry region." << endl;
+        cout << "MVCCKVStore ERROR: out of entry region. mem_sz_ = " << mem_sz_ << endl;
         assert(last_entry_ < num_entries_);
     }
     pthread_spin_unlock(&entry_lock_);
@@ -116,7 +116,7 @@ uint64_t MVCCKVStore::InsertId(const MVCCHeader& _mvcc_header) {
         // allocate and link a new indirect header
         pthread_spin_lock(&bucket_ext_lock_);
         if (last_ext_ >= num_buckets_ext_) {
-            cout << "MVCCKVStore ERROR: out of indirect-header region." << endl;
+            cout << "MVCCKVStore ERROR: out of indirect-header region. mem_sz_" << mem_sz_ << endl;
             assert(last_ext_ < num_buckets_ext_);
         }
         keys_[slot_id].mvcc_header.pid = num_buckets_ + (last_ext_++);  // ??????

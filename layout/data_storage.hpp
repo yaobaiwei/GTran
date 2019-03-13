@@ -11,6 +11,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
+#include "layout/mpi_snapshot_manager.hpp"
 #include "layout/mvcc_kv_store.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/property_row_list.hpp"
@@ -57,6 +58,7 @@ class DataStorage {
 
     // for data initial
     HDFSDataLoader* hdfs_data_loader_ = nullptr;
+    MPISnapshotManager* snapshot_manager_ = nullptr;
 
     // "schema" (indexes)
     string_index* indexes_ = nullptr;
@@ -69,25 +71,6 @@ class DataStorage {
     OffsetConcurrentMemPool<PropertyMVCC>* property_mvcc_pool_ = nullptr;
 
  public:
-    //// Data modification, must be thread safe
-
-    // TODO(entityless): Finish 4 functions below
-    void AddEdge(const eid_t& eid,const uint64_t& trx_id, const uint64_t& begin_time);
-    void AddVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
-    void DropEdge(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
-    void DropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
-
-    // property
-    // construct a new PropertyMVCC list
-    // TODO(entityless): Finish 6 functions below
-    void AddVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    void AddEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    // append to existing PropertyMVCC list
-    void ModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    void ModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    void DropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
-    void DropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
-
     // "Get" prefix in DataStorage while "Read" prefix in 3 "Row" classes
 
     // data access

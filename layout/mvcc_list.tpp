@@ -25,6 +25,7 @@ template<class MVCC>
 MVCC* MVCCList<MVCC>::GetCurrentVersion(const uint64_t& trx_id, const uint64_t& begin_time) {
     MVCC* ret = head_;
 
+    // TODO(entityless): add Optimistic Pre-read
     while (true) {
         // no suitable version found
         if (ret == nullptr)

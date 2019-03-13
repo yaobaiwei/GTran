@@ -12,6 +12,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/node.hpp"
 #include "core/id_mapper.hpp"
 #include "layout/layout_type.hpp"
+#include "layout/mpi_snapshot_manager.hpp"
+#include "layout/snapshot_function_implementation.hpp"
 #include "storage/layout.hpp"
 #include "utils/config.hpp"
 #include "utils/hdfs_core.hpp"
@@ -44,6 +46,15 @@ class HDFSDataLoader {
     void ToVP(char* line);
     void ToEP(char* line);
 
+    bool ReadSnapshot();
+    void WriteSnapshot();
+
+    void GetStringIndexes();
+    void GetVertices();
+    void GetVPList();
+    void GetEPList();
+    void Shuffle();
+
  public:
     static HDFSDataLoader* GetInstance() {
         static HDFSDataLoader* hdfs_data_loader_instance_ptr = nullptr;
@@ -57,14 +68,8 @@ class HDFSDataLoader {
     }
 
     // data loading function based on how data stored on HDFS by the original GQuery
-    void GetStringIndexes();
-    void GetVertices();
-    void GetVPList();
-    void GetEPList();
-
     void Init();
     void LoadData();
-    void Shuffle();
     void FreeMemory();
 
     // "schema" related
@@ -76,10 +81,13 @@ class HDFSDataLoader {
     hash_map<uint64_t, TMPEdge*> edge_part_map_;
     vector<TMPVertex> shuffled_vtx_;
     vector<TMPEdge> shuffled_edge_;
+    vector<TMPEdge> shuffled_in_edge_;
 
     // ep just follows the src_v
     // src_v -> e -> dst_v
     SimpleIdMapper* id_mapper_ = nullptr;
+
+    MPISnapshotManager* snapshot_manager_ = nullptr;
 };
 
 }  // namespace std

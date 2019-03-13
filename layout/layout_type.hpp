@@ -12,7 +12,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/tool.hpp"
 
 namespace std {
-// tmp datatype for shuffle
+// tmp datatype for HDFSDataLoader
 struct TMPVertex {
     vid_t id;
     label_t label;
@@ -24,6 +24,7 @@ struct TMPVertex {
     string DebugString() const;
 };
 
+// tmp datatype for HDFSDataLoader
 struct TMPEdge {
     eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
     label_t label;
