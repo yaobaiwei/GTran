@@ -25,7 +25,7 @@ class ActorValidationObject {
     // Return Value :
     //     True --> no conflict
     //     False --> conflict, do dependency check
-    bool Validate(uint64_t TransactionID, const vector<int> & step_num_list, const vector<uint64_t> & check_set);
+    bool Validate(uint64_t TransactionID, int step_num, const vector<uint64_t> & check_set);
 
     void DeleteInputSet(uint64_t TransactionID);
 
@@ -92,8 +92,6 @@ class ActorValidationObject {
     tbb::concurrent_hash_map<validation_record_key_t, validation_record_val_t, validation_record_hash_compare> validation_data;
     typedef tbb::concurrent_hash_map<validation_record_key_t, validation_record_val_t, validation_record_hash_compare>::accessor data_accessor;
     typedef tbb::concurrent_hash_map<validation_record_key_t, validation_record_val_t, validation_record_hash_compare>::const_accessor data_const_accessor;
-
-    bool do_validation(uint64_t TransactionID, int step_num, const vector<uint64_t> & recv_set);
 };
 
 #endif  // ACTOR_ACTOR_VALIDATION_OBJECT_HPP_

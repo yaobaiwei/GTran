@@ -376,6 +376,16 @@ class Worker {
             qid_t qid(plan.trxid, query_index);
             rc_->Register(qid.value());
 
+            if (qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
+                vector<uint64_t> trxIDList;
+                trx_table_stub_->update_status(plan.trxid, TRX_STAT::VALIDATING, &trxIDList);
+                for (auto & trxID : trxIDList) {
+                    value_t v;
+                    Tool::uint64_t2value_t(trxID, v);
+                    qplan.actors[0].params.emplace_back(v);
+                }
+            }
+
             // Push query plan to SendQueryMsg queue
             Pack pkg;
             pkg.id = qid;
@@ -492,6 +502,8 @@ class Worker {
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Init()" << endl;
 
+        trx_table_stub_ = TrxTableStub::GetInstance(mailbox);
+
         // read snapshot area
         datastore->ReadSnapshot();
 
@@ -586,5 +598,6 @@ class Worker {
     vector<zmq::socket_t *> senders_;
 
     DataStorage* data_storage_ = nullptr;
+    TrxTableStub * trx_table_stub_;
 };
 #endif /* WORKER_HPP_ */

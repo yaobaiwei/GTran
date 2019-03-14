@@ -51,12 +51,8 @@ class ProjectActor : public AbstractActor {
         value_id = Tool::value_t2int(actor_obj.params.at(2));
 
         // Record Input Set
-        // TODO(Aaronchangji)
-        //  : Get trxID from message
-        //  : step_number is actually index_number for same step in transaction
         for (auto & data_pair : msg.data) {
-            // v_obj.RecordInputSetValueT(trxID, step_num, inType, data_pair.second, step_num == 1 ? true : false);
-            v_obj.RecordInputSetValueT(m.qid, m.step, inType, data_pair.second, m.step == 1 ? true : false);
+            v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
         }
 
         // get projection function acccording to element type
@@ -89,6 +85,33 @@ class ProjectActor : public AbstractActor {
         for (auto& msg : msg_vec) {
             mailbox_->Send(tid, msg);
         }
+    }
+
+    bool valid(uint64_t TrxID, const vector<Actor_Object> & actor_list, const vector<rct_read_data_t> & check_set) {
+        for (auto actor_obj : actor_list) {
+            assert(actor_obj.actor_type == ACTOR_T::PROJECT);
+            vector<uint64_t> local_check_set;
+
+            // Analysis params
+            Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
+            int key_id, value_id;
+            key_id = Tool::value_t2int(actor_obj.params.at(1));
+            value_id = Tool::value_t2int(actor_obj.params.at(2));
+
+            // Compare check_set and parameters
+            for (auto & val : check_set) {
+                if ((get<1>(val) == key_id || get<1>(val) == value_id) && get<2>(val) == inType) {
+                    local_check_set.emplace_back(get<0>(val)); 
+                }
+            }
+
+            if (local_check_set.size() != 0) {
+                if(!v_obj.Validate(TrxID, actor_obj.index, local_check_set)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
  private:
