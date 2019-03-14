@@ -73,6 +73,9 @@ bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg) {
         line_index++;
     }
 
+    // Add validation actor and finish actor (commit or abort)
+    AddCommitStatement(plan);
+
     return true;
 }
 
@@ -1716,6 +1719,21 @@ void Parser::ParseWhere(const vector<string>& params) {
     }
 }
 
+void Parser::AddCommitStatement(TrxPlan& plan) {
+    if (isTrxReadOnly(plan.trx_type_)) {
+        return;
+    }
+
+    // Add Validation Query
+    vector<Actor_Object> valid_vec;
+    valid_vec.emplace_back(ACTOR_T::VALIDATION);
+    valid_vec[0].next_actor = 1;
+    // TODO : Add Abort/Commit Actor to handle END;
+    valid_vec.emplace_back(ACTOR_T::END);
+    QueryPlan valid_qplan;
+    valid_qplan.actors = move(valid_vec);
+    plan.query_plans_.emplace_back(valid_qplan);
+}
 
 const map<string, Step_T> Parser::str2step = {
     { "in", Step_T::IN },

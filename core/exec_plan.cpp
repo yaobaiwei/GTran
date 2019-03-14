@@ -71,16 +71,3 @@ int TrxPlan::NextQuery(QueryPlan& plan) {
     plan.trx_type = trx_type_;
     return query_index_;
 }
-
-inline bool isTrxReadyOnly(char trx_type) {
-    return trx_type == TRX_READONLY;
-}
-inline bool isTrxUpdate(char trx_type) {
-    return trx_type & TRX_UPDATE != 0;
-}
-inline bool isTrxAdd(char trx_type) {
-    return trx_type & TRX_ADD != 0;
-}
-inline bool isTrxDelete(char trx_type) {
-    return trx_type & TRX_DELETE != 0;
-}
