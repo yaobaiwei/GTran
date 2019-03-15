@@ -112,8 +112,52 @@ obinstream& operator>>(obinstream& m, Message& msg) {
     return m;
 }
 
-void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
-                        const QueryPlan& qplan, vector<Message>& vec) {
+void Message::AssignParamsByLocality(vector<QueryPlan>& qplans, DataStore* data_store) {
+    // Currently only init actor need to consider data locality
+    // [TODO](Nick) : Add more type if necessary. e.g: AddE
+    //                If only init actor, remove for loop
+    //                Else i < qplan.actors.size()
+    QueryPlan& qplan = qplans[0];
+    for (int i = 0; i < 1; i ++) {
+        Actor_Object& actor = qplans[0].actors[i];
+        vector<value_t>& params = actor.params;
+        // start position of V/E data which need to be redistributed
+        int data_index = -1;
+
+        switch (actor.actor_type) {
+          case ACTOR_T::INIT:
+            // If init actor has input from place holder
+            if (!Tool::value_t2int(params[1])) {
+                continue;
+            }
+            data_index = 2;
+            break;
+          default:
+            continue;
+        }
+
+        map<int, vector<value_t>> nid2data;
+        // Redistribute V/E to corresponding machine
+        for (int j = data_index; j < params.size(); j ++) {
+            int node = get_node_id(params[j], data_store);
+            nid2data[node].push_back(move(params[j]));
+        }
+
+        // Assign params to corresponding query plan
+        for (int j = 0; j < qplans.size(); j++) {
+            vector<value_t>& actor_params = qplans[j].actors[i].params;
+            // Remove params after data_index
+            actor_params.resize(data_index);
+            // Insert corresponding data
+            actor_params.insert(actor_params.end(),
+                                make_move_iterator(nid2data[j].begin()),
+                                make_move_iterator(nid2data[j].end()));
+        }
+    }
+}
+
+void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, DataStore* data_store,
+                            QueryPlan& qplan, vector<Message>& vec) {
     // assign receiver thread id
     Meta m;
     m.qid = qid;
@@ -124,12 +168,17 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
     m.parent_tid = recv_tid;
     m.msg_type = MSG_T::INIT;
     m.msg_path = to_string(nodes_num);
-    m.qplan = qplan;
+
+    // Redistribute actor params
+    vector<QueryPlan> qplans(nodes_num - 1, qplan);
+    qplans.push_back(move(qplan));
+    AssignParamsByLocality(qplans, data_store);
 
     for (int i = 0; i < nodes_num; i++) {
         Message msg;
         msg.meta = m;
         msg.meta.recver_nid = i;
+        msg.meta.qplan = move(qplans[i]);
         vec.push_back(move(msg));
     }
 }
@@ -470,7 +519,7 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
     return to_barrier;
 }
 
-int Message::get_node_id(value_t & v, DataStore* data_store) {
+int Message::get_node_id(const value_t & v, DataStore* data_store) {
     int type = v.type;
     if (type == 1) {
         vid_t v_id(Tool::value_t2int(v));

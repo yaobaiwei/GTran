@@ -786,7 +786,6 @@ void Parser::ParseInit(const string& line, string& var_name, string& query) {
     } else if (idx > 4) {
         string var = query.substr(4, idx - 4);
         RegPlaceHolder(var, 0, 2, io_type_);
-        actor.send_remote = true;
         with_input =  true;
     }
 
