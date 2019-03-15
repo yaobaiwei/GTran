@@ -237,11 +237,11 @@ class InitActor : public AbstractActor {
         msg.data.clear();
         msg.data.emplace_back(history_t(), vector<value_t>());
 
-        if (m.recver_nid == m.parent_nid) {
-            msg.data[0].second.insert(msg.data[0].second.end(),
-                                make_move_iterator(actor_obj.params.begin() + 2),
-                                make_move_iterator(actor_obj.params.end()));
-        }
+        // Get V/E from actor params
+        msg.data[0].second.insert(msg.data[0].second.end(),
+                                  make_move_iterator(actor_obj.params.begin() + 2),
+                                  make_move_iterator(actor_obj.params.end()));
+
         vector<Message> vec;
         msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, vec);
 

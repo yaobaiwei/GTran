@@ -410,10 +410,7 @@ class Worker {
         monitor_->IncreaseCounter(1);
     }
 
-    /**
-     * For one package, parse it and create the init messages to all workers for ACTOR:INIT
-     */
-    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
+    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity, DataStore * data_store) {
         while (1) {
             Pack pkg;
             queue_.WaitAndPop(pkg);
@@ -424,6 +421,7 @@ class Worker {
                 my_node_.get_local_rank(),
                 my_node_.get_local_size(),
                 core_affinity->GetThreadIdForActor(ACTOR_T::INIT),
+                data_store,
                 pkg.qplan,
                 msgs);
             for (int i = 0 ; i < my_node_.get_local_size(); i++) {
@@ -517,7 +515,7 @@ class Worker {
         datastore->WriteSnapshot();
 
         thread recvreq(&Worker::RecvRequest, this);
-        thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
+        thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity, datastore);
 
         // for TCP use
         thread w_listener;

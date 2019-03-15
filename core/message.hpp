@@ -110,8 +110,8 @@ class Message {
     // currently
     // recv_tid = qid % thread_pool.size()
     // parent_node = _my_node.get_local_rank()
-    static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
-                        const QueryPlan& qplan, vector<Message>& vec);
+    static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, DataStore* data_store,
+                              QueryPlan& qplan, vector<Message>& vec);
 
     // create exit msg, notifying ending of one query
     void CreateExitMsg(int nodes_num, vector<Message>& vec);
@@ -151,7 +151,9 @@ class Message {
     // update route to barrier or labelled branch actors for msg collection
     bool update_collection_route(Meta& m, const vector<Actor_Object>& actors);
     // get the node where vertex or edge is stored
-    static int get_node_id(value_t & v, DataStore* data_store);
+    static int get_node_id(const value_t & v, DataStore* data_store);
+    // Redistribute params of actors according to data locality
+    static void AssignParamsByLocality(vector<QueryPlan>& qplans, DataStore* data_store);
 };
 
 ibinstream& operator<<(ibinstream& m, const Message& msg);
