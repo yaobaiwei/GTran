@@ -104,19 +104,19 @@ class HasActor : public AbstractActor {
         }
     }
 
-    bool valid(uint64_t TrxID, const vector<Actor_Object> & actor_list, const vector<rct_read_data_t> & check_set) {
-        for (auto actor_obj : actor_list) {
-            assert(actor_obj.actor_type == ACTOR_T::HAS);
+    bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
+        for (auto & actor_obj : actor_list) {
+            assert(actor_obj->actor_type == ACTOR_T::HAS);
             vector<uint64_t> local_check_set;
 
             // Analysis params
             set<int> plist;
-            Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-            int numParamsGroup = (actor_obj.params.size() - 1) / 3;  // number of groups of params
+            Element_T inType = (Element_T) Tool::value_t2int(actor_obj->params.at(0));
+            int numParamsGroup = (actor_obj->params.size() - 1) / 3;  // number of groups of params
             for (int i = 0; i < numParamsGroup; i++) {
                 int pos = i * 3 + 1;
                 // Get predicate params
-                plist.emplace(Tool::value_t2int(actor_obj.params.at(pos)));
+                plist.emplace(Tool::value_t2int(actor_obj->params.at(pos)));
             }
 
             // Compare check_set and parameters
@@ -127,7 +127,7 @@ class HasActor : public AbstractActor {
             }
 
             if (local_check_set.size() != 0) {
-                if(!v_obj.Validate(TrxID, actor_obj.index, local_check_set)) {
+                if(!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
                     return false;
                 }
             }

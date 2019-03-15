@@ -72,13 +72,13 @@ class KeyActor : public AbstractActor {
         }
     }
 
-    bool valid(uint64_t TrxID, const vector<Actor_Object> & actor_list, const vector<rct_read_data_t> & check_set) {
-        for (auto actor_obj : actor_list) {
-            assert(actor_obj.actor_type == ACTOR_T::KEY);
+    bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
+        for (auto & actor_obj : actor_list) {
+            assert(actor_obj->actor_type == ACTOR_T::KEY);
             vector<uint64_t> local_check_set;
 
             // Analysis params
-            Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
+            Element_T inType = (Element_T) Tool::value_t2int(actor_obj->params.at(0));
 
             // Compare check_set and parameters
             for (auto & val : check_set) {
@@ -88,7 +88,7 @@ class KeyActor : public AbstractActor {
             }
 
             if (local_check_set.size() != 0) {
-                if(!v_obj.Validate(TrxID, actor_obj.index, local_check_set)) {
+                if(!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
                     return false;
                 }
             }

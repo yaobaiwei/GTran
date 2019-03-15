@@ -75,16 +75,16 @@ class PropertiesActor : public AbstractActor {
         }
     }
 
-    bool valid(uint64_t TrxID, const vector<Actor_Object> & actor_list, const vector<rct_read_data_t> & check_set) {
+    bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
         for (auto actor_obj : actor_list) {
-            assert(actor_obj.actor_type == ACTOR_T::PROPERTIES);
+            assert(actor_obj->actor_type == ACTOR_T::PROPERTIES);
             vector<uint64_t> local_check_set;
 
             // Analysis params
-            Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
+            Element_T inType = (Element_T)Tool::value_t2int(actor_obj->params.at(0));
             set<int> plist;
-            for (int cnt = 1; cnt < actor_obj.params.size(); cnt++) {
-                plist.emplace(Tool::value_t2int(actor_obj.params.at(cnt)));
+            for (int cnt = 1; cnt < actor_obj->params.size(); cnt++) {
+                plist.emplace(Tool::value_t2int(actor_obj->params.at(cnt)));
             }
 
             // Compare check_set and parameters
@@ -95,7 +95,7 @@ class PropertiesActor : public AbstractActor {
             }
 
             if (local_check_set.size() != 0) {
-                if(!v_obj.Validate(TrxID, actor_obj.index, local_check_set)) {
+                if(!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
                     return false;
                 }
             }

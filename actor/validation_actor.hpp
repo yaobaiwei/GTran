@@ -138,26 +138,26 @@ class ValidationActor : public AbstractActor {
 
     // Set for necessarily validate actor
     // Access Only
-    set<ACTOR_T> needValidateActorSet;
-    unordered_map<int, set<vstep_t>> primitiveStepMap;
+    set<ACTOR_T> needValidateActorSet_;
+    unordered_map<int, set<vstep_t>> primitiveStepMap_;
 
     // step_rct_map
-    typedef unordered_map<vstep_t, unordered_map<uint64_t, vector<rct_read_data_t>>, KeyHasher> step_trx_rct_map;
-    typedef unordered_map<vstep_t, vector<Actor_Object>, KeyHasher> step_aobj_map_t;
+    typedef unordered_map<vstep_t, unordered_map<uint64_t, vector<rct_extract_data_t>>, KeyHasher> step2TrxRct_map_t_;
+    typedef unordered_map<vstep_t, vector<Actor_Object*>, KeyHasher> step2aobj_map_t_;
 
     void prepare_primitive_list();
 
-    void process_trx(int num_queries, int cur_qid, set<vstep_t> & trx_step_sets, step_aobj_map_t & step_obj_map);
+    void process_trx(int num_queries, int cur_qid, set<vstep_t> & trx_step_sets, step2aobj_map_t_ & step_aobj_map);
 
-    void get_recent_action_set(const vector<uint64_t> & trxIDList, unordered_map<int, unordered_map<uint64_t, vector<rct_read_data_t>>> & rct_map);
+    void get_recent_action_set(const vector<uint64_t> & trxIDList, unordered_map<int, unordered_map<uint64_t, vector<rct_extract_data_t>>> & rct_map);
 
-    void get_vstep(const Actor_Object & cur_actor_obj, int step_num, set<vstep_t> & step_sets, step_aobj_map_t & step_obj_map);
-    void get_vstep_for_has(const Actor_Object & cur_actor_obj, int step_num, set<vstep_t> & step_sets, step_aobj_map_t & step_obj_map);
+    void get_vstep(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
+    void get_vstep_for_has(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
 
-    bool do_step_validation(int cur_trxID, step_trx_rct_map & check_step_map, vector<uint64_t> & optimistic_validation_trx, step_aobj_map_t & step_obj_map);
+    bool do_step_validation(int cur_trxID, step2TrxRct_map_t_ & check_step_map, vector<uint64_t> & optimistic_validation_trx, step2aobj_map_t_ & step_aobj_map);
     void optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort);
 
-    void insert_step_obj_map(step_aobj_map_t & step_obj_map, const vstep_t & vstep, Actor_Object obj);
+    void insert_step_aobj_map(step2aobj_map_t_ & step_aobj_map, const vstep_t & vstep, Actor_Object * obj);
     // Test for data_store->InsertRCT
     void test_insert_rct(uint64_t trxID, vector<uint64_t> & values, vector<int> & p_vec);
 };
