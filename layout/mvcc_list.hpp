@@ -14,11 +14,16 @@ template<class MVCC>
 class MVCCList {
     static_assert(std::is_base_of<AbstractMVCC, MVCC>::value, "MVCC must derive from AbstractMVCC");
  public:
+    typedef decltype(MVCC::val) ValueType;
+
     // TODO(entityless): Implement thread safe when modifying data
     MVCC* GetCurrentVersion(const uint64_t& trx_id, const uint64_t& begin_time);
 
-    void AppendVersion(decltype(MVCC::val) val, const uint64_t& trx_id, const uint64_t& begin_time);
-    void CommitVersion(const uint64_t& trx_id, const uint64_t& begin_time);  // TODO(entityless): Finish this
+    // If nullptr, then append failed.
+    ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
+    ValueType* AppendInitialVersion();
+    void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);  // TODO(entityless): Finish this
+    ValueType AbortVersion(const uint64_t& trx_id);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<MVCC>* pool_ptr) {
         pool_ptr_ = pool_ptr;
@@ -26,9 +31,9 @@ class MVCCList {
 
  private:
     static OffsetConcurrentMemPool<MVCC>* pool_ptr_;  // Initialized in data_storage.cpp
-    // TODO(entityless): enable GC
 
     MVCC* head_ = nullptr;
+    MVCC* tail_ = nullptr;
 };
 
 #include "mvcc_list.tpp"

@@ -62,29 +62,33 @@ class MPISnapshotManager {
 
     bool TestRead(string key);
     bool TestWrite(string key);
-
     template<class T>
-    bool ReadData(string key, T& data, void(ReadFunction)(ifstream&, T&), bool data_const = true) {
-        if (!read_enabled_ || status_ != CONFIG_CONFIRMED) return false;
-        if (TestRead(key)) return true;
-        ifstream in_f(path_ + key, ios::binary);
-        if (!in_f.is_open()) return false;
-        ReadFunction(in_f, data);
-        in_f.close();
-        read_map_[key] = true;
-        if (data_const) write_map_[key] = read_map_[key];
-        return read_map_[key];
-    }
-
+    bool ReadData(string key, T& data, void(ReadFunction)(ifstream&, T&), bool data_const = true);
     template<class T>
-    bool WriteData(string key, T& data, void(WriteFunction)(ofstream&, T&)) {
-        if (!write_enabled_ || status_ != CONFIG_CONFIRMED) return false;
-        if (TestWrite(key)) return true;
-        ofstream out_f(path_ + key, ios::binary);
-        if (!out_f.is_open()) return false;
-        WriteFunction(out_f, data);
-        out_f.close();
-        write_map_[key] = true;
-        return write_map_[key];
-    }
+    bool WriteData(string key, T& data, void(WriteFunction)(ofstream&, T&));
 };
+
+template<class T>
+bool MPISnapshotManager::ReadData(string key, T& data, void(ReadFunction)(ifstream&, T&), bool data_const) {
+    if (!read_enabled_ || status_ != CONFIG_CONFIRMED) return false;
+    if (TestRead(key)) return true;
+    ifstream in_f(path_ + key, ios::binary);
+    if (!in_f.is_open()) return false;
+    ReadFunction(in_f, data);
+    in_f.close();
+    read_map_[key] = true;
+    if (data_const) write_map_[key] = read_map_[key];
+    return read_map_[key];
+}
+
+template<class T>
+bool MPISnapshotManager::WriteData(string key, T& data, void(WriteFunction)(ofstream&, T&)) {
+    if (!write_enabled_ || status_ != CONFIG_CONFIRMED) return false;
+    if (TestWrite(key)) return true;
+    ofstream out_f(path_ + key, ios::binary);
+    if (!out_f.is_open()) return false;
+    WriteFunction(out_f, data);
+    out_f.close();
+    write_map_[key] = true;
+    return write_map_[key];
+}

@@ -8,36 +8,43 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <atomic>
 
 #include "layout/concurrent_mem_pool.hpp"
-#include "layout/mvcc_kv_store.hpp"
 #include "layout/mvcc_list.hpp"
+#include "layout/mvcc_value_store.hpp"
 
 template <class PropertyRow>
 class PropertyRowList {
  private:
     static OffsetConcurrentMemPool<PropertyRow>* pool_ptr_;  // Initialized in data_storage.cpp
-    static MVCCKVStore* kvs_ptr_;
+    static MVCCValueStore* value_storage_ptr_;
 
     std::atomic_int property_count_;
     PropertyRow* head_;
 
  public:
-    void Init() {head_ = pool_ptr_->Get(); property_count_ = 0;}
+    void Init();
 
     typedef decltype(PropertyRow::elements_[0].pid) PidType;
 
     // this function will only be called when loading data from hdfs
-    void InsertElement(const PidType& pid, const value_t& value);
+    void InsertInitialElement(const PidType& pid, const value_t& value);
 
-    // TODO(entityless): Implement how to deal with deleted property in MVCC
     void ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret);
     void ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time, vector<pair<label_t, value_t>>& ret);
+    void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, vector<PidType>& ret);
+
+    // TODO(entityless): Implement 2 function below
+    bool ProcessModifyProperty(const PidType& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);
+
+    void Commit(const PidType& pid, const uint64_t& trx_id, const uint64_t& commit_time);
+    void Abort(const PidType& pid, const uint64_t& trx_id);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<PropertyRow>* pool_ptr) {
         pool_ptr_ = pool_ptr;
     }
-    static void SetGlobalKVS(MVCCKVStore* kvs_ptr) {
-        kvs_ptr_ = kvs_ptr;
+    static void SetGlobalKVS(MVCCValueStore* value_storage_ptr) {
+        value_storage_ptr_ = value_storage_ptr;
     }
-}  __attribute__((aligned(64)));
+};
 
 #include "property_row_list.tpp"

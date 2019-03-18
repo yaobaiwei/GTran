@@ -12,8 +12,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
-#include "layout/mvcc_kv_store.hpp"
 #include "layout/mvcc_list.hpp"
+#include "layout/mvcc_value_store.hpp"
 #include "layout/property_row_list.hpp"
 #include "layout/row_definition.hpp"
 #include "layout/topology_row_list.hpp"
@@ -26,11 +26,42 @@ struct VertexItem {
     MVCCList<TopologyMVCC>* mvcc_list;
 };
 
+// edge's src_v must locate on the same node
 struct EdgeItem {
     label_t label;
     PropertyRowList<EdgePropertyRow>* ep_row_list;
-    // this mvcc_list pointer will point to the same MVCCList instance in VERow
+    // this mvcc_list pointer will point to the same instance in this edge's src_v's VertexEdgeRow's element's mvcc_list
     MVCCList<TopologyMVCC>* mvcc_list;
+};
+
+struct TransactionItem {
+    enum ProcessType {
+        PROCESS_ADD_V,
+        PROCESS_ADD_E,
+        PROCESS_DROP_V,
+        PROCESS_DROP_E,
+        PROCESS_DROP_VP,
+        PROCESS_DROP_EP,
+        PROCESS_MODIFY_VP,
+        PROCESS_MODIFY_EP
+    };
+
+    struct ProcessItem {
+        union DataField {
+            vpid_t vpid;
+            epid_t epid;
+            eid_t eid;
+            vid_t vid;
+
+            DataField() {}
+        };
+
+        DataField data;
+        ProcessType type;
+        ProcessItem() {}
+    };
+
+    std::vector<ProcessItem> process_list;
 };
 
 class DataStorage {
@@ -43,8 +74,9 @@ class DataStorage {
     void CreateContainer();
     void FillContainer();  // since MVCC is used, the initial data will be treated as the first version
 
-    Config* config_;
+    Config* config_ = nullptr;
     Node node_;
+    SimpleIdMapper* id_mapper_ = nullptr;
 
     // from vid & eid to the first row of the entity
     tbb::concurrent_hash_map<uint64_t, EdgeItem> edge_map_;
@@ -53,8 +85,8 @@ class DataStorage {
     tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::accessor VertexAccessor;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::const_accessor VertexConstAccessor;
-    MVCCKVStore* vp_store_ = nullptr;
-    MVCCKVStore* ep_store_ = nullptr;
+    MVCCValueStore* vp_store_ = nullptr;
+    MVCCValueStore* ep_store_ = nullptr;
 
     // for data initial
     HDFSDataLoader* hdfs_data_loader_ = nullptr;
@@ -70,8 +102,25 @@ class DataStorage {
     OffsetConcurrentMemPool<TopologyMVCC>* topology_mvcc_pool_ = nullptr;
     OffsetConcurrentMemPool<PropertyMVCC>* property_mvcc_pool_ = nullptr;
 
+    // VID related. Used when adding a new vertex.
+    std::atomic_int vid_to_assign_divided_;
+    int worker_rank_, worker_size_;
+    vid_t AssignVID();
+
+    // MVCC processing related
+    tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_map_;
+    typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
+
  public:
-    // "Get" prefix in DataStorage while "Read" prefix in 3 "Row" classes
+    // MVCC processing stage related
+    vid_t ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);  // fail if return vid = 0
+    bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+
+    // MVCC abort or commit
+    void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
+    void Abort(const uint64_t& trx_id);
 
     // data access
     void GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret);
@@ -80,11 +129,14 @@ class DataStorage {
                vector<pair<label_t, value_t>>& ret);
     void GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                vector<pair<label_t, value_t>>& ret);
+    void GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                     vector<vpid_t>& ret);
+    void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+                     vector<epid_t>& ret);
     label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
     label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
 
-    // do not need to implement traversal from edge
-    // since eid_t contains in_v and out_v
+    // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
     // traversal from vertex
     // if label == 0, then do not filter by label
@@ -93,16 +145,13 @@ class DataStorage {
     void GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                 const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret);
 
-    // TODO(entityless): Figure out how to construct InitMsg
-    // TODO(entityless): Use mvcc info for two function below
-    // as InitMsg (used by g.V(), g.E() without index) will be changed over time
+    // TODO(entityless): Figure out how to run two functions below efficiently
     void GetAllVertex(const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret);
     void GetAllEdge(const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret);
 
     //// Indexed data access
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);
 
-    //// Non-storage function
     static DataStorage* GetInstance() {
         static DataStorage* data_storage_instance_ptr = nullptr;
 
@@ -117,4 +166,5 @@ class DataStorage {
     void Init();
 
     void PrintLoadedData();  // TODO(entityless): remove this in the future
+    void PropertyMVCCTest();
 };
