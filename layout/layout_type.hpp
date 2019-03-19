@@ -34,34 +34,12 @@ struct TMPEdge {
     string DebugString() const;
 };
 
-// used in KVStore
-struct MVCCHeader {
-    uint64_t begin_time;
-    uint64_t pid;  // for ep and vp
-
-    MVCCHeader(uint64_t _begin_time, uint64_t _pid) : begin_time(_begin_time), pid(_pid) {}
-
-    inline uint64_t HashToUint64() const {
-        const uint64_t k_mul = 0x9ddfea08eb382d69ULL;
-        uint64_t a = (begin_time ^ pid) * k_mul;
-        a ^= (a >> 47);
-        uint64_t b = (pid ^ a) * k_mul;
-        b ^= (b >> 47);
-        b *= k_mul;
-        return b;
-    }
-
-    bool operator==(const MVCCHeader& right_header) {
-        return (begin_time == right_header.begin_time) && (pid == right_header.pid);
-    }
-};
-
 ibinstream& operator<<(ibinstream& m, const TMPVertex& v);
 obinstream& operator>>(obinstream& m, TMPVertex& v);
 ibinstream& operator<<(ibinstream& m, const TMPEdge& v);
 obinstream& operator>>(obinstream& m, TMPEdge& v);
 
-// To infer how many elements a row contains at compiling
+// To infer how many elements a row contains during compilation
 template <class T>
 constexpr int InferElementCount(int preferred_size, int taken_size) {
     return (preferred_size - taken_size) / sizeof(T);

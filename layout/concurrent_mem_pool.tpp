@@ -4,11 +4,23 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 template<class ItemT, class OffsetT>
+OffsetConcurrentMemPool<ItemT, OffsetT>::~OffsetConcurrentMemPool() {
+    if(next_offset_ != nullptr)
+        delete[] next_offset_;
+    if (mem_allocated_)
+        delete[] attached_mem_;
+}
+
+template<class ItemT, class OffsetT>
 void OffsetConcurrentMemPool<ItemT, OffsetT>::Init(ItemT* mem, size_t element_cnt) {
-    if (mem != nullptr)
+    if (mem != nullptr) {
         attached_mem_ = mem;
-    else
-        attached_mem_ = new ItemT[element_cnt];  // TODO(entityless): optimization
+        mem_allocated_ = false;
+    }
+    else {
+        attached_mem_ = new ItemT[element_cnt];  // TODO(entityless): alignment optimization
+        mem_allocated_ = true;
+    }
 
     element_cnt_ = element_cnt;
 

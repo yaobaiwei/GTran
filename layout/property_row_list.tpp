@@ -4,30 +4,36 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::InsertElement(const PidType& pid, const value_t& value) {
+void PropertyRowList<PropertyRow>::Init() {
+    head_ = pool_ptr_->Get();
+    property_count_ = 0;
+}
+
+template <class PropertyRow>
+void PropertyRowList<PropertyRow>::InsertInitialElement(const PidType& pid, const value_t& value) {
     int element_id = property_count_++;
     int element_id_in_row = element_id % PropertyRow::RowItemCount();
 
     int next_count = (element_id - 1) / PropertyRow::RowItemCount();
 
-    PropertyRow* my_row = head_;
+    PropertyRow* current_row = head_;
 
     for (int i = 0; i < next_count; i++) {
-        my_row = my_row->next_;
+        current_row = current_row->next_;
     }
 
     if (element_id > 0 && element_id % PropertyRow::RowItemCount() == 0) {
-        my_row->next_ = pool_ptr_->Get();
-        my_row = my_row->next_;
-        my_row->next_ = nullptr;
+        current_row->next_ = pool_ptr_->Get();
+        current_row = current_row->next_;
+        current_row->next_ = nullptr;
     }
 
     MVCCList<PropertyMVCC>* mvcc_list = new MVCCList<PropertyMVCC>;
 
-    mvcc_list->AppendVersion(kvs_ptr_->Insert(MVCCHeader(0, pid.value()), value), 0, 0);
+    mvcc_list->AppendInitialVersion()[0] = value_storage_ptr_->Insert(value);
 
-    my_row->elements_[element_id_in_row].pid = pid;
-    my_row->elements_[element_id_in_row].mvcc_list = mvcc_list;
+    current_row->cells_[element_id_in_row].pid = pid;
+    current_row->cells_[element_id_in_row].mvcc_list = mvcc_list;
 }
 
 template <class PropertyRow>
@@ -40,9 +46,14 @@ void PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64
         if (i > 0 && element_id_in_row == 0) {
             current_row = current_row->next_;
         }
-        if (current_row->elements_[element_id_in_row].pid == pid) {
-            kvs_ptr_->Get(current_row->elements_[element_id_in_row].
-                          mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue(), ret);
+
+        auto& cell_ref = current_row->cells_[element_id_in_row];
+
+        if (cell_ref.pid == pid) {
+            auto storage_header = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+            if (!storage_header.IsEmpty()) {
+                value_storage_ptr_->GetValue(storage_header, ret);
+            }
             break;
         }
     }
@@ -58,10 +69,76 @@ void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const
             current_row = current_row->next_;
         }
 
-        value_t v;
-        label_t label = current_row->elements_[element_id_in_row].pid.pid;
-        kvs_ptr_->Get(current_row->elements_[element_id_in_row].
-                      mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue(), v);
-        ret.emplace_back(make_pair(label, v));
+        auto& cell_ref = current_row->cells_[element_id_in_row];
+
+        auto storage_header = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+
+        if(!storage_header.IsEmpty()){
+            value_t v;
+            label_t label = cell_ref.pid.pid;
+            value_storage_ptr_->GetValue(storage_header, v);
+            ret.emplace_back(make_pair(label, v));
+        }
     }
+}
+
+template <class PropertyRow>
+void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, vector<PidType>& ret) {
+    PropertyRow* current_row = head_;
+
+    for (int i = 0; i < property_count_; i++) {
+        int element_id_in_row = i % PropertyRow::RowItemCount();
+        if (i > 0 && element_id_in_row == 0) {
+            current_row = current_row->next_;
+        }
+
+        auto& cell_ref = current_row->cells_[element_id_in_row];
+
+        auto storage_header = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+
+        if(!storage_header.IsEmpty())
+            ret.emplace_back(cell_ref.pid);
+    }
+}
+
+template <class PropertyRow>
+pair<bool, MVCCList<PropertyMVCC>*> PropertyRowList<PropertyRow>::ProcessModifyProperty(const PidType& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time) {
+    PropertyRow* current_row = head_;
+
+    int i;
+
+    for (int i = 0; i < property_count_; i++) {
+        int element_id_in_row = i % PropertyRow::RowItemCount();
+        if (i > 0 && element_id_in_row == 0) {
+            current_row = current_row->next_;
+        }
+
+        auto& cell_ref = current_row->cells_[element_id_in_row];
+
+        if (cell_ref.pid == pid) {
+            auto* version_val_ptr = cell_ref.mvcc_list->AppendVersion(trx_id, begin_time);
+            if (version_val_ptr == nullptr)
+                return make_pair(true, nullptr);
+
+            version_val_ptr[0] = value_storage_ptr_->Insert(value);
+            return make_pair(true, cell_ref.mvcc_list);
+        }
+    }
+
+    // Add property
+    int element_id = property_count_++;
+    int element_id_in_row = element_id % PropertyRow::RowItemCount();
+    if (element_id > 0 && element_id_in_row == 0) {
+        current_row = current_row->next_;
+    }
+
+    auto& cell_ref = current_row->cells_[element_id_in_row];
+    cell_ref.pid = pid;
+    cell_ref.mvcc_list = new MVCCList<PropertyMVCC>;
+
+    // this won't be nullptr
+    auto* version_val_ptr = cell_ref.mvcc_list->AppendVersion(trx_id, begin_time);
+    version_val_ptr[0] = value_storage_ptr_->Insert(value);
+
+    return make_pair(false, cell_ref.mvcc_list);
 }

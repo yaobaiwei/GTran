@@ -23,12 +23,13 @@ class OffsetConcurrentMemPool {
  private:
     OffsetConcurrentMemPool() {}
     OffsetConcurrentMemPool(const OffsetConcurrentMemPool&);
-    ~OffsetConcurrentMemPool() {if(next_offset_ != nullptr) delete[] next_offset_;}
+    ~OffsetConcurrentMemPool();
 
     void Init(ItemT* mem, size_t element_cnt);
 
     // TODO(entityless): find out a way to avoid false sharing
-    ItemT* attached_mem_;
+    ItemT* attached_mem_ = nullptr;
+    bool mem_allocated_ = false;
     size_t element_cnt_;
 
     #ifdef OFFSET_MEMORY_POOL_DEBUG

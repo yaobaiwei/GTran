@@ -67,13 +67,11 @@ class HDFSDataLoader {
         return hdfs_data_loader_instance_ptr;
     }
 
-    // data loading function based on how data stored on HDFS by the original GQuery
     void Init();
     void LoadData();
     void FreeMemory();
 
     // "schema" related
-    // this can be copy to DataStorage
     string_index* indexes_;
 
     // shuffled data

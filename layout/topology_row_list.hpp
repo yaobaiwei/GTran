@@ -20,19 +20,25 @@ class TopologyRowList {
     vid_t my_vid_;
 
  public:
-    void Init(const vid_t& vid) {head_ = pool_ptr_->Get(); edge_count_ = 0; my_vid_ = vid;}
-
+    void Init();
     // this function will only be called when loading data from hdfs
-    MVCCList<TopologyMVCC>* InsertElement(const bool& is_out, const vid_t& conn_vtx_id, const label_t& label);
+    MVCCList<EdgeMVCC>* InsertInitialElement(const bool& is_out, const vid_t& conn_vtx_id,
+                                             const label_t& edge_label,
+                                             PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
 
-    // TODO(entityless): Implement how to deal with deleted edge in MVCC
     void ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
                              const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret);
 
-    void ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
+    void ReadConnectedEdge(const vid_t& my_vid, const Direction_T& direction, const label_t& edge_label,
                            const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret);
+
+    // nullptr for failed
+    MVCCList<EdgeMVCC>* ProcessAddEdge(const eid_t& eid, const label_t& edge_label,
+                                           const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropEdge(const eid_t& eid,
+                         const uint64_t& trx_id, const uint64_t& begin_time);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<VertexEdgeRow>* pool_ptr) {
         pool_ptr_ = pool_ptr;
     }
-}  __attribute__((aligned(64)));
+};

@@ -370,8 +370,6 @@ void HDFSDataLoader::LoadData() {
 }
 
 bool HDFSDataLoader::ReadSnapshot() {
-    // return false;
-
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, ReadBySerialization))
         return false;
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_edge_", shuffled_edge_, ReadBySerialization))
@@ -566,14 +564,14 @@ void HDFSDataLoader::Shuffle() {
     }
 
     // free shuffled buffer's memory
-    for (auto p : edges_)
-        delete p;
-    for (auto p : vertices_)
-        delete p;
-    for (auto p : vplist_)
-        delete p;
-    for (auto p : eplist_)
-        delete p;
+    for (auto ptr : edges_)
+        delete ptr;
+    for (auto ptr : vertices_)
+        delete ptr;
+    for (auto ptr : vplist_)
+        delete ptr;
+    for (auto ptr : eplist_)
+        delete ptr;
     vector<Edge*>().swap(edges_);
     vector<Vertex*>().swap(vertices_);
     vector<VProperty*>().swap(vplist_);

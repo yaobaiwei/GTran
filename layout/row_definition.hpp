@@ -9,8 +9,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <atomic>
 
 #include "layout/mvcc_definition.hpp"
-#include "layout/mvcc_kv_store.hpp"
 #include "layout/mvcc_list.hpp"
+#include "layout/mvcc_value_store.hpp"
 #include "layout/layout_type.hpp"
 #include "layout/property_row_list.hpp"
 
@@ -32,21 +32,21 @@ struct EPHeader {
 
 struct EdgeHeader {
     bool is_out;  // if this vtx is a, true: a -> b, false: a <- b
-    label_t label;
+    // no label here, as edges with the same eid may have different labels.
     vid_t conn_vtx_id;
-    MVCCList<TopologyMVCC>* mvcc_list;
+    MVCCList<EdgeMVCC>* mvcc_list;
 };
 
-#define VE_ROW_ITEM_COUNT std::InferElementCount<EdgeHeader>(256, sizeof(std::atomic_int) + sizeof(void*))
+#define VE_ROW_ITEM_COUNT std::InferElementCount<EdgeHeader>(256, sizeof(void*))
 
 
 // always fetch rows from memory pools
 
 
-class VertexPropertyRow {
+struct VertexPropertyRow {
  private:
     VertexPropertyRow* next_;
-    VPHeader elements_[VP_ROW_ITEM_COUNT];
+    VPHeader cells_[VP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
 
@@ -58,10 +58,10 @@ class VertexPropertyRow {
 }  __attribute__((aligned(64)));
 
 
-class EdgePropertyRow {
+struct EdgePropertyRow {
  private:
     EdgePropertyRow* next_;
-    EPHeader elements_[EP_ROW_ITEM_COUNT];
+    EPHeader cells_[EP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
 
@@ -73,10 +73,10 @@ class EdgePropertyRow {
 }  __attribute__((aligned(64)));
 
 
-class VertexEdgeRow {
+struct VertexEdgeRow {
  private:
     VertexEdgeRow* next_;  // need to set to nullptr after MemPool::Get()
-    EdgeHeader elements_[VE_ROW_ITEM_COUNT];
+    EdgeHeader cells_[VE_ROW_ITEM_COUNT];
 
     friend class TopologyRowList;
 
