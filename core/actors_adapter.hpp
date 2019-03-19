@@ -35,6 +35,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "actor/select_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
+#include "actor/validation_actor.hpp"
 #include "actor/where_actor.hpp"
 #include "actor/repeat_actor.hpp"
 
@@ -101,6 +102,7 @@ class ActorAdapter {
         actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::VALIDATION] = unique_ptr<AbstractActor>(new ValidationActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, pmt_rct_table_, &actors_, &msg_logic_table_));
         actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
     }
@@ -146,7 +148,9 @@ class ActorAdapter {
             }
 
             // earse only after query with qid is done
-            msg_logic_table_.erase(ac);
+            // TODO : Erase table after all transaction is done;
+            //      Do not erase currently
+            // msg_logic_table_.erase(ac);
 
             return;
         }

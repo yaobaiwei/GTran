@@ -13,6 +13,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <sstream>
 #include <unordered_map>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "utils/mymath.hpp"
@@ -566,6 +567,7 @@ struct hash<agg_t> {
 enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
 enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };
 
+typedef tuple<uint64_t, int, Element_T> rct_extract_data_t;
 static const int NUM_THREAD_DIVISION = 6;
 static const int NUM_RESIDENT_THREAD = 4;
 

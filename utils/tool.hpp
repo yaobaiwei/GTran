@@ -242,6 +242,16 @@ class Tool{
         return true;
     }
 
+    static bool uint64_t2value_t(uint64_t u64, value_t & v) {
+        size_t sz = sizeof(uint64_t);
+        char f[sz];
+        memcpy(f, (const char*)&u64, sz);
+
+        for (int k = 0 ; k < sz; k++)
+            v.content.push_back(f[k]);
+        v.type = 5;
+    }
+
     static bool vec2value_t(const vector<string>& vec, value_t & v, int type) {
         if (vec.size() == 0) {
             return false;

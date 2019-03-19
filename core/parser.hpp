@@ -182,6 +182,9 @@ class Parser {
     void ParseValues(const vector<string>& params);
     void ParseWhere(const vector<string>& params);
 
+    // Add commit statement including validation & finish (Commit or Abort)
+    void AddCommitStatement(TrxPlan& vec);
+
  public:
     // Parse query string
     bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);

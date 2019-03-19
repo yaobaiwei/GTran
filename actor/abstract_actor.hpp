@@ -29,6 +29,7 @@ class AbstractActor {
     virtual ~AbstractActor() {}
     const int GetActorId() { return id_; }
     virtual void process(const QueryPlan & qplan, Message & msg) = 0;
+    virtual bool valid(uint64_t TrxID, vector<Actor_Object*> & step_index_list, const vector<rct_extract_data_t> & check_set) {}
 
  protected:
     // Data Store

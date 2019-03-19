@@ -56,33 +56,9 @@ void ActorValidationObject::RecordInputSet(uint64_t TransactionID, int step_num,
 // Return Value :
 //     True --> no conflict
 //     False --> conflict, do dependency check
-bool ActorValidationObject::Validate(uint64_t TransactionID, const vector<int> & step_num_list, const vector<uint64_t> & check_set) {
-    // TODO(Aaron) : Check Transaction Status on Master
-    for (auto & step_num : step_num_list) {
-        if (!do_validation(TransactionID, step_num, check_set)) {
-            // TODO(Aaron) : Update Transaction Status on Master
-            return false;
-        }
-    }
-    return true;
-}
-
-void ActorValidationObject::DeleteInputSet(uint64_t TransactionID) {
-    // Actually if delete, there is definitely no other access and insert.
-    trx2step_const_accessor tcac;
-    if (trx_to_step_table.find(tcac, TransactionID)) {
-        for (auto & step : tcac->second) {
-            validation_record_key_t key(TransactionID, step);
-            validation_data.erase(key);
-        }
-
-        trx_to_step_table.erase(TransactionID);
-    }
-}
-
-bool ActorValidationObject::do_validation(uint64_t TransactionID, int step_num, const vector<uint64_t> & recv_set) {
+bool ActorValidationObject::Validate(uint64_t TransactionID, int step_num, const vector<uint64_t> & check_set) {
     validation_record_key_t key(TransactionID, step_num);
-    for (auto & item : recv_set) {
+    for (auto & item : check_set) {
         uint64_t inv = item >> VID_BITS;
         uint64_t outv = item - (inv << VID_BITS);
 
@@ -107,3 +83,15 @@ bool ActorValidationObject::do_validation(uint64_t TransactionID, int step_num, 
     return true;
 }
 
+void ActorValidationObject::DeleteInputSet(uint64_t TransactionID) {
+    // Actually if delete, there is definitely no other access and insert.
+    trx2step_const_accessor tcac;
+    if (trx_to_step_table.find(tcac, TransactionID)) {
+        for (auto & step : tcac->second) {
+            validation_record_key_t key(TransactionID, step);
+            validation_data.erase(key);
+        }
+
+        trx_to_step_table.erase(TransactionID);
+    }
+}

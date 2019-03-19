@@ -30,7 +30,7 @@ class PrimitiveRCTTable {
 
     // Validation : Get RCT data
     void GetRecentActionSet(Primitive_T p, const vector<uint64_t> & trxIDList,
-            unordered_map<uint64_t, vector<uint64_t>> & trx_rct_map);
+            unordered_map<uint64_t, vector<rct_extract_data_t>> & trx_rct_map);
     void InsertRecentActionSet(Primitive_T p, uint64_t trxIDList, const vector<uint64_t> & data);
 
  private:
