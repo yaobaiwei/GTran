@@ -32,9 +32,9 @@ struct EPHeader {
 
 struct EdgeHeader {
     bool is_out;  // if this vtx is a, true: a -> b, false: a <- b
-    label_t label;
+    // no label here, as edges with the same eid may have different labels.
     vid_t conn_vtx_id;
-    MVCCList<TopologyMVCC>* mvcc_list;
+    MVCCList<EdgeMVCC>* mvcc_list;
 };
 
 #define VE_ROW_ITEM_COUNT std::InferElementCount<EdgeHeader>(256, sizeof(void*))
@@ -46,7 +46,7 @@ struct EdgeHeader {
 struct VertexPropertyRow {
  private:
     VertexPropertyRow* next_;
-    VPHeader elements_[VP_ROW_ITEM_COUNT];
+    VPHeader cells_[VP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
 
@@ -61,7 +61,7 @@ struct VertexPropertyRow {
 struct EdgePropertyRow {
  private:
     EdgePropertyRow* next_;
-    EPHeader elements_[EP_ROW_ITEM_COUNT];
+    EPHeader cells_[EP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
 
@@ -76,7 +76,7 @@ struct EdgePropertyRow {
 struct VertexEdgeRow {
  private:
     VertexEdgeRow* next_;  // need to set to nullptr after MemPool::Get()
-    EdgeHeader elements_[VE_ROW_ITEM_COUNT];
+    EdgeHeader cells_[VE_ROW_ITEM_COUNT];
 
     friend class TopologyRowList;
 

@@ -48,7 +48,7 @@ ValueHeader MVCCValueStore::Insert(const value_t& value) {
     const char* value_content_ptr = &value.content[0];
     OffsetT value_len = value.content.size(), value_off = 0;
 
-    for(OffsetT i = 0; i < item_count - 1; i++) {
+    for (OffsetT i = 0; i < item_count - 1; i++) {
         char* item_ptr = GetItemPtr(current_offset);
         if (i == 0) {
             // insert type; the first item only stores type.
@@ -78,7 +78,7 @@ void MVCCValueStore::GetValue(const ValueHeader& header, value_t& value) {
 
     char* value_content_ptr = &value.content[0];
 
-    for(OffsetT i = 0; i < item_count - 1; i++) {
+    for (OffsetT i = 0; i < item_count - 1; i++) {
         const char* item_ptr = GetItemPtr(current_offset);
         if (i == 0) {
             value.type = item_ptr[0];

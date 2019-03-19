@@ -18,8 +18,6 @@ struct AbstractMVCC {
  protected:
     AbstractMVCC* next;
 
-    // TODO(entityless): Test these functions if they're right
-
     // if begin_time field is not a transaction id, return 0. else, return trx_id starts from 1 | 0x8000000000000000.
     uint64_t GetTransactionID() const {return (begin_time >> 63) * begin_time;}
     uint64_t GetEndTime() const {return GetTransactionID() > 0 ? MIN_TIME : end_time;}
@@ -46,19 +44,47 @@ struct AbstractMVCC {
 struct PropertyMVCC : public AbstractMVCC {
  private:
     ValueHeader val;
-    void SetValue(const ValueHeader& _val) {val = _val;}
  public:
     ValueHeader GetValue() {return val;}
+
+    static constexpr ValueHeader EMPTY_VALUE = ValueHeader(0, 0);
 
     template<class MVCC> friend class MVCCList;
 };
 
-struct TopologyMVCC : public AbstractMVCC {
+struct VertexMVCC : public AbstractMVCC {
  private:
     bool val;  // whether the edge exists or not
-    void SetValue(const bool& _val) {val = _val;}
  public:
     bool GetValue() {return val;}
+
+    static constexpr bool EMPTY_VALUE = false;
+
+    template<class MVCC> friend class MVCCList;
+};
+
+struct EdgePropertyRow;
+template <class T>
+class PropertyRowList;
+
+struct EdgeItem {
+    label_t label;  // if 0, then the edge is deleted
+    PropertyRowList<EdgePropertyRow>* ep_row_list;  // for in_e, this is always nullptr
+
+    bool Exist() {return label != 0;}
+    EdgeItem() {}
+
+    constexpr EdgeItem(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
+    label(_label), ep_row_list(_ep_row_list) {}
+};
+
+struct EdgeMVCC : public AbstractMVCC {
+ private:
+    EdgeItem val;
+ public:
+    EdgeItem GetValue() {return val;}
+
+    static constexpr EdgeItem EMPTY_VALUE = EdgeItem(0, nullptr);
 
     template<class MVCC> friend class MVCCList;
 };

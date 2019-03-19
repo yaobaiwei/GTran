@@ -23,7 +23,7 @@ class PropertyRowList {
  public:
     void Init();
 
-    typedef decltype(PropertyRow::elements_[0].pid) PidType;
+    typedef decltype(PropertyRow::cells_[0].pid) PidType;
 
     // this function will only be called when loading data from hdfs
     void InsertInitialElement(const PidType& pid, const value_t& value);
@@ -33,11 +33,9 @@ class PropertyRowList {
     void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, vector<PidType>& ret);
 
     // TODO(entityless): Implement 2 function below
-    bool ProcessModifyProperty(const PidType& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);
-
-    void Commit(const PidType& pid, const uint64_t& trx_id, const uint64_t& commit_time);
-    void Abort(const PidType& pid, const uint64_t& trx_id);
+    // the bool value is true if "Modify", false if "Add"
+    pair<bool, MVCCList<PropertyMVCC>*> ProcessModifyProperty(const PidType& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    MVCCList<PropertyMVCC>* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<PropertyRow>* pool_ptr) {
         pool_ptr_ = pool_ptr;

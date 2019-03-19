@@ -7,7 +7,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #pragma once
 
 #include <assert.h>
-#include <cstdio>
 #include <memory.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -30,6 +29,7 @@ struct ValueHeader {
 
     bool IsEmpty() {return count == 0;}
     ValueHeader() {count = 0;}
+    constexpr ValueHeader(OffsetT _head_offset, OffsetT _count) : head_offset(_head_offset), count(_count) {}
 };
 
 // TODO(entityless): implement this as a template class instread of hardcode with macro

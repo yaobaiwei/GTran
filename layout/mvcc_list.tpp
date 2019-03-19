@@ -85,20 +85,27 @@ void MVCCList<MVCC>::CommitVersion(const uint64_t& trx_id, const uint64_t& commi
 template<class MVCC>
 decltype(MVCC::val) MVCCList<MVCC>::AbortVersion(const uint64_t& trx_id) {
     assert(tail_->GetTransactionID() == trx_id);
-    
+
     MVCC *tail_previous = head_;
     while (true) {
-        if (tail_previous->next == tail_)
+        if (tail_previous->next == tail_ || tail_previous->next == nullptr)
             break;
         tail_previous = tail_previous->next;
     }
 
-    tail_previous->next = nullptr;
-
     decltype(MVCC::val) ret = ((MVCC*)tail_)->val;
 
-    pool_ptr_->Free(tail_);
-    tail_ = tail_previous;
+    if (tail_ != tail_previous) {
+        // abort modification
+        tail_previous->next = nullptr;
+
+        pool_ptr_->Free(tail_);
+        tail_ = tail_previous;
+    } else {
+        // abort add
+        tail_->val = MVCC::EMPTY_VALUE;
+        tail_->Commit(tail_previous, 0);
+    }
 
     return ret;
 }

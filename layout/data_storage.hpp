@@ -23,16 +23,9 @@ struct VertexItem {
     label_t label;
     TopologyRowList* ve_row_list;
     PropertyRowList<VertexPropertyRow>* vp_row_list;
-    MVCCList<TopologyMVCC>* mvcc_list;
+    MVCCList<VertexMVCC>* mvcc_list;
 };
-
-// edge's src_v must locate on the same node
-struct EdgeItem {
-    label_t label;
-    PropertyRowList<EdgePropertyRow>* ep_row_list;
-    // this mvcc_list pointer will point to the same instance in this edge's src_v's VertexEdgeRow's element's mvcc_list
-    MVCCList<TopologyMVCC>* mvcc_list;
-};
+// EdgeItem defined in mvcc_definition.hpp
 
 struct TransactionItem {
     enum ProcessType {
@@ -40,6 +33,8 @@ struct TransactionItem {
         PROCESS_ADD_E,
         PROCESS_DROP_V,
         PROCESS_DROP_E,
+        PROCESS_ADD_VP,
+        PROCESS_ADD_EP,
         PROCESS_DROP_VP,
         PROCESS_DROP_EP,
         PROCESS_MODIFY_VP,
@@ -47,17 +42,8 @@ struct TransactionItem {
     };
 
     struct ProcessItem {
-        union DataField {
-            vpid_t vpid;
-            epid_t epid;
-            eid_t eid;
-            vid_t vid;
-
-            DataField() {}
-        };
-
-        DataField data;
         ProcessType type;
+        void* mvcc_list;
         ProcessItem() {}
     };
 
@@ -79,9 +65,11 @@ class DataStorage {
     SimpleIdMapper* id_mapper_ = nullptr;
 
     // from vid & eid to the first row of the entity
-    tbb::concurrent_hash_map<uint64_t, EdgeItem> edge_map_;
-    typedef tbb::concurrent_hash_map<uint64_t, EdgeItem>::accessor EdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, EdgeItem>::const_accessor EdgeConstAccessor;
+    // the MVCCList<EdgeMVCC>* pointer will point to the same instance
+    // in this edge's src_v's VertexEdgeRow's element's mvcc_list
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> edge_map_;
+    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::accessor EdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::const_accessor EdgeConstAccessor;
     tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::accessor VertexAccessor;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::const_accessor VertexConstAccessor;
@@ -99,8 +87,9 @@ class DataStorage {
     OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexPropertyRow>* vp_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<TopologyMVCC>* topology_mvcc_pool_ = nullptr;
     OffsetConcurrentMemPool<PropertyMVCC>* property_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<VertexMVCC>* vertex_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<EdgeMVCC>* edge_mvcc_pool_ = nullptr;
 
     // VID related. Used when adding a new vertex.
     std::atomic_int vid_to_assign_divided_;
@@ -114,7 +103,9 @@ class DataStorage {
 
  public:
     // MVCC processing stage related
-    vid_t ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);  // fail if return vid = 0
+    // fail if return vid = 0
+    vid_t ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
 
