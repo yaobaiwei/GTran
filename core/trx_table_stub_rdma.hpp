@@ -15,13 +15,13 @@
 #include "glog/logging.h"
 #include <iostream>
 
-class TrxTableStub{
+class RDMATrxTableStub{
 private:
     AbstractMailbox * mailbox_;
     Config* config_;
     Node node_;
     Buffer* buf_;
-    static TrxTableStub * instance_;
+    static RDMATrxTableStub * instance_;
 
     uint64_t trx_num_total_buckets_;
     uint64_t trx_num_main_buckets_;
@@ -33,7 +33,7 @@ private:
 
     uint64_t ASSOCIATIVITY_;
 
-    TrxTableStub(AbstractMailbox * mailbox){
+    RDMATrxTableStub(AbstractMailbox * mailbox){
         config_ = Config::GetInstance();
         mailbox_ = mailbox;
         node_ = Node::StaticInstance();
@@ -54,15 +54,14 @@ private:
 
 public:
 
-    static TrxTableStub* GetInstance(AbstractMailbox * mailbox){
-        CHECK(mailbox);
-        if(instance_ == nullptr){
-            instance_ = new TrxTableStub(mailbox);
+    static RDMATrxTableStub* GetInstance(AbstractMailbox * mailbox = nullptr){
+        if(instance_ == nullptr && mailbox != nullptr){
+            instance_ = new RDMATrxTableStub(mailbox);
         }
         return instance_;
     }
 
-    bool TrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr);
+    bool update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr);
 
     bool read_status(uint64_t trx_id, TRX_STAT& status);
 };
