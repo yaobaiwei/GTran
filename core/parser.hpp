@@ -58,10 +58,16 @@ class Parser {
     // Current line
     uint8_t line_index;
 
-    TrxPlan* trx_plan;
+    // Topological level of last update query
+    int last_update;
 
+    // next side effect key
+    uint8_t side_effect_key;
+
+    TrxPlan* trx_plan;
 /*-----------------local members for one line in trx----------------------------
 ------------------------------------------------------------------------------*/
+    bool is_read_only_;
 
     // In/out data type
     IO_T io_type_;
@@ -189,7 +195,7 @@ class Parser {
     // Parse query string
     bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);
 
-    Parser( IndexStore* index_store_): index_store(index_store_) {
+    Parser(IndexStore* index_store_): index_store(index_store_) {
         config = Config::GetInstance();
     }
 

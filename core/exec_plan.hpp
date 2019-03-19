@@ -18,11 +18,12 @@ class QueryPlan {
     QueryPlan() {}
 
     // Query info
+    uint8_t query_index;
     vector<Actor_Object> actors;
 
     // Transaction info
     uint64_t trxid;
-    char trx_type;
+    uint8_t trx_type;
     uint64_t st;
 };
 
@@ -43,18 +44,24 @@ class TrxPlan {
     TrxPlan() {}
     TrxPlan(uint64_t trxid_, uint64_t st, string client_host_) : trxid(trxid_), st_(st), client_host(client_host_) {
         trx_type_ = TRX_READONLY;
-        query_index_ = -1;
         start_time = timer::get_usec();
+        received_ = 0;
     }
 
-    // Register place holder
-    void RegPlaceHolder(int src_index, int dst_index, int actor_index, int param_index);
+    // Register place holder, dst_index depends on src_index
+    void RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int actor_index, int param_index);
+
+    // Register dependency, dst_index depends on src_index
+    void RegDependency(uint8_t src_index, uint8_t dst_index);
 
     // Fill in placeholder and trx result after query done
-    void FillResult(vector<value_t>& vec);
+    void FillResult(uint8_t query_index, vector<value_t>& vec);
 
-    // Get exection plan, return -1 if finished
-    int NextQuery(QueryPlan& plan);
+    // Get result of queries after transaction finished
+    void GetResult(vector<value_t>& vec);
+
+    // Get exection plan, return false if finished
+    bool NextQueries(vector<QueryPlan>& plans);
 
     uint64_t trxid;
 
@@ -62,9 +69,6 @@ class TrxPlan {
 
     // physical time
     uint64_t start_time;
-
-    // Results from all queries
-    vector<value_t> results;
 
  private:
     // Locate the position of place holder
@@ -76,21 +80,28 @@ class TrxPlan {
     };
 
     uint64_t st_;
-    char trx_type_;
-
-    // indicate current query line
-    uint8_t query_index_;
+    uint8_t trx_type_;
+    uint8_t received_;
 
     // Info of all queries
     vector<QueryPlan> query_plans_;
 
-    // Place holder
-    map<int, vector<position_t>> dependents_;
+    // Number of dependency of each query
+    map<uint8_t, uint8_t> deps_count_;
+
+    // Record children of query
+    // If b,c depends on a, then a -> set(b, c)
+    // When a finished, decrease the deps_count of b and c
+    map<uint8_t, set<uint8_t>> topo_;
+    map<uint8_t, vector<position_t>> place_holder_;
+
+    // Query index to query result
+    map<int, vector<value_t>> results_;
 
     friend Parser;
 };
 
-inline bool isTrxReadOnly(char trx_type) { return trx_type == TRX_READONLY; }
-inline bool isTrxUpdate(char trx_type) { return trx_type & TRX_UPDATE != 0; }
-inline bool isTrxAdd(char trx_type) { return trx_type & TRX_ADD != 0; }
-inline bool isTrxDelete(char trx_type) { return trx_type & TRX_DELETE != 0; }
+inline bool isTrxReadOnly(uint8_t trx_type) { return trx_type == TRX_READONLY; }
+inline bool isTrxUpdate(uint8_t trx_type) { return trx_type & TRX_UPDATE != 0; }
+inline bool isTrxAdd(uint8_t trx_type) { return trx_type & TRX_ADD != 0; }
+inline bool isTrxDelete(uint8_t trx_type) { return trx_type & TRX_DELETE != 0; }

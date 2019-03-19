@@ -322,7 +322,7 @@ class Worker {
             value_t v;
             Tool::str2str(error_msg, v);
             vector<value_t> vec = {v};
-            plan.FillResult(vec);
+            plan.FillResult(-1, vec);
             ReplyClient(plan);
         }
     }
@@ -369,29 +369,30 @@ class Worker {
      * to form a package after assigning the qid
      */
     bool RegisterQuery(TrxPlan& plan) {
-        QueryPlan qplan;
-        // Get next query plan if any
-        int query_index = plan.NextQuery(qplan);
-        if (query_index >= 0) {
-            // Register qid in result collector
-            qid_t qid(plan.trxid, query_index);
-            rc_->Register(qid.value());
+        vector<QueryPlan> qplans;
+        // Get query plans of next level if any
+        if (plan.NextQueries(qplans)) {
+            for (QueryPlan& qplan : qplans) {
+                // Register qid in result collector
+                qid_t qid(plan.trxid, qplan.query_index);
+                rc_->Register(qid.value());
 
-            if (qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
-                vector<uint64_t> trxIDList;
-                trx_table_stub_->update_status(plan.trxid, TRX_STAT::VALIDATING, &trxIDList);
-                for (auto & trxID : trxIDList) {
-                    value_t v;
-                    Tool::uint64_t2value_t(trxID, v);
-                    qplan.actors[0].params.emplace_back(v);
+                if (qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
+                    vector<uint64_t> trxIDList;
+                    trx_table_stub_->update_status(plan.trxid, TRX_STAT::VALIDATING, &trxIDList);
+                    for (auto & trxID : trxIDList) {
+                        value_t v;
+                        Tool::uint64_t2value_t(trxID, v);
+                        qplan.actors[0].params.emplace_back(v);
+                    }
                 }
-            }
 
-            // Push query plan to SendQueryMsg queue
-            Pack pkg;
-            pkg.id = qid;
-            pkg.qplan = move(qplan);
-            queue_.Push(pkg);
+                // Push query plan to SendQueryMsg queue
+                Pack pkg;
+                pkg.id = qid;
+                pkg.qplan = move(qplan);
+                queue_.Push(pkg);
+            }
             return true;
         }
         return false;
@@ -402,8 +403,10 @@ class Worker {
      */
     void ReplyClient(TrxPlan& plan) {
         ibinstream m;
+        vector<value_t> results;
+        plan.GetResult(results);
         m << plan.client_host;  // client hostname
-        m << plan.results;  // query results
+        m << results;  // query results
         m << (timer::get_usec() - plan.start_time);   // execution time
 
         zmq::message_t msg(m.size());
@@ -560,7 +563,8 @@ class Worker {
             uint2qid_t(re.qid, qid);
 
             TrxPlan& plan = plans_[qid.trxid];
-            plan.FillResult(re.results);
+            plan.FillResult(qid.id, re.results);
+
             if (!RegisterQuery(plan) && !is_emu_mode_) {
                 // Reply to client when transaction is finished
                 ReplyClient(plan);
