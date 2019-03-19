@@ -37,6 +37,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "layout/pmt_rct_table.hpp"
 #include "layout/data_storage.hpp"
+#include "core/trx_table_stub_rdma.hpp"
 
 struct Pack {
     qid_t id;
@@ -493,6 +494,8 @@ class Worker {
         else
             mailbox = new TCPMailbox(my_node_);
         mailbox->Init(workers_);
+
+        RDMATrxTableStub * trx_table_stub = RDMATrxTableStub::GetInstance(mailbox);
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Mailbox->Init()" << endl;
 

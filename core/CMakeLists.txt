@@ -8,7 +8,7 @@ file(GLOB core-src-files
     parser.cpp
     RCT.cpp
     transactions_table.cpp
-    trx_table_stub.cpp
+    trx_table_stub_rdma.cpp
     bplustree.c
     common.cpp
     )

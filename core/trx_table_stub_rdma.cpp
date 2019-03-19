@@ -3,12 +3,12 @@
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 
-#include <core/trx_table_stub.hpp>
+#include <core/trx_table_stub_rdma.hpp>
 
-TrxTableStub * TrxTableStub::instance_ = nullptr;
+RDMATrxTableStub * RDMATrxTableStub::instance_ = nullptr;
 
-bool TrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr) {
-    CHECK((new_status == TRX_STAT::VALIDATING && trx_ids != nullptr) || (new_status != TRX_STAT::VALIDATING && trx_ids == nullptr)) << "[TrxTableStub] update_status: new_status should correspond to trx_ids";
+bool RDMATrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr) {
+    CHECK((new_status == TRX_STAT::VALIDATING && trx_ids != nullptr) || (new_status != TRX_STAT::VALIDATING && trx_ids == nullptr)) << "[RDMATrxTableStub] update_status: new_status should correspond to trx_ids";
 
     ibinstream in;
     int status_i = int(new_status);
@@ -23,12 +23,12 @@ bool TrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::vect
     return true;
 }
 
-bool TrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
+bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
     CHECK(is_valid_trx_id(trx_id));
 
     int t_id = TidMapper::GetInstance()->GetTid();
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
-    DLOG(INFO) << "[TrxTableStub] read_status： t_id = " << t_id << "; bucket_id = " << bucket_id;
+    DLOG(INFO) << "[RDMATrxTableStub] read_status： t_id = " << t_id << "; bucket_id = " << bucket_id;
 
     while (true) {
         char * send_buffer = buf_->GetSendBuf(t_id);
