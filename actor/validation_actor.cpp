@@ -239,6 +239,8 @@ bool ValidationActor::do_step_validation(int cur_trxID, step2TrxRct_map_t_ & che
                     // Optimistic Validation
                     optimistic_validation_trx.emplace_back(each_rct_trx.first);
                     continue;
+                } else if (cur_stat == TRX_STAT::ABORT) {
+                    continue;
                 } else {
                     // Abort
                     trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
