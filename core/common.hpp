@@ -82,4 +82,4 @@ struct TidStatus {
         ss << "trx_id=" << trx_id << "; P=" << std::to_string(P) << "; V=" << std::to_string(V) << "; C=" << std::to_string(C) << "; A=" << std::to_string(A) << "; occupied=" << std::to_string(occupied);
         return ss.str();
     }
-} __attribute__((packed));;
+} __attribute__((packed));

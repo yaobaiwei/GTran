@@ -30,9 +30,23 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "glog/logging.h"
 
 struct UpdateTrxStatusReq{
-    uint64_t n_id;
+    int n_id;
     uint64_t trx_id;
     TRX_STAT new_status;
+};
+
+struct ReadTrxStatusReq{
+    int n_id;
+    int t_id;
+    uint64_t trx_id;
+
+    string DebugString(){
+        std::stringstream ss;
+        ss << "trx_id: " << trx_id << "; ";
+        ss << "n_id: " << n_id << "; ";
+        ss << "t_id: " << t_id << "\n";
+        return ss.str();
+    }
 };
 
 struct Progress {
@@ -50,9 +64,9 @@ class Master {
         config_ = Config::GetInstance();
         is_end_ = false;
         client_num = 0;
-        time_stamp_ = 0;
-        // TODO(nick): set initial trxid > all time stamp
-        trxid_ = 0;
+        // time_stamp_ = 0;
+        // // TODO(nick): set initial trxid > all time stamp
+        // trxid_ = 0;
     }
 
     ~Master() {
@@ -64,6 +78,30 @@ class Master {
         char addr[64];
         snprintf(addr, sizeof(addr), "tcp://*:%d", node_.tcp_port);
         socket_->bind(addr);
+
+        if (!config_->global_use_rdma) {
+            trx_read_recv_socket = new zmq::socket_t(context_, ZMQ_PULL);
+            snprintf(addr, sizeof(addr), "tcp://*:%d", node_.tcp_port + 3);
+            trx_read_recv_socket->bind(addr);
+            DLOG(INFO) << "[Master] bind " << string(addr);
+            trx_read_rep_sockets.resize(config_->global_num_threads *
+                                        config_->global_num_workers);
+            // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
+            for (int i = 0; i < config_->global_num_workers; ++i) {
+                Node& r_node = GetNodeById(workers_, i + 1);
+
+                for (int j = 0; j < config_->global_num_threads; ++j) {
+                    trx_read_rep_sockets[socket_code(i, j)] =
+                        new zmq::socket_t(context_, ZMQ_PUSH);
+                    snprintf(
+                        addr, sizeof(addr), "tcp://%s:%d",
+                        workers_[i].hostname.c_str(),
+                        r_node.tcp_port + j + 3 + config_->global_num_threads);
+                    trx_read_rep_sockets[socket_code(i, j)]->connect(addr);
+                    DLOG(INFO) << "[Master] connects to " << string(addr);
+                }
+            }
+        }
     }
 
     void ProgListener() {
@@ -116,8 +154,10 @@ class Master {
 
             int target_engine_id = ProgScheduler();
             progress_map_[target_engine_id].assign_tasks++;
-            uint64_t trxid = trxid_++;
-            uint64_t st = time_stamp_++;
+
+            uint64_t trxid, st;
+            trx_p -> insert_single_trx(trxid, st);
+
             // DEBUG
             cout << "##### Master recvs request from Client: " << client_id
                     << " and reply " << target_engine_id << endl;
@@ -139,7 +179,7 @@ class Master {
         while (true) {
             // pop a req
             UpdateTrxStatusReq req;
-            pending_trx_table_updates_.WaitAndPop(req);
+            pending_trx_updates_.WaitAndPop(req);
 
             DLOG(INFO) << "[Master] Processed a req: " << req.n_id << "\t" << req.trx_id << "\t" << (int)req.new_status << "\t" << std::endl;
 
@@ -180,6 +220,7 @@ class Master {
         }
     }
 
+    // covers both trx updates and reads
     void ListenTrxTableWriteReqs() {
         int n_id;
         uint64_t trx_id;
@@ -192,10 +233,51 @@ class Master {
             TRX_STAT new_status;
             out >> n_id >> trx_id >> status_i;
 
-            printf("Master recvs a update state req: %llx\t%llx\t%d\n", n_id, trx_id, status_i);
+            // printf("Master recvs a update state req: %llx\t%llx\t%d\n", n_id, trx_id, status_i);
 
             UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i)};
-            pending_trx_table_updates_.Push(req);
+            pending_trx_updates_.Push(req);
+        }
+    }
+
+    // cover only TCP read
+    void ListenTCPTrxReads(){
+        while(true){
+            ReadTrxStatusReq req;
+            obinstream out;
+            zmq::message_t zmq_req_msg;
+            if (trx_read_recv_socket -> recv(&zmq_req_msg, 0) < 0) {
+                CHECK(false) << "[Master::ListenTCPTrxReads] Master failed to recv TCP read";
+            }
+            // DLOG(INFO) << "[Master::ListenTCPTrxReads] recvs a read status req";
+            char* buf = new char[zmq_req_msg.size()];
+            memcpy(buf, zmq_req_msg.data(), zmq_req_msg.size());
+            out.assign(buf, zmq_req_msg.size(), 0);
+
+            out >> req.n_id >> req.t_id >> req.trx_id;
+            pending_trx_reads_.Push(req);
+        }
+    }
+
+    void ProcessTCPTrxReads() {
+        while (true) {
+            // pop a req
+            ReadTrxStatusReq req;
+            pending_trx_reads_.WaitAndPop(req);
+
+            // DLOG(INFO) << "[Master] Processed a TCP read req: " << req.DebugString();
+
+            TRX_STAT status;
+            trx_p -> query_status(req.trx_id, status);
+            int status_i = (int) status;
+            // DLOG(INFO) << "[Master::query_status] status of " << req.trx_id << " is " << status_i;
+
+            ibinstream in;
+            in << status_i;
+            zmq::message_t zmq_send_msg(in.size());
+            memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
+                   in.size());
+            trx_read_rep_sockets[socket_code(req.n_id, req.t_id)] -> send(zmq_send_msg);
         }
     }
 
@@ -207,7 +289,7 @@ class Master {
         if (config_->global_use_rdma)
             mailbox = new RdmaMailbox(node_, node_, buf);
         else
-            mailbox = new TCPMailbox(node_);
+            mailbox = new TCPMailbox(node_, node_);
         mailbox->Init(workers_);
 
         trx_p = TrxGlobalCoordinator::GetInstance();
@@ -218,6 +300,12 @@ class Master {
 
         thread trx_table_write_listener(&Master::ListenTrxTableWriteReqs, this);
         thread trx_table_write_executor(&Master::ProcessTrxTableWriteReqs, this);
+
+        thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor;
+        if (!config_->global_use_rdma) {
+            trx_table_tcp_read_listener = new thread(&Master::ListenTCPTrxReads, this);
+            trx_table_tcp_read_executor = new thread(&Master::ProcessTCPTrxReads, this);
+        }
 
         int end_tag = 0;
         while (end_tag < node_.get_local_size()) {
@@ -231,6 +319,10 @@ class Master {
         process.join();
         trx_table_write_listener.join();
         trx_table_write_executor.join();
+        if (!config_->global_use_rdma) {
+            trx_table_tcp_read_listener->join();
+            trx_table_tcp_read_executor->join();
+        }
     }
 
  private:
@@ -239,17 +331,23 @@ class Master {
     Config * config_;
     map<int, Progress> progress_map_;
     int client_num;
-    ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_table_updates_;
+    ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
+    ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
     TrxGlobalCoordinator * trx_p;
     RCTable * rct;
     AbstractMailbox * mailbox;
 
-    uint64_t time_stamp_;
-    uint64_t trxid_;
-
     bool is_end_;
     zmq::context_t context_;
     zmq::socket_t * socket_;
+
+    // trx tcp
+    zmq::socket_t * trx_read_recv_socket;
+    vector<zmq::socket_t *> trx_read_rep_sockets;
+
+    inline int socket_code(int n_id, int t_id) {
+        return config_ -> global_num_threads * n_id + t_id;
+    }
 };
 
 #endif /* MASTER_HPP_ */

@@ -3,7 +3,7 @@
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 
-#include <core/trx_table_stub_rdma.hpp>
+#include "core/trx_table_stub_rdma.hpp"
 
 RDMATrxTableStub * RDMATrxTableStub::instance_ = nullptr;
 

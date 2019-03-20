@@ -14,6 +14,13 @@
 #include "core/common.hpp"
 #include "glog/logging.h"
 
+struct Trx {
+    uint64_t trx_id;
+    uint64_t bt;
+    uint64_t ct;
+    TRX_STAT status;
+};
+
 /*
  * a table of transactions
  * columns:  trx_id, status, bt
@@ -92,6 +99,10 @@ class TrxGlobalCoordinator{
     bool query_bt(uint64_t trx_id, uint64_t& bt);
 
     bool query_ct(uint64_t trx_id, uint64_t& ct);
+
+    bool query_status(uint64_t trx_id, TRX_STAT & status);
+
+    bool query_single_item(uint64_t trx_id, Trx & trx);
 
     bool print_single_item(uint64_t trx_id);
 };

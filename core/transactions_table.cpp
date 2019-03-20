@@ -49,6 +49,35 @@ bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
     return true;
 }
 
+bool TrxGlobalCoordinator::query_status(uint64_t trx_id, TRX_STAT & status) {
+    CHECK(is_valid_trx_id(trx_id));
+    TidStatus * p = nullptr;
+    bool found = find_trx(trx_id, &p);
+    if (!found) {
+        return false;
+    } else {
+        status = p -> getState();
+        return true;
+    }
+}
+
+bool TrxGlobalCoordinator::query_single_item(uint64_t trx_id, Trx & trx) {
+    CHECK(is_valid_trx_id(trx_id));
+
+    TidStatus * p = nullptr;
+    bool found = find_trx(trx_id, &p);
+//    CHECK(found) << "[TrxGlobalCoordinator::query_single_item] Not found";
+    if (!found) {
+        return false;
+    } else {
+        trx.trx_id = trx_id;
+        query_bt(trx_id, trx.bt);
+        query_ct(trx_id, trx.ct);
+        trx.status = p -> getState();
+        return true;
+    }
+}
+
 bool TrxGlobalCoordinator::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
     // trx_id is inner representation now
     if (!allocate_trx_id(trx_id))

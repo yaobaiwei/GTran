@@ -11,6 +11,7 @@ file(GLOB core-src-files
     trx_table_stub_rdma.cpp
     bplustree.c
     common.cpp
+    trx_table_stub_zmq.cpp
     )
 
 # add a OBJECT library called core-objs
