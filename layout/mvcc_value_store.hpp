@@ -11,11 +11,19 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <pthread.h>
 #include <stdint.h>
 
+#if defined(__INTEL_COMPILER)
+#include <malloc.h>
+#else
+#include <mm_malloc.h>
+#endif // defined(__GNUC__)
+
 #include <atomic>
 #include <cstdio>
 #include <string>
 
 #include "base/type.hpp"
+
+#define MVCC_VALUE_STORE_DEBUG
 
 // A single class to store both VP and EP
 
@@ -37,15 +45,19 @@ struct ValueHeader {
 class MVCCValueStore {
  private:
     MVCCValueStore(const MVCCValueStore&);
+    ~MVCCValueStore();
 
     // memory pool elements
     char* attached_mem_ = nullptr;
     OffsetT item_count_;
     OffsetT head_, tail_;
     OffsetT* next_offset_ = nullptr;
+    bool mem_allocated_ = false;
     pthread_spinlock_t head_lock_, tail_lock_;
 
+    #ifdef MVCC_VALUE_STORE_DEBUG
     OffsetT get_counter_, free_counter_;
+    #endif  // MVCC_VALUE_STORE_DEBUG
 
     OffsetT Get(const OffsetT& count);
     void Free(const OffsetT& offset, const OffsetT& count);
@@ -58,5 +70,9 @@ class MVCCValueStore {
     ValueHeader Insert(const value_t& value);
     void GetValue(const ValueHeader& header, value_t& value);
     void FreeValue(const ValueHeader& header);
-    MVCCValueStore(char* mem, OffsetT item_count) {Init(mem, item_count);}
+    MVCCValueStore(char* mem, OffsetT item_count);
+
+    #ifdef MVCC_VALUE_STORE_DEBUG
+    std::string UsageString();
+    #endif  // MVCC_VALUE_STORE_DEBUG
 };

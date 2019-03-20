@@ -102,7 +102,8 @@ decltype(MVCC::val) MVCCList<MVCC>::AbortVersion(const uint64_t& trx_id) {
         pool_ptr_->Free(tail_);
         tail_ = tail_previous;
     } else {
-        // abort add
+        // tail_ == head_, only one version in the list
+        // occurs only in "Add" functions, like AddVertex, AddVP...
         tail_->val = MVCC::EMPTY_VALUE;
         tail_->Commit(tail_previous, 0);
     }

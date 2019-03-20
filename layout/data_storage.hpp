@@ -47,6 +47,7 @@ struct TransactionItem {
         ProcessItem() {}
     };
 
+    // TODO(entityless): figure out what if mvcc_list duplicates
     std::vector<ProcessItem> process_list;
 };
 
@@ -108,6 +109,7 @@ class DataStorage {
     bool ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    // TODO(entityless): Finish unfinished process functions
 
     // MVCC abort or commit
     void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
@@ -125,7 +127,7 @@ class DataStorage {
     void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                      vector<epid_t>& ret);
     label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
-    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
+    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);  // TODO(entityless): add "read_only" flag
 
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 

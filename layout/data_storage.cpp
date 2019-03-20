@@ -150,6 +150,10 @@ void DataStorage::FillContainer() {
     node_.LocalSequentialDebugPrint("vertex_mvcc_pool_: " + vertex_mvcc_pool_->UsageString());
     node_.LocalSequentialDebugPrint("edge_mvcc_pool_: " + edge_mvcc_pool_->UsageString());
     #endif  // OFFSET_MEMORY_POOL_DEBUG
+    #ifdef MVCC_VALUE_STORE_DEBUG
+    node_.LocalSequentialDebugPrint("vp_store_: " + vp_store_->UsageString());
+    node_.LocalSequentialDebugPrint("ep_store_: " + ep_store_->UsageString());
+    #endif  // MVCC_VALUE_STORE_DEBUG
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
 }
@@ -491,6 +495,8 @@ bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, co
 
     t_accessor->second.process_list.emplace_back(q_item);
 
+    // TODO(entityless): Return edges connected to it, for DropE actors
+
     return true;
 }
 
@@ -551,9 +557,10 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
 }
 
 void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
-    TransactionConstAccessor t_accessor;
+    TransactionAccessor t_accessor;
     transaction_map_.find(t_accessor, trx_id);
 
+    // TODO(entitlyess): Finish unfinished process functions
     for (auto process_item : t_accessor->second.process_list) {
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
@@ -567,12 +574,14 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
             mvcc_list->CommitVersion(trx_id, commit_time);
         }
     }
+    transaction_map_.erase(t_accessor);
 }
 
 void DataStorage::Abort(const uint64_t& trx_id) {
-    TransactionConstAccessor t_accessor;
+    TransactionAccessor t_accessor;
     transaction_map_.find(t_accessor, trx_id);
 
+    // TODO(entitlyess): Finish unfinished process functions
     for (auto process_item : t_accessor->second.process_list) {
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP) {
@@ -590,6 +599,8 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             mvcc_list->AbortVersion(trx_id);
         }
     }
+
+    transaction_map_.erase(t_accessor);
 }
 
 void DataStorage::PropertyMVCCTest() {
