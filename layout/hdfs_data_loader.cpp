@@ -356,6 +356,7 @@ void HDFSDataLoader::ToEP(char* line) {
 
 void HDFSDataLoader::LoadData() {
     if (!ReadSnapshot()) {
+        node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadSnapshot()\n");
         vector<TMPVertex>().swap(shuffled_vtx_);
         vector<TMPEdge>().swap(shuffled_edge_);
         vector<TMPEdge>().swap(shuffled_in_edge_);
@@ -384,6 +385,7 @@ bool HDFSDataLoader::ReadSnapshot() {
     for (auto& item : shuffled_in_edge_)
         edge_part_map_[item.id.value()] = &item;
 
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ReadSnapshot() finished\n");
     return true;
 }
 

@@ -6,15 +6,30 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/mvcc_value_store.hpp"
 
+MVCCValueStore::MVCCValueStore(char* mem, OffsetT item_count) {
+    Init(mem, item_count);
+}
+
+MVCCValueStore::~MVCCValueStore() {
+    if(next_offset_ != nullptr)
+        _mm_free(next_offset_);
+    if (mem_allocated_)
+        _mm_free(attached_mem_);
+}
+
 void MVCCValueStore::Init(char* mem, OffsetT item_count) {
-    if (mem != nullptr)
+    if (mem != nullptr) {
         attached_mem_ = mem;
-    else
-        attached_mem_ = new char[item_count * MemItemSize];
+        mem_allocated_ = false;
+    }
+    else {
+        attached_mem_ = (char*)_mm_malloc(item_count * MemItemSize, 4096);
+        mem_allocated_ = true;
+    }
 
     item_count_ = item_count;
 
-    next_offset_ = new OffsetT[item_count];
+    next_offset_ = (OffsetT*)_mm_malloc(sizeof(OffsetT) * item_count, 4096);
 
     for (OffsetT i = 0; i < item_count; i++) {
         next_offset_[i] = i + 1;
@@ -26,8 +41,10 @@ void MVCCValueStore::Init(char* mem, OffsetT item_count) {
     pthread_spin_init(&head_lock_, 0);
     pthread_spin_init(&tail_lock_, 0);
 
+    #ifdef MVCC_VALUE_STORE_DEBUG
     get_counter_ = 0;
     free_counter_ = 0;
+    #endif  // MVCC_VALUE_STORE_DEBUG
 }
 
 char* MVCCValueStore::GetItemPtr(const OffsetT& offset) {
@@ -107,7 +124,9 @@ OffsetT MVCCValueStore::Get(const OffsetT& count) {
         head_ = next_offset_[head_];
         assert(head_ != tail_);
     }
+    #ifdef MVCC_VALUE_STORE_DEBUG
     get_counter_ += count;
+    #endif  // MVCC_VALUE_STORE_DEBUG
     pthread_spin_unlock(&head_lock_);
     return ori_head;
 }
@@ -118,5 +137,17 @@ void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count) {
     for (OffsetT i = 0; i < count - 1; i++) {
         tail_ = next_offset_[tail_];
     }
+    #ifdef MVCC_VALUE_STORE_DEBUG
+    free_counter_ += count;
+    #endif  // MVCC_VALUE_STORE_DEBUG
     pthread_spin_unlock(&tail_lock_);
 }
+
+#ifdef MVCC_VALUE_STORE_DEBUG
+std::string MVCCValueStore::UsageString() {
+    int get_counter = get_counter_;
+    int free_counter = free_counter_;
+    return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter)
+           + ", Total: " + std::to_string(item_count_);
+}
+#endif  // MVCC_VALUE_STORE_DEBUG

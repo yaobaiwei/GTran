@@ -10,9 +10,16 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <pthread.h>
 #include <stdint.h>
 
+#if defined(__INTEL_COMPILER)
+#include <malloc.h>
+#else
+#include <mm_malloc.h>
+#endif // defined(__GNUC__)
+
 #include <atomic>
 #include <cstdio>
 #include <string>
+
 
 #define OFFSET_MEMORY_POOL_DEBUG
 
@@ -30,7 +37,7 @@ class OffsetConcurrentMemPool {
     // TODO(entityless): find out a way to avoid false sharing
     ItemT* attached_mem_ = nullptr;
     bool mem_allocated_ = false;
-    size_t element_cnt_;
+    size_t element_count_;
 
     #ifdef OFFSET_MEMORY_POOL_DEBUG
     std::atomic_int get_counter_, free_counter_;
