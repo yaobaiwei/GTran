@@ -495,7 +495,7 @@ class Worker {
             mailbox = new TCPMailbox(my_node_);
         mailbox->Init(workers_);
 
-        RDMATrxTableStub * trx_table_stub = RDMATrxTableStub::GetInstance(mailbox);
+        trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox);
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Mailbox->Init()" << endl;
 
@@ -504,8 +504,6 @@ class Worker {
         datastore->Init(workers_);
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Init()" << endl;
-
-        trx_table_stub_ = TrxTableStub::GetInstance(mailbox);
 
         // read snapshot area
         datastore->ReadSnapshot();
@@ -601,6 +599,6 @@ class Worker {
     vector<zmq::socket_t *> senders_;
 
     DataStorage* data_storage_ = nullptr;
-    TrxTableStub * trx_table_stub_;
+    RDMATrxTableStub * trx_table_stub_;
 };
 #endif /* WORKER_HPP_ */
