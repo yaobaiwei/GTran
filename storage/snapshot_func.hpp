@@ -181,7 +181,7 @@ static inline bool ReadKVStoreImpl(string fn, tuple<uint64_t, uint64_t, char*>& 
 //     int dst_nid;
 //     int dst_tid;
 // };
-static inline bool WriteMailboxDataImpl(string fn, vector<AbstractMailbox::mailbox_data_t>& data) {
+static inline bool WriteMailboxMsgImpl(string fn, vector<Message>& msgs) {
     ofstream out_f(fn, ios::binary);
 
     if (!out_f.is_open()) {
@@ -189,56 +189,35 @@ static inline bool WriteMailboxDataImpl(string fn, vector<AbstractMailbox::mailb
     }
 
     // write data to the instream
+    ibinstream in;
+    in << msgs;
 
-    uint64_t vec_len = data.size();
-    out_f.write(reinterpret_cast<char*>(&vec_len), sizeof(uint64_t));
-
-    for (auto data_val : data) {
-        ibinstream& m = data_val.stream;
-
-        uint64_t buf_sz = m.size();
-
-        out_f.write(reinterpret_cast<char*>(&buf_sz), sizeof(uint64_t));
-        out_f.write(m.get_buf(), m.size());
-        out_f.write(reinterpret_cast<char*>(&data_val.dst_nid), sizeof(int));
-        out_f.write(reinterpret_cast<char*>(&data_val.dst_tid), sizeof(int));
-    }
+    uint64_t len = in.size();
+    out_f.write(reinterpret_cast<char*>(&len), sizeof(uint64_t));
+    out_f.write(in.get_buf(), len);
 
     out_f.close();
 
     return true;
 }
 
-static inline bool ReadMailboxDataImpl(string fn, vector<AbstractMailbox::mailbox_data_t>& data) {
+static inline bool ReadMailboxMsgImpl(string fn, vector<Message>& msgs) {
     ifstream in_f(fn, ios::binary);
 
     if (!in_f.is_open()) {
         return false;
     }
 
-    // write data to the instream
+    obinstream out;
 
-    uint64_t vec_len;
+    uint64_t len;
+    in_f.read(reinterpret_cast<char*>(&len), sizeof(size_t));
 
-    in_f.read(reinterpret_cast<char*>(&vec_len), sizeof(uint64_t));
-    data.resize(vec_len);
+    char* tmp_buf = new char[len];
+    in_f.read(tmp_buf, tmp_buf);
 
-    for (int i = 0; i < vec_len; i++) {
-        auto& data_val = data[i];
-        ibinstream& m = data_val.stream;
-
-        uint64_t buf_sz = m.size();
-
-        in_f.read(reinterpret_cast<char*>(&buf_sz), sizeof(uint64_t));
-
-        char* tmp_buf = new char[buf_sz];
-        in_f.read(tmp_buf, buf_sz);
-        m.raw_bytes(tmp_buf, buf_sz);
-        delete[] tmp_buf;
-
-        in_f.read(reinterpret_cast<char*>(&data_val.dst_nid), sizeof(int));
-        in_f.read(reinterpret_cast<char*>(&data_val.dst_tid), sizeof(int));
-    }
+    out.assign(tmp_buf, len, 0);
+    out >> msgs;
 
     in_f.close();
 

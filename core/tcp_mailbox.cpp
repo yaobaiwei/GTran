@@ -16,6 +16,13 @@ TCPMailbox::~TCPMailbox() {
             s.second = NULL;
         }
     }
+
+    for (int i = 0; i < config_->global_num_threads; i++) {
+        delete local_msgs[i];
+    }
+
+    free(schedulers);
+    free(local_msgs);
 }
 
 void TCPMailbox::Init(vector<Node> &nodes) {
@@ -90,61 +97,68 @@ void TCPMailbox::Init(vector<Node> &nodes) {
         trx_worker_receiver_->bind(addr);
         DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << "bind " << string(addr);
     }
+
+    schedulers = (scheduler_t *)malloc(sizeof(scheduler_t) * config_->global_num_threads);
+    memset(schedulers, 0, sizeof(scheduler_t) * config_->global_num_threads);
+
+    local_msgs = (ThreadSafeQueue<Message> **)malloc(sizeof(ThreadSafeQueue<Message>*) * config_->global_num_threads);
+    for (int i = 0; i < config_->global_num_threads; i++) {
+        local_msgs[i] = new ThreadSafeQueue<Message>();
+    }
+    rr_size = 3;
 }
 
 int TCPMailbox::Send(int tid, const Message & msg) {
-    int pcode = port_code(msg.meta.recver_nid, msg.meta.recver_tid);
+    if (msg.meta.recver_nid == my_node_.get_local_rank()) {
+        local_msgs[msg.meta.recver_tid]->Push(msg);
+    } else {
+        int pcode = port_code(msg.meta.recver_nid, msg.meta.recver_tid);
 
-    ibinstream m;
-    m << msg;
+        ibinstream m;
+        m << msg;
 
-    zmq::message_t zmq_msg(m.size());
-    memcpy((void *)zmq_msg.data(), m.get_buf(), m.size());
+        zmq::message_t zmq_msg(m.size());
+        memcpy((void *)zmq_msg.data(), m.get_buf(), m.size());
 
-    pthread_spin_lock(&locks[pcode]);
-    if (senders_.find(pcode) == senders_.end()) {
-        cout << "Cannot find dst_node port num" << endl;
-        return 0;
+        pthread_spin_lock(&locks[pcode]);
+        if (senders_.find(pcode) == senders_.end()) {
+            cout << "Cannot find dst_node port num" << endl;
+            return 0;
+        }
+
+        senders_[pcode]->send(zmq_msg, ZMQ_DONTWAIT);
+        pthread_spin_unlock(&locks[pcode]);
     }
-
-    senders_[pcode]->send(zmq_msg, ZMQ_DONTWAIT);
-    pthread_spin_unlock(&locks[pcode]);
-}
-
-int TCPMailbox::Send(int tid, const mailbox_data_t & data) {
-    int pcode = port_code(data.dst_nid, data.dst_tid);
-
-    zmq::message_t zmq_msg(data.stream.size());
-    memcpy((void *)zmq_msg.data(), data.stream.get_buf(), data.stream.size());
-
-    pthread_spin_lock(&locks[pcode]);
-    if (senders_.find(pcode) == senders_.end()) {
-        cout << "Cannot find dst_node port num" << endl;
-        return 0;
-    }
-
-    senders_[pcode]->send(zmq_msg, ZMQ_DONTWAIT);
-    pthread_spin_unlock(&locks[pcode]);
 }
 
 bool TCPMailbox::TryRecv(int tid, Message & msg) {
-    zmq::message_t zmq_msg;
-    obinstream um;
-
-    if (receivers_[tid]->recv(&zmq_msg) < 0) {
-        cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
-        return false;
+    int type = (schedulers[tid].rr_cnt++) % rr_size;
+    if (type != 0) {
+        // try msg queue
+        if (local_msgs[tid]->Size() != 0) {
+            local_msgs[tid]->WaitAndPop(msg);
+            return true;
+        }
     } else {
-        char* buf = new char[zmq_msg.size()];
-        memcpy(buf, zmq_msg.data(), zmq_msg.size());
-        um.assign(buf, zmq_msg.size(), 0);
-        um >> msg;
-        return true;
+        // try tcp recv
+        zmq::message_t zmq_msg;
+        obinstream um;
+
+        if (receivers_[tid]->recv(&zmq_msg) < 0) {
+            cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
+        } else {
+            char* buf = new char[zmq_msg.size()];
+            memcpy(buf, zmq_msg.data(), zmq_msg.size());
+            um.assign(buf, zmq_msg.size(), 0);
+            um >> msg;
+            return true;
+        }
     }
+    return false;
 }
 
 // if worker send to master: dst_id should be global_num_workers
-void TCPMailbox::Send_Notify(int dst_nid, ibinstream &in) { 
+void TCPMailbox::Send_Notify(int dst_nid, ibinstream &in) {
     if (my_node_.get_world_rank() == MASTER_RANK) {  // master sends to worker
         CHECK(dst_nid != config_ -> global_num_workers) << "[TCPMailbox::Send_Notify] wrong worker dst_id";
         zmq::message_t msg(in.size());

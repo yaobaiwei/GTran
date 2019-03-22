@@ -58,23 +58,6 @@ obinstream& operator>>(obinstream& m, Meta& meta) {
     return m;
 }
 
-void update_route(ibinstream& m, const Meta& meta) {
-    char* head = m.get_buf();
-    *reinterpret_cast<uint64_t*>(head) = meta.qid;
-    head += sizeof(uint64_t);
-    *reinterpret_cast<int*>(head) = meta.step;
-    head += sizeof(int);
-    *reinterpret_cast<int*>(head) = static_cast<int>(meta.msg_type);
-    head += sizeof(int);
-    *reinterpret_cast<int*>(head) = meta.recver_nid;
-    head += sizeof(int);
-    *reinterpret_cast<int*>(head) = meta.recver_tid;
-    head += sizeof(int);
-    *reinterpret_cast<int*>(head) = meta.parent_nid;
-    head += sizeof(int);
-    *reinterpret_cast<int*>(head) = meta.parent_tid;
-}
-
 std::string Meta::DebugString() const {
     std::stringstream ss;
     ss << "Meta: {";

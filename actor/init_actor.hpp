@@ -56,22 +56,22 @@ class InitActor : public AbstractActor {
         int snapshot_read_cnt = 0;
 
         snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_vtx_data", vtx_data, ReadMailboxDataImpl)) ? 1 : 0);
+            ((snapshot->ReadData("init_actor_vtx_msg", vtx_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
         snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_edge_data", edge_data, ReadMailboxDataImpl)) ? 1 : 0);
+            ((snapshot->ReadData("init_actor_edge_msg", edge_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
         snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_vtx_data_count", vtx_data_count, ReadMailboxDataImpl)) ? 1 : 0);
+            ((snapshot->ReadData("init_actor_vtx_count_msg", vtx_count_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
         snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_edge_data_count", edge_data_count, ReadMailboxDataImpl)) ? 1 : 0);
+            ((snapshot->ReadData("init_actor_edge_count_msg", edge_count_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
 
         if (snapshot_read_cnt == 4) {
             is_ready_ = true;
         } else {
             // atomic, all fail
-            vtx_data.resize(0);
-            edge_data.resize(0);
-            vtx_data_count.resize(0);
-            edge_data_count.resize(0);
+            vtx_msgs.resize(0);
+            edge_msgs.resize(0);
+            vtx_count_msgs.resize(0);
+            edge_count_msgs.resize(0);
         }
     }
 
@@ -113,12 +113,12 @@ class InitActor : public AbstractActor {
     std::mutex thread_mutex_;
 
     // Cached data
-    vector<AbstractMailbox::mailbox_data_t> vtx_data;
-    vector<AbstractMailbox::mailbox_data_t> edge_data;
+    vector<Message> vtx_msgs;
+    vector<Message> edge_msgs;
 
     // msg for count actor
-    vector<AbstractMailbox::mailbox_data_t> vtx_data_count;
-    vector<AbstractMailbox::mailbox_data_t> edge_data_count;
+    vector<Message> vtx_count_msgs;
+    vector<Message> edge_count_msgs;
 
     void InitData() {
         if (is_ready_) {
@@ -134,15 +134,15 @@ class InitActor : public AbstractActor {
         uint64_t start_t = timer::get_usec();
 
         InitVtxData(m);
-        snapshot->WriteData("init_actor_vtx_data", vtx_data, WriteMailboxDataImpl);
-        snapshot->WriteData("init_actor_vtx_data_count", vtx_data_count, WriteMailboxDataImpl);
+        snapshot->WriteData("init_actor_vtx_msg", vtx_msgs, WriteMailboxMsgImpl);
+        snapshot->WriteData("init_actor_vtx_count_msg", vtx_count_msgs, WriteMailboxMsgImpl);
         uint64_t end_t = timer::get_usec();
         cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
 
         start_t = timer::get_usec();
         InitEdgeData(m);
-        snapshot->WriteData("init_actor_edge_data", edge_data, WriteMailboxDataImpl);
-        snapshot->WriteData("init_actor_edge_data_count", edge_data_count, WriteMailboxDataImpl);
+        snapshot->WriteData("init_actor_edge_msg", edge_msgs, WriteMailboxMsgImpl);
+        snapshot->WriteData("init_actor_edge_count_msg", edge_count_msgs, WriteMailboxMsgImpl);
         end_t = timer::get_usec();
         cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
     }
@@ -155,6 +155,7 @@ class InitActor : public AbstractActor {
         vector<pair<history_t, vector<value_t>>> data;
         data.emplace_back(history_t(), vector<value_t>());
         data[0].second.reserve(count);
+
         for (auto& vid : vid_list) {
             value_t v;
             Tool::str2int(to_string(vid.value()), v);
@@ -162,7 +163,8 @@ class InitActor : public AbstractActor {
         }
         vector<vid_t>().swap(vid_list);
 
-        vector<Message> vtx_msgs;
+
+        vtx_msgs.clear();
         do {
             Message msg(m);
             msg.max_data_size = config_->max_data_size;
@@ -173,19 +175,14 @@ class InitActor : public AbstractActor {
         string num = "\t" + to_string(vtx_msgs.size());
         for (auto & msg_ : vtx_msgs) {
             msg_.meta.msg_path += num;
-            AbstractMailbox::mailbox_data_t data;
-            data.stream << msg_;
-            vtx_data.push_back(move(data));
         }
 
-        Message count_msg(m);
-        count_msg.max_data_size = config_->max_data_size;
+        Message vtx_count_msg(m);
+        vtx_count_msg.max_data_size = config_->max_data_size;
         value_t v;
         Tool::str2int(to_string(count), v);
-        count_msg.data.emplace_back(history_t(), vector<value_t>{v});
-        AbstractMailbox::mailbox_data_t msg_data;
-        msg_data.stream << count_msg;
-        vtx_data_count.push_back(move(msg_data));
+        vtx_count_msg.data.emplace_back(history_t(), vector<value_t>{v});
+        vtx_count_msgs.push_back(move(vtx_count_msg));
     }
 
     void InitEdgeData(const Meta& m) {
@@ -203,7 +200,7 @@ class InitActor : public AbstractActor {
         }
         vector<eid_t>().swap(eid_list);
 
-        vector<Message> edge_msgs;
+        edge_msgs.clear();
         do {
             Message msg(m);
             msg.max_data_size = config_->max_data_size;
@@ -214,19 +211,14 @@ class InitActor : public AbstractActor {
         string num = "\t" + to_string(edge_msgs.size());
         for (auto & msg_ : edge_msgs) {
             msg_.meta.msg_path += num;
-            AbstractMailbox::mailbox_data_t data;
-            data.stream << msg_;
-            edge_data.push_back(move(data));
         }
 
-        Message count_msg(m);
-        count_msg.max_data_size = config_->max_data_size;
+        Message edge_count_msg(m);
+        edge_count_msg.max_data_size = config_->max_data_size;
         value_t v;
         Tool::str2int(to_string(count), v);
-        count_msg.data.emplace_back(history_t(), vector<value_t>{v});
-        AbstractMailbox::mailbox_data_t msg_data;
-        msg_data.stream << count_msg;
-        edge_data_count.push_back(move(msg_data));
+        edge_count_msg.data.emplace_back(history_t(), vector<value_t>{v});
+        edge_count_msgs.push_back(move(edge_count_msg));
     }
 
     void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
@@ -305,24 +297,24 @@ class InitActor : public AbstractActor {
 
         // Get init element type
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
-        vector<AbstractMailbox::mailbox_data_t>* data_vec;
+        vector<Message>* msg_vec;
 
         if (actor_objs[m.step + 1].actor_type == ACTOR_T::COUNT) {
             if (inType == Element_T::VERTEX) {
-                data_vec = &vtx_data_count;
+                msg_vec = &vtx_count_msgs;
             } else if (inType == Element_T::EDGE) {
-                data_vec = &edge_data_count;
+                msg_vec = &edge_count_msgs;
             }
         } else {
             if (inType == Element_T::VERTEX) {
-                data_vec = &vtx_data;
+                msg_vec = &vtx_msgs;
             } else if (inType == Element_T::EDGE) {
-                data_vec = &edge_data;
+                msg_vec = &edge_msgs;
             }
         }
 
-        // update meta
         m.step++;
+        // update meta
         m.msg_type = MSG_T::SPAWN;
         if (actor_objs[m.step].IsBarrier()) {
             m.msg_type = MSG_T::BARRIER;
@@ -331,13 +323,16 @@ class InitActor : public AbstractActor {
 
         thread_mutex_.lock();
         // Send Message
-        for (auto& data : *data_vec) {
-            m.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step].actor_type);
-            update_route(data.stream, m);
-            data.dst_nid = m.recver_nid;
-            data.dst_tid = m.recver_tid;
+        for (auto& msg : *msg_vec) {
+            // Update routing infos
+            msg.meta.qid = m.qid;
+            msg.meta.msg_type = m.msg_type;
+            msg.meta.recver_nid = m.recver_nid;
+            msg.meta.recver_tid = core_affinity_->GetThreadIdForActor(actor_objs[m.step].actor_type);
+            msg.meta.parent_nid = m.parent_nid;
+            msg.meta.parent_tid = m.parent_tid;
 
-            mailbox_->Send(tid, data);
+            mailbox_->Send(tid, msg);
         }
         thread_mutex_.unlock();
     }

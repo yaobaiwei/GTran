@@ -18,6 +18,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/node.hpp"
 #include "base/rdma.hpp"
 #include "base/serialization.hpp"
+#include "base/thread_safe_queue.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
 
@@ -32,15 +33,13 @@ class RdmaMailbox : public AbstractMailbox {
         config_ = Config::GetInstance();
     }
 
-    virtual ~RdmaMailbox() {}
+    ~RdmaMailbox();
 
     void Init(vector<Node> & nodes) override;
 
     // When sent to the same recv buffer, the consistency relies on
     // the lock in the id_mapper
     int Send(int tid, const Message & msg) override;
-
-    int Send(int tid, const mailbox_data_t & data) override;
 
     void Recv(int tid, Message & msg) override;
 
@@ -65,9 +64,20 @@ class RdmaMailbox : public AbstractMailbox {
 
     // each thread uses a round-robin strategy to check its physical-queues
     struct scheduler_t {
-        uint64_t rr_cnt;  // round-robin
+        // round-robin
+        uint64_t rr_cnt;  // choosing local or remote
+        uint64_t machine_rr_cnt;  // choosing machine id
     } __attribute__((aligned(CLINE)));
 
+    // round-robin size for choosing local or remote msg
+    // TODO(nick): Move to config
+    int rr_size;
+
+    struct mailbox_data_t{
+        ibinstream stream;
+        int dst_nid;
+        int dst_tid;
+    };
 
     bool CheckRecvBuf(int tid, int nid);
     void FetchMsgFromRecvBuf(int tid, int nid, obinstream & um);
@@ -80,6 +90,9 @@ class RdmaMailbox : public AbstractMailbox {
     Buffer * buffer_;
 
     vector<vector<mailbox_data_t>> pending_msgs;
+
+    // Fail to use vector as copy constructors of ThreadSafeQueue are deleted
+    ThreadSafeQueue<Message>** local_msgs;
 
     rbf_rmeta_t *rmetas = NULL;
     rbf_lmeta_t *lmetas = NULL;
