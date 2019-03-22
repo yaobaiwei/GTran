@@ -2,6 +2,7 @@
 
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
          Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+         Modified by Jian Zhang (jzhang@cse.cuhk.edu.hk)
 */
 
 #ifndef WORKER_HPP_
@@ -37,7 +38,9 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "layout/pmt_rct_table.hpp"
 #include "layout/data_storage.hpp"
+#include "core/trx_table_stub_zmq.hpp"
 #include "core/trx_table_stub_rdma.hpp"
+
 
 struct Pack {
     qid_t id;
@@ -86,7 +89,7 @@ class Worker {
                 sender->connect(addr);
                 senders_.push_back(sender);
             }
-        }
+        }      
     }
 
     /* Not suitable for transaction base emulation, should be modified later
@@ -492,15 +495,26 @@ class Worker {
         // return;  //TODO(entityless): remove this after finishing DataStorage
 
         AbstractMailbox * mailbox;
-        if (config_->global_use_rdma)
-            mailbox = new RdmaMailbox(my_node_, master_, buf);
-        else
-            mailbox = new TCPMailbox(my_node_);
+
+        if (config_->global_use_rdma) {
+            mailbox = new RdmaMailbox(my_node_, master_, buf);  
+        } else {
+            mailbox = new TCPMailbox(my_node_, master_);
+        }
         mailbox->Init(workers_);
 
-        trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox);
+        cout << "Worker" << my_node_.get_local_rank()
+             << ": DONE -> Mailbox->Init()" << endl;
 
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Mailbox->Init()" << endl;
+        if (config_->global_use_rdma) {
+            trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox);
+        } else {
+            trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox);
+        }
+        trx_table_stub_->Init();
+
+        cout << "Worker" << my_node_.get_local_rank()
+             << ": DONE -> TrxTableStub->Init()" << endl;
 
         DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
         DataStore::StaticInstanceP(datastore);
@@ -540,12 +554,18 @@ class Worker {
 
         monitor_ = new Monitor(my_node_);
         monitor_->Start();
+        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> monitor_->Start()" << endl;
+
+        worker_barrier(my_node_);
+
+        cout << "Worker my_node_" << my_node_.get_local_rank() << ": " << my_node_.DebugString();
 
         worker_barrier(my_node_);
 
         // actor driver starts
         ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_, pmt_rct_table_);
         actor_adapter->Start();
+
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> actor_adapter->Start()" << endl;
         worker_barrier(my_node_);
 
@@ -603,6 +623,6 @@ class Worker {
     vector<zmq::socket_t *> senders_;
 
     DataStorage* data_storage_ = nullptr;
-    RDMATrxTableStub * trx_table_stub_;
+    TrxTableStub * trx_table_stub_;
 };
 #endif /* WORKER_HPP_ */

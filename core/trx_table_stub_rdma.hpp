@@ -13,9 +13,10 @@
 #include <utils/config.hpp>
 #include <utils/tid_mapper.hpp>
 #include "glog/logging.h"
+#include "core/trx_table_stub.hpp"
 #include <iostream>
 
-class RDMATrxTableStub{
+class RDMATrxTableStub : public TrxTableStub{
 private:
     AbstractMailbox * mailbox_;
     Config* config_;
@@ -61,9 +62,11 @@ public:
         return instance_;
     }
 
-    bool update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr);
+    bool Init() override{};
 
-    bool read_status(uint64_t trx_id, TRX_STAT& status);
+    bool update_status(uint64_t trx_id, TRX_STAT new_status, std::vector<uint64_t> * trx_ids = nullptr) override;
+
+    bool read_status(uint64_t trx_id, TRX_STAT& status) override;
 };
 
 
