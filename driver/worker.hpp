@@ -2,6 +2,7 @@
 
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
          Modified by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+         Modified by Jian Zhang (jzhang@cse.cuhk.edu.hk)
 */
 
 #ifndef WORKER_HPP_

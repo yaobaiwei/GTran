@@ -1,8 +1,8 @@
 /* Copyright 2019 Husky Data Lab, CUHK
-
-Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
-
-*/
+ *
+ * Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+ *          Modified by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ */
 
 #include "core/tcp_mailbox.hpp"
 
@@ -33,7 +33,7 @@ void TCPMailbox::Init(vector<Node> &nodes) {
             trx_master_senders_[nid] = new zmq::socket_t(context, ZMQ_PUSH);
             char addr[64] = "";
             const Node& r_node = GetNodeById(nodes, nid + 1);  // remote worker node
-            snprintf(addr, sizeof(addr), "tcp://%s:%d", r_node.hostname.c_str(),
+            snprintf(addr, sizeof(addr), "tcp://%s:%d", r_node.ibname.c_str(),
                 r_node.tcp_port + 2 + config_->global_num_threads);  // TODO: check the port
             trx_master_senders_[nid] -> connect(addr);
             DLOG(INFO) << "[TCPMailbox::Init] Master connect to " << string(addr);
@@ -52,13 +52,14 @@ void TCPMailbox::Init(vector<Node> &nodes) {
 
         for (int nid = 0; nid < config_->global_num_workers; nid++) {
             Node &r_node = GetNodeById(nodes, nid + 1);
+            string ibname = r_node.ibname;
 
             for (int tid = 0; tid < config_->global_num_threads; tid++) {
                 int pcode = port_code(nid, tid);
 
                 senders_[pcode] = new zmq::socket_t(context, ZMQ_PUSH);
                 char addr[64] = "";
-                snprintf(addr, sizeof(addr), "tcp://%s:%d", r_node.hostname.c_str(),
+                snprintf(addr, sizeof(addr), "tcp://%s:%d", ibname.c_str(),
                          r_node.tcp_port + 1 + tid);
                 // FIXME: check return value
                 senders_[pcode]->connect(addr);
@@ -76,10 +77,10 @@ void TCPMailbox::Init(vector<Node> &nodes) {
         }
 
         // tcp_trx
-        string master_hostname = master_.hostname;
+        string master_ibname = master_.ibname;
         trx_worker_sender_ = new zmq::socket_t(context, ZMQ_PUSH);
         char addr[64] = "";
-        snprintf(addr, sizeof(addr), "tcp://%s:%d", master_hostname.c_str(),
+        snprintf(addr, sizeof(addr), "tcp://%s:%d", master_ibname.c_str(),
             master_.tcp_port + 1);
         trx_worker_sender_->connect(addr);
 

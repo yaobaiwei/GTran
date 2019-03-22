@@ -64,7 +64,7 @@ class TcpTrxTableStub : public TrxTableStub {
     }
 
     bool Init() override {
-        string master_hostname = master_.hostname;
+        string master_ibname = master_.ibname;
         char addr[64] = "";
 
         receivers_.resize(config_->global_num_threads);
@@ -80,7 +80,7 @@ class TcpTrxTableStub : public TrxTableStub {
 
         for (int i = 0; i < config_->global_num_threads; ++i) {
             senders_[i] = new zmq::socket_t(context, ZMQ_PUSH);
-            snprintf(addr, sizeof(addr), "tcp://%s:%d", master_hostname.c_str(),
+            snprintf(addr, sizeof(addr), "tcp://%s:%d", master_ibname.c_str(),
                     master_.tcp_port + 3);
             senders_[i]->connect(
                 addr);  // connect to the same port with update_status reqs

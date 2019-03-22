@@ -1,8 +1,8 @@
 /* Copyright 2019 Husky Data Lab, CUHK
-
-Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
-
-*/
+ *
+ * Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
+ *          Modified by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ */
 
 #pragma once
 

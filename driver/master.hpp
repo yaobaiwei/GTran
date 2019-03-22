@@ -1,6 +1,7 @@
 /* Copyright 2019 Husky Data Lab, CUHK
 
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
+         Modified by Jian Zhang (jzhang@cse.cuhk.edu.hk)
 */
 
 #ifndef MASTER_HPP_
@@ -64,9 +65,6 @@ class Master {
         config_ = Config::GetInstance();
         is_end_ = false;
         client_num = 0;
-        // time_stamp_ = 0;
-        // // TODO(nick): set initial trxid > all time stamp
-        // trxid_ = 0;
     }
 
     ~Master() {
@@ -95,7 +93,7 @@ class Master {
                         new zmq::socket_t(context_, ZMQ_PUSH);
                     snprintf(
                         addr, sizeof(addr), "tcp://%s:%d",
-                        workers_[i].hostname.c_str(),
+                        workers_[i].ibname.c_str(),
                         r_node.tcp_port + j + 3 + config_->global_num_threads);
                     trx_read_rep_sockets[socket_code(i, j)]->connect(addr);
                     DLOG(INFO) << "[Master] connects to " << string(addr);
