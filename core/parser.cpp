@@ -60,15 +60,30 @@ int Parser::GetPid(Element_T type, string& property) {
 bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg) {
     ClearTrx();
     vector<string> lines;
-    Tool::split(trx_input, ";", lines);
-    plan.query_plans_.resize(lines.size());
+    Tool::split(trx_input, ";\n", lines);
     trx_plan = &plan;
+    plan.query_plans_.resize(lines.size());
 
     for (string& line : lines) {
         Tool::trim(line, " ");
+        plan.deps_count_[line_index] = 0;
         if (!ParseLine(line, plan.query_plans_[line_index].actors, error_msg)) {
-            plan.dependents_.clear();
             return false;
+        }
+
+        if (!is_read_only_) {
+            // update query depends on all previous steps, starting from last update query
+            uint8_t begin = (last_update > 0) ? last_update : 0;
+            for (uint8_t i = begin; i < line_index; i++) {
+                plan.RegDependency(i, line_index);
+            }
+            last_update = line_index;
+        } else {
+            // read only query depends on last update query
+            // other deps will also be inserted in RegPlaceHolder
+            if (last_update >= 0) {
+                plan.RegDependency(last_update, line_index);
+            }
         }
         line_index++;
     }
@@ -206,7 +221,15 @@ bool Parser::IsValue(uint8_t& type) {
 }
 
 bool Parser::IsElement() {
-    return io_type_ == Element_T::VERTEX || io_type_ == Element_T::EDGE;
+    switch (io_type_) {
+      case IO_T::VERTEX:
+      case IO_T::EDGE:
+      case IO_T::VP:
+      case IO_T::EP:
+        return true;
+      default:
+        return false;
+    }
 }
 
 bool Parser::IsElement(Element_T& type) {
@@ -280,6 +303,7 @@ void Parser::ParseIndex(const string& param) {
     actor.AddParam(type);
     actor.AddParam(property_key);
     AppendActor(actor);
+    is_read_only_ = false;
 }
 
 void Parser::ParseSetConfig(const string& param) {
@@ -318,6 +342,7 @@ void Parser::ParseSetConfig(const string& param) {
     }
 
     AppendActor(actor);
+    is_read_only_ = false;
 }
 
 void Parser::ParseQuery(const string& query) {
@@ -335,6 +360,8 @@ void Parser::ParseQuery(const string& query) {
 void Parser::ClearTrx() {
     actor_index = 0;
     line_index = 0;
+    side_effect_key = 0;
+    last_update = -1;
     place_holder.clear();
 }
 
@@ -346,6 +373,7 @@ void Parser::ClearQuery() {
     str2se_.clear();
     min_count_ = -1;  // max of uint64_t
     first_in_sub_ = 0;
+    is_read_only_ = true;
 }
 
 void Parser::AppendActor(Actor_Object& actor) {
@@ -825,6 +853,7 @@ void Parser::ParseAddE(const vector<string>& params) {
     AppendActor(actor);
     io_type_ = IO_T::EDGE;
     trx_plan->trx_type_ |= TRX_ADD;
+    is_read_only_ = false;
 }
 
 void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
@@ -881,6 +910,7 @@ void Parser::ParseAddV(const vector<string>& params) {
     AppendActor(actor);
     io_type_ = IO_T::VERTEX;
     trx_plan->trx_type_ |= TRX_ADD;
+    is_read_only_ = false;
 }
 
 void Parser::ParseAggregate(const vector<string>& params) {
@@ -894,7 +924,7 @@ void Parser::ParseAggregate(const vector<string>& params) {
     // get side-effect key id by string
     string key = params[0];
     if (str2se_.count(key) == 0) {
-        str2se_[key] = str2se_.size();
+        str2se_[key] = side_effect_key++;
     }
     actor.AddParam(str2se_[key]);
     actor.send_remote = IsElement();
@@ -1033,6 +1063,7 @@ void Parser::ParseDrop(const vector<string>& params) {
     actor.AddParam(isProperty);
     AppendActor(actor);
     trx_plan->trx_type_ |= TRX_DELETE;
+    is_read_only_ = false;
 }
 
 void Parser::ParseGroup(const vector<string>& params, Step_T type) {
@@ -1450,6 +1481,7 @@ void Parser::ParseProperty(const vector<string>& params) {
     actor.AddParam(params[1]);
     AppendActor(actor);
     trx_plan->trx_type_ |= TRX_UPDATE;
+    is_read_only_ = false;
 }
 
 void Parser::ParseRange(const vector<string>& params, Step_T type) {
@@ -1732,7 +1764,12 @@ void Parser::AddCommitStatement(TrxPlan& plan) {
     valid_vec.emplace_back(ACTOR_T::END);
     QueryPlan valid_qplan;
     valid_qplan.actors = move(valid_vec);
-    plan.query_plans_.emplace_back(valid_qplan);
+
+    plan.query_plans_.push_back(move(valid_qplan));
+    uint8_t begin = (last_update > 0) ? last_update : 0;
+    for (uint8_t i = begin; i < line_index; i++) {
+        plan.RegDependency(i, line_index);
+    }
 }
 
 const map<string, Step_T> Parser::str2step = {
