@@ -1,6 +1,7 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ *          Modified by Changji LI (cjli@cse.cuhk.edu.hk)
  */
 #pragma once
 
@@ -40,10 +41,9 @@ class TrxGlobalCoordinator{
     uint64_t next_trx_id_;
 
     // bt table is separated from status region since we must keep status region in RDMA
-    // std::map<uint64_t, uint64_t> bt_table;
-    tbb::concurrent_hash_map<uint64_t, std::pair<uint64_t, uint64_t>> btct_table_;
-    typedef tbb::concurrent_hash_map<uint64_t, std::pair<uint64_t, uint64_t>>::accessor btct_table_accessor;
-    typedef tbb::concurrent_hash_map<uint64_t, std::pair<uint64_t, uint64_t>>::const_accessor btct_table_const_accessor;
+    tbb::concurrent_hash_map<uint64_t, uint64_t> bt_table_;
+    typedef tbb::concurrent_hash_map<uint64_t, uint64_t>::accessor bt_table_accessor;
+    typedef tbb::concurrent_hash_map<uint64_t, uint64_t>::const_accessor bt_table_const_accessor;
 
     uint64_t next_time_;
 
@@ -80,7 +80,7 @@ class TrxGlobalCoordinator{
 
     bool register_ct(uint64_t trx_id, uint64_t ct);
     bool register_bt(uint64_t trx_id, uint64_t bt);
-    bool deregister_btct(uint64_t trx_id);
+    bool deregister_bt(uint64_t trx_id);
     uint64_t next_trx_id();
 
  public:

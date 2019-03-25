@@ -34,19 +34,21 @@ bool TrxGlobalCoordinator::query_bt(uint64_t trx_id, uint64_t& bt) {
     // CHECK(bt.find(trx_id) != bt.endl())
     CHECK(is_valid_trx_id(trx_id));
 
-    btct_table_const_accessor ac;
-    btct_table_.find(ac, trx_id);
-    bt = (ac->second).first;
+    bt_table_const_accessor ac;
+    bt_table_.find(ac, trx_id);
+    bt = ac->second;
     return true;
 }
 
 bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
-    // CHECK(bt.find(trx_id) != bt.endl())
     CHECK(is_valid_trx_id(trx_id));
-    btct_table_const_accessor ac;
-    btct_table_.find(ac, trx_id);
-    ct = (ac->second).second;
-    return true;
+
+    TidStatus * p = nullptr;
+    if (find_trx(trx_id, &p)) {
+        ct = p->ct;
+        return true;
+    }
+    return false;
 }
 
 bool TrxGlobalCoordinator::query_status(uint64_t trx_id, TRX_STAT & status) {
@@ -206,7 +208,7 @@ bool TrxGlobalCoordinator::print_single_item(uint64_t trx_id) {
 
 bool TrxGlobalCoordinator::delete_single_item(uint64_t trx_id) {
     CHECK(is_valid_trx_id(trx_id));
-    bool op_succ_1 = deregister_btct(trx_id);
+    bool op_succ_1 = deregister_bt(trx_id);
 
     TidStatus * p = nullptr;
     bool found = find_trx(trx_id, &p);
@@ -231,20 +233,20 @@ bool TrxGlobalCoordinator::allocate_trx_id(uint64_t& trx_id) {
     // no need to check, since you need to write this trx_id variable in this function
 
     trx_id = next_trx_id();
-    next_trx_id_ ++;
+    next_trx_id_++;
     printf("[Trx Table] allocated trx_id = %llx\n", (long long) trx_id);
     // DLOG(INFO) << "[Trx Table] allocated trx_id = " << (int)trx_id << std::endl;
     return true;
 }
 
 bool TrxGlobalCoordinator::allocate_bt(uint64_t& bt) {
-    bt = next_time_ ++;
+    bt = next_time_++;
     return true;
 }
 
 /* delete with check existance */
 bool TrxGlobalCoordinator::allocate_ct(uint64_t& ct) {
-    ct = next_time_ ++;
+    ct = next_time_++;
     return true;
 }
 
@@ -281,27 +283,29 @@ bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
 bool TrxGlobalCoordinator::register_ct(uint64_t trx_id, uint64_t ct) {
     CHECK(is_valid_trx_id(trx_id) && is_valid_time(ct));
 
-    btct_table_accessor ac;
-    btct_table_.insert(ac, trx_id);
-    ac->second.second = ct;
-    return true;
+    TidStatus * p;
+    if (find_trx(trx_id, &p)) {
+        p->enterCommitTime(ct);
+        return true;
+    }
+    return false;
 }
 
-bool TrxGlobalCoordinator::deregister_btct(uint64_t trx_id) {
+bool TrxGlobalCoordinator::deregister_bt(uint64_t trx_id) {
     CHECK(is_valid_trx_id(trx_id));
 
-    btct_table_accessor ac;
-    btct_table_.find(ac, trx_id);
-    btct_table_.erase(ac);
+    bt_table_accessor ac;
+    bt_table_.find(ac, trx_id);
+    bt_table_.erase(ac);
     return true;
 }
 
 bool TrxGlobalCoordinator::register_bt(uint64_t trx_id, uint64_t bt) {
     CHECK(is_valid_trx_id(trx_id) && is_valid_time(bt));
 
-    btct_table_accessor ac;
-    btct_table_.insert(ac, trx_id);
-    ac->second.first = bt;
+    bt_table_accessor ac;
+    bt_table_.insert(ac, trx_id);
+    ac->second = bt;
     return true;
 }
 

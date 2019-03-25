@@ -40,12 +40,14 @@ struct ReadTrxStatusReq{
     int n_id;
     int t_id;
     uint64_t trx_id;
+    bool read_ct;
 
     string DebugString(){
         std::stringstream ss;
         ss << "trx_id: " << trx_id << "; ";
         ss << "n_id: " << n_id << "; ";
-        ss << "t_id: " << t_id << "\n";
+        ss << "t_id: " << t_id << "; ";
+        ss << "t_id: " << read_ct << "\n";
         return ss.str();
     }
 };
@@ -252,7 +254,7 @@ class Master {
             memcpy(buf, zmq_req_msg.data(), zmq_req_msg.size());
             out.assign(buf, zmq_req_msg.size(), 0);
 
-            out >> req.n_id >> req.t_id >> req.trx_id;
+            out >> req.n_id >> req.t_id >> req.trx_id >> req.read_ct;
             pending_trx_reads_.Push(req);
         }
     }
@@ -265,13 +267,20 @@ class Master {
 
             // DLOG(INFO) << "[Master] Processed a TCP read req: " << req.DebugString();
 
-            TRX_STAT status;
-            trx_p -> query_status(req.trx_id, status);
-            int status_i = (int) status;
-            // DLOG(INFO) << "[Master::query_status] status of " << req.trx_id << " is " << status_i;
-
             ibinstream in;
-            in << status_i;
+            if (req.read_ct) {
+                uint64_t ct_;
+                trx_p -> query_ct(req.trx_id, ct_);
+                in << ct_;
+                DLOG(INFO) << "[Master::query_status] ct of " << req.trx_id << " is " << ct_;
+            } else {
+                TRX_STAT status;
+                trx_p -> query_status(req.trx_id, status);
+                int status_i = (int) status;
+                in << status_i;
+                // DLOG(INFO) << "[Master::query_status] status of " << req.trx_id << " is " << status_i;
+            }
+
             zmq::message_t zmq_send_msg(in.size());
             memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
                    in.size());
