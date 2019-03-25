@@ -18,9 +18,6 @@
 
 class RDMATrxTableStub : public TrxTableStub{
 private:
-    AbstractMailbox * mailbox_;
-    Config* config_;
-    Node node_;
     Buffer* buf_;
     static RDMATrxTableStub * instance_;
 

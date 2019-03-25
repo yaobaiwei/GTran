@@ -16,6 +16,11 @@
 #include "glog/logging.h"
 
 class TrxTableStub {
+ protected:
+    AbstractMailbox * mailbox_;
+    Config* config_;
+    Node node_;
+    
  public:
     virtual bool Init() = 0;
     virtual bool update_status(uint64_t trx_id, TRX_STAT new_status,

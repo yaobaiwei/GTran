@@ -49,7 +49,7 @@ struct TidStatus {
     // V->A
 
     void enterAbortState() {
-        CHECK(P == 1 && V == 1 && C == 0 && A == 0 && occupied == 1);
+        CHECK(P == 1 && C == 0 && occupied == 1);
         this -> A = 1;
     }
 
