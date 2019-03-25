@@ -5,33 +5,30 @@
 
 #pragma once
 
-#include <tbb/concurrent_hash_map.h>
+#include <iostream>
 #include "base/node.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/buffer.hpp"
 #include "core/common.hpp"
 #include "core/rdma_mailbox.hpp"
-#include <iostream>
+#include "core/tcp_mailbox.hpp"
+#include "core/trx_table_stub.hpp"
+#include "glog/logging.h"
+#include "tbb/concurrent_hash_map.h"
 #include "utils/config.hpp"
 #include "utils/tid_mapper.hpp"
-#include "core/tcp_mailbox.hpp"
-#include "glog/logging.h"
-#include "core/trx_table_stub.hpp"
-
 
 class TcpTrxTableStub : public TrxTableStub {
  private:
-    AbstractMailbox *mailbox_;
-    Node node_;
     Node master_;
-    Config *config_;
 
     static TcpTrxTableStub *instance_;
     vector<zmq::socket_t *> senders_;
     vector<zmq::socket_t *> receivers_;  // global_num_threads
 
     TcpTrxTableStub(AbstractMailbox * mailbox, Node & master)
-        : master_(master), mailbox_(mailbox) {
+        : master_(master) {
+            mailbox_ = mailbox;
         config_ = Config::GetInstance();
         node_ = Node::StaticInstance();
     }

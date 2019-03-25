@@ -5,22 +5,19 @@
 
 #pragma once
 
-#include <core/common.hpp>
-#include <base/node.hpp>
-#include <core/abstract_mailbox.hpp>
-#include <core/rdma_mailbox.hpp>
-#include <core/buffer.hpp>
-#include <utils/config.hpp>
-#include <utils/tid_mapper.hpp>
-#include "glog/logging.h"
-#include "core/trx_table_stub.hpp"
 #include <iostream>
+#include "base/node.hpp"
+#include "core/abstract_mailbox.hpp"
+#include "core/buffer.hpp"
+#include "core/common.hpp"
+#include "core/rdma_mailbox.hpp"
+#include "core/trx_table_stub.hpp"
+#include "glog/logging.h"
+#include "utils/config.hpp"
+#include "utils/tid_mapper.hpp"
 
 class RDMATrxTableStub : public TrxTableStub{
 private:
-    AbstractMailbox * mailbox_;
-    Config* config_;
-    Node node_;
     Buffer* buf_;
     static RDMATrxTableStub * instance_;
 
