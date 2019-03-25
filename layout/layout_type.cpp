@@ -90,4 +90,6 @@ string TMPEdge::DebugString() const {
     return ret;
 }
 
+tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
+
 }  // namespace std

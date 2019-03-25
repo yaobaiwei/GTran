@@ -135,7 +135,7 @@ void DataStorage::FillContainer() {
         EdgeConstAccessor e_accessor;
         edge_map_.find(e_accessor, edge.id.value());
 
-        auto edge_item = e_accessor->second->GetCurrentVersion(0, 0)->GetValue();
+        auto edge_item = e_accessor->second->GetInitVersion()->GetValue();
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
             edge_item.ep_row_list->InsertInitialElement(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
@@ -196,7 +196,7 @@ void DataStorage::GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_
     EdgeConstAccessor e_accessor;
     edge_map_.find(e_accessor, eid.value());
 
-    auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
+    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
 
     if (edge_item.Exist())
         edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, ret);
@@ -207,8 +207,7 @@ void DataStorage::GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t
     EdgeConstAccessor e_accessor;
     edge_map_.find(e_accessor, eid.value());
 
-    auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
-
+    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
     if (edge_item.Exist())
         edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, ret);
 }
@@ -217,7 +216,7 @@ label_t DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id, const uint6
     EdgeConstAccessor e_accessor;
     edge_map_.find(e_accessor, eid.value());
 
-    auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
+    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
 
     return edge_item.label;
 }
@@ -227,8 +226,7 @@ void DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const ui
     EdgeConstAccessor e_accessor;
     edge_map_.find(e_accessor, eid.value());
 
-    auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
-
+    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
     if (edge_item.Exist())
         edge_item.ep_row_list->ReadPidList(trx_id, begin_time, ret);
 }
@@ -253,7 +251,7 @@ void DataStorage::GetAllVertex(const uint64_t& trx_id, const uint64_t& begin_tim
     for (auto v_pair = vertex_map_.begin(); v_pair != vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
-        if (v_item.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue())
+        if (v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue())
             ret.emplace_back(vid_t(v_pair->first));
     }
 }
@@ -261,7 +259,7 @@ void DataStorage::GetAllVertex(const uint64_t& trx_id, const uint64_t& begin_tim
 void DataStorage::GetAllEdge(const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret) {
     // TODO(entityless): Simplify the code by editing eid_t::value()
     for (auto e_pair = edge_map_.begin(); e_pair != edge_map_.end(); e_pair++) {
-        if (e_pair->second->GetCurrentVersion(trx_id, begin_time)->GetValue().Exist()) {
+        if (e_pair->second->GetVisibleVersion(trx_id, begin_time)->GetValue().Exist()) {
             uint64_t eid_fetched = e_pair->first;
             eid_t* tmp_eid_p = reinterpret_cast<eid_t*>(&eid_fetched);
             ret.emplace_back(eid_t(tmp_eid_p->out_v, tmp_eid_p->in_v));
@@ -303,6 +301,23 @@ void DataStorage::GetNameFromIndex(const Index_T& type, const label_t& id, strin
             break;
         default:
             return;
+    }
+}
+
+void DataStorage::GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxIDList, vector<uint64_t> & heteroTrxIDList) {
+    dep_trx_const_accessor c_accessor;
+
+    if (dep_trx_map.find(c_accessor, trxID)) {
+        homoTrxIDList = c_accessor->second.homo_trx_list;
+        heteroTrxIDList =  c_accessor->second.hetero_trx_list;
+    }
+}
+
+void DataStorage::CleanDepReadTrxList(uint64_t trxID) {
+    dep_trx_accessor accessor;
+
+    if (dep_trx_map.find(accessor, trxID)) {
+        dep_trx_map.erase(accessor);
     }
 }
 
@@ -530,7 +545,7 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     EdgeConstAccessor e_accessor;
     edge_map_.find(e_accessor, eid_t(pid.in_vid, pid.out_vid).value());
 
-    auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
+    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
 
     if (!edge_item.Exist())
         return false;

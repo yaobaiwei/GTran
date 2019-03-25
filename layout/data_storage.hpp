@@ -158,6 +158,10 @@ class DataStorage {
     // Initial related
     void Init();
 
+    // Dependency Read
+    void GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxDList, vector<uint64_t> & heteroTrxIDList);
+    void CleanDepReadTrxList(uint64_t trxID);
+
     void PrintLoadedData();  // TODO(entityless): remove this in the future
     void PropertyMVCCTest();
 };

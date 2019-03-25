@@ -29,7 +29,7 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
 
     int t_id = TidMapper::GetInstance()->GetTid();
     ibinstream in;
-    in << node_.get_local_rank() << t_id << trx_id;
+    in << node_.get_local_rank() << t_id << trx_id << false;
     send_req(t_id, in);
     // DLOG (INFO) << "[TcpTrxTableStub::read_status] send a read_status req";
 
@@ -39,6 +39,26 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
     int status_i;
     out >> status_i;
     status = TRX_STAT(status_i);
+    return true;
+}
+
+bool TcpTrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
+    CHECK(is_valid_trx_id(trx_id))
+        << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
+
+    int t_id = TidMapper::GetInstance()->GetTid();
+    ibinstream in;
+    in << node_.get_local_rank() << t_id << trx_id << true;
+    send_req(t_id, in);
+    // DLOG (INFO) << "[TcpTrxTableStub::read_ct] send a read_ct req";
+
+    obinstream out;
+    recv_rep(t_id, out);
+    // DLOG (INFO) << "[TcpTrxTableStub::read_ct] recvs a read_ct reply";
+    uint64_t ct_;
+    out >> ct_;
+    ct = ct_;
+
     return true;
 }
 

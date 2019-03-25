@@ -1,6 +1,7 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ *          Modified by Changji LI (cjli@cse.cuhk.edu.hk)
  * 
  * This file defines part of common classes of master and workers, including the format  * of communication messages, and interfaces
  */
@@ -30,6 +31,7 @@ struct TidStatus {
     uint8_t C : 1;
     uint8_t A : 1;
     uint8_t occupied : 1;
+    uint64_t ct;  // Commit Time
 
     // enter P
     void enterProcessState(uint64_t trx_id) {
@@ -46,7 +48,6 @@ struct TidStatus {
     }
 
     // V->A
-
     void enterAbortState() {
         CHECK(P == 1 && C == 0 && occupied == 1);
         this -> A = 1;
@@ -58,6 +59,11 @@ struct TidStatus {
         this -> C = 1;
     }
 
+    void enterCommitTime(uint64_t ct_) {
+        CHECK(P == 1 && V == 0 && C == 0 && A == 0 && occupied == 1);
+        this->ct = ct_;
+    }
+
     TRX_STAT getState() {
         CHECK(!(A == 1 && C == 1));
         if (A == 1) return TRX_STAT::ABORT;
@@ -66,11 +72,17 @@ struct TidStatus {
         if (P == 1) return TRX_STAT::PROCESSING;
     }
 
+    uint64_t getCT() {
+        CHECK(P == 1 && V == 1 && occupied == 1);
+        return ct;
+    }
+
     bool isEmpty() {
         return (occupied == 0) ? true : false;
     }
 
     bool setEmpty() {
+        P = 0; V = 0; A = 0; C = 0;
         occupied = 0;
         return true;
     }
@@ -78,7 +90,14 @@ struct TidStatus {
     string DebugString() {
         std::stringstream ss;
 
-        ss << "trx_id=" << trx_id << "; P=" << std::to_string(P) << "; V=" << std::to_string(V) << "; C=" << std::to_string(C) << "; A=" << std::to_string(A) << "; occupied=" << std::to_string(occupied);
+        ss << "trx_id=" << trx_id
+            << "; P=" << std::to_string(P)
+            << "; V=" << std::to_string(V)
+            << "; C=" << std::to_string(C)
+            << "; A=" << std::to_string(A)
+            << "; occupied=" << std::to_string(occupied)
+            << "; commit_time=" << ct;
+
         return ss.str();
     }
 } __attribute__((packed));
