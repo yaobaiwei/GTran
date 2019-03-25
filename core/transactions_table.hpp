@@ -4,15 +4,15 @@
  */
 #pragma once
 
-#include <tbb/concurrent_hash_map.h>
-#include <stdint.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <tbb/concurrent_hash_map.h>
 #include <map>
 #include <utility>
 #include "base/type.hpp"
-#include "utils/config.hpp"
 #include "core/common.hpp"
 #include "glog/logging.h"
+#include "utils/config.hpp"
 
 struct Trx {
     uint64_t trx_id;

@@ -11,7 +11,6 @@
 #include <base/type.hpp>
 #include "glog/logging.h"
 
-
 bool is_valid_trx_id(uint64_t trx_id);
 bool is_valid_time(uint64_t t);
 
