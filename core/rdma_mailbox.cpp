@@ -6,6 +6,17 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <utility>
 #include "core/rdma_mailbox.hpp"
 
+RdmaMailbox::~RdmaMailbox() {
+    for (int i = 0; i < config_->global_num_threads; i++) {
+        delete local_msgs[i];
+    }
+
+    free(local_msgs);
+    free(schedulers);
+    free(recv_locks);
+    free(lmetas);
+    free(rmetas);
+}
 
 void RdmaMailbox::Init(vector<Node> & nodes) {
     // Init RDMA
@@ -48,7 +59,15 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     schedulers = (scheduler_t *)malloc(sizeof(scheduler_t) * config_->global_num_threads);
     memset(schedulers, 0, sizeof(scheduler_t) * config_->global_num_threads);
 
+    local_msgs = reinterpret_cast<ThreadSafeQueue<Message> **>(
+                malloc(sizeof(ThreadSafeQueue<Message>*) * config_->global_num_threads));
+    for (int i = 0; i < config_->global_num_threads; i++) {
+        local_msgs[i] = new ThreadSafeQueue<Message>();
+    }
+
+    // 1 more thread for worker to send init msg
     pending_msgs.resize(config_->global_num_threads + 1);
+    rr_size = 3;
 }
 
 bool RdmaMailbox::IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz) {
@@ -74,20 +93,21 @@ void RdmaMailbox::Sweep(int tid) {
 }
 
 int RdmaMailbox::Send(int tid, const Message & msg) {
-    mailbox_data_t data;
-    data.dst_nid = msg.meta.recver_nid;
-    data.dst_tid = msg.meta.recver_tid;
+    if (msg.meta.recver_nid == node_.get_local_rank()) {
+        local_msgs[msg.meta.recver_tid]->Push(msg);
+    } else {
+        mailbox_data_t data;
+        data.dst_nid = msg.meta.recver_nid;
+        data.dst_tid = msg.meta.recver_tid;
 
-    data.stream << msg;
+        data.stream << msg;
 
-    pending_msgs[tid].push_back(move(data));
-}
-
-int RdmaMailbox::Send(int tid, const mailbox_data_t & data) {
-    pending_msgs[tid].push_back(data);
+        pending_msgs[tid].push_back(move(data));
+    }
 }
 
 bool RdmaMailbox::SendData(int tid, const mailbox_data_t& data) {
+    // Send data to remote machine only
     int dst_nid = data.dst_nid;
     int dst_tid = data.dst_tid;
 
@@ -108,45 +128,27 @@ bool RdmaMailbox::SendData(int tid, const mailbox_data_t& data) {
     pthread_spin_unlock(&rmeta->lock);
 
     uint64_t rbf_sz = MiB2B(config_->global_per_recv_buffer_sz_mb);
+    char *rdma_buf = buffer_->GetSendBuf(tid);
 
-    if (node_.get_local_rank() == dst_nid) {
-        char * recv_buf_ptr = buffer_->GetRecvBuf(dst_tid, node_.get_local_rank());
+    *((uint64_t *)rdma_buf) = data_sz;  // header
+    rdma_buf += sizeof(uint64_t);
 
-        *((uint64_t *)(recv_buf_ptr + off % rbf_sz)) = data_sz;        // header
-        off += sizeof(uint64_t);
+    memcpy(rdma_buf, data.stream.get_buf(), data_sz);    // data
+    rdma_buf += ceil(data_sz, sizeof(uint64_t));
 
-        if (off / rbf_sz == (off + data_sz - 1) / rbf_sz) {         // data
-            memcpy(recv_buf_ptr + (off % rbf_sz), data.stream.get_buf(), data_sz);
-        } else {
-            uint64_t _sz = rbf_sz - (off % rbf_sz);
-            memcpy(recv_buf_ptr + (off % rbf_sz), data.stream.get_buf(), _sz);
-            memcpy(recv_buf_ptr, data.stream.get_buf() + _sz, data_sz - _sz);
-        }
-        off += ceil(data_sz, sizeof(uint64_t));
-        *((uint64_t *)(recv_buf_ptr + off % rbf_sz)) = data_sz;      // footer
+    *((uint64_t*)rdma_buf) = data_sz;   // footer
+
+    RDMA &rdma = RDMA::get_rdma();
+    uint64_t rdma_off = buffer_->GetRecvBufOffset(dst_tid, node_.get_local_rank());
+    pthread_spin_lock(&rmeta->lock);
+    if (off / rbf_sz == (off + msg_sz - 1) / rbf_sz) {
+        rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), msg_sz, rdma_off + (off % rbf_sz));
     } else {
-        char *rdma_buf = buffer_->GetSendBuf(tid);
-
-        *((uint64_t *)rdma_buf) = data_sz;  // header
-        rdma_buf += sizeof(uint64_t);
-
-        memcpy(rdma_buf, data.stream.get_buf(), data_sz);    // data
-        rdma_buf += ceil(data_sz, sizeof(uint64_t));
-
-        *((uint64_t*)rdma_buf) = data_sz;   // footer
-
-        RDMA &rdma = RDMA::get_rdma();
-        uint64_t rdma_off = buffer_->GetRecvBufOffset(dst_tid, node_.get_local_rank());
-        pthread_spin_lock(&rmeta->lock);
-        if (off / rbf_sz == (off + msg_sz - 1) / rbf_sz) {
-            rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), msg_sz, rdma_off + (off % rbf_sz));
-        } else {
-            uint64_t _sz = rbf_sz - (off % rbf_sz);
-            rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), _sz, rdma_off + (off % rbf_sz));
-            rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid) + _sz, msg_sz - _sz, rdma_off);
-        }
-        pthread_spin_unlock(&rmeta->lock);
+        uint64_t _sz = rbf_sz - (off % rbf_sz);
+        rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), _sz, rdma_off + (off % rbf_sz));
+        rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid) + _sz, msg_sz - _sz, rdma_off);
     }
+    pthread_spin_unlock(&rmeta->lock);
     return true;
 }
 
@@ -164,15 +166,26 @@ void RdmaMailbox::Recv(int tid, Message & msg) {
 
 bool RdmaMailbox::TryRecv(int tid, Message & msg) {
     pthread_spin_lock(&recv_locks[tid]);
-    for (int i = 0; i < node_.get_local_size(); i++) {
-        int machine_id = (schedulers[tid].rr_cnt++) % node_.get_local_size();
-        if (CheckRecvBuf(tid, machine_id)) {
-            obinstream um;
-            FetchMsgFromRecvBuf(tid, machine_id, um);
+    int type = (schedulers[tid].rr_cnt++) % rr_size;
+    if (type != 0) {
+        // try msg queue
+        if (local_msgs[tid]->Size() != 0) {
+            local_msgs[tid]->WaitAndPop(msg);
             pthread_spin_unlock(&recv_locks[tid]);
-
-            um >> msg;
             return true;
+        }
+    } else {
+        // try rdma memory
+        for (int i = 0; i < node_.get_local_size(); i++) {
+            int machine_id = (schedulers[tid].machine_rr_cnt++) % node_.get_local_size();
+            if (CheckRecvBuf(tid, machine_id)) {
+                obinstream um;
+                FetchMsgFromRecvBuf(tid, machine_id, um);
+                pthread_spin_unlock(&recv_locks[tid]);
+
+                um >> msg;
+                return true;
+            }
         }
     }
     pthread_spin_unlock(&recv_locks[tid]);

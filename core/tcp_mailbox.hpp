@@ -19,9 +19,12 @@
 #include <vector>
 
 #include "base/node_util.hpp"
+#include "base/thread_safe_queue.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/message.hpp"
 #include "utils/zmq.hpp"
+
+#define CLINE 64
 
 class TCPMailbox : public AbstractMailbox {
  private:
@@ -39,6 +42,19 @@ class TCPMailbox : public AbstractMailbox {
 
     pthread_spinlock_t *locks;
 
+    // each thread uses a round-robin strategy to check its physical-queues
+    struct scheduler_t {
+        // round-robin
+        uint64_t rr_cnt;  // choosing local or remote
+    } __attribute__((aligned(CLINE)));
+    scheduler_t *schedulers;
+
+    ThreadSafeQueue<Message>** local_msgs;
+
+    // round-robin size for choosing local or remote msg
+    // TODO(nick): Move to config
+    int rr_size;
+
     inline int port_code (int nid, int tid) { return nid * config_->global_num_threads + tid; }
 
     // between worker & master: support tcp_trx_table_stub part
@@ -46,8 +62,8 @@ class TCPMailbox : public AbstractMailbox {
     socket_vector trx_master_senders_;  // send replies to workers
     zmq::socket_t * trx_master_receiver_;  // receive requests from workers
     // worker part
-    zmq::socket_t * trx_worker_sender_;  // 
-    zmq::socket_t * trx_worker_receiver_;  // 
+    zmq::socket_t * trx_worker_sender_;  //
+    zmq::socket_t * trx_worker_receiver_;  //
 
  public:
     TCPMailbox(Node & my_node, Node & master) : my_node_(my_node), master_(master), context(1) {
@@ -58,7 +74,6 @@ class TCPMailbox : public AbstractMailbox {
 
     void Init(vector<Node> & nodes) override;
     int Send(int tid, const Message & msg) override;
-    int Send(int tid, const mailbox_data_t & data) override;
     void Recv(int tid, Message & msg) override;
     bool TryRecv(int tid, Message & msg) override;
     void Sweep(int tid) override;
