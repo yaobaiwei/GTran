@@ -9,7 +9,7 @@ MVCC* MVCCList<MVCC>::GetInitVersion() {
 }
 
 template<class MVCC>
-MVCC* MVCCList<MVCC>::GetCurrentVersion(const uint64_t& trx_id, const uint64_t& begin_time) {
+MVCC* MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time) {
     if (tail_->GetTransactionID() == trx_id)
         return tail_;
 

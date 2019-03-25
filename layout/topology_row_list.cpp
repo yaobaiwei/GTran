@@ -57,7 +57,7 @@ void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const la
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -83,7 +83,7 @@ void TopologyRowList::ReadConnectedEdge(const vid_t& my_vid, const Direction_T& 
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
             if (!edge_item.Exist())
                 continue;
 

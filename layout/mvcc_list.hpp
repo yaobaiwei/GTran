@@ -22,7 +22,7 @@ class MVCCList {
     MVCC* GetInitVersion();
 
     // TODO(entityless): Implement thread safe when modifying data
-    MVCC* GetCurrentVersion(const uint64_t& trx_id, const uint64_t& begin_time);
+    MVCC* GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time);
 
     // If nullptr, then append failed.
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);

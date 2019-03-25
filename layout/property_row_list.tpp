@@ -50,7 +50,7 @@ void PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
         if (cell_ref.pid == pid) {
-            auto storage_header = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+            auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
             if (!storage_header.IsEmpty()) {
                 value_storage_ptr_->GetValue(storage_header, ret);
             }
@@ -71,7 +71,7 @@ void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const
 
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
-        auto storage_header = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
 
         if(!storage_header.IsEmpty()){
             value_t v;
@@ -94,7 +94,7 @@ void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uin
 
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
-        auto storage_header = cell_ref.mvcc_list->GetCurrentVersion(trx_id, begin_time)->GetValue();
+        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
 
         if(!storage_header.IsEmpty())
             ret.emplace_back(cell_ref.pid);
