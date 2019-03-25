@@ -22,8 +22,8 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "core/abstract_mailbox.hpp"
 #include "core/exec_plan.hpp"
 #include "core/message.hpp"
+#include "core/factory.hpp"
 #include "core/index_store.hpp"
-#include "core/trx_table_stub_rdma.hpp"
 #include "layout/pmt_rct_table.hpp"
 #include "storage/layout.hpp"
 #include "storage/data_store.hpp"
@@ -52,7 +52,7 @@ class ValidationActor : public AbstractActor {
         actors_(actors),
         msg_logic_table_(msg_logic_table) {
         config_ = Config::GetInstance();
-        trx_table_stub_ = RDMATrxTableStub::GetInstance();
+        trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
         prepare_primitive_list();
     }
 
@@ -70,7 +70,7 @@ class ValidationActor : public AbstractActor {
     AbstractMailbox * mailbox_;
     Config * config_;
     // API for worker to communicate with master
-    RDMATrxTableStub * trx_table_stub_;
+    TrxTableStub * trx_table_stub_;
 
     // Qid-Actor-map and Trx-vector<Actor>-map
     map<ACTOR_T, unique_ptr<AbstractActor>>* actors_;
