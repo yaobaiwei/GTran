@@ -30,15 +30,19 @@ class MVCCList {
     void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);  // TODO(entityless): Finish this
     ValueType AbortVersion(const uint64_t& trx_id);
 
-    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<MVCC>* pool_ptr) {
-        pool_ptr_ = pool_ptr;
+    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<MVCC>* mem_pool) {
+        mem_pool_ = mem_pool;
     }
 
+    MVCC* GetHead();
+
  private:
-    static OffsetConcurrentMemPool<MVCC>* pool_ptr_;  // Initialized in data_storage.cpp
+    static OffsetConcurrentMemPool<MVCC>* mem_pool_;  // Initialized in data_storage.cpp
 
     MVCC* head_ = nullptr;
     MVCC* tail_ = nullptr;
+    MVCC* tail_last_ = nullptr;
+    MVCC* tail_last_buffer_ = nullptr;
 };
 
 #include "mvcc_list.tpp"

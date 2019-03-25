@@ -39,39 +39,76 @@ struct AbstractMVCC {
 
     static constexpr uint64_t MIN_TIME = 0;
     static constexpr uint64_t MAX_TIME = 0x7FFFFFFFFFFFFFFF;
+
+ public:
+    AbstractMVCC* GetNext() const {return next;};
 };
 
 struct PropertyMVCC : public AbstractMVCC {
- private:
+ protected:
     ValueHeader val;
+
  public:
-    ValueHeader GetValue() {return val;}
+    ValueHeader GetValue() const {return val;}
 
     static constexpr ValueHeader EMPTY_VALUE = ValueHeader(0, 0);
 
+    bool NeedGC() {return !val.IsEmpty();}
+
     template<class MVCC> friend class MVCCList;
+};
+
+struct VPropertyMVCC : public PropertyMVCC {
+ public:
+    void InTransactionGC() {value_store->FreeValue(val);}
+    static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
+ private:
+    static MVCCValueStore* value_store;
+};
+
+struct EPropertyMVCC : public PropertyMVCC {
+ public:
+    void InTransactionGC() {value_store->FreeValue(val);}
+    static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
+ private:
+    static MVCCValueStore* value_store;
 };
 
 struct VertexMVCC : public AbstractMVCC {
  private:
     bool val;  // whether the edge exists or not
  public:
-    bool GetValue() {return val;}
+    bool GetValue() const {return val;}
 
     static constexpr bool EMPTY_VALUE = false;
+
+    bool NeedGC() const {return false;}
+    void InTransactionGC() {}
 
     template<class MVCC> friend class MVCCList;
 };
 
 struct EdgePropertyRow;
+struct VertexPropertyRow;
 template <class T>
 class PropertyRowList;
+class TopologyRowList;
+template <class MVCC>
+class MVCCList;
+
+struct VertexItem {
+    label_t label;
+    TopologyRowList* ve_row_list;
+    PropertyRowList<VertexPropertyRow>* vp_row_list;
+    MVCCList<VertexMVCC>* mvcc_list;
+};
 
 struct EdgeItem {
     label_t label;  // if 0, then the edge is deleted
-    PropertyRowList<EdgePropertyRow>* ep_row_list;  // for in_e, this is always nullptr
+    // for in_e or deleted edge, this is always nullptr
+    PropertyRowList<EdgePropertyRow>* ep_row_list;
 
-    bool Exist() {return label != 0;}
+    bool Exist() const {return label != 0;}
     EdgeItem() {}
 
     constexpr EdgeItem(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
@@ -82,9 +119,12 @@ struct EdgeMVCC : public AbstractMVCC {
  private:
     EdgeItem val;
  public:
-    EdgeItem GetValue() {return val;}
+    EdgeItem GetValue() const {return val;}
 
     static constexpr EdgeItem EMPTY_VALUE = EdgeItem(0, nullptr);
+
+    bool NeedGC() const {return val.ep_row_list != nullptr;}
+    void InTransactionGC() {}  // TODO(entityless): Implement this
 
     template<class MVCC> friend class MVCCList;
 };

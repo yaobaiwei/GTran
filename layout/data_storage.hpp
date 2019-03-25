@@ -7,6 +7,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #pragma once
 
 #include <cstdio>
+#include <unordered_set>
 #include <vector>
 
 #include "layout/concurrent_mem_pool.hpp"
@@ -19,15 +20,10 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/topology_row_list.hpp"
 #include "utils/config.hpp"
 
-struct VertexItem {
-    label_t label;
-    TopologyRowList* ve_row_list;
-    PropertyRowList<VertexPropertyRow>* vp_row_list;
-    MVCCList<VertexMVCC>* mvcc_list;
-};
 // EdgeItem defined in mvcc_definition.hpp
 
 struct TransactionItem {
+    // TODO(entityless): Use Primitive_T instead
     enum ProcessType {
         PROCESS_ADD_V,
         PROCESS_ADD_E,
@@ -45,10 +41,19 @@ struct TransactionItem {
         ProcessType type;
         void* mvcc_list;
         ProcessItem() {}
+
+        bool operator== (const ProcessItem& right_item) const {
+            return mvcc_list == right_item.mvcc_list;
+        }
     };
 
-    // TODO(entityless): figure out what if mvcc_list duplicates
-    std::vector<ProcessItem> process_list;
+    struct ProcessItemHash {
+        size_t operator()(const ProcessItem& _r) const {
+            return std::hash<uint64_t>()((uint64_t)_r.mvcc_list);
+        }
+    };
+
+    std::unordered_set<ProcessItem, ProcessItemHash> process_set;
 };
 
 class DataStorage {
@@ -88,7 +93,8 @@ class DataStorage {
     OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexPropertyRow>* vp_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<PropertyMVCC>* property_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<VPropertyMVCC>* vp_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<EPropertyMVCC>* ep_mvcc_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexMVCC>* vertex_mvcc_pool_ = nullptr;
     OffsetConcurrentMemPool<EdgeMVCC>* edge_mvcc_pool_ = nullptr;
 
@@ -98,7 +104,7 @@ class DataStorage {
     vid_t AssignVID();
 
     // MVCC processing related
-    tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_map_;
+    tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
 
@@ -127,7 +133,10 @@ class DataStorage {
     void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                      vector<epid_t>& ret);
     label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
-    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);  // TODO(entityless): add "read_only" flag
+    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
+    // TODO(entityless): add "read_only" flag
+    EdgeItem GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, 
+                            const uint64_t& trx_id, const uint64_t& begin_time);
 
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 

@@ -6,7 +6,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/topology_row_list.hpp"
 
 void TopologyRowList::Init() {
-    head_ = pool_ptr_->Get();
+    head_ = mem_pool_->Get();
     edge_count_ = 0;
 }
 
@@ -26,7 +26,7 @@ MVCCList<EdgeMVCC>* TopologyRowList::InsertInitialElement(const bool& is_out, co
     }
 
     if (element_id > 0 && element_id % VE_ROW_ITEM_COUNT == 0) {
-        my_row->next_ = pool_ptr_->Get();
+        my_row->next_ = mem_pool_->Get();
         my_row = my_row->next_;
         my_row->next_ = nullptr;
     }

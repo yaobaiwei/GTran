@@ -67,7 +67,7 @@ class MVCCValueStore {
 
  public:
     // TODO(entityless): store value.type in somewhere else.
-    ValueHeader Insert(const value_t& value);
+    ValueHeader InsertValue(const value_t& value);
     void GetValue(const ValueHeader& header, value_t& value);
     void FreeValue(const ValueHeader& header);
     MVCCValueStore(char* mem, OffsetT item_count);

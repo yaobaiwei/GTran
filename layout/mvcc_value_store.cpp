@@ -51,7 +51,7 @@ char* MVCCValueStore::GetItemPtr(const OffsetT& offset) {
     return attached_mem_ + ((size_t) offset) * MemItemSize;
 }
 
-ValueHeader MVCCValueStore::Insert(const value_t& value) {
+ValueHeader MVCCValueStore::InsertValue(const value_t& value) {
     ValueHeader ret;
     ret.count = value.content.size() + MemItemSize;
 
@@ -134,6 +134,7 @@ OffsetT MVCCValueStore::Get(const OffsetT& count) {
 void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count) {
     pthread_spin_lock(&tail_lock_);
     next_offset_[tail_] = offset;
+    // TODO(entityless): This loop can actually be moved to outside the critical region
     for (OffsetT i = 0; i < count - 1; i++) {
         tail_ = next_offset_[tail_];
     }

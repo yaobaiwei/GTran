@@ -16,7 +16,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct VPHeader {
     vpid_t pid;
-    MVCCList<PropertyMVCC>* mvcc_list;
+    MVCCList<VPropertyMVCC>* mvcc_list;
+    typedef VPropertyMVCC MVCCType;
 };
 
 #define VP_ROW_ITEM_COUNT std::InferElementCount<VPHeader>(256, sizeof(void*))
@@ -24,7 +25,8 @@ struct VPHeader {
 
 struct EPHeader {
     epid_t pid;
-    MVCCList<PropertyMVCC>* mvcc_list;
+    MVCCList<EPropertyMVCC>* mvcc_list;
+    typedef EPropertyMVCC MVCCType;
 };
 
 #define EP_ROW_ITEM_COUNT std::InferElementCount<EPHeader>(256, sizeof(void*))
