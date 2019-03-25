@@ -73,7 +73,7 @@ struct TidStatus {
     }
 
     uint64_t getCT() {
-        CHECK(P == 1 && V == 1 && C == 0 && A == 0 && occupied == 1);
+        CHECK(P == 1 && V == 1 && occupied == 1);
         return ct;
     }
 

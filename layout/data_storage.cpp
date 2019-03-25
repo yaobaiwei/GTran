@@ -135,7 +135,7 @@ void DataStorage::FillContainer() {
         EdgeConstAccessor e_accessor;
         edge_map_.find(e_accessor, edge.id.value());
 
-        auto edge_item = e_accessor->second->GetCurrentVersion(0, 0)->GetValue();
+        auto edge_item = e_accessor->second->GetInitVersion()->GetValue();
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
             edge_item.ep_row_list->InsertInitialElement(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
@@ -208,7 +208,6 @@ void DataStorage::GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t
     edge_map_.find(e_accessor, eid.value());
 
     auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
-
     if (edge_item.Exist())
         edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, ret);
 }
@@ -228,7 +227,6 @@ void DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const ui
     edge_map_.find(e_accessor, eid.value());
 
     auto edge_item = e_accessor->second->GetCurrentVersion(trx_id, begin_time)->GetValue();
-
     if (edge_item.Exist())
         edge_item.ep_row_list->ReadPidList(trx_id, begin_time, ret);
 }
@@ -303,6 +301,23 @@ void DataStorage::GetNameFromIndex(const Index_T& type, const label_t& id, strin
             break;
         default:
             return;
+    }
+}
+
+void DataStorage::GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxIDList, vector<uint64_t> & heteroTrxIDList) {
+    dep_trx_const_accessor c_accessor;
+
+    if (dep_trx_map.find(c_accessor, trxID)) {
+        homoTrxIDList = c_accessor->second.homo_trx_list;
+        heteroTrxIDList =  c_accessor->second.hetero_trx_list;
+    }
+}
+
+void DataStorage::CleanDepReadTrxList(uint64_t trxID) {
+    dep_trx_accessor accessor;
+
+    if (dep_trx_map.find(accessor, trxID)) {
+        dep_trx_map.erase(accessor);
     }
 }
 
