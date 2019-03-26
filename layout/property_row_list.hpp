@@ -14,17 +14,21 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 template <class PropertyRow>
 class PropertyRowList {
  private:
+    typedef decltype(PropertyRow::cells_[0].pid) PidType;
+    typedef typename remove_pointer<decltype(PropertyRow::cells_[0].mvcc_list)>::type MVCCListType;
+    typedef typename remove_reference<decltype(PropertyRow::cells_[0])>::type CellType;
+
     static OffsetConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
     static MVCCValueStore* value_storage_;
 
     std::atomic_int property_count_;
     PropertyRow* head_;
 
+    CellType* AllocateCell();
+    CellType* LocateCell(PidType pid);
+
  public:
     void Init();
-
-    typedef decltype(PropertyRow::cells_[0].pid) PidType;
-    typedef typename remove_pointer<decltype(PropertyRow::cells_[0].mvcc_list)>::type MVCCListType;
 
     // this function will only be called when loading data from hdfs
     void InsertInitialElement(const PidType& pid, const value_t& value);

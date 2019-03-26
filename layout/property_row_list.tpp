@@ -10,7 +10,7 @@ void PropertyRowList<PropertyRow>::Init() {
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::InsertInitialElement(const PidType& pid, const value_t& value) {
+typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::AllocateCell() {
     int element_id = property_count_++;
     int element_id_in_row = element_id % PropertyRow::RowItemCount();
 
@@ -28,17 +28,11 @@ void PropertyRowList<PropertyRow>::InsertInitialElement(const PidType& pid, cons
         current_row->next_ = nullptr;
     }
 
-    MVCCListType* mvcc_list = new MVCCListType;
-
-    mvcc_list->AppendInitialVersion()[0] = value_storage_->InsertValue(value);
-
-    current_row->cells_[element_id_in_row].pid = pid;
-    current_row->cells_[element_id_in_row].mvcc_list = mvcc_list;
+    return &current_row->cells_[element_id_in_row];
 }
 
 template <class PropertyRow>
-bool PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, value_t& ret) {
-
+typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::LocateCell(PidType pid) {
     PropertyRow* current_row = head_;
 
     for (int i = 0; i < property_count_; i++) {
@@ -50,15 +44,38 @@ bool PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
         if (cell_ref.pid == pid) {
-            auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
-            if (!storage_header.IsEmpty()) {
-                value_storage_->GetValue(storage_header, ret);
-                return true;
-            }
-            return false;
+            return &cell_ref;
         }
     }
 
+    return nullptr;
+}
+
+template <class PropertyRow>
+void PropertyRowList<PropertyRow>::InsertInitialElement(const PidType& pid, const value_t& value) {
+    auto* cell = AllocateCell();
+
+    MVCCListType* mvcc_list = new MVCCListType;
+
+    mvcc_list->AppendInitialVersion()[0] = value_storage_->InsertValue(value);
+
+    cell->pid = pid;
+    cell->mvcc_list = mvcc_list;
+}
+
+template <class PropertyRow>
+bool PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, value_t& ret) {
+    PropertyRow* current_row = head_;
+
+    auto* cell = LocateCell(pid);
+    if (cell == nullptr)
+        return false;
+
+    auto storage_header = cell->mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+    if (!storage_header.IsEmpty()) {
+        value_storage_->GetValue(storage_header, ret);
+        return true;
+    }
     return false;
 }
 
@@ -106,40 +123,21 @@ void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uin
 
 template <class PropertyRow>
 pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList<PropertyRow>::ProcessModifyProperty(const PidType& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time) {
-    PropertyRow* current_row = head_;
+    auto* cell = LocateCell(pid);
+    bool modify_flag = true;
 
-    for (int i = 0; i < property_count_; i++) {
-        int element_id_in_row = i % PropertyRow::RowItemCount();
-        if (i > 0 && element_id_in_row == 0) {
-            current_row = current_row->next_;
-        }
+    if (cell == nullptr) {
+        cell = AllocateCell();
+        modify_flag = false;  // Add property
 
-        auto& cell_ref = current_row->cells_[element_id_in_row];
-
-        if (cell_ref.pid == pid) {
-            auto* version_val_ptr = cell_ref.mvcc_list->AppendVersion(trx_id, begin_time);
-            if (version_val_ptr == nullptr)
-                return make_pair(true, nullptr);
-
-            version_val_ptr[0] = value_storage_->InsertValue(value);
-            return make_pair(true, cell_ref.mvcc_list);
-        }
+        cell->pid = pid;
+        cell->mvcc_list = new MVCCListType;
     }
 
-    // Add property
-    int element_id = property_count_++;
-    int element_id_in_row = element_id % PropertyRow::RowItemCount();
-    if (element_id > 0 && element_id_in_row == 0) {
-        current_row = current_row->next_;
-    }
+    auto* version_val_ptr = cell->mvcc_list->AppendVersion(trx_id, begin_time);
+    if (version_val_ptr == nullptr)  // modify failed
+        return make_pair(true, nullptr);
 
-    auto& cell_ref = current_row->cells_[element_id_in_row];
-    cell_ref.pid = pid;
-    cell_ref.mvcc_list = new MVCCListType;
-
-    // this won't be nullptr
-    auto* version_val_ptr = cell_ref.mvcc_list->AppendVersion(trx_id, begin_time);
     version_val_ptr[0] = value_storage_->InsertValue(value);
-
-    return make_pair(false, cell_ref.mvcc_list);
+    return make_pair(modify_flag, cell->mvcc_list);
 }

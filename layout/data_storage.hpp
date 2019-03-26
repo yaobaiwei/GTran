@@ -28,9 +28,11 @@ struct TransactionItem {
     // TODO(entityless): Use Primitive_T instead
     enum ProcessType {
         PROCESS_ADD_V,
-        PROCESS_ADD_E,
+        PROCESS_ADD_IN_E,
+        PROCESS_ADD_OUT_E,
         PROCESS_DROP_V,
-        PROCESS_DROP_E,
+        PROCESS_DROP_IN_E,
+        PROCESS_DROP_OUT_E,
         PROCESS_ADD_VP,
         PROCESS_ADD_EP,
         PROCESS_DROP_VP,
@@ -75,7 +77,8 @@ class DataStorage {
     // from vid & eid to the first row of the entity
     // the MVCCList<EdgeMVCC>* pointer will point to the same instance
     // in this edge's src_v's VertexEdgeRow's element's mvcc_list
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> edge_map_;
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> edge_entity_map_;  // out_e
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> ghost_edge_map_;  // in_e
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::accessor EdgeAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::const_accessor EdgeConstAccessor;
     tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
@@ -118,7 +121,12 @@ class DataStorage {
     // MVCC processing stage related
     // fail if return vid = 0
     vid_t ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                           vector<eid_t>& in_eids, vector<eid_t>& out_eids);
+    bool ProcessAddInE(const eid_t& eid, const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessAddOutE(const eid_t& eid, const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropInE(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropOutE(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
     // TODO(entityless): Finish unfinished process functions
@@ -128,14 +136,18 @@ class DataStorage {
     void Abort(const uint64_t& trx_id);
 
     // data access
-    bool GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-               const bool& read_only, value_t& ret);
-    bool GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-               const bool& read_only, value_t& ret);
-    void GetVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-               const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-               const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    bool GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                     const bool& read_only, value_t& ret);
+    bool GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                     const bool& read_only, value_t& ret);
+    void GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                  const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    void GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+                  const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    void GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key, const uint64_t& trx_id, const uint64_t& begin_time,
+                         const bool& read_only, vector<pair<label_t, value_t>>& ret) {}
+    void GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key, const uint64_t& trx_id, const uint64_t& begin_time,
+                         const bool& read_only, vector<pair<label_t, value_t>>& ret) {}
     void GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, vector<vpid_t>& ret);
     void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -145,6 +157,8 @@ class DataStorage {
     // TODO(entityless): [Blocking] use those "read_only" flag
     EdgeItem GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
                             const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
+    EdgeItem GetInEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
+                           const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
 
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
