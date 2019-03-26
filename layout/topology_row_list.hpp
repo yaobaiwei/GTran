@@ -19,8 +19,12 @@ class TopologyRowList {
     VertexEdgeRow* head_;
     vid_t my_vid_;
 
+    EdgeHeader* AllocateCell();
+    EdgeHeader* LocateCell(eid_t eid);
+
  public:
     void Init(const vid_t& my_vid);
+
     // this function will only be called when loading data from hdfs
     MVCCList<EdgeMVCC>* InsertInitialElement(const bool& is_out, const vid_t& conn_vtx_id,
                                              const label_t& edge_label,
@@ -33,6 +37,10 @@ class TopologyRowList {
     void ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
                            const uint64_t& trx_id, const uint64_t& begin_time,
                            const bool& read_only, vector<eid_t>& ret);
+
+    // MVCCList<EdgeMVCC>* ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
+    //                                    const label_t& edge_label,
+    //                                    PropertyRowList<EdgePropertyRow>* ep_row_list_ptr)
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<VertexEdgeRow>* mem_pool) {
         mem_pool_ = mem_pool;

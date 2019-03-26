@@ -46,8 +46,8 @@ void DataStorage::Init() {
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
     hdfs_data_loader_->LoadData();
     FillContainer();
-    // PrintLoadedData();
-    // PropertyMVCCTest();
+    PrintLoadedData();
+    PropertyMVCCTest();
     hdfs_data_loader_->FreeMemory();
 
     vid_to_assign_divided_ = worker_rank_;
@@ -111,15 +111,21 @@ void DataStorage::FillContainer() {
         for (auto in_nb : vtx.in_nbs) {
             eid_t eid = eid_t(vtx.id.vid, in_nb.vid);
 
+            EdgeAccessor e_accessor;
+            ghost_edge_map_.insert(e_accessor, eid.value());
+
             // "false" means that is_out = false
-            v_accessor->second.ve_row_list->InsertInitialElement(false, in_nb, e_map[eid.value()]->label, nullptr);
+            auto* mvcc_list = v_accessor->second.ve_row_list
+                              ->InsertInitialElement(false, in_nb, e_map[eid.value()]->label, nullptr);
+
+            e_accessor->second = mvcc_list;
         }
 
         for (auto out_nb : vtx.out_nbs) {
             eid_t eid = eid_t(out_nb.vid, vtx.id.vid);
 
             EdgeAccessor e_accessor;
-            edge_map_.insert(e_accessor, eid.value());
+            edge_entity_map_.insert(e_accessor, eid.value());
             auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
             ep_row_list->Init();
 
@@ -140,7 +146,7 @@ void DataStorage::FillContainer() {
 
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
         EdgeConstAccessor e_accessor;
-        edge_map_.find(e_accessor, edge.id.value());
+        edge_entity_map_.find(e_accessor, edge.id.value());
 
         auto edge_item = e_accessor->second->GetVisibleVersion(0, 0, true)->GetValue();
 
@@ -166,8 +172,8 @@ void DataStorage::FillContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
 }
 
-bool DataStorage::GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                        const bool& read_only, value_t& ret) {
+bool DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                              const bool& read_only, value_t& ret) {
     vid_t vid = pid.vid;
 
     VertexConstAccessor v_accessor;
@@ -176,8 +182,8 @@ bool DataStorage::GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_
     return v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
 }
 
-void DataStorage::GetVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+void DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                           const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
@@ -200,8 +206,8 @@ label_t DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
     return v_accessor->second.label;
 }
 
-bool DataStorage::GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                        const bool& read_only, value_t& ret) {
+bool DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                              const bool& read_only, value_t& ret) {
     eid_t eid = eid_t(pid.in_vid, pid.out_vid);
 
     EdgeConstAccessor e_accessor;
@@ -212,8 +218,8 @@ bool DataStorage::GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_
     return false;
 }
 
-void DataStorage::GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+void DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+                           const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     EdgeConstAccessor e_accessor;
     auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only);
 
@@ -270,7 +276,7 @@ void DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_t
 void DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
                               const bool& read_only, vector<eid_t>& ret) {
     // TODO(entityless): Simplify the code by editing eid_t::value()
-    for (auto e_pair = edge_map_.begin(); e_pair != edge_map_.end(); e_pair++) {
+    for (auto e_pair = edge_entity_map_.begin(); e_pair != edge_entity_map_.end(); e_pair++) {
         if (e_pair->second->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue().Exist()) {
             uint64_t eid_fetched = e_pair->first;
             eid_t* tmp_eid_p = reinterpret_cast<eid_t*>(&eid_fetched);
@@ -282,7 +288,14 @@ void DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time
 EdgeItem DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
                                      const uint64_t& trx_id, const uint64_t& begin_time,
                                      const bool& read_only) {
-    edge_map_.find(e_accessor, eid.value());
+    edge_entity_map_.find(e_accessor, eid.value());
+    return e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+}
+
+EdgeItem DataStorage::GetInEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
+                                     const uint64_t& trx_id, const uint64_t& begin_time,
+                                     const bool& read_only) {
+    ghost_edge_map_.find(e_accessor, eid.value());
     return e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
 }
 
@@ -415,7 +428,7 @@ void DataStorage::PrintLoadedData() {
             // for (int i = 0; i < vtx.vp_label_list.size(); i++) {
             //     tmp_vtx.vp_label_list.push_back(vtx.vp_label_list[i]);
             //     value_t val;
-            //     GetVP(vpid_t(vtx.id, vtx.vp_label_list[i]), 0x8000000000000001, 1, true, val);
+            //     GetAllVP(vpid_t(vtx.id, vtx.vp_label_list[i]), 0x8000000000000001, 1, true, val);
             //     tmp_vtx.vp_value_list.push_back(val);
             // }
 
@@ -424,7 +437,7 @@ void DataStorage::PrintLoadedData() {
             for (int i = 0; i < vpids.size(); i++) {
                 tmp_vtx.vp_label_list.push_back(vpids[i].pid);
                 value_t val;
-                GetVP(vpids[i], 0x8000000000000001, 1, true, val);
+                GetVPByPKey(vpids[i], 0x8000000000000001, 1, true, val);
                 tmp_vtx.vp_value_list.push_back(val);
             }
 
@@ -488,7 +501,7 @@ void DataStorage::PrintLoadedData() {
             tmp_edge.label = GetEL(edge.id, 0x8000000000000001, 1, true);
 
             // vector<pair<label_t, value_t>> properties;
-            // GetEP(edge.id, 0x8000000000000001, 1, true, properties);
+            // GetAllEP(edge.id, 0x8000000000000001, 1, true, properties);
             // for (auto p : properties) {
             //     tmp_edge.ep_label_list.push_back(p.first);
             //     tmp_edge.ep_value_list.push_back(p.second);
@@ -497,7 +510,7 @@ void DataStorage::PrintLoadedData() {
             // for (int i = 0; i < edge.ep_label_list.size(); i++) {
             //     tmp_edge.ep_label_list.push_back(edge.ep_label_list[i]);
             //     value_t val;
-            //     GetEP(epid_t(edge.id, edge.ep_label_list[i]), 0x8000000000000001, 1, true, val);
+            //     GetEPByPKey(epid_t(edge.id, edge.ep_label_list[i]), 0x8000000000000001, 1, true, val);
             //     tmp_edge.ep_value_list.push_back(val);
             // }
 
@@ -506,7 +519,7 @@ void DataStorage::PrintLoadedData() {
             for (int i = 0; i < edge.ep_label_list.size(); i++) {
                 tmp_edge.ep_label_list.push_back(epids[i].pid);
                 value_t val;
-                GetEP(epids[i], 0x8000000000000001, 1, true, val);
+                GetEPByPKey(epids[i], 0x8000000000000001, 1, true, val);
                 tmp_edge.ep_value_list.push_back(val);
             }
 
@@ -564,7 +577,8 @@ vid_t DataStorage::ProcessAddVertex(const label_t& label, const uint64_t& trx_id
     return vid;
 }
 
-bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time) {
+bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                                    vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
@@ -584,9 +598,40 @@ bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, co
 
     t_accessor->second.process_set.emplace(q_item);
 
-    // TODO(entityless): Return edges connected to it, for DropE actors
+    vector<eid_t> all_connected_edge;
+
+    GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge);
+
+    for (auto eid : all_connected_edge) {
+        if (eid.out_v == vid.value()) {
+            // this is an out edge
+            out_eids.emplace_back(eid);
+        } else {
+            // this is an in edge
+            in_eids.emplace_back(eid);
+        }
+    }
 
     return true;
+}
+
+
+bool DataStorage::ProcessAddInE(const eid_t& eid, const label_t& label,
+                                const uint64_t& trx_id, const uint64_t& begin_time) {
+
+}
+
+bool DataStorage::ProcessAddOutE(const eid_t& eid, const label_t& label, 
+                                 const uint64_t& trx_id, const uint64_t& begin_time) {
+
+}
+
+bool DataStorage::ProcessDropInE(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time) {
+
+}
+
+bool DataStorage::ProcessDropOutE(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time) {
+
 }
 
 bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
@@ -617,7 +662,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
 bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
                                   const uint64_t& trx_id, const uint64_t& begin_time) {
     EdgeConstAccessor e_accessor;
-    edge_map_.find(e_accessor, eid_t(pid.in_vid, pid.out_vid).value());
+    edge_entity_map_.find(e_accessor, eid_t(pid.in_vid, pid.out_vid).value());
 
     // TODO(entityless): Double check this
     auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time, false)->GetValue();
@@ -717,37 +762,37 @@ void DataStorage::PropertyMVCCTest() {
 
         ok0 = ProcessModifyVP(victim_vpid, n0, trx_ids[0], bts[0]);  // modify to "N0"
         printf("Q0, %s\n", ok0 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r0);  // Read (should be "peter")
+        GetVPByPKey(victim_vpid, trx_ids[1], bts[1], true, t1r0);  // Read (should be "peter")
         printf("Q1\n");
-        GetVP(victim_vpid, trx_ids[0], bts[0], true, t0r0);  // Read (should be "N0")
+        GetVPByPKey(victim_vpid, trx_ids[0], bts[0], true, t0r0);  // Read (should be "N0")
         printf("Q2\n");
         ok10 = ProcessModifyVP(victim_vpid, n1, trx_ids[1], bts[1]);  // modify to "N1" (false)
         printf("Q3, %s\n", ok10 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r1);  // Read (should be "peter"; if optimistic, or "N0")
+        GetVPByPKey(victim_vpid, trx_ids[1], bts[1], true, t1r1);  // Read (should be "peter"; if optimistic, or "N0")
         printf("Q4\n");
         Commit(trx_ids[0], cts[0]);
         printf("Q5\n");
         ok11 = ProcessModifyVP(victim_vpid, n1, trx_ids[1], bts[1]);  // modify to "N1"
         printf("Q6 %s\n", ok11 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r2);  // Read (should be "N1")
+        GetVPByPKey(victim_vpid, trx_ids[1], bts[1], true, t1r2);  // Read (should be "N1")
         printf("Q7\n");
         ok11p = ProcessModifyVP(victim_vpid, n1p, trx_ids[1], bts[1]);  // modify to "N1+"
         printf("Q6P %s\n", ok11p ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r2p);  // Read (should be "N1+")
+        GetVPByPKey(victim_vpid, trx_ids[1], bts[1], true, t1r2p);  // Read (should be "N1+")
         printf("Q7P\n");
-        GetVP(victim_vpid, trx_ids[2], bts[2], true, t2r0);  // Read (should be "N0")
+        GetVPByPKey(victim_vpid, trx_ids[2], bts[2], true, t2r0);  // Read (should be "N0")
         printf("Q8\n");
         Abort(trx_ids[1]);
         printf("Q9\n");
         ok2 = ProcessModifyVP(victim_vpid, n2, trx_ids[2], bts[2]);  // modify to "N2"
         printf("Q10, %s\n", ok0 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[3], bts[3], true, t3r0);  // Read (should be "N0")
+        GetVPByPKey(victim_vpid, trx_ids[3], bts[3], true, t3r0);  // Read (should be "N0")
         printf("Q11\n");
         Commit(trx_ids[2], cts[2]);
         printf("Q12\n");
-        GetVP(victim_vpid, trx_ids[3], bts[3], true, t3r1);  // Read (should be "N2")
+        GetVPByPKey(victim_vpid, trx_ids[3], bts[3], true, t3r1);  // Read (should be "N2")
         printf("Q13\n");
-        GetVP(victim_vpid, trx_ids[4], bts[4], true, t4r0);
+        GetVPByPKey(victim_vpid, trx_ids[4], bts[4], true, t4r0);
 
         printf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", Tool::DebugString(t1r0).c_str(),
                                                        Tool::DebugString(t0r0).c_str(),
