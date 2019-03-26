@@ -24,7 +24,7 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::v
 }
 
 bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
-    CHECK(is_valid_trx_id(trx_id))
+    CHECK(IS_VALID_TRX_ID(trx_id))
         << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
 
     int t_id = TidMapper::GetInstance()->GetTid();
@@ -43,7 +43,7 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
 }
 
 bool TcpTrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
-    CHECK(is_valid_trx_id(trx_id))
+    CHECK(IS_VALID_TRX_ID(trx_id))
         << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
 
     int t_id = TidMapper::GetInstance()->GetTid();

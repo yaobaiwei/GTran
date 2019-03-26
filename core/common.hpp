@@ -9,11 +9,11 @@
 #pragma once
 
 #include <stdint.h>
-#include <base/type.hpp>
+#include "base/type.hpp"
 #include "glog/logging.h"
 
-bool is_valid_trx_id(uint64_t trx_id);
-bool is_valid_time(uint64_t t);
+#define IS_VALID_TRX_ID(trx_id) (trx_id & 0x8000000000000000) && (((trx_id >> 32) & 0x7FFFFFFF) == 0)
+#define IS_VALID_TIME(t) ((t & 0xFFFFFFFF00000000) == 0)
 
 /*
  * trx_id : status : if empty
@@ -101,3 +101,25 @@ struct TidStatus {
         return ss.str();
     }
 } __attribute__((packed));
+
+struct UpdateTrxStatusReq{
+    int n_id;
+    uint64_t trx_id;
+    TRX_STAT new_status;
+};
+
+struct ReadTrxStatusReq{
+    int n_id;
+    int t_id;
+    uint64_t trx_id;
+    bool read_ct;
+
+    string DebugString(){
+        std::stringstream ss;
+        ss << "trx_id: " << trx_id << "; ";
+        ss << "n_id: " << n_id << "; ";
+        ss << "t_id: " << t_id << "; Da";
+        ss << "t_id: " << read_ct << "\n";
+        return ss.str();
+    }
+};

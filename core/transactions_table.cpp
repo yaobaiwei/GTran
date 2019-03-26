@@ -32,7 +32,7 @@ TrxGlobalCoordinator* TrxGlobalCoordinator::GetInstance() {
 
 bool TrxGlobalCoordinator::query_bt(uint64_t trx_id, uint64_t& bt) {
     // CHECK(bt.find(trx_id) != bt.endl())
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     bt_table_const_accessor ac;
     bt_table_.find(ac, trx_id);
@@ -41,7 +41,7 @@ bool TrxGlobalCoordinator::query_bt(uint64_t trx_id, uint64_t& bt) {
 }
 
 bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p = nullptr;
     if (find_trx(trx_id, &p)) {
@@ -52,7 +52,7 @@ bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
 }
 
 bool TrxGlobalCoordinator::query_status(uint64_t trx_id, TRX_STAT & status) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
     TidStatus * p = nullptr;
     bool found = find_trx(trx_id, &p);
     if (!found) {
@@ -64,7 +64,7 @@ bool TrxGlobalCoordinator::query_status(uint64_t trx_id, TRX_STAT & status) {
 }
 
 bool TrxGlobalCoordinator::query_single_item(uint64_t trx_id, Trx & trx) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p = nullptr;
     bool found = find_trx(trx_id, &p);
@@ -137,7 +137,7 @@ done:
 }
 
 bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     TRX_STAT old_status;
 
@@ -176,7 +176,7 @@ bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status) {
 }
 
 bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     allocate_ct(ct);
     if (!register_ct(trx_id, ct)) {
@@ -187,7 +187,7 @@ bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status, u
 }
 
 bool TrxGlobalCoordinator::print_single_item(uint64_t trx_id) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p = nullptr;
 
@@ -207,7 +207,7 @@ bool TrxGlobalCoordinator::print_single_item(uint64_t trx_id) {
 }
 
 bool TrxGlobalCoordinator::delete_single_item(uint64_t trx_id) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
     bool op_succ_1 = deregister_bt(trx_id);
 
     TidStatus * p = nullptr;
@@ -251,7 +251,7 @@ bool TrxGlobalCoordinator::allocate_ct(uint64_t& ct) {
 }
 
 bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
     // printf("[TRX] find_trx bucket_id %d, table_ = %llx\n, trx_id = %llx", bucket_id, table_, trx_id);
@@ -281,7 +281,7 @@ bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
 }
 
 bool TrxGlobalCoordinator::register_ct(uint64_t trx_id, uint64_t ct) {
-    CHECK(is_valid_trx_id(trx_id) && is_valid_time(ct));
+    CHECK(IS_VALID_TRX_ID(trx_id) && IS_VALID_TIME(ct));
 
     TidStatus * p;
     if (find_trx(trx_id, &p)) {
@@ -292,7 +292,7 @@ bool TrxGlobalCoordinator::register_ct(uint64_t trx_id, uint64_t ct) {
 }
 
 bool TrxGlobalCoordinator::deregister_bt(uint64_t trx_id) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     bt_table_accessor ac;
     bt_table_.find(ac, trx_id);
@@ -301,7 +301,7 @@ bool TrxGlobalCoordinator::deregister_bt(uint64_t trx_id) {
 }
 
 bool TrxGlobalCoordinator::register_bt(uint64_t trx_id, uint64_t bt) {
-    CHECK(is_valid_trx_id(trx_id) && is_valid_time(bt));
+    CHECK(IS_VALID_TRX_ID(trx_id) && IS_VALID_TIME(bt));
 
     bt_table_accessor ac;
     bt_table_.insert(ac, trx_id);

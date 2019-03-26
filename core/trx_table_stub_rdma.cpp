@@ -24,7 +24,7 @@ bool RDMATrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, std::
 }
 
 bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     int t_id = TidMapper::GetInstance()->GetTid();
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
@@ -64,7 +64,7 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
 }
 
 bool RDMATrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
-    CHECK(is_valid_trx_id(trx_id));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     int t_id = TidMapper::GetInstance()->GetTid();
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
