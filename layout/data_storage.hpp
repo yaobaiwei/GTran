@@ -21,18 +21,16 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/row_definition.hpp"
 #include "layout/topology_row_list.hpp"
 #include "utils/config.hpp"
+#include "utils/mymath.hpp"
 
 // EdgeItem defined in mvcc_definition.hpp
 
 struct TransactionItem {
-    // TODO(entityless): Use Primitive_T instead
     enum ProcessType {
         PROCESS_ADD_V,
-        PROCESS_ADD_IN_E,
-        PROCESS_ADD_OUT_E,
+        PROCESS_ADD_E,
         PROCESS_DROP_V,
-        PROCESS_DROP_IN_E,
-        PROCESS_DROP_OUT_E,
+        PROCESS_DROP_E,
         PROCESS_ADD_VP,
         PROCESS_ADD_EP,
         PROCESS_DROP_VP,
@@ -53,7 +51,7 @@ struct TransactionItem {
 
     struct ProcessItemHash {
         size_t operator()(const ProcessItem& _r) const {
-            return std::hash<uint64_t>()((uint64_t)_r.mvcc_list);
+            return mymath::hash_u64((uint64_t)_r.mvcc_list);
         }
     };
 
@@ -77,8 +75,9 @@ class DataStorage {
     // from vid & eid to the first row of the entity
     // the MVCCList<EdgeMVCC>* pointer will point to the same instance
     // in this edge's src_v's VertexEdgeRow's element's mvcc_list
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> edge_entity_map_;  // out_e
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> ghost_edge_map_;  // in_e
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> out_edge_map_;
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> in_edge_map_;
+    // since edge properties are attached to out_e, the in_e instance does not record any properties
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::accessor EdgeAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::const_accessor EdgeConstAccessor;
     tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
@@ -116,17 +115,17 @@ class DataStorage {
 
  public:
     // MVCC processing stage related
-    // fail if return vid = 0
+    void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
     vid_t ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                            vector<eid_t>& in_eids, vector<eid_t>& out_eids);
-    bool ProcessAddInE(const eid_t& eid, const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessAddOutE(const eid_t& eid, const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropInE(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropOutE(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
+                     const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropE(const eid_t& eid, const bool& is_out, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    // TODO(entityless): Finish unfinished process functions
+    bool ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
 
     // MVCC abort or commit
     void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
@@ -153,11 +152,8 @@ class DataStorage {
                      const bool& read_only, vector<epid_t>& ret);
     label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
     label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
-    // TODO(entityless): [Blocking] use those "read_only" flag
     EdgeItem GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
                             const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
-    EdgeItem GetInEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
-                           const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
 
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
@@ -170,7 +166,7 @@ class DataStorage {
                                 const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<vid_t>& ret);
 
-    // TODO(entityless): Figure out how to run two functions below efficiently
+    // TODO(entityless): Figure out how to run two functions efficiently
     void GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<vid_t>& ret);
     void GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<eid_t>& ret);
 
@@ -205,7 +201,6 @@ class DataStorage {
     void CleanDepReadTrxList(uint64_t trxID);
 
     void PrintLoadedData();  // TODO(entityless): remove this in the future
-    void PropertyMVCCTest();
 
     // "schema" (indexes)
     string_index* indexes_ = nullptr;

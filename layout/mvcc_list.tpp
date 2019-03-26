@@ -1,6 +1,7 @@
 /* Copyright 2019 Husky Data Lab, CUHK
 
 Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+         Modified by Aaron Li (cjli@cse.cuhk.edu.hk)
 */
 
 template<class MVCC>
@@ -16,10 +17,6 @@ MVCC* MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& 
     MVCC* ret = head_;
 
     while (true) {
-        // no suitable version found
-        if (ret == nullptr)
-            break;
-
         // if suitable, break
         if (ret->GetTransactionID() == trx_id || begin_time < ret->GetEndTime()) {
             // Check whether there is next version
