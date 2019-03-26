@@ -15,7 +15,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <malloc.h>
 #else
 #include <mm_malloc.h>
-#endif // defined(__GNUC__)
+#endif  // defined(__GNUC__)
 
 #include <atomic>
 #include <cstdio>
@@ -67,7 +67,7 @@ class MVCCValueStore {
 
  public:
     // TODO(entityless): store value.type in somewhere else.
-    ValueHeader Insert(const value_t& value);
+    ValueHeader InsertValue(const value_t& value);
     void GetValue(const ValueHeader& header, value_t& value);
     void FreeValue(const ValueHeader& header);
     MVCCValueStore(char* mem, OffsetT item_count);

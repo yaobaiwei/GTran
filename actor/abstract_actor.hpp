@@ -14,6 +14,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "base/core_affinity.hpp"
 #include "core/message.hpp"
+#include "layout/data_storage.hpp"
 #include "storage/data_store.hpp"
 #include "utils/tid_mapper.hpp"
 
@@ -24,7 +25,10 @@ class AbstractActor {
             CoreAffinity* core_affinity):
         id_(id),
         data_store_(data_store),
-        core_affinity_(core_affinity) {}
+        core_affinity_(core_affinity) {
+        // instance initialized in worker.hpp
+        layout_storage_ = DataStorage::GetInstance();
+    }
 
     virtual ~AbstractActor() {}
     const int GetActorId() { return id_; }
@@ -34,6 +38,7 @@ class AbstractActor {
  protected:
     // Data Store
     DataStore* data_store_;
+    DataStorage* layout_storage_;
 
     // Core affinity
     CoreAffinity* core_affinity_;

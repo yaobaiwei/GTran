@@ -355,12 +355,12 @@ void HDFSDataLoader::ToEP(char* line) {
 }
 
 void HDFSDataLoader::LoadData() {
+    GetStringIndexes();
     if (!ReadSnapshot()) {
         node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadSnapshot()\n");
         vector<TMPVertex>().swap(shuffled_vtx_);
         vector<TMPEdge>().swap(shuffled_edge_);
         vector<TMPEdge>().swap(shuffled_in_edge_);
-        GetStringIndexes();
         GetVertices();
         GetVPList();
         GetEPList();

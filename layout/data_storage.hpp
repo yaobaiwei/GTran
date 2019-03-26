@@ -7,6 +7,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #pragma once
 
 #include <cstdio>
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "layout/concurrent_mem_pool.hpp"
@@ -19,15 +22,10 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/topology_row_list.hpp"
 #include "utils/config.hpp"
 
-struct VertexItem {
-    label_t label;
-    TopologyRowList* ve_row_list;
-    PropertyRowList<VertexPropertyRow>* vp_row_list;
-    MVCCList<VertexMVCC>* mvcc_list;
-};
 // EdgeItem defined in mvcc_definition.hpp
 
 struct TransactionItem {
+    // TODO(entityless): Use Primitive_T instead
     enum ProcessType {
         PROCESS_ADD_V,
         PROCESS_ADD_E,
@@ -45,10 +43,19 @@ struct TransactionItem {
         ProcessType type;
         void* mvcc_list;
         ProcessItem() {}
+
+        bool operator== (const ProcessItem& right_item) const {
+            return mvcc_list == right_item.mvcc_list;
+        }
     };
 
-    // TODO(entityless): figure out what if mvcc_list duplicates
-    std::vector<ProcessItem> process_list;
+    struct ProcessItemHash {
+        size_t operator()(const ProcessItem& _r) const {
+            return std::hash<uint64_t>()((uint64_t)_r.mvcc_list);
+        }
+    };
+
+    std::unordered_set<ProcessItem, ProcessItemHash> process_set;
 };
 
 class DataStorage {
@@ -88,7 +95,8 @@ class DataStorage {
     OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexPropertyRow>* vp_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<PropertyMVCC>* property_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<VPropertyMVCC>* vp_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<EPropertyMVCC>* ep_mvcc_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexMVCC>* vertex_mvcc_pool_ = nullptr;
     OffsetConcurrentMemPool<EdgeMVCC>* edge_mvcc_pool_ = nullptr;
 
@@ -98,9 +106,13 @@ class DataStorage {
     vid_t AssignVID();
 
     // MVCC processing related
-    tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_map_;
+    tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
+
+    // DataStore compatible
+    unordered_map<agg_t, vector<value_t>> agg_data_table;
+    mutex agg_mutex;
 
  public:
     // MVCC processing stage related
@@ -116,31 +128,38 @@ class DataStorage {
     void Abort(const uint64_t& trx_id);
 
     // data access
-    void GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret);
-    void GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret);
+    bool GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+               const bool& read_only, value_t& ret);
+    bool GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+               const bool& read_only, value_t& ret);
     void GetVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-               vector<pair<label_t, value_t>>& ret);
+               const bool& read_only, vector<pair<label_t, value_t>>& ret);
     void GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-               vector<pair<label_t, value_t>>& ret);
+               const bool& read_only, vector<pair<label_t, value_t>>& ret);
     void GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     vector<vpid_t>& ret);
+                     const bool& read_only, vector<vpid_t>& ret);
     void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     vector<epid_t>& ret);
-    label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time);
-    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time);  // TODO(entityless): add "read_only" flag
+                     const bool& read_only, vector<epid_t>& ret);
+    label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
+    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
+    // TODO(entityless): [Blocking] use those "read_only" flag
+    EdgeItem GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
+                            const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
 
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
     // traversal from vertex
     // if label == 0, then do not filter by label
     void GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                              const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret);
+                              const uint64_t& trx_id, const uint64_t& begin_time,
+                              const bool& read_only, vector<eid_t>& ret);
     void GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret);
+                                const uint64_t& trx_id, const uint64_t& begin_time,
+                                const bool& read_only, vector<vid_t>& ret);
 
     // TODO(entityless): Figure out how to run two functions below efficiently
-    void GetAllVertex(const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret);
-    void GetAllEdge(const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret);
+    void GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<vid_t>& ret);
+    void GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<eid_t>& ret);
 
     //// Indexed data access
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);
@@ -154,6 +173,18 @@ class DataStorage {
 
         return data_storage_instance_ptr;
     }
+
+    // DataStore compatible
+    // TODO(entityless): Optimize this, as these implementations are extremely inefficient
+    void InsertAggData(agg_t key, vector<value_t> & data);
+    void GetAggData(agg_t key, vector<value_t> & data);
+    void DeleteAggData(agg_t key);
+
+    int GetMachineIdForEdge(eid_t eid);
+    int GetMachineIdForVertex(vid_t v_id);
+    bool DataStorage::VPKeyIsLocal(vpid_t vp_id);
+    bool DataStorage::EPKeyIsLocal(epid_t ep_id);
+
 
     // Initial related
     void Init();
