@@ -5,7 +5,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/topology_row_list.hpp"
 
-void TopologyRowList::Init() {
+void TopologyRowList::Init(const vid_t& my_vid) {
+    my_vid_ = my_vid;
     head_ = mem_pool_->Get();
     edge_count_ = 0;
 }
@@ -42,7 +43,8 @@ MVCCList<EdgeMVCC>* TopologyRowList::InsertInitialElement(const bool& is_out, co
 }
 
 void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
-                                          const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret) {
+                                          const uint64_t& trx_id, const uint64_t& begin_time,
+                                          const bool& read_only, vector<vid_t>& ret) {
     VertexEdgeRow* current_row = head_;
 
     for (int i = 0; i < edge_count_; i++) {
@@ -57,7 +59,7 @@ void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const la
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
+            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -67,8 +69,9 @@ void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const la
     }
 }
 
-void TopologyRowList::ReadConnectedEdge(const vid_t& my_vid, const Direction_T& direction, const label_t& edge_label,
-                                        const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret) {
+void TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
+                                        const uint64_t& trx_id, const uint64_t& begin_time,
+                                        const bool& read_only, vector<eid_t>& ret) {
     VertexEdgeRow* current_row = head_;
 
     for (int i = 0; i < edge_count_; i++) {
@@ -83,15 +86,15 @@ void TopologyRowList::ReadConnectedEdge(const vid_t& my_vid, const Direction_T& 
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
+            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
             if (!edge_item.Exist())
                 continue;
 
             if (edge_label == 0 || edge_label == edge_item.label) {
                 if (cell_ref.is_out)
-                    ret.emplace_back(eid_t(cell_ref.conn_vtx_id.value(), my_vid.value()));
+                    ret.emplace_back(eid_t(cell_ref.conn_vtx_id.value(), my_vid_.value()));
                 else
-                    ret.emplace_back(eid_t(my_vid.value(), cell_ref.conn_vtx_id.value()));
+                    ret.emplace_back(eid_t(my_vid_.value(), cell_ref.conn_vtx_id.value()));
             }
         }
     }

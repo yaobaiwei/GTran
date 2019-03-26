@@ -20,23 +20,19 @@ class TopologyRowList {
     vid_t my_vid_;
 
  public:
-    void Init();
+    void Init(const vid_t& my_vid);
     // this function will only be called when loading data from hdfs
     MVCCList<EdgeMVCC>* InsertInitialElement(const bool& is_out, const vid_t& conn_vtx_id,
                                              const label_t& edge_label,
                                              PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
 
     void ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
-                             const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret);
+                             const uint64_t& trx_id, const uint64_t& begin_time,
+                             const bool& read_only, vector<vid_t>& ret);
 
-    void ReadConnectedEdge(const vid_t& my_vid, const Direction_T& direction, const label_t& edge_label,
-                           const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret);
-
-    // nullptr for failed
-    MVCCList<EdgeMVCC>* ProcessAddEdge(const eid_t& eid, const label_t& edge_label,
-                                           const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropEdge(const eid_t& eid,
-                         const uint64_t& trx_id, const uint64_t& begin_time);
+    void ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
+                           const uint64_t& trx_id, const uint64_t& begin_time,
+                           const bool& read_only, vector<eid_t>& ret);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<VertexEdgeRow>* mem_pool) {
         mem_pool_ = mem_pool;

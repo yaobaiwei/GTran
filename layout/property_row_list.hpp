@@ -29,13 +29,17 @@ class PropertyRowList {
     // this function will only be called when loading data from hdfs
     void InsertInitialElement(const PidType& pid, const value_t& value);
 
-    void ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret);
-    void ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time, vector<pair<label_t, value_t>>& ret);
-    void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, vector<PidType>& ret);
+    bool ReadProperty(const PidType& pid, const uint64_t& trx_id,
+                      const uint64_t& begin_time, const bool& read_only, value_t& ret);
+    void ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
+                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
+                     const bool& read_only, vector<PidType>& ret);
 
     // TODO(entityless): Implement 2 function below
     // the bool value is true if "Modify", false if "Add"
-    pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value,
+                                                    const uint64_t& trx_id, const uint64_t& begin_time);
     MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<PropertyRow>* mem_pool) {

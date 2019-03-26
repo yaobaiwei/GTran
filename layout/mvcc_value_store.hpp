@@ -15,7 +15,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <malloc.h>
 #else
 #include <mm_malloc.h>
-#endif // defined(__GNUC__)
+#endif  // defined(__GNUC__)
 
 #include <atomic>
 #include <cstdio>

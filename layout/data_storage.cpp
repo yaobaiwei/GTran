@@ -103,7 +103,7 @@ void DataStorage::FillContainer() {
         v_accessor->second.ve_row_list = new TopologyRowList;
 
         v_accessor->second.vp_row_list->Init();
-        v_accessor->second.ve_row_list->Init();
+        v_accessor->second.ve_row_list->Init(vtx.id);
 
         v_accessor->second.mvcc_list = new MVCCList<VertexMVCC>;
         v_accessor->second.mvcc_list->AppendInitialVersion()[0] = true;
@@ -142,7 +142,7 @@ void DataStorage::FillContainer() {
         EdgeConstAccessor e_accessor;
         edge_map_.find(e_accessor, edge.id.value());
 
-        auto edge_item = e_accessor->second->GetInitVersion()->GetValue();
+        auto edge_item = e_accessor->second->GetVisibleVersion(0, 0, true)->GetValue();
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
             edge_item.ep_row_list->InsertInitialElement(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
@@ -166,102 +166,112 @@ void DataStorage::FillContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
 }
 
-void DataStorage::GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret) {
+bool DataStorage::GetVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                        const bool& read_only, value_t& ret) {
     vid_t vid = pid.vid;
 
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
-    v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, ret);
+    return v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
 }
 
 void DataStorage::GetVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                        vector<pair<label_t, value_t>>& ret) {
+                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
-    v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, ret);
+    v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
 }
 
 void DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                              vector<vpid_t>& ret) {
+                              const bool& read_only, vector<vpid_t>& ret) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
-    v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, ret);
+    v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 }
 
-label_t DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time) {
+label_t DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
+                           const uint64_t& begin_time, const bool& read_only) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
     return v_accessor->second.label;
 }
 
-void DataStorage::GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret) {
+bool DataStorage::GetEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                        const bool& read_only, value_t& ret) {
     eid_t eid = eid_t(pid.in_vid, pid.out_vid);
 
     EdgeConstAccessor e_accessor;
-    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time);
+    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only);
 
     if (edge_item.Exist())
-        edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, ret);
+        return edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+    return false;
 }
 
 void DataStorage::GetEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                        vector<pair<label_t, value_t>>& ret) {
+                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     EdgeConstAccessor e_accessor;
-    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time);
+    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only);
 
     if (edge_item.Exist())
-        edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, ret);
+        edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
 }
 
-label_t DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time) {
+label_t DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
+                           const uint64_t& begin_time, const bool& read_only) {
     EdgeConstAccessor e_accessor;
-    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time);
+    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only);
 
+    // an deleted edge will returns 0
     return edge_item.label;
 }
 
 void DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                              vector<epid_t>& ret) {
+                              const bool& read_only, vector<epid_t>& ret) {
     EdgeConstAccessor e_accessor;
-    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time);
+    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only);
 
     if (edge_item.Exist())
-        edge_item.ep_row_list->ReadPidList(trx_id, begin_time, ret);
+        edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 }
 
 void DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                         const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret) {
+                                         const uint64_t& trx_id, const uint64_t& begin_time,
+                                         const bool& read_only, vector<vid_t>& ret) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
-    v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label, trx_id, begin_time, ret);
+    v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label, trx_id, begin_time, read_only, ret);
 }
 
 void DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                       const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret) {
+                                       const uint64_t& trx_id, const uint64_t& begin_time,
+                                       const bool& read_only, vector<eid_t>& ret) {
     VertexConstAccessor v_accessor;
     vertex_map_.find(v_accessor, vid.value());
 
-    v_accessor->second.ve_row_list->ReadConnectedEdge(vid, direction, edge_label, trx_id, begin_time, ret);
+    v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label, trx_id, begin_time, read_only, ret);
 }
 
-void DataStorage::GetAllVertex(const uint64_t& trx_id, const uint64_t& begin_time, vector<vid_t>& ret) {
+void DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
+                                 const bool& read_only, vector<vid_t>& ret) {
     for (auto v_pair = vertex_map_.begin(); v_pair != vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
-        if (v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue())
+        if (v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue())
             ret.emplace_back(vid_t(v_pair->first));
     }
 }
 
-void DataStorage::GetAllEdge(const uint64_t& trx_id, const uint64_t& begin_time, vector<eid_t>& ret) {
+void DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
+                              const bool& read_only, vector<eid_t>& ret) {
     // TODO(entityless): Simplify the code by editing eid_t::value()
     for (auto e_pair = edge_map_.begin(); e_pair != edge_map_.end(); e_pair++) {
-        if (e_pair->second->GetVisibleVersion(trx_id, begin_time)->GetValue().Exist()) {
+        if (e_pair->second->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue().Exist()) {
             uint64_t eid_fetched = e_pair->first;
             eid_t* tmp_eid_p = reinterpret_cast<eid_t*>(&eid_fetched);
             ret.emplace_back(eid_t(tmp_eid_p->out_v, tmp_eid_p->in_v));
@@ -269,10 +279,65 @@ void DataStorage::GetAllEdge(const uint64_t& trx_id, const uint64_t& begin_time,
     }
 }
 
-EdgeItem DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, 
-                                     const uint64_t& trx_id, const uint64_t& begin_time) {
+EdgeItem DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
+                                     const uint64_t& trx_id, const uint64_t& begin_time,
+                                     const bool& read_only) {
     edge_map_.find(e_accessor, eid.value());
-    return e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
+    return e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+}
+
+void DataStorage::InsertAggData(agg_t key, vector<value_t> & data) {
+    lock_guard<mutex> lock(agg_mutex);
+
+    unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
+    if (itr == agg_data_table.end()) {
+        // Not Found, insert
+        agg_data_table.insert(pair<agg_t, vector<value_t>>(key, data));
+    } else {
+        agg_data_table.at(key).insert(agg_data_table.at(key).end(), data.begin(), data.end());
+    }
+}
+
+void DataStorage::GetAggData(agg_t key, vector<value_t> & data) {
+    lock_guard<mutex> lock(agg_mutex);
+
+    unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
+    if (itr != agg_data_table.end()) {
+        data = itr->second;
+    }
+}
+
+void DataStorage::DeleteAggData(agg_t key) {
+    lock_guard<mutex> lock(agg_mutex);
+
+    unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
+    if (itr != agg_data_table.end()) {
+        agg_data_table.erase(itr);
+    }
+}
+
+int DataStorage::GetMachineIdForVertex(vid_t v_id) {
+    return id_mapper_->GetMachineIdForVertex(v_id);
+}
+
+int DataStorage::GetMachineIdForEdge(eid_t e_id) {
+    return id_mapper_->GetMachineIdForEdge(e_id);
+}
+
+bool DataStorage::VPKeyIsLocal(vpid_t vp_id) {
+    if (id_mapper_->IsVPropertyLocal(vp_id)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool DataStorage::EPKeyIsLocal(epid_t ep_id) {
+    if (id_mapper_->IsEPropertyLocal(ep_id)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void DataStorage::GetNameFromIndex(const Index_T& type, const label_t& id, string& str) {
@@ -312,7 +377,8 @@ void DataStorage::GetNameFromIndex(const Index_T& type, const label_t& id, strin
     }
 }
 
-void DataStorage::GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxIDList, vector<uint64_t> & heteroTrxIDList) {
+void DataStorage::GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxIDList,
+                                    vector<uint64_t> & heteroTrxIDList) {
     dep_trx_const_accessor c_accessor;
 
     if (dep_trx_map.find(c_accessor, trxID)) {
@@ -337,10 +403,10 @@ void DataStorage::PrintLoadedData() {
             TMPVertex tmp_vtx;
             tmp_vtx.id = vtx.id;
 
-            tmp_vtx.label = GetVL(vtx.id, 0x8000000000000001, 1);
+            tmp_vtx.label = GetVL(vtx.id, 0x8000000000000001, 1, true);
 
             // vector<pair<label_t, value_t>> properties;
-            // GetVP(vtx.id, 0x8000000000000001, 1, properties);
+            // GetVP(vtx.id, 0x8000000000000001, 1, true, properties);
             // for (auto p : properties) {
             //     tmp_vtx.vp_label_list.push_back(p.first);
             //     tmp_vtx.vp_value_list.push_back(p.second);
@@ -349,51 +415,51 @@ void DataStorage::PrintLoadedData() {
             // for (int i = 0; i < vtx.vp_label_list.size(); i++) {
             //     tmp_vtx.vp_label_list.push_back(vtx.vp_label_list[i]);
             //     value_t val;
-            //     GetVP(vpid_t(vtx.id, vtx.vp_label_list[i]), 0x8000000000000001, 1, val);
+            //     GetVP(vpid_t(vtx.id, vtx.vp_label_list[i]), 0x8000000000000001, 1, true, val);
             //     tmp_vtx.vp_value_list.push_back(val);
             // }
 
             vector<vpid_t> vpids;
-            GetVPidList(vtx.id, 0x8000000000000001, 1, vpids);
+            GetVPidList(vtx.id, 0x8000000000000001, 1, true, vpids);
             for (int i = 0; i < vpids.size(); i++) {
                 tmp_vtx.vp_label_list.push_back(vpids[i].pid);
                 value_t val;
-                GetVP(vpids[i], 0x8000000000000001, 1, val);
+                GetVP(vpids[i], 0x8000000000000001, 1, true, val);
                 tmp_vtx.vp_value_list.push_back(val);
             }
 
             // vector<vid_t> in_nbs;
-            // GetConnectedVertexList(vtx.id, 0, IN, 0x8000000000000001, 1, in_nbs);
+            // GetConnectedVertexList(vtx.id, 0, IN, 0x8000000000000001, 1, true, in_nbs);
             // for (auto in_nb : in_nbs) {
             //     tmp_vtx.in_nbs.push_back(in_nb);
             // }
 
             // vector<eid_t> in_es;
-            // GetConnectedEdgeList(vtx.id, 0, IN, 0x8000000000000001, 1, in_es);
+            // GetConnectedEdgeList(vtx.id, 0, IN, 0x8000000000000001, 1, true, in_es);
             // for (auto in_e : in_es) {
             //     tmp_vtx.in_nbs.push_back(in_e.out_v);
             // }
 
             // vector<vid_t> out_nbs;
-            // GetConnectedVertexList(vtx.id, 0, OUT, 0x8000000000000001, 1, out_nbs);
+            // GetConnectedVertexList(vtx.id, 0, OUT, 0x8000000000000001, 1, true, out_nbs);
             // for (auto out_nb : out_nbs) {
             //     tmp_vtx.out_nbs.push_back(out_nb);
             // }
 
             // vector<eid_t> out_es;
-            // GetConnectedEdgeList(vtx.id, 0, OUT, 0x8000000000000001, 1, out_es);
+            // GetConnectedEdgeList(vtx.id, 0, OUT, 0x8000000000000001, 1, true, out_es);
             // for (auto out_e : out_es) {
             //     tmp_vtx.out_nbs.push_back(out_e.in_v);
             // }
 
             // vector<vid_t> both_nbs;
-            // GetConnectedVertexList(vtx.id, 0, BOTH, 0x8000000000000001, 1, both_nbs);
+            // GetConnectedVertexList(vtx.id, 0, BOTH, 0x8000000000000001, 1, true, both_nbs);
             // for (auto both_nb : both_nbs) {
             //     tmp_vtx.in_nbs.push_back(both_nb);
             // }
 
             vector<eid_t> both_es;
-            GetConnectedEdgeList(vtx.id, 0, BOTH, 0x8000000000000001, 1, both_es);
+            GetConnectedEdgeList(vtx.id, 0, BOTH, 0x8000000000000001, 1, true, both_es);
             for (auto out_e : both_es) {
                 if (out_e.in_v == vtx.id)
                     tmp_vtx.in_nbs.push_back(out_e.out_v);
@@ -406,7 +472,7 @@ void DataStorage::PrintLoadedData() {
         }
 
         vector<vid_t> all_vtx_id;
-        GetAllVertex(0x8000000000000001, 1, all_vtx_id);
+        GetAllVertices(0x8000000000000001, 1, true, all_vtx_id);
         printf("all vtx id: [");
         for (auto vtx_id : all_vtx_id) {
             printf("%d ", vtx_id.value());
@@ -419,10 +485,10 @@ void DataStorage::PrintLoadedData() {
             TMPEdge tmp_edge;
             tmp_edge.id = edge.id;
 
-            tmp_edge.label = GetEL(edge.id, 0x8000000000000001, 1);
+            tmp_edge.label = GetEL(edge.id, 0x8000000000000001, 1, true);
 
             // vector<pair<label_t, value_t>> properties;
-            // GetEP(edge.id, 0x8000000000000001, 1, properties);
+            // GetEP(edge.id, 0x8000000000000001, 1, true, properties);
             // for (auto p : properties) {
             //     tmp_edge.ep_label_list.push_back(p.first);
             //     tmp_edge.ep_value_list.push_back(p.second);
@@ -431,16 +497,16 @@ void DataStorage::PrintLoadedData() {
             // for (int i = 0; i < edge.ep_label_list.size(); i++) {
             //     tmp_edge.ep_label_list.push_back(edge.ep_label_list[i]);
             //     value_t val;
-            //     GetEP(epid_t(edge.id, edge.ep_label_list[i]), 0x8000000000000001, 1, val);
+            //     GetEP(epid_t(edge.id, edge.ep_label_list[i]), 0x8000000000000001, 1, true, val);
             //     tmp_edge.ep_value_list.push_back(val);
             // }
 
             vector<epid_t> epids;
-            GetEPidList(edge.id, 0x8000000000000001, 1, epids);
+            GetEPidList(edge.id, 0x8000000000000001, 1, true, epids);
             for (int i = 0; i < edge.ep_label_list.size(); i++) {
                 tmp_edge.ep_label_list.push_back(epids[i].pid);
                 value_t val;
-                GetEP(epids[i], 0x8000000000000001, 1, val);
+                GetEP(epids[i], 0x8000000000000001, 1, true, val);
                 tmp_edge.ep_value_list.push_back(val);
             }
 
@@ -449,7 +515,7 @@ void DataStorage::PrintLoadedData() {
         }
 
         vector<eid_t> all_edge_id;
-        GetAllEdge(0x8000000000000001, 1, all_edge_id);
+        GetAllEdges(0x8000000000000001, 1, true, all_edge_id);
         printf("all edge id: [");
         for (auto edge_id : all_edge_id) {
             printf("%d->%d ", edge_id.out_v, edge_id.in_v);
@@ -479,7 +545,7 @@ vid_t DataStorage::ProcessAddVertex(const label_t& label, const uint64_t& trx_id
     v_accessor->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
     v_accessor->second.ve_row_list = new TopologyRowList;
 
-    v_accessor->second.ve_row_list->Init();
+    v_accessor->second.ve_row_list->Init(vid);
     v_accessor->second.vp_row_list->Init();
 
     TransactionAccessor t_accessor;
@@ -553,7 +619,8 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     EdgeConstAccessor e_accessor;
     edge_map_.find(e_accessor, eid_t(pid.in_vid, pid.out_vid).value());
 
-    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time)->GetValue();
+    // TODO(entityless): Double check this
+    auto edge_item = e_accessor->second->GetVisibleVersion(trx_id, begin_time, false)->GetValue();
 
     if (!edge_item.Exist())
         return false;
@@ -650,37 +717,37 @@ void DataStorage::PropertyMVCCTest() {
 
         ok0 = ProcessModifyVP(victim_vpid, n0, trx_ids[0], bts[0]);  // modify to "N0"
         printf("Q0, %s\n", ok0 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], t1r0);  // Read (should be "peter")
+        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r0);  // Read (should be "peter")
         printf("Q1\n");
-        GetVP(victim_vpid, trx_ids[0], bts[0], t0r0);  // Read (should be "N0")
+        GetVP(victim_vpid, trx_ids[0], bts[0], true, t0r0);  // Read (should be "N0")
         printf("Q2\n");
         ok10 = ProcessModifyVP(victim_vpid, n1, trx_ids[1], bts[1]);  // modify to "N1" (false)
         printf("Q3, %s\n", ok10 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], t1r1);  // Read (should be "peter"; if optimistic, or "N0")
+        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r1);  // Read (should be "peter"; if optimistic, or "N0")
         printf("Q4\n");
         Commit(trx_ids[0], cts[0]);
         printf("Q5\n");
         ok11 = ProcessModifyVP(victim_vpid, n1, trx_ids[1], bts[1]);  // modify to "N1"
         printf("Q6 %s\n", ok11 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], t1r2);  // Read (should be "N1")
+        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r2);  // Read (should be "N1")
         printf("Q7\n");
         ok11p = ProcessModifyVP(victim_vpid, n1p, trx_ids[1], bts[1]);  // modify to "N1+"
         printf("Q6P %s\n", ok11p ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[1], bts[1], t1r2p);  // Read (should be "N1+")
+        GetVP(victim_vpid, trx_ids[1], bts[1], true, t1r2p);  // Read (should be "N1+")
         printf("Q7P\n");
-        GetVP(victim_vpid, trx_ids[2], bts[2], t2r0);  // Read (should be "N0")
+        GetVP(victim_vpid, trx_ids[2], bts[2], true, t2r0);  // Read (should be "N0")
         printf("Q8\n");
         Abort(trx_ids[1]);
         printf("Q9\n");
         ok2 = ProcessModifyVP(victim_vpid, n2, trx_ids[2], bts[2]);  // modify to "N2"
         printf("Q10, %s\n", ok0 ? "true" : "false");
-        GetVP(victim_vpid, trx_ids[3], bts[3], t3r0);  // Read (should be "N0")
+        GetVP(victim_vpid, trx_ids[3], bts[3], true, t3r0);  // Read (should be "N0")
         printf("Q11\n");
         Commit(trx_ids[2], cts[2]);
         printf("Q12\n");
-        GetVP(victim_vpid, trx_ids[3], bts[3], t3r1);  // Read (should be "N2")
+        GetVP(victim_vpid, trx_ids[3], bts[3], true, t3r1);  // Read (should be "N2")
         printf("Q13\n");
-        GetVP(victim_vpid, trx_ids[4], bts[4], t4r0);
+        GetVP(victim_vpid, trx_ids[4], bts[4], true, t4r0);
 
         printf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", Tool::DebugString(t1r0).c_str(),
                                                        Tool::DebugString(t0r0).c_str(),

@@ -41,7 +41,7 @@ struct AbstractMVCC {
     static constexpr uint64_t MAX_TIME = 0x7FFFFFFFFFFFFFFF;
 
  public:
-    AbstractMVCC* GetNext() const {return next;};
+    AbstractMVCC* GetNext() const {return next;}
 };
 
 struct PropertyMVCC : public AbstractMVCC {

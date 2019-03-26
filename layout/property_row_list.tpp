@@ -37,7 +37,7 @@ void PropertyRowList<PropertyRow>::InsertInitialElement(const PidType& pid, cons
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& ret) {
+bool PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, value_t& ret) {
 
     PropertyRow* current_row = head_;
 
@@ -50,17 +50,20 @@ void PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
         if (cell_ref.pid == pid) {
-            auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
+            auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
             if (!storage_header.IsEmpty()) {
                 value_storage_->GetValue(storage_header, ret);
+                return true;
             }
-            break;
+            return false;
         }
     }
+
+    return false;
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time, vector<pair<label_t, value_t>>& ret) {
+void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     PropertyRow* current_row = head_;
 
     for (int i = 0; i < property_count_; i++) {
@@ -71,7 +74,7 @@ void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const
 
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
-        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
+        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
 
         if(!storage_header.IsEmpty()){
             value_t v;
@@ -83,7 +86,7 @@ void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, vector<PidType>& ret) {
+void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<PidType>& ret) {
     PropertyRow* current_row = head_;
 
     for (int i = 0; i < property_count_; i++) {
@@ -94,7 +97,7 @@ void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uin
 
         auto& cell_ref = current_row->cells_[element_id_in_row];
 
-        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time)->GetValue();
+        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
 
         if(!storage_header.IsEmpty())
             ret.emplace_back(cell_ref.pid);
