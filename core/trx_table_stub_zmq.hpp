@@ -26,9 +26,8 @@ class TcpTrxTableStub : public TrxTableStub {
     vector<zmq::socket_t *> senders_;
     vector<zmq::socket_t *> receivers_;  // global_num_threads
 
-    TcpTrxTableStub(AbstractMailbox * mailbox, Node & master)
-        : master_(master) {
-            mailbox_ = mailbox;
+    TcpTrxTableStub(AbstractMailbox *mailbox, Node &master) : master_(master) {
+        mailbox_ = mailbox;
         config_ = Config::GetInstance();
         node_ = Node::StaticInstance();
     }
@@ -85,8 +84,8 @@ class TcpTrxTableStub : public TrxTableStub {
         }
     }
 
-  bool update_status(uint64_t trx_id, TRX_STAT new_status,
-                     std::vector<uint64_t> *trx_ids = nullptr) override;
+    bool update_status(uint64_t trx_id, TRX_STAT new_status,
+                       std::vector<uint64_t> *trx_ids = nullptr) override;
 
   bool read_status(uint64_t trx_id, TRX_STAT &status) override;
   bool read_ct(uint64_t trx_id, uint64_t & ct) override;

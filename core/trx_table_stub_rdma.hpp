@@ -17,7 +17,7 @@
 #include "utils/tid_mapper.hpp"
 
 class RDMATrxTableStub : public TrxTableStub{
-private:
+ private:
     Buffer* buf_;
     static RDMATrxTableStub * instance_;
 
@@ -50,7 +50,7 @@ private:
         // ASSOCIATIVITY_ = config_ -> ASSOCIATIVITY;
     }
 
-public:
+ public:
 
     static RDMATrxTableStub* GetInstance(AbstractMailbox * mailbox = nullptr){
         if(instance_ == nullptr && mailbox != nullptr){

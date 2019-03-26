@@ -35,8 +35,8 @@ int RCTable::ct2int(uint64_t ct) {
 }
 
 bool RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
-    CHECK(is_valid_trx_id(trx_id));
-    CHECK(is_valid_time(ct));
+    CHECK(IS_VALID_TRX_ID(trx_id));
+    CHECK(IS_VALID_TIME(ct));
 
     int inner_trx_id = trxid2int(trx_id);
     int inner_ct = ct2int(ct);
@@ -47,8 +47,8 @@ bool RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
 }
 
 bool RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) {
-    CHECK(is_valid_time(ct));
-    CHECK(is_valid_time(bt));
+    CHECK(IS_VALID_TIME(ct));
+    CHECK(IS_VALID_TIME(bt));
 
     for (uint64_t n = bt; n <= ct; n++) {
         int trx_id = bplus_tree_get(tree_, n);
@@ -59,7 +59,7 @@ bool RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) {
 }
 
 bool RCTable::delete_transaction(uint64_t ct) {
-    CHECK(is_valid_time(ct));
+    CHECK(IS_VALID_TIME(ct));
 
     bplus_tree_put(tree_, ct, 0);
     return true;

@@ -10,7 +10,6 @@ file(GLOB core-src-files
     transactions_table.cpp
     trx_table_stub_rdma.cpp
     bplustree.c
-    common.cpp
     trx_table_stub_zmq.cpp
     )
 

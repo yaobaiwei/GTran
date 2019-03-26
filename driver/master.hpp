@@ -29,28 +29,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/RCT.hpp"
 #include "core/transactions_table.hpp"
 #include "glog/logging.h"
-
-struct UpdateTrxStatusReq{
-    int n_id;
-    uint64_t trx_id;
-    TRX_STAT new_status;
-};
-
-struct ReadTrxStatusReq{
-    int n_id;
-    int t_id;
-    uint64_t trx_id;
-    bool read_ct;
-
-    string DebugString(){
-        std::stringstream ss;
-        ss << "trx_id: " << trx_id << "; ";
-        ss << "n_id: " << n_id << "; ";
-        ss << "t_id: " << t_id << "; ";
-        ss << "t_id: " << read_ct << "\n";
-        return ss.str();
-    }
-};
+#include "core/common.hpp"
 
 struct Progress {
     uint32_t assign_tasks;
