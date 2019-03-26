@@ -46,8 +46,8 @@ void DataStorage::Init() {
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
     hdfs_data_loader_->LoadData();
     FillContainer();
-    PrintLoadedData();
-    PropertyMVCCTest();
+    // PrintLoadedData();
+    // PropertyMVCCTest();
     hdfs_data_loader_->FreeMemory();
 
     vid_to_assign_divided_ = worker_rank_;

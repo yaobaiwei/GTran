@@ -57,10 +57,10 @@ class PropertiesActor : public AbstractActor {
 
         switch (inType) {
           case Element_T::VERTEX:
-            get_properties_for_vertex(tid, key_list, msg.data);
+            get_properties_for_vertex(qplan, tid, key_list, msg.data);
             break;
           case Element_T::EDGE:
-            get_properties_for_edge(tid, key_list, msg.data);
+            get_properties_for_edge(qplan, tid, key_list, msg.data);
             break;
           default:
                 cout << "Wrong in type" << endl;
@@ -121,56 +121,42 @@ class PropertiesActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    void get_properties_for_vertex(int tid, const vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
+    void get_properties_for_vertex(const QueryPlan & qplan, int tid, const vector<int> & key_list,
+                                   vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
             vector<std::pair<string, string>> result;
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
                 vid_t v_id(Tool::value_t2int(value));
-                Vertex* vtx = data_store_->GetVertex(v_id);
 
                 if (key_list.empty()) {
-                    for (auto & pkey : vtx->vp_list) {
-                        vpid_t vp_id(v_id, pkey);
+                    // read all properties
+                    vector<std::pair<label_t, value_t>> vp_kv_pair_list;
+                    layout_storage_->GetVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
 
-                        value_t val;
-                        // Try cache
-                        if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForVertex(tid, vp_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(vp_id.value(), val)) {
-                                data_store_->GetPropertyForVertex(tid, vp_id, val);
-                                cache.insert_properties(vp_id.value(), val);
-                            }
-                        }
-
+                    for (auto vp_kv_pair : vp_kv_pair_list) {
                         string keyStr;
-                        data_store_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
+                        layout_storage_->GetNameFromIndex(Index_T::V_PROPERTY, vp_kv_pair.first, keyStr);
 
-                        result.emplace_back(keyStr, Tool::DebugString(val));
+                        result.emplace_back(keyStr, Tool::DebugString(vp_kv_pair.second));
                     }
                 } else {
+                    vector<vpid_t> vpid_list;
+                    layout_storage_->GetVPidList(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vpid_list);
+
                     for (auto pkey : key_list) {
-                        if (find(vtx->vp_list.begin(), vtx->vp_list.end(), pkey) == vtx->vp_list.end()) {
+                        if (find(vpid_list.begin(), vpid_list.end(), vpid_t(v_id, pkey)) == vpid_list.end()) {
                             continue;
                         }
 
                         vpid_t vp_id(v_id, pkey);
                         value_t val;
-                        // Try cache
-                        if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForVertex(tid, vp_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(vp_id.value(), val)) {
-                                // not found in cache
-                                data_store_->GetPropertyForVertex(tid, vp_id, val);
-                                cache.insert_properties(vp_id.value(), val);
-                            }
-                        }
+
+                        layout_storage_->GetVP(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
 
                         string keyStr;
-                        data_store_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
+                        layout_storage_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
 
                         result.emplace_back(keyStr, Tool::DebugString(val));
                     }
@@ -181,7 +167,8 @@ class PropertiesActor : public AbstractActor {
         }
     }
 
-    void get_properties_for_edge(int tid, const vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
+    void get_properties_for_edge(const QueryPlan & qplan, int tid, const vector<int> & key_list,
+                                 vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
             vector<std::pair<string, string>> result;
             vector<value_t> newData;
@@ -189,48 +176,34 @@ class PropertiesActor : public AbstractActor {
             for (auto & value : pair.second) {
                 eid_t e_id;
                 uint2eid_t(Tool::value_t2uint64_t(value), e_id);
-                Edge* edge = data_store_->GetEdge(e_id);
 
                 if (key_list.empty()) {
-                    for (auto & pkey : edge->ep_list) {
-                        epid_t ep_id(e_id, pkey);
+                    // read all properties
+                    vector<std::pair<label_t, value_t>> ep_kv_pair_list;
+                    layout_storage_->GetEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
 
-                        value_t val;
-                        if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForEdge(tid, ep_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(ep_id.value(), val)) {
-                                // not found in cache
-                                data_store_->GetPropertyForEdge(tid, ep_id, val);
-                                cache.insert_properties(ep_id.value(), val);
-                            }
-                        }
-
+                    for (auto ep_kv_pair : ep_kv_pair_list) {
                         string keyStr;
-                        data_store_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
+                        layout_storage_->GetNameFromIndex(Index_T::E_PROPERTY, ep_kv_pair.first, keyStr);
 
-                        result.emplace_back(keyStr, Tool::DebugString(val));
+                        result.emplace_back(keyStr, Tool::DebugString(ep_kv_pair.second));
                     }
                 } else {
+                    vector<epid_t> epid_list;
+                    layout_storage_->GetEPidList(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, epid_list);
+
                     for (auto pkey : key_list) {
-                        if (find(edge->ep_list.begin(), edge->ep_list.end(), pkey) == edge->ep_list.end()) {
+                        if (find(epid_list.begin(), epid_list.end(), epid_t(e_id, pkey)) == epid_list.end()) {
                             continue;
                         }
 
                         epid_t ep_id(e_id, pkey);
                         value_t val;
-                        if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForEdge(tid, ep_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(ep_id.value(), val)) {
-                                // not found in cache
-                                data_store_->GetPropertyForEdge(tid, ep_id, val);
-                                cache.insert_properties(ep_id.value(), val);
-                            }
-                        }
+
+                        layout_storage_->GetEP(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
 
                         string keyStr;
-                        data_store_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
+                        layout_storage_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
 
                         result.emplace_back(keyStr, Tool::DebugString(val));
                     }
