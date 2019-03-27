@@ -27,7 +27,7 @@ class AbstractActor {
         data_store_(data_store),
         core_affinity_(core_affinity) {
         // instance initialized in worker.hpp
-        layout_storage_ = DataStorage::GetInstance();
+        data_storage_ = DataStorage::GetInstance();
     }
 
     virtual ~AbstractActor() {}
@@ -38,7 +38,7 @@ class AbstractActor {
  protected:
     // Data Store
     DataStore* data_store_;
-    DataStorage* layout_storage_;
+    DataStorage* data_storage_;
 
     // Core affinity
     CoreAffinity* core_affinity_;

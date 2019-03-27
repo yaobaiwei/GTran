@@ -53,10 +53,10 @@ class KeyActor : public AbstractActor {
 
         switch (inType) {
           case Element_T::VERTEX:
-            VertexKeys(tid, msg.data);
+            VertexKeys(qplan, msg.data);
             break;
           case Element_T::EDGE:
-            EdgeKeys(tid, msg.data);
+            EdgeKeys(qplan, msg.data);
             break;
           default:
                 cout << "Wrong in type"  << endl;
@@ -109,16 +109,17 @@ class KeyActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    void VertexKeys(int tid, vector<pair<history_t, vector<value_t>>> & data) {
+    void VertexKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
                 vid_t v_id(Tool::value_t2int(elem));
 
-                Vertex* vtx = data_store_->GetVertex(v_id);
-                for (auto & pkey : vtx->vp_list) {
+                vector<vpid_t> vp_list;
+                data_storage_->GetVPidList(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_list);
+                for (auto & pkey : vp_list) {
                     string keyStr;
-                    data_store_->GetNameFromIndex(Index_T::V_PROPERTY, pkey, keyStr);
+                    data_storage_->GetNameFromIndex(Index_T::V_PROPERTY, static_cast<label_t>(pkey.pid), keyStr);
 
                     value_t val;
                     Tool::str2str(keyStr, val);
@@ -129,17 +130,18 @@ class KeyActor : public AbstractActor {
         }
     }
 
-    void EdgeKeys(int tid, vector<pair<history_t, vector<value_t>>> & data) {
+    void EdgeKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
                 eid_t e_id;
                 uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
-                Edge* edge = data_store_->GetEdge(e_id);
-                for (auto & pkey : edge->ep_list) {
+                vector<epid_t> ep_list;
+                data_storage_->GetEPidList(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_list);
+                for (auto & pkey : ep_list) {
                     string keyStr;
-                    data_store_->GetNameFromIndex(Index_T::E_PROPERTY, pkey, keyStr);
+                    data_storage_->GetNameFromIndex(Index_T::E_PROPERTY, static_cast<label_t>(pkey.pid), keyStr);
 
                     value_t val;
                     Tool::str2str(keyStr, val);

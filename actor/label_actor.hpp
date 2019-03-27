@@ -11,7 +11,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
-#include "actor/actor_cache.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
@@ -52,10 +51,10 @@ class LabelActor : public AbstractActor {
 
         switch (inType) {
           case Element_T::VERTEX:
-            VertexLabel(tid, msg.data);
+            VertexLabel(qplan, msg.data);
             break;
           case Element_T::EDGE:
-            EdgeLabel(tid, msg.data);
+            EdgeLabel(qplan, msg.data);
             break;
           default:
                 cout << "Wrong in type"  << endl;
@@ -81,29 +80,17 @@ class LabelActor : public AbstractActor {
 
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
-
-    // Cache
-    ActorCache cache;
     Config* config_;
 
-    void VertexLabel(int tid, vector<pair<history_t, vector<value_t>>> & data) {
+    void VertexLabel(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
                 vid_t v_id(Tool::value_t2int(elem));
 
-                label_t label;
-                if (data_store_->VPKeyIsLocal(vpid_t(v_id, 0)) || !config_->global_enable_caching) {
-                    data_store_->GetLabelForVertex(tid, v_id, label);
-                } else {
-                    if (!cache.get_label_from_cache(v_id.value(), label)) {
-                        data_store_->GetLabelForVertex(tid, v_id, label);
-                        cache.insert_label(v_id.value(), label);
-                    }
-                }
-
+                label_t label = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
                 string keyStr;
-                data_store_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
+                data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
 
                 value_t val;
                 Tool::str2str(keyStr, val);
@@ -114,25 +101,16 @@ class LabelActor : public AbstractActor {
         }
     }
 
-    void EdgeLabel(int tid, vector<pair<history_t, vector<value_t>>> & data) {
+    void EdgeLabel(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
                 eid_t e_id;
                 uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
-                label_t label;
-                if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !config_->global_enable_caching) {
-                    data_store_->GetLabelForEdge(tid, e_id, label);
-                } else {
-                    if (!cache.get_label_from_cache(e_id.value(), label)) {
-                        data_store_->GetLabelForEdge(tid, e_id, label);
-                        cache.insert_label(e_id.value(), label);
-                    }
-                }
-
+                label_t label = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
                 string keyStr;
-                data_store_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);
+                data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);
 
                 value_t val;
                 Tool::str2str(keyStr, val);
