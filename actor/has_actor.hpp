@@ -18,18 +18,16 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/predicate.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
 class HasActor : public AbstractActor {
  public:
     HasActor(int id,
-            DataStore * data_store,
             int machine_id,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         machine_id_(machine_id),
         num_thread_(num_thread),
         mailbox_(mailbox),
@@ -95,7 +93,7 @@ class HasActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -121,7 +119,7 @@ class HasActor : public AbstractActor {
             // Compare check_set and parameters
             for (auto & val : check_set) {
                 if (plist.find(get<1>(val)) != plist.end() && get<2>(val) == inType) {
-                    local_check_set.emplace_back(get<0>(val)); 
+                    local_check_set.emplace_back(get<0>(val));
                 }
             }
 

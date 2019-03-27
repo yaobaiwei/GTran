@@ -26,7 +26,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "core/index_store.hpp"
 #include "layout/pmt_rct_table.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 #include "utils/mymath.hpp"
 
@@ -35,7 +34,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 class ValidationActor : public AbstractActor {
  public:
     ValidationActor(int id,
-            DataStore * data_store,
             int machine_id,
             int num_thread,
             AbstractMailbox * mailbox,
@@ -43,7 +41,7 @@ class ValidationActor : public AbstractActor {
             PrimitiveRCTTable * pmt_rct_table,
             map<ACTOR_T, unique_ptr<AbstractActor>> * actors,
             tbb::concurrent_hash_map<uint64_t, QueryPlan> * msg_logic_table) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         machine_id_(machine_id),
         num_thread_(num_thread),
         mailbox_(mailbox),
@@ -158,7 +156,7 @@ class ValidationActor : public AbstractActor {
     void optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort);
 
     void insert_step_aobj_map(step2aobj_map_t_ & step_aobj_map, const vstep_t & vstep, Actor_Object * obj);
-    // Test for data_store->InsertRCT
+    // Test for InsertRCT
     void test_insert_rct(uint64_t trxID, vector<uint64_t> & values, vector<int> & p_vec);
 };
 

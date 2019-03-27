@@ -41,12 +41,11 @@ class LabelledBranchActorBase :  public AbstractActor {
 
  public:
     LabelledBranchActorBase(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox* mailbox,
             CoreAffinity* core_affinity,
             msg_id_alloc* allocator) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
         id_allocator_(allocator) {}
@@ -125,8 +124,7 @@ class LabelledBranchActorBase :  public AbstractActor {
         get_steps(actors[msg.meta.step], step_vec);
 
         vector<Message> msg_vec;
-        msg.CreateBranchedMsgWithHisLabel(actors, step_vec, msg_id, num_thread_,
-                                            data_store_, core_affinity_, msg_vec);
+        msg.CreateBranchedMsgWithHisLabel(actors, step_vec, msg_id, num_thread_, core_affinity_, msg_vec);
         for (auto& msg : msg_vec) {
             mailbox_->Send(tid, msg);
         }
@@ -208,13 +206,11 @@ struct branch_filter_data : branch_data_base {
 class BranchFilterActor : public LabelledBranchActorBase<BranchData::branch_filter_data> {
  public:
     BranchFilterActor(int id,
-            DataStore* data_store_,
             int num_thread,
             AbstractMailbox* mailbox,
             CoreAffinity* core_affinity,
             msg_id_alloc* allocator) :
-        LabelledBranchActorBase<BranchData::branch_filter_data>(id, data_store_,
-                        num_thread, mailbox, core_affinity, allocator) {}
+        LabelledBranchActorBase<BranchData::branch_filter_data>(id, num_thread, mailbox, core_affinity, allocator) {}
 
  private:
     void process_spawn(Message & msg, BranchDataTable::accessor& ac) {
@@ -282,7 +278,7 @@ class BranchFilterActor : public LabelledBranchActorBase<BranchData::branch_filt
             // remove last branch info
             msg.meta.branch_infos.pop_back();
             vector<Message> v;
-            msg.CreateNextMsg(actors, data, num_thread_, data_store_, core_affinity_, v);
+            msg.CreateNextMsg(actors, data, num_thread_, core_affinity_, v);
             for (auto& m : v) {
                 mailbox_->Send(tid, m);
             }

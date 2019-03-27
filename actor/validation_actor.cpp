@@ -20,8 +20,8 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
      * 2. Process Current Trx to get : a. set of steps; b. step to index map; c. step to parameters map;
      * 3. Get RCT Content with TrxList (step1) in local;
      * 4. Merge prepared Primitive2Step map and set of steps (step2) to get pmt2step_map for cur_trx;
-     * 5. Combine pmt2step_map (step4) and RCT Content (step3) into step2content map; 
-     * 6. Iterate setp2content map to invoke valid() in each actor 
+     * 5. Combine pmt2step_map (step4) and RCT Content (step3) into step2content map;
+     * 6. Iterate setp2content map to invoke valid() in each actor
      * 7. Complete last validation for optimistic validation
      * 8. TODO(Aaronchangji) : Complete last validation for optimistic pre-read
      */
@@ -84,7 +84,7 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     // Old code
     // Create Message
     vector<Message> msg_vec;
-    msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+    msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
     // Send Message
     for (auto& msg : msg_vec) {

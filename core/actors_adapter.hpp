@@ -45,8 +45,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
 #include "core/index_store.hpp"
+#include "layout/data_storage.hpp"
 #include "layout/pmt_rct_table.hpp"
-#include "storage/data_store.hpp"
 #include "utils/config.hpp"
 #include "utils/timer.hpp"
 #include "utils/tid_mapper.hpp"
@@ -58,14 +58,12 @@ class ActorAdapter {
     ActorAdapter(Node & node,
             ResultCollector * rc,
             AbstractMailbox * mailbox,
-            DataStore * data_store,
             CoreAffinity * core_affinity,
             IndexStore * index_store,
             PrimitiveRCTTable * pmt_rct_table) :
         node_(node),
         rc_(rc),
         mailbox_(mailbox),
-        data_store_(data_store),
         core_affinity_(core_affinity),
         index_store_(index_store),
         pmt_rct_table_(pmt_rct_table) {
@@ -76,35 +74,35 @@ class ActorAdapter {
 
     void Init() {
         int id = 0;
-        actors_[ACTOR_T::AGGREGATE] = unique_ptr<AbstractActor>(new AggregateActor(id ++, data_store_, node_.get_local_size(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, &id_allocator_));
-        actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, data_store_, node_.get_local_size(), rc_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, index_store_, node_.get_local_size()));
-        actors_[ACTOR_T::INDEX] = unique_ptr<AbstractActor>(new IndexActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_, index_store_));
-        actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::PROJECT] = unique_ptr<AbstractActor>(new ProjectActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::PROPERTIES] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::VALIDATION] = unique_ptr<AbstractActor>(new ValidationActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, pmt_rct_table_, &actors_, &msg_logic_table_));
-        actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, data_store_, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, data_store_, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::AGGREGATE] = unique_ptr<AbstractActor>(new AggregateActor(id ++, node_.get_local_size(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::AS] = unique_ptr<AbstractActor>(new AsActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, num_thread_, mailbox_, core_affinity_, &id_allocator_));
+        actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, node_.get_local_size(), rc_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, num_thread_, mailbox_, core_affinity_, index_store_, node_.get_local_size()));
+        actors_[ACTOR_T::INDEX] = unique_ptr<AbstractActor>(new IndexActor(id ++, num_thread_, mailbox_, core_affinity_, index_store_));
+        actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::PROJECT] = unique_ptr<AbstractActor>(new ProjectActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::PROPERTIES] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::VALIDATION] = unique_ptr<AbstractActor>(new ValidationActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, pmt_rct_table_, &actors_, &msg_logic_table_));
+        actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, num_thread_, mailbox_, core_affinity_));
     }
 
     void Start() {
@@ -130,7 +128,7 @@ class ActorAdapter {
         } else if (m.msg_type == MSG_T::FEED) {
             assert(msg.data.size() == 1);
             agg_t agg_key(m.qid, m.step);
-            data_store_->InsertAggData(agg_key, msg.data[0].second);
+            data_storage_->InsertAggData(agg_key, msg.data[0].second);
 
             return;
         } else if (m.msg_type == MSG_T::EXIT) {
@@ -142,7 +140,7 @@ class ActorAdapter {
             for (auto& act : ac->second.actors) {
                 if (act.actor_type == ACTOR_T::AGGREGATE) {
                     agg_t agg_key(m.qid, i);
-                    data_store_->DeleteAggData(agg_key);
+                    data_storage_->DeleteAggData(agg_key);
                 }
                 i++;
             }
@@ -220,7 +218,7 @@ class ActorAdapter {
  private:
     AbstractMailbox * mailbox_;
     ResultCollector * rc_;
-    DataStore * data_store_;
+    DataStorage * data_storage_;
     IndexStore * index_store_;
     Config * config_;
     CoreAffinity * core_affinity_;

@@ -91,9 +91,6 @@ class DataStorage {
     HDFSDataLoader* hdfs_data_loader_ = nullptr;
     MPISnapshotManager* snapshot_manager_ = nullptr;
 
-    // "schema" (indexes)
-    string_index* indexes_ = nullptr;
-
     // Containers
     OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
@@ -194,10 +191,8 @@ class DataStorage {
     void GetAggData(agg_t key, vector<value_t> & data);
     void DeleteAggData(agg_t key);
 
-    int GetMachineIdForEdge(eid_t eid);
-    int GetMachineIdForVertex(vid_t v_id);
-    bool DataStorage::VPKeyIsLocal(vpid_t vp_id);
-    bool DataStorage::EPKeyIsLocal(epid_t ep_id);
+    bool VPKeyIsLocal(vpid_t vp_id);
+    bool EPKeyIsLocal(epid_t ep_id);
 
 
     // Initial related
@@ -209,4 +204,7 @@ class DataStorage {
 
     void PrintLoadedData();  // TODO(entityless): remove this in the future
     void PropertyMVCCTest();
+
+    // "schema" (indexes)
+    string_index* indexes_ = nullptr;
 };

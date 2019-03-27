@@ -22,7 +22,6 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/predicate.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 #include "utils/timer.hpp"
 
@@ -33,13 +32,12 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
 class InitActor : public AbstractActor {
  public:
     InitActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity,
             IndexStore * index_store,
             int num_nodes) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         index_store_(index_store),
         num_thread_(num_thread),
         mailbox_(mailbox),
@@ -77,6 +75,7 @@ class InitActor : public AbstractActor {
 
     virtual ~InitActor() {}
 
+    // TODO(nick): Need to support dynamic V/E cache
     void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
@@ -149,7 +148,8 @@ class InitActor : public AbstractActor {
 
     void InitVtxData(const Meta& m) {
         vector<vid_t> vid_list;
-        data_store_->GetAllVertices(vid_list);
+        // TODO(Nick): Replace with new caching strategy
+        data_storage_->GetAllVertices(0, 0, true, vid_list);
         uint64_t count = vid_list.size();
 
         vector<pair<history_t, vector<value_t>>> data;
@@ -187,7 +187,7 @@ class InitActor : public AbstractActor {
 
     void InitEdgeData(const Meta& m) {
         vector<eid_t> eid_list;
-        data_store_->GetAllEdges(eid_list);
+        data_storage_->GetAllEdges(0, 0, true, eid_list);
         uint64_t count = eid_list.size();
 
         vector<pair<history_t, vector<value_t>>> data;
@@ -235,7 +235,7 @@ class InitActor : public AbstractActor {
                                   make_move_iterator(actor_obj.params.end()));
 
         vector<Message> vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, vec);
+        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, core_affinity_, vec);
 
         // Send Message
         for (auto& msg_ : vec) {
@@ -272,7 +272,7 @@ class InitActor : public AbstractActor {
         index_store_->GetElements(inType, pred_chain, msg.data[0].second);
 
         vector<Message> vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, data_store_, core_affinity_, vec);
+        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, core_affinity_, vec);
 
         // Send Message
         for (auto& msg_ : vec) {
