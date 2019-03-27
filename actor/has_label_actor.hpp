@@ -10,7 +10,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
-#include "actor/actor_cache.hpp"
 #include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
@@ -57,18 +56,18 @@ class HasLabelActor : public AbstractActor {
             v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
         }
 
-        vector<int> lid_list;
+        vector<label_t> lid_list;
         for (int pos = 1; pos < actor_obj.params.size(); pos++) {
-            int lid = Tool::value_t2int(actor_obj.params.at(pos));
-            lid_list.push_back(lid);
+            label_t lid = static_cast<label_t>(Tool::value_t2int(actor_obj.params.at(pos)));
+            lid_list.emplace_back(lid);
         }
 
         switch (inType) {
           case Element_T::VERTEX:
-            VertexHasLabel(tid, lid_list, msg.data);
+            VertexHasLabel(qplan, lid_list, msg.data);
             break;
           case Element_T::EDGE:
-            EdgeHasLabel(tid, lid_list, msg.data);
+            EdgeHasLabel(qplan, lid_list, msg.data);
             break;
           default:
             cout << "Wrong in type"  << endl;
@@ -117,28 +116,16 @@ class HasLabelActor : public AbstractActor {
 
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
-
-    // Cache
-    ActorCache cache;
     Config* config_;
 
     // Validation Store
     ActorValidationObject v_obj;
 
-    void VertexHasLabel(int tid, vector<int> lid_list, vector<pair<history_t, vector<value_t>>> & data) {
+    void VertexHasLabel(const QueryPlan & qplan, vector<label_t> lid_list, vector<pair<history_t, vector<value_t>>> & data) {
         auto checkFunction = [&](value_t & value) {
             vid_t v_id(Tool::value_t2int(value));
 
-            label_t label;
-            if (data_store_->VPKeyIsLocal(vpid_t(v_id, 0)) || !config_->global_enable_caching) {
-                data_store_->GetLabelForVertex(tid, v_id, label);
-            } else {
-                if (!cache.get_label_from_cache(v_id.value(), label)) {
-                    data_store_->GetLabelForVertex(tid, v_id, label);
-                    cache.insert_label(v_id.value(), label);
-                }
-            }
-
+            label_t label = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
             for (auto & lid : lid_list) {
                 if (lid == label) {
                     return false;
@@ -152,21 +139,12 @@ class HasLabelActor : public AbstractActor {
         }
     }
 
-    void EdgeHasLabel(int tid, vector<int> lid_list, vector<pair<history_t, vector<value_t>>> & data) {
+    void EdgeHasLabel(const QueryPlan & qplan, vector<label_t> lid_list, vector<pair<history_t, vector<value_t>>> & data) {
         auto checkFunction = [&](value_t & value) {
             eid_t e_id;
             uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
-            label_t label;
-            if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !config_->global_enable_caching) {
-                data_store_->GetLabelForEdge(tid, e_id, label);
-            } else {
-                if (!cache.get_label_from_cache(e_id.value(), label)) {
-                    data_store_->GetLabelForEdge(tid, e_id, label);
-                    cache.insert_label(e_id.value(), label);
-                }
-            }
-
+            label_t label = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
             for (auto & lid : lid_list) {
                 if (lid == label) {
                     return false;

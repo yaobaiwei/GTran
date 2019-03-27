@@ -11,7 +11,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
-#include "actor/actor_cache.hpp"
 #include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
@@ -44,9 +43,9 @@ class ValuesActor : public AbstractActor {
         Actor_Object actor_obj = qplan.actors[m.step];
 
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
-        vector<int> key_list;
+        vector<label_t> key_list;
         for (int cnt = 1; cnt < actor_obj.params.size(); cnt++) {
-            key_list.push_back(Tool::value_t2int(actor_obj.params.at(cnt)));
+            key_list.emplace_back(static_cast<label_t>(Tool::value_t2int(actor_obj.params.at(cnt))));
         }
 
         // Record Input Set
@@ -56,10 +55,10 @@ class ValuesActor : public AbstractActor {
 
         switch (inType) {
           case Element_T::VERTEX:
-            get_properties_for_vertex(tid, key_list, msg.data);
+            get_properties_for_vertex(qplan, key_list, msg.data);
             break;
           case Element_T::EDGE:
-            get_properties_for_edge(tid, key_list, msg.data);
+            get_properties_for_edge(qplan, key_list, msg.data);
             break;
           default:
                 cout << "Wrong in type" << endl;
@@ -112,111 +111,50 @@ class ValuesActor : public AbstractActor {
 
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
-
-    // Cache
-    ActorCache cache;
     Config * config_;
 
     // Validation Store
     ActorValidationObject v_obj;
 
-    void get_properties_for_vertex(int tid, const vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
+    void get_properties_for_vertex(const QueryPlan & qplan, const vector<label_t> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
                 vid_t v_id(Tool::value_t2int(value));
-                Vertex* vtx = data_store_->GetVertex(v_id);
+                vector<std::pair<label_t, value_t>> vp_kv_pair_list;
 
                 if (key_list.empty()) {
-                    for (auto & pkey : vtx->vp_list) {
-                        vpid_t vp_id(v_id, pkey);
-
-                        value_t val;
-                        // Try cache
-                        if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForVertex(tid, vp_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(vp_id.value(), val)) {
-                                // not found in cache
-                                data_store_->GetPropertyForVertex(tid, vp_id, val);
-                                cache.insert_properties(vp_id.value(), val);
-                            }
-                        }
-
-                        newData.push_back(val);
-                    }
+                    data_storage_->GetAllVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
                 } else {
-                    for (auto key : key_list) {
-                        if (find(vtx->vp_list.begin(), vtx->vp_list.end(), key) == vtx->vp_list.end()) {
-                            continue;
-                        }
+                    data_storage_->GetVPByPKeyList(v_id, key_list, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
+                }
 
-                        vpid_t vp_id(v_id, key);
-                        value_t val;
-                        if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForVertex(tid, vp_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(vp_id.value(), val)) {
-                                data_store_->GetPropertyForVertex(tid, vp_id, val);
-                                cache.insert_properties(vp_id.value(), val);
-                            }
-                        }
-
-                        newData.push_back(val);
-                    }
+                for (auto vp_kv_pair : vp_kv_pair_list) {
+                    newData.emplace_back(vp_kv_pair.second);
                 }
             }
             pair.second.swap(newData);
         }
     }
 
-    void get_properties_for_edge(int tid, const vector<int> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
+    void get_properties_for_edge(const QueryPlan & qplan, const vector<label_t> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
                 eid_t e_id;
                 uint2eid_t(Tool::value_t2uint64_t(value), e_id);
-                Edge* edge = data_store_->GetEdge(e_id);
+                vector<std::pair<label_t, value_t>> ep_kv_pair_list;
 
                 if (key_list.empty()) {
-                    for (auto & pkey : edge->ep_list) {
-                        epid_t ep_id(e_id, pkey);
-
-                        value_t val;
-                        if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForEdge(tid, ep_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(ep_id.value(), val)) {
-                                // not found in cache
-                                data_store_->GetPropertyForEdge(tid, ep_id, val);
-                                cache.insert_properties(ep_id.value(), val);
-                            }
-                        }
-
-                        newData.push_back(val);
-                    }
+                    data_storage_->GetAllEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
                 } else {
-                    for (auto key : key_list) {
-                        if (find(edge->ep_list.begin(), edge->ep_list.end(), key) == edge->ep_list.end()) {
-                            continue;
-                        }
+                    data_storage_->GetEPByPKeyList(e_id, key_list, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
+                }
 
-                        epid_t ep_id(e_id, key);
-                        value_t val;
-                        if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
-                            data_store_->GetPropertyForEdge(tid, ep_id, val);
-                        } else {
-                            if (!cache.get_property_from_cache(ep_id.value(), val)) {
-                                // not found in cache
-                                data_store_->GetPropertyForEdge(tid, ep_id, val);
-                                cache.insert_properties(ep_id.value(), val);
-                            }
-                        }
-
-                        newData.push_back(val);
-                    }
+                for (auto ep_kv_pair : ep_kv_pair_list) {
+                    newData.emplace_back(ep_kv_pair.second);
                 }
             }
             pair.second.swap(newData);

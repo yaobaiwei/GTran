@@ -67,16 +67,16 @@ class TraversalActor : public AbstractActor {
         // Get Result
         if (inType == Element_T::VERTEX) {
             if (outType == Element_T::VERTEX) {
-                GetNeighborOfVertex(tid, lid, dir, msg.data);
+                GetNeighborOfVertex(qplan, lid, dir, msg.data);
             } else if (outType == Element_T::EDGE) {
-                GetEdgeOfVertex(tid, lid, dir, msg.data);
+                GetEdgeOfVertex(qplan, lid, dir, msg.data);
             } else {
                 cout << "Wrong Out Element Type: " << outType << endl;
                 return;
             }
         } else if (inType == Element_T::EDGE) {
             if (outType == Element_T::VERTEX) {
-                GetVertexOfEdge(tid, lid, dir, msg.data);
+                GetVertexOfEdge(lid, dir, msg.data);
             } else {
                 cout << "Wrong Out Element Type: " << outType << endl;
                 return;
@@ -130,9 +130,6 @@ class TraversalActor : public AbstractActor {
 
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
-
-    // Cache
-    ActorCache cache;
     Config* config_;
 
     // Validation Store
@@ -140,48 +137,19 @@ class TraversalActor : public AbstractActor {
 
     // ============Vertex===============
     // Get IN/OUT/BOTH of Vertex
-    void GetNeighborOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+    void GetNeighborOfVertex(const QueryPlan & qplan, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto& pair : data) {
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
                 // Get the current vertex id and use it to get vertex instance
                 vid_t cur_vtx_id(Tool::value_t2int(value));
-                Vertex* vtx = data_store_->GetVertex(cur_vtx_id);
-
-                // for each neighbor, create a new value_t and store into newData
-                // IN & BOTH
-                if (dir != Direction_T::OUT) {
-                    for (auto & in_nb : vtx->in_nbs) {  // in_nb : vid_t
-                        // Get edge_id
-                        if (lid > 0) {
-                            eid_t e_id(cur_vtx_id.value(), in_nb.value());
-                            label_t label;
-                            get_label_for_edge(tid, e_id, label);
-
-                            if (label != lid) { continue; }
-                        }
-                        value_t new_value;
-                        Tool::str2int(to_string(in_nb.value()), new_value);
-                        newData.push_back(new_value);
-                    }
-                }
-                // OUT & BOTH
-                if (dir != Direction_T::IN) {
-                    for (auto & out_nb : vtx->out_nbs) {
-                        if (lid > 0) {
-                            eid_t e_id(out_nb.value(), cur_vtx_id.value());
-                            label_t label;
-                            get_label_for_edge(tid, e_id, label);
-
-                            if (label != lid) {
-                                continue;
-                            }
-                        }
-                        value_t new_value;
-                        Tool::str2int(to_string(out_nb.value()), new_value);
-                        newData.push_back(new_value);
-                    }
+                vector<vid_t> v_nbs;
+                data_storage_->GetConnectedVertexList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, v_nbs);
+                for (auto & neighbor : v_nbs) {
+                    value_t new_value;
+                    Tool::str2int(to_string(neighbor.value()), new_value);
+                    newData.push_back(new_value);
                 }
             }
 
@@ -191,48 +159,19 @@ class TraversalActor : public AbstractActor {
     }
 
     // Get IN/OUT/BOTH-E of Vertex
-    void GetEdgeOfVertex(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+    void GetEdgeOfVertex(const QueryPlan & qplan, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto& pair : data) {
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
                 // Get the current vertex id and use it to get vertex instance
                 vid_t cur_vtx_id(Tool::value_t2int(value));
-                Vertex* vtx = data_store_->GetVertex(cur_vtx_id);
-
-                if (dir != Direction_T::OUT) {
-                    for (auto & in_nb : vtx->in_nbs) {  // in_nb : vid_t
-                        // Get edge_id
-                        eid_t e_id(cur_vtx_id.value(), in_nb.value());
-                        if (lid > 0) {
-                            label_t label;
-                            get_label_for_edge(tid, e_id, label);
-
-                            if (label != lid) {
-                                continue;
-                            }
-                        }
-                        value_t new_value;
-                        Tool::str2uint64_t(to_string(e_id.value()), new_value);
-                        newData.push_back(new_value);
-                    }
-                }
-                if (dir != Direction_T::IN) {
-                    for (auto & out_nb : vtx->out_nbs) {
-                        // Get edge_id
-                        eid_t e_id(out_nb.value(), cur_vtx_id.value());
-                        if (lid > 0) {
-                            label_t label;
-                            get_label_for_edge(tid, e_id, label);
-
-                            if (label != lid) {
-                                continue;
-                            }
-                        }
-                        value_t new_value;
-                        Tool::str2uint64_t(to_string(e_id.value()), new_value);
-                        newData.push_back(new_value);
-                    }
+                vector<eid_t> e_nbs;
+                data_storage_->GetConnectedEdgeList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, e_nbs);
+                for (auto & neighbor : e_nbs) {
+                    value_t new_value;
+                    Tool::str2uint64_t(to_string(neighbor.value()), new_value);
+                    newData.push_back(new_value);
                 }
             }
 
@@ -242,7 +181,7 @@ class TraversalActor : public AbstractActor {
     }
 
     // =============Edge================
-    void GetVertexOfEdge(int tid, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+    void GetVertexOfEdge(int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & pair : data) {
             vector<value_t> newData;
 
@@ -274,17 +213,6 @@ class TraversalActor : public AbstractActor {
 
             // Replace pair.second with new data
             pair.second.swap(newData);
-        }
-    }
-
-    void get_label_for_edge(int tid, eid_t e_id, label_t & label) {
-        if (data_store_->EPKeyIsLocal(epid_t(e_id, 0)) || !config_->global_enable_caching) {
-            data_store_->GetLabelForEdge(tid, e_id, label);
-        } else {
-            if (!cache.get_label_from_cache(e_id.value(), label)) {
-                data_store_->GetLabelForEdge(tid, e_id, label);
-                cache.insert_label(e_id.value(), label);
-            }
         }
     }
 };

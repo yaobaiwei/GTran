@@ -11,7 +11,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "actor/abstract_actor.hpp"
-#include "actor/actor_cache.hpp"
 #include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
@@ -85,10 +84,10 @@ class HasActor : public AbstractActor {
 
         switch (inType) {
           case Element_T::VERTEX:
-            EvaluateVertex(tid, msg.data, pred_chain);
+            EvaluateVertex(qplan, msg.data, pred_chain);
             break;
           case Element_T::EDGE:
-            EvaluateEdge(tid, msg.data, pred_chain);
+            EvaluateEdge(qplan, msg.data, pred_chain);
             break;
           default:
             cout << "Wrong inType" << endl;
@@ -145,32 +144,25 @@ class HasActor : public AbstractActor {
 
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
-
-    // Cache
-    ActorCache cache;
     Config* config_;
 
     // Validation Store
     ActorValidationObject v_obj;
 
-    void EvaluateVertex(int tid, vector<pair<history_t, vector<value_t>>> & data, const vector<pair<int, PredicateValue>> & pred_chain) {
+    void EvaluateVertex(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, const vector<pair<int, PredicateValue>> & pred_chain) {
         auto checkFunction = [&](value_t& value){
             vid_t v_id(Tool::value_t2int(value));
-            Vertex* vtx = data_store_->GetVertex(v_id);
+            vector<pair<label_t, value_t>> vp_kv_pair_list;
+            data_storage_->GetAllVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
 
             for (auto & pred_pair : pred_chain) {
                 int pid = pred_pair.first;
                 PredicateValue pred = pred_pair.second;
 
                 if (pid == -1) {
-                    int counter = vtx->vp_list.size();
-                    for (auto & pkey : vtx->vp_list) {
-                        vpid_t vp_id(v_id, pkey);
-
-                        value_t val;
-                        get_properties_for_vertex(tid, vp_id, val);
-
-                        if (!Evaluate(pred, &val)) {
+                    int counter = vp_kv_pair_list.size();
+                    for (auto & pair : vp_kv_pair_list) {
+                        if (!Evaluate(pred, &(pair.second))) {
                             counter--;
                         }
                     }
@@ -181,19 +173,25 @@ class HasActor : public AbstractActor {
                     }
                 } else {
                     // Check whether key exists for this vtx
-                    if (find(vtx->vp_list.begin(), vtx->vp_list.end(), pid) == vtx->vp_list.end()) {
-                        // does not exist
+                    int counter = vp_kv_pair_list.size();
+                    value_t val;
+                    for (auto pair : vp_kv_pair_list) {
+                        if (pid == pair.first) {
+                            val = pair.second;
+                            break;
+                        } else {
+                            counter--;
+                        }
+                    }
+
+                    if (counter == 0) {
                         if (pred.pred_type == Predicate_T::NONE)
                             continue;
                         return true;
                     }
+
                     if (pred.pred_type == Predicate_T::ANY)
                         continue;
-
-                    // Get Properties
-                    vpid_t vp_id(v_id, pid);
-                    value_t val;
-                    get_properties_for_vertex(tid, vp_id, val);
 
                     // Erase when doesnt match
                     if (!Evaluate(pred, &val)) {
@@ -210,24 +208,21 @@ class HasActor : public AbstractActor {
         }
     }
 
-    void EvaluateEdge(int tid, vector<pair<history_t, vector<value_t>>> & data, const vector<pair<int, PredicateValue>> & pred_chain) {
+    void EvaluateEdge(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, const vector<pair<int, PredicateValue>> & pred_chain) {
         auto checkFunction = [&](value_t& value){
             eid_t e_id;
             uint2eid_t(Tool::value_t2uint64_t(value), e_id);
-            Edge* edge = data_store_->GetEdge(e_id);
+            vector<pair<label_t, value_t>> ep_kv_pair_list;
+            data_storage_->GetAllEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
 
             for (auto & pred_pair : pred_chain) {
                 int pid = pred_pair.first;
                 PredicateValue pred = pred_pair.second;
 
                 if (pid == -1) {
-                    int counter = edge->ep_list.size();
-                    for (auto & pkey : edge->ep_list) {
-                        epid_t ep_id(e_id, pkey);
-                        value_t val;
-                        get_properties_for_edge(tid, ep_id, val);
-
-                        if (!Evaluate(pred, &val)) {
+                    int counter = ep_kv_pair_list.size();
+                    for (auto & pair : ep_kv_pair_list) {
+                        if (!Evaluate(pred, &(pair.second))) {
                             counter--;
                         }
                     }
@@ -238,8 +233,18 @@ class HasActor : public AbstractActor {
                     }
                 } else {
                     // Check whether key exists for this vtx
-                    if (find(edge->ep_list.begin(), edge->ep_list.end(), pid) == edge->ep_list.end()) {
-                        // does not exist
+                    int counter = ep_kv_pair_list.size();
+                    value_t val;
+                    for (auto pair : ep_kv_pair_list) {
+                        if (pid == pair.first) {
+                            val = pair.second;
+                            break;
+                        } else {
+                            counter--;
+                        }
+                    }
+
+                    if (counter == 0) {
                         if (pred.pred_type == Predicate_T::NONE)
                             continue;
                         return true;
@@ -247,11 +252,6 @@ class HasActor : public AbstractActor {
 
                     if (pred.pred_type == Predicate_T::ANY)
                         continue;
-
-                    // Get Properties
-                    epid_t ep_id(e_id, pid);
-                    value_t val;
-                    get_properties_for_edge(tid, ep_id, val);
 
                     // Erase when doesnt match
                     if (!Evaluate(pred, &val)) {
@@ -265,29 +265,6 @@ class HasActor : public AbstractActor {
 
         for (auto & data_pair : data) {
             data_pair.second.erase(remove_if(data_pair.second.begin(), data_pair.second.end(), checkFunction), data_pair.second.end());
-        }
-    }
-
-    void get_properties_for_vertex(int tid, vpid_t vp_id, value_t & val) {
-        if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
-            // No Need to check Cache for local or cache is disabled
-            data_store_->GetPropertyForVertex(tid, vp_id, val);
-        } else {
-            if (!cache.get_property_from_cache(vp_id.value(), val)) {
-                data_store_->GetPropertyForVertex(tid, vp_id, val);
-                cache.insert_properties(vp_id.value(), val);
-            }
-        }
-    }
-
-    void get_properties_for_edge(int tid, epid_t ep_id, value_t & val) {
-        if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
-            data_store_->GetPropertyForEdge(tid, ep_id, val);
-        } else {
-            if (!cache.get_property_from_cache(ep_id.value(), val)) {
-                data_store_->GetPropertyForEdge(tid, ep_id, val);
-                cache.insert_properties(ep_id.value(), val);
-            }
         }
     }
 };
