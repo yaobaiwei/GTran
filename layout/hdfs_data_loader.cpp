@@ -58,7 +58,7 @@ void HDFSDataLoader::GetStringIndexes() {
             pch = strtok(nullptr, "\t");
             label_t id = atoi(pch);
             pch = strtok(nullptr, "\t");
-            edge_pty_key_to_type_[to_string(id)] = atoi(pch);
+            indexes_->str2eptype[to_string(id)] = atoi(pch);
 
             // both string and ID are unique
             assert(indexes_->str2epk.find(key) == indexes_->str2epk.end());
@@ -110,7 +110,7 @@ void HDFSDataLoader::GetStringIndexes() {
             pch = strtok(nullptr, "\t");
             label_t id = atoi(pch);
             pch = strtok(nullptr, "\t");
-            vtx_pty_key_to_type_[to_string(id)] = atoi(pch);
+            indexes_->str2vptype[to_string(id)] = atoi(pch);
 
             // both string and ID are unique
             assert(indexes_->str2vpk.find(key) == indexes_->str2vpk.end());
@@ -256,7 +256,7 @@ void HDFSDataLoader::ToVP(char* line) {
     assert(kvpairs.size() % 2 == 0);
     for (int i = 0 ; i < kvpairs.size(); i += 2) {
         kv_pair p;
-        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], vtx_pty_key_to_type_[kvpairs[i]], p);
+        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], indexes_->str2vptype[kvpairs[i]], p);
         V_KVpair v_pair;
         v_pair.key = vpid_t(vid, p.key);
         v_pair.value = p.value;
@@ -338,7 +338,7 @@ void HDFSDataLoader::ToEP(char* line) {
 
     for (int i = 0 ; i < kvpairs.size(); i += 2) {
         kv_pair p;
-        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], edge_pty_key_to_type_[kvpairs[i]], p);
+        Tool::get_kvpair(kvpairs[i], kvpairs[i+1], indexes_->str2eptype[kvpairs[i]], p);
 
         E_KVpair e_pair;
         e_pair.key = epid_t(in_v, out_v, p.key);

@@ -36,9 +36,6 @@ class HDFSDataLoader {
     vector<VProperty*> vplist_;
     vector<EProperty*> eplist_;
 
-    typedef map<string, uint8_t> TypeMap;
-    TypeMap vtx_pty_key_to_type_;
-    TypeMap edge_pty_key_to_type_;
     void LoadVertices(const char* inpath);
     void LoadVPList(const char* inpath);
     void LoadEPList(const char* inpath);
