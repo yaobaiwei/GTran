@@ -329,14 +329,6 @@ void DataStorage::DeleteAggData(agg_t key) {
     }
 }
 
-int DataStorage::GetMachineIdForVertex(vid_t v_id) {
-    return id_mapper_->GetMachineIdForVertex(v_id);
-}
-
-int DataStorage::GetMachineIdForEdge(eid_t e_id) {
-    return id_mapper_->GetMachineIdForEdge(e_id);
-}
-
 bool DataStorage::VPKeyIsLocal(vpid_t vp_id) {
     if (id_mapper_->IsVPropertyLocal(vp_id)) {
         return true;
@@ -621,7 +613,7 @@ bool DataStorage::ProcessAddInE(const eid_t& eid, const label_t& label,
 
 }
 
-bool DataStorage::ProcessAddOutE(const eid_t& eid, const label_t& label, 
+bool DataStorage::ProcessAddOutE(const eid_t& eid, const label_t& label,
                                  const uint64_t& trx_id, const uint64_t& begin_time) {
 
 }

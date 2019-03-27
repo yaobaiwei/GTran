@@ -18,13 +18,13 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #pragma once
 
+#define INDEX_THRESHOLD_RATIO 0.2
 class IndexStore {
  public:
     IndexStore() {
         config_ = Config::GetInstance();
     }
 
-    static const double ratio = 0.2;
     bool IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL) {
         if (config_->global_enable_indexing) {
             unordered_map<int, index_>* m;
@@ -46,7 +46,7 @@ class IndexStore {
             index_ &idx = itr->second;
             if (idx.isEnabled) {
                 if (pred != NULL) {
-                    uint64_t threshold = idx.total * ratio;
+                    uint64_t threshold = idx.total * INDEX_THRESHOLD_RATIO;
                     *count = get_count_by_predicate(type, pid, *pred);
                     if (*count >= threshold) {
                         return false;

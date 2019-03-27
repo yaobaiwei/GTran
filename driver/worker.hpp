@@ -33,7 +33,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/progress_monitor.hpp"
 #include "core/parser.hpp"
 #include "core/result_collector.hpp"
-#include "storage/data_store.hpp"
 #include "storage/mpi_snapshot.hpp"
 
 #include "layout/pmt_rct_table.hpp"
@@ -61,7 +60,6 @@ class Worker {
         }
         delete rc_;
         delete thpt_monitor_;
-        delete w_listener_;
         delete receiver_;
         delete parser_;
         delete index_store_;
@@ -71,16 +69,12 @@ class Worker {
         index_store_ = new IndexStore();
         parser_ = new Parser(index_store_);
         receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
-        w_listener_ = new zmq::socket_t(context_, ZMQ_REP);
         thpt_monitor_ = new ThroughputMonitor();
         rc_ = new ResultCollector;
 
         char addr[64];
-        char w_addr[64];
         snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port);
-        snprintf(w_addr, sizeof(w_addr), "tcp://*:%d", my_node_.tcp_port + config_->global_num_threads + 1);
         receiver_->bind(addr);
-        w_listener_->bind(w_addr);
 
         for (int i = 0; i < my_node_.get_local_size(); i++) {
             if (i != my_node_.get_local_rank()) {
@@ -89,7 +83,7 @@ class Worker {
                 sender->connect(addr);
                 senders_.push_back(sender);
             }
-        }      
+        }
     }
 
     /* Not suitable for transaction base emulation, should be modified later
@@ -263,46 +257,6 @@ class Worker {
     }
     */
 
-    /*
-     * For TCP(IBOIP) usage, to receive the req and give response
-     * req: vpid or epid
-     */
-    void WorkerListener(DataStore * datastore) {
-        while (1) {
-            zmq::message_t request;
-            w_listener_->recv(&request);
-
-            char* buf = new char[request.size()];
-            memcpy(buf, reinterpret_cast<char*>(request.data()), request.size());
-            obinstream um(buf, request.size());
-
-            uint64_t id;
-            int elem_type;
-
-            um >> id;
-            um >> elem_type;
-
-            value_t val;
-            ibinstream m;
-
-            switch (elem_type) {
-              case Element_T::VERTEX:
-                datastore->tcp_helper->GetPropertyForVertex(id, val);
-                break;
-              case Element_T::EDGE:
-                datastore->tcp_helper->GetPropertyForEdge(id, val);
-                break;
-              default:
-                cout << "Wrong element type" << endl;
-            }
-
-            m << val;
-            zmq::message_t msg(m.size());
-            memcpy(reinterpret_cast<void*>(msg.data()), m.get_buf(), m.size());
-            w_listener_->send(msg);
-        }
-    }
-
     /**
      * Parse the query string into TrxPlan
      */
@@ -427,7 +381,7 @@ class Worker {
         monitor_->IncreaseCounter(1);
     }
 
-    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity, DataStore * data_store) {
+    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
         while (1) {
             Pack pkg;
             queue_.WaitAndPop(pkg);
@@ -438,7 +392,6 @@ class Worker {
                 my_node_.get_local_rank(),
                 my_node_.get_local_size(),
                 core_affinity->GetThreadIdForActor(ACTOR_T::INIT),
-                data_store,
                 pkg.qplan,
                 msgs);
             for (int i = 0 ; i < my_node_.get_local_size(); i++) {
@@ -497,7 +450,7 @@ class Worker {
         AbstractMailbox * mailbox;
 
         if (config_->global_use_rdma) {
-            mailbox = new RdmaMailbox(my_node_, master_, buf);  
+            mailbox = new RdmaMailbox(my_node_, master_, buf);
         } else {
             mailbox = new TCPMailbox(my_node_, master_);
         }
@@ -516,41 +469,11 @@ class Worker {
         cout << "Worker" << my_node_.get_local_rank()
              << ": DONE -> TrxTableStub->Init()" << endl;
 
-        DataStore * datastore = new DataStore(my_node_, id_mapper, buf);
-        DataStore::StaticInstanceP(datastore);
-        datastore->Init(workers_);
-
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Init()" << endl;
-
-        // read snapshot area
-        datastore->ReadSnapshot();
-
-        datastore->LoadDataFromHDFS();
-        worker_barrier(my_node_);
-
-        // =======data shuffle==========
-        datastore->Shuffle();
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> DataStore->Shuffle()" << endl;
-        // =======data shuffle==========
-
-        datastore->DataConverter();
-        worker_barrier(my_node_);
-
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Datastore->DataConverter()" << endl;
-
-        parser_->LoadMapping(datastore);
+        parser_->LoadMapping(data_storage_);
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Parser_->LoadMapping()" << endl;
 
-        // write snapshot area
-        datastore->WriteSnapshot();
-
         thread recvreq(&Worker::RecvRequest, this);
-        thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity, datastore);
-
-        // for TCP use
-        thread w_listener;
-        if (!config_->global_use_rdma)
-            w_listener = thread(&Worker::WorkerListener, this, datastore);
+        thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
 
         monitor_ = new Monitor(my_node_);
         monitor_->Start();
@@ -563,7 +486,7 @@ class Worker {
         worker_barrier(my_node_);
 
         // actor driver starts
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, datastore, core_affinity, index_store_, pmt_rct_table_);
+        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity, index_store_, pmt_rct_table_);
         actor_adapter->Start();
 
         cout << "Worker" << my_node_.get_local_rank() << ": DONE -> actor_adapter->Start()" << endl;
@@ -596,8 +519,6 @@ class Worker {
 
         recvreq.join();
         sendmsg.join();
-        if (!config_->global_use_rdma)
-            w_listener.join();
     }
 
  private:
@@ -617,7 +538,6 @@ class Worker {
 
     zmq::context_t context_;
     zmq::socket_t * receiver_;
-    zmq::socket_t * w_listener_;
 
     map<uint64_t, TrxPlan> plans_;
     vector<zmq::socket_t *> senders_;

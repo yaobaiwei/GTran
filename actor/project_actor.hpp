@@ -12,25 +12,20 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include <map>
 
 #include "actor/abstract_actor.hpp"
-#include "actor/actor_cache.hpp"
 #include "actor/actor_validation_object.hpp"
-#include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
-#include "utils/timer.hpp"
 
 class ProjectActor : public AbstractActor {
  public:
     ProjectActor(int id,
-            DataStore* data_store,
             int machine_id,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         machine_id_(machine_id),
         num_thread_(num_thread),
         mailbox_(mailbox),
@@ -56,7 +51,7 @@ class ProjectActor : public AbstractActor {
         }
 
         // get projection function acccording to element type
-        void (ProjectActor::*proj)(int, vector<value_t>&, int, int, map<value_t, vector<value_t>>&);
+        void (ProjectActor::*proj)(const QueryPlan&, vector<value_t>&, int, int, map<value_t, vector<value_t>>&);
         switch (inType) {
           case Element_T::VERTEX: proj = &this->project_vertex; break;
           case Element_T::EDGE:   proj = &this->project_edge; break;
@@ -68,7 +63,7 @@ class ProjectActor : public AbstractActor {
         for (auto & pair : msg.data) {
             map<value_t, vector<value_t>> proj_map;
             // Project E/V to property
-            (this->*proj)(tid, pair.second, key_id, value_id, proj_map);
+            (this->*proj)(qplan, pair.second, key_id, value_id, proj_map);
             // Insert projected kv pair
             for (auto itr = proj_map.begin(); itr != proj_map.end(); itr++) {
                 history_t his = pair.first;
@@ -79,7 +74,7 @@ class ProjectActor : public AbstractActor {
         }
 
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, newData, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, newData, num_thread_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -101,12 +96,12 @@ class ProjectActor : public AbstractActor {
             // Compare check_set and parameters
             for (auto & val : check_set) {
                 if ((get<1>(val) == key_id || get<1>(val) == value_id) && get<2>(val) == inType) {
-                    local_check_set.emplace_back(get<0>(val)); 
+                    local_check_set.emplace_back(get<0>(val));
                 }
             }
 
             if (local_check_set.size() != 0) {
-                if(!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
+                if (!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
                     return false;
                 }
             }
@@ -125,91 +120,84 @@ class ProjectActor : public AbstractActor {
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
 
-    // Cache
-    ActorCache cache;
     Config* config_;
 
     // Validation Store
     ActorValidationObject v_obj;
 
-    bool get_properties_for_vertex(int tid, const Vertex* vtx, int pid, value_t& val) {
-        if (find(vtx->vp_list.begin(), vtx->vp_list.end(), pid) == vtx->vp_list.end()) {
-            return false;
-        }
-
-        vpid_t vp_id(vtx->id, pid);
-        // Try cache
-        if (data_store_->VPKeyIsLocal(vp_id) || !config_->global_enable_caching) {
-            data_store_->GetPropertyForVertex(tid, vp_id, val);
+    bool get_properties_for_vertex(const QueryPlan& qplan, const vpid_t& vp_id, value_t& val) {
+        if (vp_id.pid == 0) {
+            vid_t vid(vp_id.vid);
+            label_t label = data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+            string label_str;
+            data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, label_str);
+            Tool::str2str(label_str, val);
+            return true;
         } else {
-            if (!cache.get_property_from_cache(vp_id.value(), val)) {
-                // not found in cache
-                data_store_->GetPropertyForVertex(tid, vp_id, val);
-                cache.insert_properties(vp_id.value(), val);
-            }
+            return data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
         }
-        return true;
     }
 
-    void project_vertex(int tid, vector<value_t>& data, int key_id, int value_id,
+    void project_vertex(const QueryPlan& qplan, vector<value_t>& data, int key_id, int value_id,
                         map<value_t, vector<value_t>>& proj_map) {
         for (auto & val : data) {
             vid_t v_id(Tool::value_t2int(val));
-            Vertex* vtx = data_store_->GetVertex(v_id);
             value_t key, value;
 
             // project key
-            if (!get_properties_for_vertex(tid, vtx, key_id, key)) {
+            vpid_t vp_id(v_id, key_id);
+            if (!get_properties_for_vertex(qplan, vp_id, key)) {
                 continue;
             }
 
             if (value_id == -1) {
                 // no value projection, keep origin value
                 value = move(val);
-            } else if (!get_properties_for_vertex(tid, vtx, value_id, value)) {
-                continue;
+            } else {
+                vp_id.pid = value_id;
+                if (!get_properties_for_vertex(qplan, vp_id, value)) {
+                    continue;
+                }
             }
 
             proj_map[key].push_back(value);
         }
     }
 
-    bool get_properties_for_edge(int tid, const Edge* edge, int pid, value_t& val) {
-        if (find(edge->ep_list.begin(), edge->ep_list.end(), pid) == edge->ep_list.end()) {
-            return false;
-        }
-
-        epid_t ep_id(edge->id, pid);
-        if (data_store_->EPKeyIsLocal(ep_id) || !config_->global_enable_caching) {
-            data_store_->GetPropertyForEdge(tid, ep_id, val);
+    bool get_properties_for_edge(const QueryPlan& qplan, const epid_t& ep_id, value_t& val) {
+        if (ep_id.pid == 0) {
+            eid_t eid(ep_id.in_vid, ep_id.out_vid);
+            label_t label = data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+            string label_str;
+            data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, label_str);
+            Tool::str2str(label_str, val);
+            return true;
         } else {
-            if (!cache.get_property_from_cache(ep_id.value(), val)) {
-                // not found in cache
-                data_store_->GetPropertyForEdge(tid, ep_id, val);
-                cache.insert_properties(ep_id.value(), val);
-            }
+            return data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
         }
-        return true;
     }
 
-    void project_edge(int tid, vector<value_t>& data, int key_id, int value_id,
+    void project_edge(const QueryPlan& qplan, vector<value_t>& data, int key_id, int value_id,
                       map<value_t, vector<value_t>>& proj_map) {
         for (auto & val : data) {
             eid_t e_id;
             uint2eid_t(Tool::value_t2uint64_t(val), e_id);
-            Edge* edge = data_store_->GetEdge(e_id);
 
             value_t key, value;
             // project key
-            if (!get_properties_for_edge(tid, edge, key_id, key)) {
+            epid_t ep_id(e_id, key_id);
+            if (!get_properties_for_edge(qplan, ep_id, key)) {
                 continue;
             }
 
             if (value_id == -1) {
                 // no value projection, keep origin value
                 value = move(val);
-            } else if (!get_properties_for_edge(tid, edge, value_id, value)) {
-                continue;
+            } else {
+                ep_id.pid = value_id;
+                if (!get_properties_for_edge(qplan, ep_id, value)) {
+                    continue;
+                }
             }
 
             proj_map[key].push_back(value);

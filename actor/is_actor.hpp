@@ -16,17 +16,15 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/predicate.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
 class IsActor : public AbstractActor {
  public:
     IsActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
         type_(ACTOR_T::IS) {}
@@ -60,7 +58,7 @@ class IsActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {

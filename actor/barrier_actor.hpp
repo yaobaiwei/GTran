@@ -18,7 +18,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "actor/actor_cache.hpp"
 #include "actor/actor_validation_object.hpp"
 #include "core/result_collector.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
 #include "utils/mkl_util.hpp"
@@ -38,9 +37,8 @@ class BarrierActorBase :  public AbstractActor {
 
  public:
     BarrierActorBase(int id,
-            DataStore* data_store,
             CoreAffinity* core_affinity) :
-        AbstractActor(id, data_store, core_affinity) {}
+        AbstractActor(id, core_affinity) {}
 
     void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
@@ -129,110 +127,6 @@ class BarrierActorBase :  public AbstractActor {
         return next < actors.size() && actors[next].IsBarrier();
     }
 
-    // projection functions from E/V to label or property
-    static bool project_property_edge(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache) {
-        eid_t e_id;
-        uint2eid_t(Tool::value_t2uint64_t(val), e_id);
-
-        epid_t ep_id(e_id, key);
-
-        val.content.clear();
-
-        // Try cache
-        if (datastore->EPKeyIsLocal(ep_id) || cache == NULL) {
-            return datastore->GetPropertyForEdge(tid, ep_id, val);
-        } else {
-            bool found = true;
-            if (!cache->get_property_from_cache(ep_id.value(), val)) {
-                // not found in cache
-                found = datastore->GetPropertyForEdge(tid, ep_id, val);
-                if (found) {
-                    cache->insert_properties(ep_id.value(), val);
-                }
-            }
-            return found;
-        }
-    }
-
-    static bool project_property_vertex(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache) {
-        vid_t v_id(Tool::value_t2int(val));
-        vpid_t vp_id(v_id, key);
-
-        val.content.clear();
-
-        // Try cache
-        if (datastore->VPKeyIsLocal(vp_id) || cache == NULL) {
-            return datastore->GetPropertyForVertex(tid, vp_id, val);
-        } else {
-            bool found = true;
-            if (!cache->get_property_from_cache(vp_id.value(), val)) {
-                // not found in cache
-                found = datastore->GetPropertyForVertex(tid, vp_id, val);
-                if (found) {
-                    cache->insert_properties(vp_id.value(), val);
-                }
-            }
-            return found;
-        }
-    }
-
-    static bool project_label_edge(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache) {
-        eid_t e_id;
-        uint2eid_t(Tool::value_t2uint64_t(val), e_id);
-        val.content.clear();
-
-        label_t label;
-        bool found;
-        if (datastore->EPKeyIsLocal(epid_t(e_id, 0)) || cache == NULL) {
-            found = datastore->GetLabelForEdge(tid, e_id, label);
-        } else {
-            found = true;
-            if (!cache->get_label_from_cache(e_id.value(), label)) {
-                found = datastore->GetLabelForEdge(tid, e_id, label);
-                if (found) {
-                    cache->insert_label(e_id.value(), label);
-                }
-            }
-        }
-
-        if (found) {
-            string label_str;
-            datastore->GetNameFromIndex(Index_T::E_LABEL, label, label_str);
-            Tool::str2str(label_str, val);
-        }
-        return found;
-    }
-    static bool project_label_vertex(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache) {
-        vid_t v_id(Tool::value_t2int(val));
-
-        val.content.clear();
-
-        label_t label;
-        bool found;
-        if (datastore->VPKeyIsLocal(vpid_t(v_id, 0)) || cache == NULL) {
-            found = datastore->GetLabelForVertex(tid, v_id, label);
-        } else {
-            found = true;
-            if (!cache->get_label_from_cache(v_id.value(), label)) {
-                found = datastore->GetLabelForVertex(tid, v_id, label);
-                if (found) {
-                    cache->insert_label(v_id.value(), label);
-                }
-            }
-        }
-
-        if (found) {
-            string label_str;
-            datastore->GetNameFromIndex(Index_T::V_LABEL, label, label_str);
-            Tool::str2str(label_str, val);
-        }
-        return found;
-    }
-
-    static bool project_none(int tid, value_t & val, int key, DataStore * datastore, ActorCache* cache) {
-        return true;
-    }
-
  private:
     // concurrent_hash_map, storing data for barrier processing
     BarrierDataTable data_table_;
@@ -296,12 +190,11 @@ struct end_data : barrier_data_base{
 class EndActor : public BarrierActorBase<BarrierData::end_data> {
  public:
     EndActor(int id,
-            DataStore* data_store,
             int num_nodes,
             ResultCollector * rc,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::end_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::end_data>(id, core_affinity),
         num_nodes_(num_nodes),
         rc_(rc),
         mailbox_(mailbox) {}
@@ -360,12 +253,11 @@ struct agg_data : barrier_data_base {
 class AggregateActor : public BarrierActorBase<BarrierData::agg_data> {
  public:
     AggregateActor(int id,
-            DataStore* data_store,
             int num_nodes,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::agg_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::agg_data>(id, core_affinity),
         num_nodes_(num_nodes),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
@@ -405,7 +297,7 @@ class AggregateActor : public BarrierActorBase<BarrierData::agg_data> {
             int key = Tool::value_t2int(actor.params[0]);
 
             // insert to current node's storage
-            data_store_->InsertAggData(agg_t(msg.meta.qid, key), agg_data);
+            data_storage_->InsertAggData(agg_t(msg.meta.qid, key), agg_data);
 
             vector<Message> v;
             // send aggregated data to other nodes
@@ -415,7 +307,7 @@ class AggregateActor : public BarrierActorBase<BarrierData::agg_data> {
                 msg.data = move(msg_data);
             } else {
                 // send input data and history to next actor
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
             }
 
             for (auto& m : v) {
@@ -428,11 +320,10 @@ class AggregateActor : public BarrierActorBase<BarrierData::agg_data> {
 class CapActor : public BarrierActorBase<> {
  public:
     CapActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<>(id, data_store, core_affinity),
+        BarrierActorBase<>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -462,7 +353,7 @@ class CapActor : public BarrierActorBase<> {
                 int se_key = Tool::value_t2int(actor.params.at(i));
                 string se_string = Tool::value_t2string(actor.params.at(i+1));
                 vector<value_t> vec;
-                data_store_->GetAggData(agg_t(msg.meta.qid, se_key), vec);
+                data_storage_->GetAggData(agg_t(msg.meta.qid, se_key), vec);
 
                 string temp = se_string + ":[";
                 for (auto& val : vec) {
@@ -492,7 +383,7 @@ class CapActor : public BarrierActorBase<> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -514,11 +405,10 @@ struct count_data : barrier_data_base {
 class CountActor : public BarrierActorBase<BarrierData::count_data> {
  public:
     CountActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::count_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::count_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -563,7 +453,7 @@ class CountActor : public BarrierActorBase<BarrierData::count_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -585,11 +475,10 @@ struct dedup_data : barrier_data_base {
 class DedupActor : public BarrierActorBase<BarrierData::dedup_data> {
  public:
     DedupActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::dedup_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::dedup_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -679,7 +568,7 @@ class DedupActor : public BarrierActorBase<BarrierData::dedup_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -701,11 +590,10 @@ struct group_data : barrier_data_base {
 class GroupActor : public BarrierActorBase<BarrierData::group_data> {
  public:
     GroupActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::group_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::group_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {
         config_ = Config::GetInstance();
@@ -804,7 +692,7 @@ class GroupActor : public BarrierActorBase<BarrierData::group_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -832,11 +720,10 @@ struct order_data : barrier_data_base {
 class OrderActor : public BarrierActorBase<BarrierData::order_data> {
  public:
     OrderActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::order_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::order_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {
         config_ = Config::GetInstance();
@@ -932,7 +819,7 @@ class OrderActor : public BarrierActorBase<BarrierData::order_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -954,11 +841,10 @@ struct range_data : barrier_data_base{
 class RangeActor : public BarrierActorBase<BarrierData::range_data> {
  public:
     RangeActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::range_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::range_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -1045,7 +931,7 @@ class RangeActor : public BarrierActorBase<BarrierData::range_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -1057,11 +943,10 @@ class RangeActor : public BarrierActorBase<BarrierData::range_data> {
 class CoinActor : public BarrierActorBase<BarrierData::range_data> {
  public:
     CoinActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::range_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::range_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -1147,7 +1032,7 @@ class CoinActor : public BarrierActorBase<BarrierData::range_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }
@@ -1173,11 +1058,10 @@ struct math_data : barrier_data_base {
 class MathActor : public BarrierActorBase<BarrierData::math_data> {
  public:
     MathActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity) :
-        BarrierActorBase<BarrierData::math_data>(id, data_store, core_affinity),
+        BarrierActorBase<BarrierData::math_data>(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -1242,7 +1126,7 @@ class MathActor : public BarrierActorBase<BarrierData::math_data> {
                 msg.data = move(msg_data);
             } else {
                 vector<Message> v;
-                msg.CreateNextMsg(actors, msg_data, num_thread_, data_store_, core_affinity_, v);
+                msg.CreateNextMsg(actors, msg_data, num_thread_, core_affinity_, v);
                 for (auto& m : v) {
                     mailbox_->Send(tid, m);
                 }

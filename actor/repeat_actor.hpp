@@ -13,11 +13,10 @@ Authors: Created by Chenghuan Huan (chhuang@cse.cuhk.edu.hk)
 class RepeatActor : public AbstractActor {
  public:
     RepeatActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox* mailbox,
             CoreAffinity* core_affinity) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox) {}
 
@@ -29,7 +28,7 @@ class RepeatActor : public AbstractActor {
             get_steps(qplan.actors[msg.meta.step], step_vec);
 
             vector<Message> msg_vec;
-            msg.CreateBranchedMsg(qplan.actors, step_vec, num_thread_, data_store_, core_affinity_, msg_vec);
+            msg.CreateBranchedMsg(qplan.actors, step_vec, num_thread_, core_affinity_, msg_vec);
 
             for (auto& m : msg_vec) {
                 mailbox_->Send(tid, m);

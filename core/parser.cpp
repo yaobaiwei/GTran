@@ -7,8 +7,8 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #include "core/parser.hpp"
 
-void Parser::LoadMapping(DataStore* data_store) {
-    indexes = &(data_store->indexes);
+void Parser::LoadMapping(DataStorage* data_storage) {
+    indexes = data_storage->indexes_;
 
     // these *_str will be used when given error key in a query (return to the client as error message)
     for (auto vpk_pair : indexes->str2vpk) {

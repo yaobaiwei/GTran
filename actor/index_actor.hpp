@@ -20,23 +20,22 @@ Authors: Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/predicate.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
 class IndexActor : public AbstractActor {
  public:
     IndexActor(int id,
-            DataStore * data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity,
             IndexStore * index_store) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
         index_store_(index_store),
         type_(ACTOR_T::HAS) {}
 
+    // TODO(nick): Need to support dynamic index
     void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 
@@ -52,10 +51,10 @@ class IndexActor : public AbstractActor {
         bool enabled = false;
         switch (inType) {
           case Element_T::VERTEX:
-            enabled = BuildIndexVtx(tid, pid);
+            enabled = BuildIndexVtx(qplan, pid);
             break;
           case Element_T::EDGE:
-            enabled = BuildIndexEdge(tid, pid);
+            enabled = BuildIndexEdge(qplan, pid);
             break;
           default:
             cout << "Wrong inType" << endl;
@@ -69,7 +68,7 @@ class IndexActor : public AbstractActor {
         msg.data.emplace_back(history_t(), vector<value_t>{v});
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -92,28 +91,32 @@ class IndexActor : public AbstractActor {
     map<int, bool> vtx_enabled_map;
     map<int, bool> edge_enabled_map;
 
-    bool BuildIndexVtx(int tid, int pid) {
+    bool BuildIndexVtx(const QueryPlan & qplan, int pid) {
         if (vtx_enabled_map.find(pid) != vtx_enabled_map.end()) {
             return index_store_->SetIndexMapEnable(Element_T::VERTEX, pid, true);
         }
         vector<vid_t> vid_list;
-        data_store_->GetAllVertices(vid_list);
+        data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
 
         map<value_t, vector<value_t>> index_map;
         vector<value_t> no_key_vec;
 
         for (auto& vid : vid_list) {
-            value_t vtx_v;
-            Tool::str2int(to_string(vid.value()), vtx_v);
-            Vertex* vtx = data_store_->GetVertex(vid);
-
-            if (pid != 0 && find(vtx->vp_list.begin(), vtx->vp_list.end(), pid) == vtx->vp_list.end()) {
-                no_key_vec.push_back(move(vtx_v));
+            value_t vtx;
+            value_t val;
+            Tool::str2int(to_string(vid.value()), vtx);
+            if (pid == 0) {
+                label_t label = data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+                Tool::str2int(to_string(label), val);
+                index_map[val].push_back(move(vtx));
             } else {
                 vpid_t vp_id(vid, pid);
-                value_t val_v;
-                data_store_->GetPropertyForVertex(tid, vp_id, val_v);
-                index_map[val_v].push_back(move(vtx_v));
+                bool found = data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
+                if (!found) {
+                    no_key_vec.push_back(move(vtx));
+                } else {
+                    index_map[val].push_back(move(vtx));
+                }
             }
         }
 
@@ -123,27 +126,33 @@ class IndexActor : public AbstractActor {
         return index_store_->SetIndexMapEnable(Element_T::VERTEX, pid);
     }
 
-    bool BuildIndexEdge(int tid, int pid) {
+    bool BuildIndexEdge(const QueryPlan & qplan, int pid) {
         if (edge_enabled_map.find(pid) != edge_enabled_map.end()) {
             return index_store_->SetIndexMapEnable(Element_T::EDGE, pid, true);
         }
         vector<eid_t> eid_list;
-        data_store_->GetAllEdges(eid_list);
+        data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
 
         map<value_t, vector<value_t>> index_map;
         vector<value_t> no_key_vec;
 
         for (auto& eid : eid_list) {
-            value_t edge_v;
-            Tool::str2uint64_t(to_string(eid.value()), edge_v);
-            Edge* edge = data_store_->GetEdge(eid);
-            if (find(edge->ep_list.begin(), edge->ep_list.end(), pid) == edge->ep_list.end()) {
-                no_key_vec.push_back(move(edge_v));
+            value_t edge;
+            value_t val;
+            Tool::str2uint64_t(to_string(eid.value()), edge);
+
+            if (pid == 0) {
+                label_t label = data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+                Tool::str2int(to_string(label), val);
+                index_map[val].push_back(move(edge));
             } else {
                 epid_t ep_id(eid, pid);
-                value_t val_v;
-                data_store_->GetPropertyForEdge(tid, ep_id, val_v);
-                index_map[val_v].push_back(move(edge_v));
+                bool found = data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
+                if (!found) {
+                    no_key_vec.push_back(move(edge));
+                } else {
+                    index_map[val].push_back(move(edge));
+                }
             }
         }
 

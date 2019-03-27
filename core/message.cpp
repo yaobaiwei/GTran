@@ -95,7 +95,7 @@ obinstream& operator>>(obinstream& m, Message& msg) {
     return m;
 }
 
-void Message::AssignParamsByLocality(vector<QueryPlan>& qplans, DataStore* data_store) {
+void Message::AssignParamsByLocality(vector<QueryPlan>& qplans) {
     // Currently only init actor need to consider data locality
     // [TODO](Nick) : Add more type if necessary. e.g: AddE
     //                If only init actor, remove for loop
@@ -119,10 +119,11 @@ void Message::AssignParamsByLocality(vector<QueryPlan>& qplans, DataStore* data_
             continue;
         }
 
+        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
         map<int, vector<value_t>> nid2data;
         // Redistribute V/E to corresponding machine
         for (int j = data_index; j < params.size(); j ++) {
-            int node = get_node_id(params[j], data_store);
+            int node = get_node_id(params[j], id_mapper);
             nid2data[node].push_back(move(params[j]));
         }
 
@@ -139,7 +140,7 @@ void Message::AssignParamsByLocality(vector<QueryPlan>& qplans, DataStore* data_
     }
 }
 
-void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid, DataStore* data_store,
+void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
                             QueryPlan& qplan, vector<Message>& vec) {
     // assign receiver thread id
     Meta m;
@@ -155,7 +156,7 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
     // Redistribute actor params
     vector<QueryPlan> qplans(nodes_num - 1, qplan);
     qplans.push_back(move(qplan));
-    AssignParamsByLocality(qplans, data_store);
+    AssignParamsByLocality(qplans);
 
     for (int i = 0; i < nodes_num; i++) {
         Message msg;
@@ -180,12 +181,12 @@ void Message::CreateExitMsg(int nodes_num, vector<Message>& vec) {
 }
 
 void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                        int num_thread, DataStore* data_store, CoreAffinity* core_affinity, vector<Message>& vec) {
+                        int num_thread, CoreAffinity* core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
     m.step = actors[this->meta.step].next_actor;
 
     int count = vec.size();
-    dispatch_data(m, actors, data, num_thread, data_store, core_affinity, vec);
+    dispatch_data(m, actors, data, num_thread, core_affinity, vec);
 
     // set disptching path
     string num = to_string(vec.size() - count);
@@ -200,7 +201,7 @@ void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<hist
 }
 
 void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>& steps, int num_thread,
-                            DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec) {
+                            CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
 
     // append steps num into msg path
@@ -256,7 +257,7 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
         auto temp = data;
         // dispatch data to msg vec
         int count = vec.size();
-        dispatch_data(step_meta, actors, temp, num_thread, data_store, core_affinity, vec);
+        dispatch_data(step_meta, actors, temp, num_thread, core_affinity, vec);
 
         // set msg_path for each branch
         for (int j = count; j < vec.size(); j++) {
@@ -266,7 +267,7 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
 }
 
 void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id,
-                            int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec) {
+                            int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
 
     // update branch info
@@ -311,7 +312,7 @@ void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, 
 
         // dispatch data to msg vec
         int count = vec.size();
-        dispatch_data(step_meta, actors, temp, num_thread, data_store, core_affinity, vec);
+        dispatch_data(step_meta, actors, temp, num_thread, core_affinity, vec);
 
         // set msg_path for each branch
         for (int j = count; j < vec.size(); j++) {
@@ -343,7 +344,7 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 }
 
 void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                        int num_thread, DataStore* data_store, CoreAffinity * core_affinity, vector<Message>& vec) {
+                        int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta cm = m;
     bool route_assigned = update_route(m, actors);
     bool empty_to_barrier = update_collection_route(cm, actors);
@@ -356,6 +357,7 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
 
     // enable route mapping
     if (!route_assigned && actors[this->meta.step].send_remote) {
+        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
         for (auto& p : data) {
             map<int, vector<value_t>> id2value_t;
             if (p.second.size() == 0) {
@@ -366,7 +368,7 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
 
             // get node id
             for (auto& v : p.second) {
-                int node = get_node_id(v, data_store);
+                int node = get_node_id(v, id_mapper);
                 id2value_t[node].push_back(move(v));
             }
 
@@ -502,15 +504,15 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
     return to_barrier;
 }
 
-int Message::get_node_id(const value_t & v, DataStore* data_store) {
+int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper) {
     int type = v.type;
     if (type == 1) {
         vid_t v_id(Tool::value_t2int(v));
-        return data_store->GetMachineIdForVertex(v_id);
+        return id_mapper->GetMachineIdForVertex(v_id);
     } else if (type == 5) {
         eid_t e_id;
         uint2eid_t(Tool::value_t2uint64_t(v), e_id);
-        return data_store->GetMachineIdForEdge(e_id);
+        return id_mapper->GetMachineIdForEdge(e_id);
     } else {
         cout << "Wrong Type when getting node id" << type << endl;
         return -1;

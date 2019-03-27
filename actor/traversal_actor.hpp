@@ -18,7 +18,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "storage/layout.hpp"
-#include "storage/data_store.hpp"
 #include "utils/tool.hpp"
 
 // IN-OUT-BOTH
@@ -28,11 +27,10 @@ using namespace std::placeholders;
 class TraversalActor : public AbstractActor {
  public:
     TraversalActor(int id,
-            DataStore* data_store,
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity * core_affinity) :
-        AbstractActor(id, data_store, core_affinity),
+        AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
         type_(ACTOR_T::TRAVERSAL) {
@@ -88,7 +86,7 @@ class TraversalActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, data_store_, core_affinity_, msg_vec);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -108,12 +106,12 @@ class TraversalActor : public AbstractActor {
             for (auto & val : check_set) {
                 // pid = 0 -> label which means there must be an edge was operated
                 if (get<1>(val) == 0 && get<2>(val) == inType) {
-                    local_check_set.emplace_back(get<0>(val)); 
+                    local_check_set.emplace_back(get<0>(val));
                 }
             }
 
             if (local_check_set.size() != 0) {
-                if(!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
+                if (!v_obj.Validate(TrxID, actor_obj->index, local_check_set)) {
                     return false;
                 }
             }
