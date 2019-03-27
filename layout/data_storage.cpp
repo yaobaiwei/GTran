@@ -245,6 +245,25 @@ void DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const ui
         edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 }
 
+void DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
+                                  const uint64_t& trx_id, const uint64_t& begin_time,
+                                  const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+    VertexConstAccessor v_accessor;
+    vertex_map_.find(v_accessor, vid.value());
+
+    v_accessor->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+}
+
+void DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
+                                  const uint64_t& trx_id, const uint64_t& begin_time,
+                                  const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+    EdgeConstAccessor e_accessor;
+    auto edge_item = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only);
+
+    if (edge_item.Exist())
+        edge_item.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+}
+
 void DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                          const uint64_t& trx_id, const uint64_t& begin_time,
                                          const bool& read_only, vector<vid_t>& ret) {
@@ -424,13 +443,20 @@ void DataStorage::PrintLoadedData() {
             //     tmp_vtx.vp_value_list.push_back(val);
             // }
 
-            vector<vpid_t> vpids;
-            GetVPidList(vtx.id, 0x8000000000000001, 1, true, vpids);
-            for (int i = 0; i < vpids.size(); i++) {
-                tmp_vtx.vp_label_list.push_back(vpids[i].pid);
-                value_t val;
-                GetVPByPKey(vpids[i], 0x8000000000000001, 1, true, val);
-                tmp_vtx.vp_value_list.push_back(val);
+            // vector<vpid_t> vpids;
+            // GetVPidList(vtx.id, 0x8000000000000001, 1, true, vpids);
+            // for (int i = 0; i < vpids.size(); i++) {
+            //     tmp_vtx.vp_label_list.push_back(vpids[i].pid);
+            //     value_t val;
+            //     GetVPByPKey(vpids[i], 0x8000000000000001, 1, true, val);
+            //     tmp_vtx.vp_value_list.push_back(val);
+            // }
+
+            vector<pair<label_t, value_t>> properties;
+            GetVPByPKeyList(vtx.id, vtx.vp_label_list, 0x8000000000000001, 1, true, properties);
+            for (auto p : properties) {
+                tmp_vtx.vp_label_list.push_back(p.first);
+                tmp_vtx.vp_value_list.push_back(p.second);
             }
 
             // vector<vid_t> in_nbs;
@@ -506,13 +532,20 @@ void DataStorage::PrintLoadedData() {
             //     tmp_edge.ep_value_list.push_back(val);
             // }
 
-            vector<epid_t> epids;
-            GetEPidList(edge.id, 0x8000000000000001, 1, true, epids);
-            for (int i = 0; i < edge.ep_label_list.size(); i++) {
-                tmp_edge.ep_label_list.push_back(epids[i].pid);
-                value_t val;
-                GetEPByPKey(epids[i], 0x8000000000000001, 1, true, val);
-                tmp_edge.ep_value_list.push_back(val);
+            // vector<epid_t> epids;
+            // GetEPidList(edge.id, 0x8000000000000001, 1, true, epids);
+            // for (int i = 0; i < edge.ep_label_list.size(); i++) {
+            //     tmp_edge.ep_label_list.push_back(epids[i].pid);
+            //     value_t val;
+            //     GetEPByPKey(epids[i], 0x8000000000000001, 1, true, val);
+            //     tmp_edge.ep_value_list.push_back(val);
+            // }
+
+            vector<pair<label_t, value_t>> properties;
+            GetEPByPKeyList(edge.id, edge.ep_label_list, 0x8000000000000001, 1, true, properties);
+            for (auto p : properties) {
+                tmp_edge.ep_label_list.push_back(p.first);
+                tmp_edge.ep_value_list.push_back(p.second);
             }
 
             printf(("   original: " + edge.DebugString() + "\n").c_str());

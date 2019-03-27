@@ -141,10 +141,12 @@ class DataStorage {
                   const bool& read_only, vector<pair<label_t, value_t>>& ret);
     void GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                   const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key, const uint64_t& trx_id, const uint64_t& begin_time,
-                         const bool& read_only, vector<pair<label_t, value_t>>& ret) {}
-    void GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key, const uint64_t& trx_id, const uint64_t& begin_time,
-                         const bool& read_only, vector<pair<label_t, value_t>>& ret) {}
+    void GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
+                         const uint64_t& trx_id, const uint64_t& begin_time,
+                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    void GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
+                         const uint64_t& trx_id, const uint64_t& begin_time,
+                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
     void GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, vector<vpid_t>& ret);
     void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
