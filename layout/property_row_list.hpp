@@ -35,6 +35,9 @@ class PropertyRowList {
 
     bool ReadProperty(const PidType& pid, const uint64_t& trx_id,
                       const uint64_t& begin_time, const bool& read_only, value_t& ret);
+    void ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
+                                const uint64_t& begin_time, const bool& read_only,
+                                vector<pair<label_t, value_t>>& ret);
     void ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
                          const bool& read_only, vector<pair<label_t, value_t>>& ret);
     void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
