@@ -51,7 +51,6 @@ add_subdirectory(actor)
 add_subdirectory(base)
 add_subdirectory(core)
 add_subdirectory(layout)
-add_subdirectory(storage)
 add_subdirectory(utils)
 add_subdirectory(third_party)
 

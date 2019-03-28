@@ -15,7 +15,6 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "actor/actor_validation_object.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
-#include "storage/layout.hpp"
 #include "utils/tool.hpp"
 
 class ProjectActor : public AbstractActor {

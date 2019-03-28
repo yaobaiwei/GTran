@@ -15,7 +15,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
-#include "storage/layout.hpp"
 #include "utils/tool.hpp"
 #include "utils/timer.hpp"
 

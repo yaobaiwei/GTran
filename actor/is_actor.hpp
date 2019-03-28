@@ -15,7 +15,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
-#include "storage/layout.hpp"
 #include "utils/tool.hpp"
 
 class IsActor : public AbstractActor {

@@ -15,7 +15,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <utility>
 
 #include "actor/abstract_actor.hpp"
-#include "actor/actor_cache.hpp"
 #include "actor/actor_validation_object.hpp"
 #include "core/result_collector.hpp"
 #include "utils/tool.hpp"

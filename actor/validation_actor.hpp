@@ -25,7 +25,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "core/index_store.hpp"
 #include "layout/pmt_rct_table.hpp"
-#include "storage/layout.hpp"
 #include "utils/tool.hpp"
 #include "utils/mymath.hpp"
 

@@ -8,7 +8,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <cstdio>
 
 #include "layout/mvcc_value_store.hpp"
-#include "storage/layout.hpp"
+#include "layout/layout_type.hpp"
 
 struct AbstractMVCC {
  private:
