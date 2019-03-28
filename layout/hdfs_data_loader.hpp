@@ -14,7 +14,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/layout_type.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
 #include "layout/snapshot_function_implementation.hpp"
-#include "storage/layout.hpp"
 #include "utils/config.hpp"
 #include "utils/hdfs_core.hpp"
 #include "utils/timer.hpp"

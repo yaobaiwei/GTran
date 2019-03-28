@@ -9,7 +9,6 @@ file(GLOB base-src-files
     communication.cpp
     client_connection.cpp
     predicate.cpp
-    tcp_helper.cpp
     )
 
 add_library(base-objs OBJECT ${base-src-files})

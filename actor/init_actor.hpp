@@ -21,13 +21,8 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
-#include "storage/layout.hpp"
 #include "utils/tool.hpp"
 #include "utils/timer.hpp"
-
-
-#include "storage/mpi_snapshot.hpp"
-#include "storage/snapshot_func.hpp"
 
 class InitActor : public AbstractActor {
  public:
@@ -45,32 +40,6 @@ class InitActor : public AbstractActor {
         type_(ACTOR_T::INIT),
         is_ready_(false) {
         config_ = Config::GetInstance();
-
-        // read snapshot here
-        // write snapshot @ InitData
-
-        MPISnapshot* snapshot = MPISnapshot::GetInstance();
-
-        int snapshot_read_cnt = 0;
-
-        snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_vtx_msg", vtx_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
-        snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_edge_msg", edge_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
-        snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_vtx_count_msg", vtx_count_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
-        snapshot_read_cnt +=
-            ((snapshot->ReadData("init_actor_edge_count_msg", edge_count_msgs, ReadMailboxMsgImpl)) ? 1 : 0);
-
-        if (snapshot_read_cnt == 4) {
-            is_ready_ = true;
-        } else {
-            // atomic, all fail
-            vtx_msgs.resize(0);
-            edge_msgs.resize(0);
-            vtx_count_msgs.resize(0);
-            edge_count_msgs.resize(0);
-        }
     }
 
     virtual ~InitActor() {}
@@ -123,8 +92,6 @@ class InitActor : public AbstractActor {
         if (is_ready_) {
             return;
         }
-        MPISnapshot* snapshot = MPISnapshot::GetInstance();
-
         // convert id to msg
         Meta m;
         m.step = 1;
@@ -133,15 +100,11 @@ class InitActor : public AbstractActor {
         uint64_t start_t = timer::get_usec();
 
         InitVtxData(m);
-        snapshot->WriteData("init_actor_vtx_msg", vtx_msgs, WriteMailboxMsgImpl);
-        snapshot->WriteData("init_actor_vtx_count_msg", vtx_count_msgs, WriteMailboxMsgImpl);
         uint64_t end_t = timer::get_usec();
         cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
 
         start_t = timer::get_usec();
         InitEdgeData(m);
-        snapshot->WriteData("init_actor_edge_msg", edge_msgs, WriteMailboxMsgImpl);
-        snapshot->WriteData("init_actor_edge_count_msg", edge_count_msgs, WriteMailboxMsgImpl);
         end_t = timer::get_usec();
         cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
     }

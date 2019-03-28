@@ -17,7 +17,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "core/result_collector.hpp"
 #include "base/node.hpp"
 #include "base/type.hpp"
-#include "storage/layout.hpp"
 #include "utils/tool.hpp"
 
 // IN-OUT-BOTH

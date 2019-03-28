@@ -33,7 +33,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/progress_monitor.hpp"
 #include "core/parser.hpp"
 #include "core/result_collector.hpp"
-#include "storage/mpi_snapshot.hpp"
 
 #include "layout/pmt_rct_table.hpp"
 #include "layout/data_storage.hpp"
@@ -402,96 +401,73 @@ class Worker {
     }
 
     void Start() {
-        // initial MPIUniqueNamer
-        MPIUniqueNamer* p = MPIUniqueNamer::GetInstance(my_node_.local_comm);
-        p->AppendHash(config_->HDFS_INDEX_PATH +
-                      config_->HDFS_VTX_SUBFOLDER +
-                      config_->HDFS_VP_SUBFOLDER +
-                      config_->HDFS_EP_SUBFOLDER +
-                      to_string(config_->key_value_ratio_in_rdma) +
-                      to_string(config_->global_vertex_property_kv_sz_gb) +
-                      to_string(config_->global_edge_property_kv_sz_gb) +
-                      " Using SimpleIdMapper");
-        // Since new IdMapper is used, recent snapshot will become invalid.
-
-        // initial MPISnapshot
-        MPISnapshot* snapshot = MPISnapshot::GetInstance(config_->SNAPSHOT_PATH);
-
-        // you can use this if you want to overwrite snapshot
-        // snapshot->DisableRead();
-        // you can use this if you are testing on a tiny dataset to avoid write snapshot
-        // snapshot->DisableWrite();
-
-        // ===================prepare stage=================
-        // SimpleIdMapper * id_mapper = new SimpleIdMapper(my_node_);
+        // =================IdMapper========================
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
 
-        // init core affinity
+        // =================CoreAffinity====================
         CoreAffinity * core_affinity = new CoreAffinity();
         core_affinity->Init();
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init Core Affinity" << endl;
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init Core Affinity" << endl;
 
-        // init PrimitiveRCTTable
+        // =================PrimitiveRCTTable===============
         PrimitiveRCTTable * pmt_rct_table_ = new PrimitiveRCTTable();
         pmt_rct_table_->Init();
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Init PrimitiveRCTTable" << endl;
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init PrimitiveRCTTable" << endl;
 
-        // set the in-memory layout for RDMA buf
+        // =================RDMABuffer======================
         Buffer* buf = Buffer::GetInstance(&my_node_);
-        cout << "Worker" << my_node_.get_local_rank()
-                << ": DONE -> Register RDMA MEM, SIZE = "
+        cout << "[Worker" << my_node_.get_local_rank()
+                << "]: DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
 
-        // test new layout
+        // =================DataStorage=====================
         data_storage_ = DataStorage::GetInstance();
         data_storage_->Init();
-        // return;  //TODO(entityless): remove this after finishing DataStorage
 
+        // =================MailBox=========================
         AbstractMailbox * mailbox;
-
         if (config_->global_use_rdma) {
             mailbox = new RdmaMailbox(my_node_, master_, buf);
         } else {
             mailbox = new TCPMailbox(my_node_, master_);
         }
         mailbox->Init(workers_);
+        cout << "[Worker" << my_node_.get_local_rank()
+             << "]: DONE -> Mailbox->Init()" << endl;
 
-        cout << "Worker" << my_node_.get_local_rank()
-             << ": DONE -> Mailbox->Init()" << endl;
-
+        // =================TransactionTableStub============
         if (config_->global_use_rdma) {
             trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox);
         } else {
             trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox);
         }
         trx_table_stub_->Init();
+        cout << "[Worker" << my_node_.get_local_rank()
+             << "]: DONE -> TrxTableStub->Init()" << endl;
 
-        cout << "Worker" << my_node_.get_local_rank()
-             << ": DONE -> TrxTableStub->Init()" << endl;
-
+        // =================ParserLoadMapping===============
         parser_->LoadMapping(data_storage_);
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> Parser_->LoadMapping()" << endl;
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Parser_->LoadMapping()" << endl;
 
+        // =================Monitor=========================
+        monitor_ = new Monitor(my_node_);
+        monitor_->Start();
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> monitor_->Start()" << endl;
+
+        // =================Recv&SendThread=================
         thread recvreq(&Worker::RecvRequest, this);
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
 
-        monitor_ = new Monitor(my_node_);
-        monitor_->Start();
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> monitor_->Start()" << endl;
-
+        worker_barrier(my_node_);
+        cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
         worker_barrier(my_node_);
 
-        cout << "Worker my_node_" << my_node_.get_local_rank() << ": " << my_node_.DebugString();
-
-        worker_barrier(my_node_);
-
-        // actor driver starts
+        // =================ActorAdapter====================
         ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity, index_store_, pmt_rct_table_);
         actor_adapter->Start();
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 
-        cout << "Worker" << my_node_.get_local_rank() << ": DONE -> actor_adapter->Start()" << endl;
         worker_barrier(my_node_);
-
         fflush(stdout);
         worker_barrier(my_node_);
 
