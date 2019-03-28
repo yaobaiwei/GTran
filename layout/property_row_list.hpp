@@ -54,6 +54,8 @@ class PropertyRowList {
     static void SetGlobalValueStore(MVCCValueStore* value_storage_ptr) {
         value_storage_ = value_storage_ptr;
     }
+
+    void SelfGarbageCollect();
 };
 
 #include "property_row_list.tpp"

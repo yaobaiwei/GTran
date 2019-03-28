@@ -934,6 +934,7 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
             mvcc_list->CommitVersion(trx_id, commit_time);
         }
     }
+
     transaction_process_map_.erase(t_accessor);
 }
 
@@ -967,7 +968,8 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             MVCCList<EdgeMVCC>* mvcc_list = process_item.mvcc_list;
             auto e_item_to_free = mvcc_list->AbortVersion(trx_id);
             if (e_item_to_free.ep_row_list != nullptr) {
-                // TODO(entityless): Implement how to free PropertyRowList
+                e_item_to_free.ep_row_list->SelfGarbageCollect();
+                delete e_item_to_free.ep_row_list;
             }
         }
     }

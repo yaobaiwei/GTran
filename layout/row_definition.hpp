@@ -20,7 +20,7 @@ struct VPHeader {
     typedef VPropertyMVCC MVCCType;
 };
 
-#define VP_ROW_ITEM_COUNT std::InferElementCount<VPHeader>(256, sizeof(void*))
+#define VP_ROW_ITEM_COUNT InferElementCount<VPHeader>(256, sizeof(void*))
 
 
 struct EPHeader {
@@ -29,7 +29,7 @@ struct EPHeader {
     typedef EPropertyMVCC MVCCType;
 };
 
-#define EP_ROW_ITEM_COUNT std::InferElementCount<EPHeader>(256, sizeof(void*))
+#define EP_ROW_ITEM_COUNT InferElementCount<EPHeader>(256, sizeof(void*))
 
 
 struct EdgeHeader {
@@ -39,7 +39,7 @@ struct EdgeHeader {
     MVCCList<EdgeMVCC>* mvcc_list;
 };
 
-#define VE_ROW_ITEM_COUNT std::InferElementCount<EdgeHeader>(256, sizeof(void*))
+#define VE_ROW_ITEM_COUNT InferElementCount<EdgeHeader>(256, sizeof(void*))
 
 
 // always fetch rows from memory pools

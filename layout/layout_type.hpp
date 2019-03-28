@@ -11,27 +11,26 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "utils/tool.hpp"
 
-namespace std {
 // tmp datatype for HDFSDataLoader
 struct TMPVertex {
     vid_t id;
     label_t label;
-    vector<vid_t> in_nbs;  // this_vtx <- in_nbs
-    vector<vid_t> out_nbs;  // this_vtx -> out_nbs
-    vector<label_t> vp_label_list;
-    vector<value_t> vp_value_list;
+    std::vector<vid_t> in_nbs;  // this_vtx <- in_nbs
+    std::vector<vid_t> out_nbs;  // this_vtx -> out_nbs
+    std::vector<label_t> vp_label_list;
+    std::vector<value_t> vp_value_list;
 
-    string DebugString() const;
+    std::string DebugString() const;
 };
 
 // tmp datatype for HDFSDataLoader
 struct TMPEdge {
     eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
     label_t label;
-    vector<label_t> ep_label_list;
-    vector<value_t> ep_value_list;
+    std::vector<label_t> ep_label_list;
+    std::vector<value_t> ep_value_list;
 
-    string DebugString() const;
+    std::string DebugString() const;
 };
 
 ibinstream& operator<<(ibinstream& m, const TMPVertex& v);
@@ -47,8 +46,8 @@ constexpr int InferElementCount(int preferred_size, int taken_size) {
 
 // For dependency read, whether commit depends on others' status
 struct depend_trx_lists {
-    vector<uint64_t> homo_trx_list;  // commit -> commit
-    vector<uint64_t> hetero_trx_list;  // abort -> commit
+    std::vector<uint64_t> homo_trx_list;  // commit -> commit
+    std::vector<uint64_t> hetero_trx_list;  // abort -> commit
 };
 
 extern tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
@@ -119,4 +118,30 @@ ibinstream& operator<<(ibinstream& m, const EProperty& ep);
 
 obinstream& operator>>(obinstream& m, EProperty& ep);
 
-}    // namespace std
+struct EdgePropertyRow;
+struct VertexPropertyRow;
+template <class T>
+class PropertyRowList;
+class TopologyRowList;
+struct VertexMVCC;
+template <class MVCC>
+class MVCCList;
+
+struct VertexItem {
+    label_t label;
+    TopologyRowList* ve_row_list;
+    PropertyRowList<VertexPropertyRow>* vp_row_list;
+    MVCCList<VertexMVCC>* mvcc_list;
+};
+
+struct EdgeItem {
+    label_t label;  // if 0, then the edge is deleted
+    // for in_e or deleted edge, this is always nullptr
+    PropertyRowList<EdgePropertyRow>* ep_row_list;
+
+    bool Exist() const {return label != 0;}
+    EdgeItem() {}
+
+    constexpr EdgeItem(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
+    label(_label), ep_row_list(_ep_row_list) {}
+};

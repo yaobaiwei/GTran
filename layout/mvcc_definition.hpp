@@ -60,7 +60,7 @@ struct PropertyMVCC : public AbstractMVCC {
 
 struct VPropertyMVCC : public PropertyMVCC {
  public:
-    void InTransactionGC() {value_store->FreeValue(val);}
+    void InTransactionGC();
     static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
  private:
     static MVCCValueStore* value_store;
@@ -68,7 +68,7 @@ struct VPropertyMVCC : public PropertyMVCC {
 
 struct EPropertyMVCC : public PropertyMVCC {
  public:
-    void InTransactionGC() {value_store->FreeValue(val);}
+    void InTransactionGC();
     static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
  private:
     static MVCCValueStore* value_store;
@@ -83,36 +83,9 @@ struct VertexMVCC : public AbstractMVCC {
     static constexpr bool EMPTY_VALUE = false;
 
     bool NeedGC() const {return false;}
-    void InTransactionGC() {}
+    void InTransactionGC();
 
     template<class MVCC> friend class MVCCList;
-};
-
-struct EdgePropertyRow;
-struct VertexPropertyRow;
-template <class T>
-class PropertyRowList;
-class TopologyRowList;
-template <class MVCC>
-class MVCCList;
-
-struct VertexItem {
-    label_t label;
-    TopologyRowList* ve_row_list;
-    PropertyRowList<VertexPropertyRow>* vp_row_list;
-    MVCCList<VertexMVCC>* mvcc_list;
-};
-
-struct EdgeItem {
-    label_t label;  // if 0, then the edge is deleted
-    // for in_e or deleted edge, this is always nullptr
-    PropertyRowList<EdgePropertyRow>* ep_row_list;
-
-    bool Exist() const {return label != 0;}
-    EdgeItem() {}
-
-    constexpr EdgeItem(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
-    label(_label), ep_row_list(_ep_row_list) {}
 };
 
 struct EdgeMVCC : public AbstractMVCC {
@@ -124,7 +97,16 @@ struct EdgeMVCC : public AbstractMVCC {
     static constexpr EdgeItem EMPTY_VALUE = EdgeItem(0, nullptr);
 
     bool NeedGC() const {return val.ep_row_list != nullptr;}
-    void InTransactionGC() {}  // TODO(entityless): Implement this
+    void InTransactionGC();
 
     template<class MVCC> friend class MVCCList;
 };
+/** For each type of MVCC:
+ *   Member:
+ *      ValueType val: the specific version value
+ *      ValueType EMPTY_VALUE: constexpr, an empty ValueType
+ *   Interfaces (all public):
+ *      ValueType GetValue(): get val
+ *      bool NeedGC(): identify if recycling this MVCC needs to invokes GC for val
+ *      void InTransactionGC(): called when the version is overwritten in the same transaction, and NeedGC()
+ */

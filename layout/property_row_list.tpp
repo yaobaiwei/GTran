@@ -212,3 +212,37 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
 
     return cell->mvcc_list;
 }
+
+template <class PropertyRow>
+void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
+    // free all cells
+    PropertyRow* current_row = head_;
+    int row_count = property_count_ / PropertyRow::RowItemCount();
+    if (row_count * PropertyRow::RowItemCount() != property_count_)
+        row_count++;
+    if (row_count == 0)
+        row_count = 1;
+
+    PropertyRow** row_ptrs = new PropertyRow*[row_count];
+    row_ptrs[0] = head_;
+    int row_ptr_count = 1;
+
+    for (int i = 0; i < property_count_; i++) {
+        int cell_id_in_row = i % PropertyRow::RowItemCount();
+        if (i > 0 && cell_id_in_row == 0) {
+            current_row = current_row->next_;
+            row_ptrs[row_ptr_count++] = current_row;
+        }
+
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
+
+        cell_ref.mvcc_list->SelfGarbageCollect();
+        delete cell_ref.mvcc_list;
+    }
+
+    for (int i = row_count - 1; i >= 0; i--) {
+        mem_pool_->Free(row_ptrs[i]);
+    }
+
+    delete[] row_ptrs;
+}

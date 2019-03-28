@@ -5,6 +5,7 @@ file(GLOB layout-src-files
     hdfs_data_loader.cpp
     layout_type.cpp
     mpi_snapshot_manager.cpp
+    mvcc_definition.cpp
     mvcc_value_store.cpp
     pmt_rct_table.cpp
     topology_row_list.cpp
