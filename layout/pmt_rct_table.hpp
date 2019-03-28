@@ -25,7 +25,6 @@ class PrimitiveRCTTable {
         for (int p = 0; p < static_cast<int>(Primitive_T::COUNT); p++) {
             rct_map.emplace((Primitive_T) p, rct_type());
         }
-        cout << "RCTTable size : " << rct_map.size() << endl;
     }
 
     // Validation : Get RCT data

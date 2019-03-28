@@ -56,6 +56,8 @@ class TraversalActor : public AbstractActor {
         Element_T outType = (Element_T) Tool::value_t2int(actor_obj.params.at(1));
         Direction_T dir = (Direction_T) Tool::value_t2int(actor_obj.params.at(2));
         int lid = Tool::value_t2int(actor_obj.params.at(3));
+        // Parser treat -1 as empty input, while DataStorage is 0 since it use label_t (uint16_t)
+        lid = (lid == -1) ? 0 : lid;
 
         // Record Input Set
         for (auto & data_pair : msg.data) {
