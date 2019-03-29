@@ -120,6 +120,8 @@ class TraversalActor : public AbstractActor {
         return true;
     }
 
+    void clean_input_set(uint64_t TrxID) { v_obj.DeleteInputSet(TrxID); }
+
  private:
     // Number of Threads
     int num_thread_;

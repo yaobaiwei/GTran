@@ -4,6 +4,7 @@ file(GLOB actor-src-files
     actor_object.cpp
     actor_validation_object.cpp
     validation_actor.cpp
+    commit_actor.cpp
     )
 
 add_library(actor-objs OBJECT ${actor-src-files})

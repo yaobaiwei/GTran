@@ -21,6 +21,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "actor/as_actor.hpp"
 #include "actor/barrier_actor.hpp"
 #include "actor/branch_actor.hpp"
+#include "actor/commit_actor.hpp"
 #include "actor/config_actor.hpp"
 #include "actor/has_actor.hpp"
 #include "actor/has_label_actor.hpp"
@@ -80,6 +81,7 @@ class ActorAdapter {
         actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, num_thread_, mailbox_, core_affinity_, &id_allocator_));
         actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::COMMIT] = unique_ptr<AbstractActor>(new CommitActor(id ++, num_thread_, mailbox_, core_affinity_, &actors_));
         actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, num_thread_, mailbox_, core_affinity_));
