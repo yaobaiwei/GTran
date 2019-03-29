@@ -144,6 +144,8 @@ class ValidationActor : public AbstractActor {
 
     void prepare_primitive_list();
 
+    bool valid_dependency_read(uint64_t trxID, vector<uint64_t> & homo_dep_read, vector<uint64_t> & hetero_dep_read);
+
     void process_trx(int num_queries, int cur_qid, set<vstep_t> & trx_step_sets, step2aobj_map_t_ & step_aobj_map);
 
     void get_recent_action_set(const vector<uint64_t> & trxIDList, unordered_map<int, unordered_map<uint64_t, vector<rct_extract_data_t>>> & rct_map);
@@ -152,7 +154,8 @@ class ValidationActor : public AbstractActor {
     void get_vstep_for_has(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
 
     bool do_step_validation(int cur_trxID, step2TrxRct_map_t_ & check_step_map, vector<uint64_t> & optimistic_validation_trx, step2aobj_map_t_ & step_aobj_map);
-    void optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort);
+    void valid_optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort);
+    void valid_optimistic_read(vector<uint64_t> & homo_dep_read, bool & isAbort);
 
     void insert_step_aobj_map(step2aobj_map_t_ & step_aobj_map, const vstep_t & vstep, Actor_Object * obj);
     // Test for InsertRCT

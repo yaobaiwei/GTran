@@ -395,8 +395,8 @@ enum Index_T { E_LABEL, E_PROPERTY, V_LABEL, V_PROPERTY };
 // Spawn: spawn a new actor
 // Feed: "proxy" feed actor a input
 // Reply: actor returns the intermidiate result to actor
-enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH, EXIT, VALIDATION, COMMIT };
-static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit", "validation", "commit"};
+enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH, EXIT, VALIDATION, COMMIT, ABORT };
+static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit", "validation", "commit", "abort"};
 
 ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 

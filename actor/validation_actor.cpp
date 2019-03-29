@@ -16,6 +16,7 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
 
     // ===================Abstract====================//
     /**
+     * 0. Valid dependency read;
      * 1. Get RCTList from parameters;
      * 2. Process Current Trx to get : a. set of steps; b. step to index map; c. step to parameters map;
      * 3. Get RCT Content with TrxList (step1) in local;
@@ -23,8 +24,29 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
      * 5. Combine pmt2step_map (step4) and RCT Content (step3) into step2content map;
      * 6. Iterate setp2content map to invoke valid() in each actor
      * 7. Complete last validation for optimistic validation
-     * 8. TODO(Aaronchangji) : Complete last validation for optimistic pre-read
+     * 8. Complete last validation for optimistic pre-read
      */
+
+    bool isAbort = false;
+    // ===================Step 0======================//
+    vector<uint64_t> homo_dep_read;
+    vector<uint64_t> hetero_dep_read;
+    data_storage_->GetDepReadTrxList(cur_trxID, homo_dep_read, hetero_dep_read);
+    if (qplan.trx_type == TRX_READONLY) {
+        valid_optimistic_read(homo_dep_read, isAbort);
+        if (isAbort) {
+            // Abort
+            trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
+        }
+        goto end;
+    } else {
+        if (!valid_dependency_read(cur_trxID, homo_dep_read, hetero_dep_read)) {
+            // Abort
+            isAbort = true;
+            trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
+            goto end;
+        }
+    }
 
     // ===================Step 1======================//
     vector<uint64_t> trxIDList;
@@ -65,29 +87,27 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
 
     // ===================Step 6===================//
     vector<uint64_t> optimistic_validation_trx;
-    bool isAbort = do_step_validation(cur_trxID, check_step_map, optimistic_validation_trx, step_aobj_map);
+    isAbort = do_step_validation(cur_trxID, check_step_map, optimistic_validation_trx, step_aobj_map);
 
     // ===================Step 7===================//
     // Optimistic Validation
     if (!isAbort && optimistic_validation_trx.size() != 0) {
-        optimistic_validation(optimistic_validation_trx, isAbort);
+        valid_optimistic_validation(optimistic_validation_trx, isAbort);
     }
 
-    // Update transaction status if committed
-    if (!isAbort) {
-        trx_table_stub_->update_status(cur_trxID, TRX_STAT::COMMITTED);
+    // ===================Step 8===================//
+    if (!isAbort && homo_dep_read.size() != 0) {
+        valid_optimistic_read(homo_dep_read, isAbort);
     }
 
-    // Abort or Commit
-    // TODO(Aaronchangji) : let next actor to complete commit or abort
-
-    // Old code
+end:
     // Create Message
     vector<Message> msg_vec;
     msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
     // Send Message
     for (auto& msg : msg_vec) {
+        msg.meta.msg_type = isAbort ? MSG_T::ABORT : MSG_T::COMMIT;
         mailbox_->Send(tid, msg);
     }
 }
@@ -130,6 +150,39 @@ void ValidationActor::prepare_primitive_list() {
     step_set.emplace(ACTOR_T::TRAVERSAL);
     primitiveStepMap_[static_cast<int>(Primitive_T::IEP)] = step_set;
     primitiveStepMap_[static_cast<int>(Primitive_T::DEP)] = step_set;
+}
+
+// False --> Abort; True --> Continue
+bool ValidationActor::valid_dependency_read(uint64_t trxID, vector<uint64_t> & homo_dep_read, vector<uint64_t> & hetero_dep_read) {
+    vector<uint64_t>::iterator itr = homo_dep_read.begin();
+    for ( ; itr != homo_dep_read.end(); itr++) {
+        // Abort --> Abort
+        TRX_STAT stat;
+        trx_table_stub_->read_status(*itr, stat);
+        if (stat == TRX_STAT::ABORT) {
+            return false;
+        } else if (stat == TRX_STAT::COMMITTED) {
+            itr = homo_dep_read.erase(itr);
+            continue;
+        }
+        itr++;
+    }
+
+    itr = hetero_dep_read.begin();
+    for ( ; itr != hetero_dep_read.end(); itr++) {
+        // Commit --> Abort
+        TRX_STAT stat;
+        trx_table_stub_->read_status(*itr, stat);
+        if (stat == TRX_STAT::COMMITTED) {
+            return false;
+        } else if (stat == TRX_STAT::ABORT) {
+            itr = homo_dep_read.erase(itr);
+            continue;
+        }
+        itr++;
+    }
+
+    return true;
 }
 
 void ValidationActor::process_trx(int num_queries, int cur_qid, set<vstep_t> & trx_step_sets, step2aobj_map_t_& step_aobj_map) {
@@ -252,7 +305,7 @@ bool ValidationActor::do_step_validation(int cur_trxID, step2TrxRct_map_t_ & che
     return false;
 }
 
-void ValidationActor::optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort) {
+void ValidationActor::valid_optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort) {
     int opt_valid_counter = 0;
     while (true) {
         vector<uint64_t>::iterator itr = optimistic_validation_trx.begin();
@@ -265,28 +318,55 @@ void ValidationActor::optimistic_validation(vector<uint64_t> & optimistic_valida
               case TRX_STAT::ABORT:
                 itr = optimistic_validation_trx.erase(itr); break;
               case TRX_STAT::COMMITTED:
-                isAbort = true; break;
+                isAbort = true; return;
               default :
+                isAbort = true;
                 cout << "[Error] Unexpected Transaction Status during Validation" << endl;
                 return;
             }
-
-            if (isAbort) break;
         }
 
-        if (isAbort) {
-            break;
-        } else {
-            if (!optimistic_validation_trx.size() == 0) {
-                // Sleep for a while
-                usleep(OPT_VALID_SLEEP_TIME_);
-            } else { break; }
-        }
+        if (!optimistic_validation_trx.size() == 0) {
+            // Sleep for a while
+            usleep(OPT_VALID_SLEEP_TIME_);
+        } else { return; }
 
         opt_valid_counter++;
         if (opt_valid_counter >= OPT_VALID_TIMEOUT_) {
-            isAbort = true;
-            break;
+            isAbort = true; return;
+        }
+    }
+}
+
+void ValidationActor::valid_optimistic_read(vector<uint64_t> & homo_dep_read, bool & isAbort) {
+    int opt_read_counter = 0;
+    while (true) {
+        vector<uint64_t>::iterator itr = homo_dep_read.begin();
+        while (itr != homo_dep_read.end()) {
+            TRX_STAT cur_stat;
+            trx_table_stub_->read_status(*itr, cur_stat);
+            switch (cur_stat) {
+              case TRX_STAT::VALIDATING:
+                itr++; break;
+              case TRX_STAT::ABORT:
+                isAbort = true; return;
+              case TRX_STAT::COMMITTED:
+                itr = homo_dep_read.erase(itr); break;
+              default :
+                isAbort = true;
+                cout << "[Error] Unexpected Transaction Status during Validation" << endl;
+                return;
+            }
+        }
+
+        if (!homo_dep_read.size() == 0) {
+            // Sleep for a while
+            usleep(OPT_VALID_SLEEP_TIME_);
+        } else { return; }
+
+        opt_read_counter++;
+        if (opt_read_counter >= OPT_VALID_TIMEOUT_) {
+            isAbort = true; return;
         }
     }
 }
