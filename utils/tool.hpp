@@ -175,13 +175,7 @@ class Tool{
 
     static void str2uint64_t(string s, value_t & v) {
         uint64_t u = stoull(s);
-        size_t sz = sizeof(uint64_t);
-        char f[sz];
-        memcpy(f, (const char*)&u, sz);
-
-        for (int k = 0 ; k < sz; k++)
-            v.content.push_back(f[k]);
-        v.type = 5;
+        uint64_t2value_t(u, v);
     }
 
     static void str2str(string s, value_t & v) {
@@ -196,24 +190,12 @@ class Tool{
 
     static void str2double(string s, value_t & v) {
         double d = atof(s.c_str());
-        size_t sz = sizeof(double);
-        char f[sz];
-        memcpy(f, (const char*)&d, sz);
-
-        for (int k = 0 ; k < sz; k++)
-            v.content.push_back(f[k]);
-        v.type = 2;
+        double2value_t(d, v);
     }
 
     static void str2int(string s, value_t & v) {
         int i = atoi(s.c_str());
-        size_t sz = sizeof(int);
-        char f[sz];
-        memcpy(f, (const char*)&i, sz);
-
-        for (int k = 0 ; k < sz; k++)
-            v.content.push_back(f[k]);
-        v.type = 1;
+        int2value_t(i, v);
     }
 
     static bool str2value_t(string s, value_t & v) {
@@ -240,6 +222,26 @@ class Tool{
             return false;
         }
         return true;
+    }
+
+    static void double2value_t(double d, value_t & v) {
+        size_t sz = sizeof(double);
+        char f[sz];
+        memcpy(f, (const char*)&d, sz);
+
+        for (int k = 0 ; k < sz; k++)
+            v.content.push_back(f[k]);
+        v.type = 2;
+    }
+
+    static void int2value_t(int i, value_t & v) {
+        size_t sz = sizeof(int);
+        char f[sz];
+        memcpy(f, (const char*)&i, sz);
+
+        for (int k = 0 ; k < sz; k++)
+            v.content.push_back(f[k]);
+        v.type = 1;
     }
 
     static bool uint64_t2value_t(uint64_t u64, value_t & v) {

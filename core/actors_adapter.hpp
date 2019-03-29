@@ -43,6 +43,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/core_affinity.hpp"
 #include "core/abstract_mailbox.hpp"
+#include "core/factory.hpp"
 #include "core/result_collector.hpp"
 #include "core/index_store.hpp"
 #include "layout/data_storage.hpp"
@@ -108,6 +109,7 @@ class ActorAdapter {
     void Start() {
         Init();
         TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();  // in case of initial in parallel region
+        trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
         for (int i = 0; i < num_thread_; ++i)
             thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
@@ -160,6 +162,17 @@ class ActorAdapter {
             msg.meta.recver_tid = msg.meta.parent_tid;
             mailbox_->Send(tid, msg);
             return;
+        }
+
+        // Check status of transaction itself
+        //  if abort, return directly
+        //  TODO :  Most fine-grained check, need to consider trade-off
+        if (ac->second.trx_type != TRX_READONLY && m.msg_type != MSG_T::COMMIT && m.msg_type != MSG_T::ABORT) {
+            TRX_STAT status;
+            trx_table_stub_->read_status(ac->second.trxid, status);
+            if (status == TRX_STAT::ABORT) {
+                return;
+            }
         }
 
         int current_step;
@@ -226,6 +239,7 @@ class ActorAdapter {
     Node node_;
     // Validation
     PrimitiveRCTTable * pmt_rct_table_;
+    TrxTableStub * trx_table_stub_;
 
     // Actors pool <actor_type, [actors]>
     map<ACTOR_T, unique_ptr<AbstractActor>> actors_;

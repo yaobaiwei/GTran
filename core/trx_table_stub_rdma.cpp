@@ -63,7 +63,7 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
     }
 }
 
-bool RDMATrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
+bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     int t_id = TidMapper::GetInstance()->GetTid();
@@ -87,6 +87,7 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
             if (i < ASSOCIATIVITY_ - 1) {
                 if (trx_status[i].trx_id == trx_id) {
                     ct = trx_status[i].getCT();
+                    status = trx_status[i].getState();
                     return true;
                 }
             }

@@ -42,7 +42,7 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
     return true;
 }
 
-bool TcpTrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
+bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) {
     CHECK(IS_VALID_TRX_ID(trx_id))
         << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
 
@@ -56,8 +56,10 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, uint64_t & ct) {
     recv_rep(t_id, out);
     // DLOG (INFO) << "[TcpTrxTableStub::read_ct] recvs a read_ct reply";
     uint64_t ct_;
-    out >> ct_;
+    int status_i;
+    out >> ct_ >> status_i;
     ct = ct_;
+    status = TRX_STAT(status_i);
 
     return true;
 }

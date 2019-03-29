@@ -249,9 +249,13 @@ class Master {
             ibinstream in;
             if (req.read_ct) {
                 uint64_t ct_;
+                TRX_STAT status;
                 trx_p -> query_ct(req.trx_id, ct_);
+                trx_p -> query_status(req.trx_id, status);
+                int status_i = (int) status;
                 in << ct_;
-                DLOG(INFO) << "[Master::query_status] ct of " << req.trx_id << " is " << ct_;
+                in << status_i; 
+                // DLOG(INFO) << "[Master::query_status] ct of " << req.trx_id << " is " << ct_;
             } else {
                 TRX_STAT status;
                 trx_p -> query_status(req.trx_id, status);
