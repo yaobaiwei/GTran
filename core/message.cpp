@@ -408,7 +408,7 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
         }
 
         // no data is added to next actor
-        if (id2data[m.recver_nid].size() == 0 && empty_his.size() == 0) {
+        if (id2data.find(m.recver_nid) == id2data.end() && empty_his.size() == 0) {
             empty_his.emplace_back(history_t(), vector<value_t>());
         }
     }

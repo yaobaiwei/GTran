@@ -48,9 +48,11 @@ class HasLabelActor : public AbstractActor {
         assert(actor_obj.params.size() > 1);
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 
-        // Record Input Set
-        for (auto & data_pair : msg.data) {
-            v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
+        if (qplan.trx_type != TRX_READONLY) {
+            // Record Input Set
+            for (auto & data_pair : msg.data) {
+                v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
+            }
         }
 
         vector<label_t> lid_list;
