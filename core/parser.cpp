@@ -62,7 +62,7 @@ bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg) {
     vector<string> lines;
     Tool::split(trx_input, ";\n", lines);
     trx_plan = &plan;
-    plan.query_plans_.resize(lines.size());
+    plan.query_plans_.resize(lines.size() + 1);
 
     for (string& line : lines) {
         Tool::trim(line, " ");
@@ -1752,20 +1752,23 @@ void Parser::ParseWhere(const vector<string>& params) {
 }
 
 void Parser::AddCommitStatement(TrxPlan& plan) {
-    if (isTrxReadOnly(plan.trx_type_)) {
-        return;
-    }
-
     // Add Validation Query
     vector<Actor_Object> valid_vec;
     valid_vec.emplace_back(ACTOR_T::VALIDATION);
     valid_vec[0].next_actor = 1;
-    // TODO : Add Abort/Commit Actor to handle END;
-    valid_vec.emplace_back(ACTOR_T::END);
-    QueryPlan valid_qplan;
-    valid_qplan.actors = move(valid_vec);
 
-    plan.query_plans_.push_back(move(valid_qplan));
+    // Add post validation query
+    valid_vec.emplace_back(ACTOR_T::POSTVALIDATION);
+    valid_vec[1].next_actor = 2;
+
+    // Add commit query
+    valid_vec.emplace_back(ACTOR_T::COMMIT);
+    valid_vec[2].next_actor = 3;
+
+    valid_vec.emplace_back(ACTOR_T::END);
+
+    plan.query_plans_[line_index].actors = move(valid_vec);
+    plan.deps_count_[line_index] = 0;
     uint8_t begin = (last_update > 0) ? last_update : 0;
     for (uint8_t i = begin; i < line_index; i++) {
         plan.RegDependency(i, line_index);

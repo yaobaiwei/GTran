@@ -16,6 +16,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 
 #include "actor/abstract_actor.hpp"
 #include "actor/actor_validation_object.hpp"
+#include "core/factory.hpp"
 #include "core/result_collector.hpp"
 #include "utils/tool.hpp"
 
@@ -266,6 +267,36 @@ class OrderActor : public BarrierActorBase<BarrierData::order_data> {
 
  private:
     int num_thread_;
+
+    void do_work(int tid,
+            const QueryPlan& qplan,
+            Message & msg,
+            BarrierDataTable::accessor& ac,
+            bool isReady);
+};
+
+namespace BarrierData {
+struct post_validation_data : barrier_data_base {
+    // Record abort, avoid sending multiple abort msg
+    bool isAbort;
+    post_validation_data() : isAbort(false) {}
+};
+}  // namespace BarrierData
+
+class PostValidationActor : public BarrierActorBase<BarrierData::post_validation_data> {
+ public:
+    PostValidationActor(int id,
+            int num_nodes,
+            AbstractMailbox * mailbox,
+            CoreAffinity* core_affinity) :
+        BarrierActorBase<BarrierData::post_validation_data>(id, core_affinity, mailbox),
+        num_nodes_(num_nodes) {
+        trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
+    }
+
+ private:
+    int num_nodes_;
+    TrxTableStub * trx_table_stub_;
 
     void do_work(int tid,
             const QueryPlan& qplan,

@@ -453,6 +453,37 @@ void OrderActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
     }
 }
 
+void PostValidationActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
+        BarrierDataTable::accessor& ac, bool isReady) {
+    if (msg.meta.msg_type == MSG_T::ABORT) {
+        ac->second.isAbort = true;
+    }
+
+    if (isReady) {
+        vector<Message> vec;
+        MSG_T msg_type = MSG_T::ABORT;
+
+        vector<pair<history_t, vector<value_t>>> msg_data;
+        if (!ac->second.isAbort) {
+            msg_type = MSG_T::COMMIT;
+            TRX_STAT stat = TRX_STAT::COMMITTED;
+            trx_table_stub_->update_status(qplan.trxid, TRX_STAT::COMMITTED);
+            uint64_t ct = 0;
+            trx_table_stub_->read_ct(qplan.trxid, stat, ct);
+            value_t v;
+            Tool::uint64_t2value_t(ct, v);
+            msg_data.emplace_back(history_t(), vector<value_t>{move(v)});
+        }
+
+
+        msg.CreateBroadcastMsg(msg_type, num_nodes_, vec);
+        for (auto& m : vec) {
+            m.data = msg_data;
+            mailbox_->Send(tid, m);
+        }
+    }
+}
+
 void RangeActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
         BarrierDataTable::accessor& ac, bool isReady) {
     auto& counter_map = ac->second.counter_map;

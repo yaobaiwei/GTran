@@ -96,6 +96,7 @@ class ActorAdapter {
         actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::MATH] = unique_ptr<AbstractActor>(new MathActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::ORDER] = unique_ptr<AbstractActor>(new OrderActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::POSTVALIDATION] = unique_ptr<AbstractActor>(new PostValidationActor(id ++, node_.get_local_size(), mailbox_, core_affinity_));
         actors_[ACTOR_T::PROJECT] = unique_ptr<AbstractActor>(new ProjectActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::PROPERTIES] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, num_thread_, mailbox_, core_affinity_));

@@ -101,14 +101,15 @@ class Message {
     void InsertData(vector<pair<history_t, vector<value_t>>>& vec);
 
     // create init msg
-    // currently
-    // recv_tid = qid % thread_pool.size()
-    // parent_node = _my_node.get_local_rank()
     static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
                               QueryPlan& qplan, vector<Message>& vec);
 
-    // create exit msg, notifying ending of one query
-    void CreateExitMsg(int nodes_num, vector<Message>& vec);
+    // broadcast msg to all nodes
+    void CreateBroadcastMsg(MSG_T type, int nodes_num, vector<Message>& vec);
+
+    // Processing stage abort
+    // Send to end actor directly
+    void CreateAbortMsg(const vector<Actor_Object>& actors);
 
     // actors:  actors chain for current message
     // data:    new data processed by actor_type

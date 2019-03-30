@@ -167,17 +167,26 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
     }
 }
 
-void Message::CreateExitMsg(int nodes_num, vector<Message>& vec) {
-    Meta m;
-    m.qid = this->meta.qid;
-    m.msg_type = MSG_T::EXIT;
+void Message::CreateBroadcastMsg(MSG_T msg_type, int nodes_num, vector<Message>& vec) {
+    Meta m = this->meta;
+    m.step++;
+    m.msg_type = msg_type;
     m.recver_tid = this->meta.parent_tid;
+    m.msg_path = to_string(nodes_num);
 
     for (int i = 0; i < nodes_num; i ++) {
         m.recver_nid = i;
         Message msg(m);
         vec.push_back(move(msg));
     }
+}
+
+void Message::CreateAbortMsg(const vector<Actor_Object>& actors) {
+    // To EndActor directly
+    meta.step = actors.size() - 1;
+    meta.msg_type = MSG_T::ABORT;
+    meta.recver_nid = meta.parent_nid;
+    meta.recver_tid = meta.parent_tid;
 }
 
 void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
