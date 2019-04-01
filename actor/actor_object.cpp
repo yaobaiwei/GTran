@@ -35,6 +35,7 @@ bool Actor_Object::IsBarrier() const {
       case ACTOR_T::RANGE:
       case ACTOR_T::COIN:
       case ACTOR_T::END:
+      case ACTOR_T::POSTVALIDATION:
         return true;
       default:
         return false;

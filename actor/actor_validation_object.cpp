@@ -91,7 +91,6 @@ void ActorValidationObject::DeleteInputSet(uint64_t TransactionID) {
             validation_record_key_t key(TransactionID, step);
             validation_data.erase(key);
         }
-
-        trx_to_step_table.erase(TransactionID);
+        trx_to_step_table.erase(tcac);
     }
 }

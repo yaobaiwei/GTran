@@ -29,7 +29,7 @@ class PropertiesActor : public AbstractActor {
         machine_id_(machine_id),
         num_thread_(num_thread),
         mailbox_(mailbox),
-        type_(ACTOR_T::PROPERTY) {
+        type_(ACTOR_T::PROPERTIES) {
         config_ = Config::GetInstance();
     }
 
@@ -46,9 +46,11 @@ class PropertiesActor : public AbstractActor {
             key_list.push_back(static_cast<label_t>(Tool::value_t2int(actor_obj.params.at(cnt))));
         }
 
-        // Record Input Set
-        for (auto & data_pair : msg.data) {
-            v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
+        if (qplan.trx_type != TRX_READONLY) {
+            // Record Input Set
+            for (auto & data_pair : msg.data) {
+                v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
+            }
         }
 
         switch (inType) {

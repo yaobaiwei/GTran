@@ -68,18 +68,21 @@ void TrxPlan::FillResult(uint8_t query_index, vector<value_t>& vec) {
         deps_count_[index] --;
     }
 
-    // Append result set
-    // Add query header info if not parser error
-    if (query_index != -1) {
-        value_t v;
-        string header = "Query " + to_string(query_index + 1) + ": ";
-        Tool::str2str(header, v);
-        results_[query_index].push_back(v);
+    // Append result set if not commit statement
+    if (query_index != query_plans_.size() - 1) {
+        // Add query header info if not parser error
+        if (query_index != -1) {
+            value_t v;
+            string header = "Query " + to_string(query_index + 1) + ": ";
+            Tool::str2str(header, v);
+            results_[query_index].push_back(v);
+        }
+
+        results_[query_index].insert(results_[query_index].end(),
+                                    make_move_iterator(vec.begin()),
+                                    make_move_iterator(vec.end()));
     }
 
-    results_[query_index].insert(results_[query_index].end(),
-                                make_move_iterator(vec.begin()),
-                                make_move_iterator(vec.end()));
     received_++;
 }
 

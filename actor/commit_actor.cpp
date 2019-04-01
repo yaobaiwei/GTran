@@ -32,6 +32,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
 
     // Create Message
     vector<Message> msg_vec;
+    msg.data.clear();
     msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
 
     // Send Message
@@ -43,7 +44,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
 void CommitActor::prepare_clean_actor_set() {
     need_clean_actor_set_.emplace(ACTOR_T::TRAVERSAL);
     need_clean_actor_set_.emplace(ACTOR_T::VALUES);
-    need_clean_actor_set_.emplace(ACTOR_T::PROPERTY);
+    need_clean_actor_set_.emplace(ACTOR_T::PROPERTIES);
     need_clean_actor_set_.emplace(ACTOR_T::KEY);
     need_clean_actor_set_.emplace(ACTOR_T::HASLABEL);
     need_clean_actor_set_.emplace(ACTOR_T::HAS);

@@ -142,6 +142,10 @@ class ValidationActor : public AbstractActor {
     typedef unordered_map<vstep_t, unordered_map<uint64_t, vector<rct_extract_data_t>>, KeyHasher> step2TrxRct_map_t_;
     typedef unordered_map<vstep_t, vector<Actor_Object*>, KeyHasher> step2aobj_map_t_;
 
+    // Validate transaction
+    // return: isAbort
+    bool validate(const QueryPlan & qplan, Message & msg);
+
     void prepare_primitive_list();
 
     bool valid_dependency_read(uint64_t trxID, vector<uint64_t> & homo_dep_read, vector<uint64_t> & hetero_dep_read);

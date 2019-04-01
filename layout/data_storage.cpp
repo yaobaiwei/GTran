@@ -718,7 +718,9 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
 
 void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
     TransactionAccessor t_accessor;
-    transaction_process_map_.find(t_accessor, trx_id);
+    if (!transaction_process_map_.find(t_accessor, trx_id)) {
+        return;
+    }
 
     // TODO(entitlyess): Finish unfinished process functions
     for (auto process_item : t_accessor->second.process_set) {
@@ -741,7 +743,9 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
 
 void DataStorage::Abort(const uint64_t& trx_id) {
     TransactionAccessor t_accessor;
-    transaction_process_map_.find(t_accessor, trx_id);
+    if (!transaction_process_map_.find(t_accessor, trx_id)) {
+        return;
+    }
 
     // TODO(entitlyess): Finish unfinished process functions
     for (auto process_item : t_accessor->second.process_set) {

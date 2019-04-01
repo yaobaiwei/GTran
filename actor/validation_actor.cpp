@@ -7,6 +7,20 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     int tid = TidMapper::GetInstance()->GetTid();
 
+    bool isAbort = validate(qplan, msg);
+
+    // Create Message
+    vector<Message> msg_vec;
+    msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+
+    // Send Message
+    for (auto& msg : msg_vec) {
+        msg.meta.msg_type = isAbort ? MSG_T::ABORT : MSG_T::COMMIT;
+        mailbox_->Send(tid, msg);
+    }
+}
+
+bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
     // Get info of transaction
     Meta & m = msg.meta;
     uint64_t cur_trxID = qplan.trxid;
@@ -38,13 +52,12 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
             // Abort
             trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
         }
-        goto end;
+        return isAbort;
     } else {
         if (!valid_dependency_read(cur_trxID, homo_dep_read, hetero_dep_read)) {
             // Abort
-            isAbort = true;
             trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
-            goto end;
+            return true;
         }
     }
 
@@ -100,23 +113,14 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
         valid_optimistic_read(homo_dep_read, isAbort);
     }
 
-end:
-    // Create Message
-    vector<Message> msg_vec;
-    msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
-
-    // Send Message
-    for (auto& msg : msg_vec) {
-        msg.meta.msg_type = isAbort ? MSG_T::ABORT : MSG_T::COMMIT;
-        mailbox_->Send(tid, msg);
-    }
+    return isAbort;
 }
 
 void ValidationActor::prepare_primitive_list() {
     // Prepare Validation Actor Set
     needValidateActorSet_.emplace(ACTOR_T::TRAVERSAL);
     needValidateActorSet_.emplace(ACTOR_T::VALUES);
-    needValidateActorSet_.emplace(ACTOR_T::PROPERTY);
+    needValidateActorSet_.emplace(ACTOR_T::PROPERTIES);
     needValidateActorSet_.emplace(ACTOR_T::KEY);
     needValidateActorSet_.emplace(ACTOR_T::HASLABEL);
     needValidateActorSet_.emplace(ACTOR_T::HAS);
@@ -135,7 +139,7 @@ void ValidationActor::prepare_primitive_list() {
     // I/M/D VP
     step_set.clear();
     step_set.emplace(ACTOR_T::VALUES);
-    step_set.emplace(ACTOR_T::PROPERTY);
+    step_set.emplace(ACTOR_T::PROPERTIES);
     step_set.emplace(ACTOR_T::HAS, Step_T::HASVALUE, 0);
     step_set.emplace(ACTOR_T::HAS, Step_T::HAS, 0);
     step_set.emplace(ACTOR_T::PROJECT, 0);
