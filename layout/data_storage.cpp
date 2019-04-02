@@ -176,7 +176,10 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
     vid_t vid = pid.vid;
 
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    if (!found)
+        return READ_STAT::NOTFOUND;
 
     return v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
 }
@@ -184,7 +187,10 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                            const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    if (!found)
+        return READ_STAT::NOTFOUND;
 
     return v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
 }
@@ -193,7 +199,10 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
                                   const uint64_t& trx_id, const uint64_t& begin_time,
                                   const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    if (!found)
+        return READ_STAT::NOTFOUND;
 
     return v_accessor->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
 }
@@ -201,7 +210,10 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
 READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                               const bool& read_only, vector<vpid_t>& ret) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    if (!found)
+        return READ_STAT::NOTFOUND;
 
     return v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 }
@@ -209,10 +221,13 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
 READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
                            const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
 
-    auto* visible_mvcc = v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
-    
+    if (!found)
+        return READ_STAT::NOTFOUND;
+
+    auto* visible_mvcc = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
     if (visible_mvcc == nullptr)
         return READ_STAT::ABORT;
 
@@ -231,8 +246,8 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat == READ_STAT::ABORT)
-        return READ_STAT::ABORT;
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
 
     if (edge_item.Exist())
         return edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
@@ -244,12 +259,12 @@ READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const 
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat == READ_STAT::ABORT)
-        return READ_STAT::ABORT;
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
 
     if (edge_item.Exist())
        return edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
-   return READ_STAT::NOTFOUND;
+    return READ_STAT::NOTFOUND;
 }
 
 READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
@@ -258,8 +273,8 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat == READ_STAT::ABORT)
-        return READ_STAT::ABORT;
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
 
     if (edge_item.Exist())
         return edge_item.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
@@ -271,8 +286,8 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat == READ_STAT::ABORT)
-        return READ_STAT::ABORT;
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
 
     if (edge_item.Exist())
         return edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
@@ -284,8 +299,8 @@ READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat == READ_STAT::ABORT)
-        return READ_STAT::ABORT;
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
 
     // an deleted edge will returns 0
     ret = edge_item.label;
@@ -299,16 +314,23 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
                                          const uint64_t& trx_id, const uint64_t& begin_time,
                                          const bool& read_only, vector<vid_t>& ret) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
 
-    return v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label, trx_id, begin_time, read_only, ret);
+    if (!found)
+        return READ_STAT::NOTFOUND;
+
+    return v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label,
+                                                               trx_id, begin_time, read_only, ret);
 }
 
 READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<eid_t>& ret) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    if (!found)
+        return READ_STAT::NOTFOUND;
 
     return v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label, trx_id, begin_time, read_only, ret);
 }
@@ -351,7 +373,11 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
 READ_STAT DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
                                      const uint64_t& trx_id, const uint64_t& begin_time,
                                      const bool& read_only, EdgeItem& item_ref) {
-    out_edge_map_.find(e_accessor, eid.value());
+    bool found = out_edge_map_.find(e_accessor, eid.value());
+
+    if (!found)
+        return READ_STAT::NOTFOUND;
+
     auto* visible_mvcc = e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only);
 
     if (visible_mvcc == nullptr)
@@ -655,7 +681,11 @@ vid_t DataStorage::ProcessAddVertex(const label_t& label, const uint64_t& trx_id
 bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                     vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    // do nothing
+    if (!found)
+        return true;
 
     vector<eid_t> all_connected_edge;
     auto read_stat = GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge);
@@ -708,6 +738,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
     if (is_new) {
         // a new MVCCList<EdgeItem> will be created; a cell in VertexEdgeRow will be allocated
         VertexConstAccessor v_accessor;
+        // it must exists for the limitation of query
         vertex_map_.find(v_accessor, local_vid.value());
         PropertyRowList<EdgePropertyRow>* ep_row_list;
         if (is_out) {
@@ -779,7 +810,12 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
                                   const uint64_t& trx_id, const uint64_t& begin_time) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid_t(pid.vid).value());
+    bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
+
+    // TODO(entityless): No clear that will this happens and how to deal with it.
+    if (!found)
+        return true;
+
     auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
     if (ret.second == nullptr)
@@ -805,6 +841,10 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     if (read_stat == READ_STAT::ABORT)
         return false;
 
+    // TODO(entityless): No clear that will this happens and how to deal with it.
+    if (read_stat == READ_STAT::NOTFOUND)
+        return true;
+
     if (!edge_item.Exist())
         return false;
 
@@ -826,7 +866,12 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
 
 bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time) {
     VertexConstAccessor v_accessor;
-    vertex_map_.find(v_accessor, vid_t(pid.vid).value());
+    bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
+
+    // TODO(entityless): No clear that will this happens and how to deal with it.
+    if (!found)
+        return true;
+
     auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
     if (ret == nullptr)
@@ -844,6 +889,10 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
 
     if (read_stat == READ_STAT::ABORT)
         return false;
+
+    // TODO(entityless): No clear that will this happens and how to deal with it.
+    if (read_stat == READ_STAT::NOTFOUND)
+        return true;
 
     if (!edge_item.Exist())
         return false;

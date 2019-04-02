@@ -170,8 +170,10 @@ class DataStorage {
                                 const bool& read_only, vector<vid_t>& ret);
 
     // TODO(entityless): Figure out how to run two functions efficiently
-    READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<vid_t>& ret);
-    READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<eid_t>& ret);
+    READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
+                             const bool& read_only, vector<vid_t>& ret);
+    READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
+                          const bool& read_only, vector<eid_t>& ret);
 
     //// Indexed data access
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);
