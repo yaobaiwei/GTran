@@ -36,6 +36,7 @@ static uint64_t _12LFLAG = 0xFFF;
 static uint64_t _8LFLAG  = 0xFF;
 
 enum class TRX_STAT {PROCESSING, VALIDATING, ABORT, COMMITTED};
+enum class READ_STAT {ABORT, NOTFOUND, SUCCESS};
 
 struct ptr_t {
     uint64_t size: NBITS_SIZE;

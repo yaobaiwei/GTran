@@ -105,12 +105,14 @@ class IndexActor : public AbstractActor {
             value_t val;
             Tool::str2int(to_string(vid.value()), vtx);
             if (pid == 0) {
-                label_t label = data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+                label_t label;
+                data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
                 Tool::str2int(to_string(label), val);
                 index_map[val].push_back(move(vtx));
             } else {
                 vpid_t vp_id(vid, pid);
-                bool found = data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
+                bool found = data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val)
+                             == READ_STAT::SUCCESS;
                 if (!found) {
                     no_key_vec.push_back(move(vtx));
                 } else {
@@ -141,12 +143,14 @@ class IndexActor : public AbstractActor {
             Tool::str2uint64_t(to_string(eid.value()), edge);
 
             if (pid == 0) {
-                label_t label = data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+                label_t label;
+                data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
                 Tool::str2int(to_string(label), val);
                 index_map[val].push_back(move(edge));
             } else {
                 epid_t ep_id(eid, pid);
-                bool found = data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
+                bool found = data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val)
+                             == READ_STAT::SUCCESS;
                 if (!found) {
                     no_key_vec.push_back(move(edge));
                 } else {

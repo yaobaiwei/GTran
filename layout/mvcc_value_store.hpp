@@ -31,6 +31,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #define MemItemSize 8
 static_assert(MemItemSize % 8 == 0, "mvcc_value_store.hpp, MemItemSize % 8 != 0");
 
+// TODO(entityless): Figure out how to store empty string
 struct ValueHeader {
     OffsetT head_offset;
     OffsetT count;

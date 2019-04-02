@@ -22,7 +22,7 @@ class PropertyRowList {
     static MVCCValueStore* value_storage_;
 
     std::atomic_int property_count_;
-    PropertyRow* head_;
+    PropertyRow* head_, *tail_;
 
     CellType* AllocateCell();
     CellType* LocateCell(PidType pid);
@@ -31,19 +31,18 @@ class PropertyRowList {
     void Init();
 
     // this function will only be called when loading data from hdfs
-    void InsertInitialElement(const PidType& pid, const value_t& value);
+    void InsertInitialCell(const PidType& pid, const value_t& value);
 
-    bool ReadProperty(const PidType& pid, const uint64_t& trx_id,
+    READ_STAT ReadProperty(const PidType& pid, const uint64_t& trx_id,
                       const uint64_t& begin_time, const bool& read_only, value_t& ret);
-    void ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
+    READ_STAT ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
                                 const uint64_t& begin_time, const bool& read_only,
                                 vector<pair<label_t, value_t>>& ret);
-    void ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
                          const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, vector<PidType>& ret);
 
-    // TODO(entityless): Implement 2 function below
     // the bool value is true if "Modify", false if "Add"
     pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value,
                                                     const uint64_t& trx_id, const uint64_t& begin_time);

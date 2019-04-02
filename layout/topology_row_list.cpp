@@ -7,13 +7,46 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 void TopologyRowList::Init(const vid_t& my_vid) {
     my_vid_ = my_vid;
-    head_ = mem_pool_->Get();
+    head_ = tail_ = mem_pool_->Get();
     edge_count_ = 0;
 }
 
-MVCCList<EdgeMVCC>* TopologyRowList::InsertInitialElement(const bool& is_out, const vid_t& conn_vtx_id,
-                                                          const label_t& label,
-                                                          PropertyRowList<EdgePropertyRow>* ep_row_list_ptr) {
+EdgeHeader* TopologyRowList::AllocateCell() {
+    int cell_id = edge_count_++;
+    int cell_id_in_row = cell_id % VE_ROW_ITEM_COUNT;
+
+    if (cell_id_in_row == 0 && cell_id > 0) {
+        tail_->next_ = mem_pool_->Get();
+        tail_ = tail_->next_;
+    }
+
+    return &tail_->cells_[cell_id_in_row];
+}
+
+EdgeHeader* TopologyRowList::LocateCell(eid_t eid) {
+    VertexEdgeRow* current_row = head_;
+
+    bool is_out = (eid.out_v == my_vid_.value());
+    vid_t vid = is_out ? vid_t(eid.in_v) : vid_t(eid.out_v);
+
+    for (int i = 0; i < edge_count_; i++) {
+        int cell_id_in_row = i % VE_ROW_ITEM_COUNT;
+        if (i > 0 && cell_id_in_row == 0) {
+            current_row = current_row->next_;
+        }
+
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
+
+        if (cell_ref.is_out == is_out && cell_ref.conn_vtx_id == vid)
+            return &cell_ref;
+    }
+
+    return nullptr;
+}
+
+MVCCList<EdgeMVCC>* TopologyRowList::InsertInitialCell(const bool& is_out, const vid_t& conn_vtx_id,
+                                                       const label_t& label,
+                                                       PropertyRowList<EdgePropertyRow>* ep_row_list_ptr) {
     MVCCList<EdgeMVCC>* mvcc_list = new MVCCList<EdgeMVCC>;
     mvcc_list->AppendInitialVersion()[0] = EdgeItem(label, ep_row_list_ptr);
 
@@ -26,24 +59,29 @@ MVCCList<EdgeMVCC>* TopologyRowList::InsertInitialElement(const bool& is_out, co
     return mvcc_list;
 }
 
-void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
+READ_STAT TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
                                           const uint64_t& trx_id, const uint64_t& begin_time,
                                           const bool& read_only, vector<vid_t>& ret) {
     VertexEdgeRow* current_row = head_;
 
     for (int i = 0; i < edge_count_; i++) {
-        int element_id_in_row = i % VE_ROW_ITEM_COUNT;
-        if (i > 0 && element_id_in_row == 0) {
+        int cell_id_in_row = i % VE_ROW_ITEM_COUNT;
+        if (i > 0 && cell_id_in_row == 0) {
             current_row = current_row->next_;
         }
 
-        auto& cell_ref = current_row->cells_[element_id_in_row];
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         // TODO(entityless): optimize this
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+            if (visible_mvcc == nullptr)
+                return READ_STAT::ABORT;
+
+            auto edge_item = visible_mvcc->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -51,26 +89,33 @@ void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const la
                 ret.emplace_back(cell_ref.conn_vtx_id);
         }
     }
+
+    return READ_STAT::SUCCESS;
 }
 
-void TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
+READ_STAT TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
                                         const uint64_t& trx_id, const uint64_t& begin_time,
                                         const bool& read_only, vector<eid_t>& ret) {
     VertexEdgeRow* current_row = head_;
 
     for (int i = 0; i < edge_count_; i++) {
-        int element_id_in_row = i % VE_ROW_ITEM_COUNT;
-        if (i > 0 && element_id_in_row == 0) {
+        int cell_id_in_row = i % VE_ROW_ITEM_COUNT;
+        if (i > 0 && cell_id_in_row == 0) {
             current_row = current_row->next_;
         }
 
-        auto& cell_ref = current_row->cells_[element_id_in_row];
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         // TODO(entityless): optimize this
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+            if (visible_mvcc == nullptr)
+                return READ_STAT::ABORT;
+
+            auto edge_item = visible_mvcc->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -82,47 +127,23 @@ void TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const labe
             }
         }
     }
+
+    return READ_STAT::SUCCESS;
 }
 
-EdgeHeader* TopologyRowList::AllocateCell() {
-    int element_id = edge_count_++;
-    int element_id_in_row = element_id % VE_ROW_ITEM_COUNT;
+MVCCList<EdgeMVCC>* TopologyRowList::ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
+                                                    const label_t& edge_label,
+                                                    PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
+                                                    const uint64_t& trx_id, const uint64_t& begin_time) {
+    MVCCList<EdgeMVCC>* mvcc_list = new MVCCList<EdgeMVCC>;
+    mvcc_list->AppendVersion(trx_id, begin_time)[0] = EdgeItem(edge_label, ep_row_list_ptr);
 
-    int next_count = (element_id - 1) / VE_ROW_ITEM_COUNT;
+    auto* cell = AllocateCell();
 
-    VertexEdgeRow* my_row = head_;
+    cell->is_out = is_out;
+    cell->conn_vtx_id = conn_vtx_id;
+    cell->mvcc_list = mvcc_list;
 
-    for (int i = 0; i < next_count; i++) {
-        // TODO(entityless): faster traversal on supernodes
-        my_row = my_row->next_;
-    }
-
-    if (element_id > 0 && element_id % VE_ROW_ITEM_COUNT == 0) {
-        my_row->next_ = mem_pool_->Get();
-        my_row = my_row->next_;
-        my_row->next_ = nullptr;
-    }
-
-    return &my_row->cells_[element_id_in_row];
+    return mvcc_list;
 }
 
-EdgeHeader* TopologyRowList::LocateCell(eid_t eid) {
-    VertexEdgeRow* current_row = head_;
-
-    bool is_out = (eid.out_v == my_vid_.value());
-    vid_t vid = is_out ? vid_t(eid.in_v) : vid_t(eid.out_v);
-
-    for (int i = 0; i < edge_count_; i++) {
-        int element_id_in_row = i % VE_ROW_ITEM_COUNT;
-        if (i > 0 && element_id_in_row == 0) {
-            current_row = current_row->next_;
-        }
-
-        auto& cell_ref = current_row->cells_[element_id_in_row];
-
-        if (cell_ref.is_out == is_out && cell_ref.conn_vtx_id == vid)
-            return &cell_ref;
-    }
-
-    return nullptr;
-}
