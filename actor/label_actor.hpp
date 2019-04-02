@@ -85,7 +85,8 @@ class LabelActor : public AbstractActor {
             for (auto & elem : data_pair.second) {
                 vid_t v_id(Tool::value_t2int(elem));
 
-                label_t label = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+                label_t label;
+                data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
                 string keyStr;
                 data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
 
@@ -105,7 +106,8 @@ class LabelActor : public AbstractActor {
                 eid_t e_id;
                 uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
-                label_t label = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+                label_t label;
+                data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
                 string keyStr;
                 data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);
 

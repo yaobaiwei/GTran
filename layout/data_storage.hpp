@@ -132,43 +132,46 @@ class DataStorage {
     void Abort(const uint64_t& trx_id);
 
     // data access
-    bool GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, value_t& ret);
-    bool GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     const bool& read_only, value_t& ret);
-    void GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                   const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                  const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
+    READ_STAT GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
                          const uint64_t& trx_id, const uint64_t& begin_time,
                          const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
-                         const uint64_t& trx_id, const uint64_t& begin_time,
-                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, vector<vpid_t>& ret);
-    void GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+               const bool& read_only, label_t& ret);
+
+    READ_STAT GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
+                     const bool& read_only, value_t& ret);
+    READ_STAT GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+                  const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    READ_STAT GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
+                         const uint64_t& trx_id, const uint64_t& begin_time,
+                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
+    READ_STAT GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, vector<epid_t>& ret);
-    label_t GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
-    label_t GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
-    EdgeItem GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
-                            const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
+    READ_STAT GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+               const bool& read_only, label_t& ret);
+    READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
+                            const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
 
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
     // traversal from vertex
     // if label == 0, then do not filter by label
-    void GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
+    READ_STAT GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                               const uint64_t& trx_id, const uint64_t& begin_time,
                               const bool& read_only, vector<eid_t>& ret);
-    void GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
+    READ_STAT GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                 const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<vid_t>& ret);
 
     // TODO(entityless): Figure out how to run two functions efficiently
-    void GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<vid_t>& ret);
-    void GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<eid_t>& ret);
+    READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<vid_t>& ret);
+    READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<eid_t>& ret);
 
     //// Indexed data access
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);

@@ -33,14 +33,14 @@ class PropertyRowList {
     // this function will only be called when loading data from hdfs
     void InsertInitialCell(const PidType& pid, const value_t& value);
 
-    bool ReadProperty(const PidType& pid, const uint64_t& trx_id,
+    READ_STAT ReadProperty(const PidType& pid, const uint64_t& trx_id,
                       const uint64_t& begin_time, const bool& read_only, value_t& ret);
-    void ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
+    READ_STAT ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
                                 const uint64_t& begin_time, const bool& read_only,
                                 vector<pair<label_t, value_t>>& ret);
-    void ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
                          const bool& read_only, vector<pair<label_t, value_t>>& ret);
-    void ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
+    READ_STAT ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, vector<PidType>& ret);
 
     // the bool value is true if "Modify", false if "Add"

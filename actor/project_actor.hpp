@@ -131,13 +131,15 @@ class ProjectActor : public AbstractActor {
     bool get_properties_for_vertex(const QueryPlan& qplan, const vpid_t& vp_id, value_t& val) {
         if (vp_id.pid == 0) {
             vid_t vid(vp_id.vid);
-            label_t label = data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+            label_t label;
+            data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
             string label_str;
             data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, label_str);
             Tool::str2str(label_str, val);
             return true;
         } else {
-            return data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
+            return data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val)
+                   == READ_STAT::SUCCESS;
         }
     }
 
@@ -170,13 +172,15 @@ class ProjectActor : public AbstractActor {
     bool get_properties_for_edge(const QueryPlan& qplan, const epid_t& ep_id, value_t& val) {
         if (ep_id.pid == 0) {
             eid_t eid(ep_id.in_vid, ep_id.out_vid);
-            label_t label = data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+            label_t label;
+            data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
             string label_str;
             data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, label_str);
             Tool::str2str(label_str, val);
             return true;
         } else {
-            return data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
+            return data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val)
+                   == READ_STAT::SUCCESS;
         }
     }
 

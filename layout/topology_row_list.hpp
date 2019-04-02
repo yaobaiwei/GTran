@@ -30,11 +30,11 @@ class TopologyRowList {
                                           const label_t& edge_label,
                                           PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
 
-    void ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
+    READ_STAT ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
                              const uint64_t& trx_id, const uint64_t& begin_time,
                              const bool& read_only, vector<vid_t>& ret);
 
-    void ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
+    READ_STAT ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
                            const uint64_t& trx_id, const uint64_t& begin_time,
                            const bool& read_only, vector<eid_t>& ret);
 

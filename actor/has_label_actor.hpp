@@ -126,7 +126,8 @@ class HasLabelActor : public AbstractActor {
         auto checkFunction = [&](value_t & value) {
             vid_t v_id(Tool::value_t2int(value));
 
-            label_t label = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+            label_t label;
+            data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
             for (auto & lid : lid_list) {
                 if (lid == label) {
                     return false;
@@ -145,7 +146,8 @@ class HasLabelActor : public AbstractActor {
             eid_t e_id;
             uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
-            label_t label = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY);
+            label_t label;
+            data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
             for (auto & lid : lid_list) {
                 if (lid == label) {
                     return false;

@@ -55,23 +55,29 @@ void PropertyRowList<PropertyRow>::InsertInitialCell(const PidType& pid, const v
 }
 
 template <class PropertyRow>
-bool PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, value_t& ret) {
+READ_STAT PropertyRowList<PropertyRow>::ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, value_t& ret) {
     PropertyRow* current_row = head_;
 
     auto* cell = LocateCell(pid);
     if (cell == nullptr)
-        return false;
+        return READ_STAT::NOTFOUND;
 
-    auto storage_header = cell->mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+    auto* visible_mvcc = cell->mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+    if (visible_mvcc == nullptr)
+        return READ_STAT::ABORT;
+
+    auto storage_header = visible_mvcc->GetValue();
     if (!storage_header.IsEmpty()) {
         value_storage_->GetValue(storage_header, ret);
-        return true;
+        return READ_STAT::SUCCESS;
     }
-    return false;
+
+    return READ_STAT::NOTFOUND;
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
+READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
                                                           const uint64_t& begin_time, const bool& read_only,
                                                           vector<pair<label_t, value_t>>& ret) {
     PropertyRow* current_row = head_;
@@ -95,7 +101,12 @@ void PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<label_t>&
         if (pkey_set.count(cell_ref.pid.pid) > 0) {
             pkey_set.erase(cell_ref.pid.pid);
 
-            auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+            if (visible_mvcc == nullptr)
+                return READ_STAT::ABORT;
+
+            auto storage_header = visible_mvcc->GetValue();
 
             if(!storage_header.IsEmpty()){
                 value_t v;
@@ -105,10 +116,15 @@ void PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<label_t>&
             }
         }
     }
+
+    if (ret.size() > 0)
+        return READ_STAT::SUCCESS;
+    else
+        return READ_STAT::NOTFOUND;
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+READ_STAT PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     PropertyRow* current_row = head_;
 
     for (int i = 0; i < property_count_; i++) {
@@ -119,7 +135,12 @@ void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
-        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+        auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+        if (visible_mvcc == nullptr)
+            return READ_STAT::ABORT;
+
+        auto storage_header = visible_mvcc->GetValue();
 
         if(!storage_header.IsEmpty()){
             value_t v;
@@ -128,10 +149,12 @@ void PropertyRowList<PropertyRow>::ReadAllProperty(const uint64_t& trx_id, const
             ret.emplace_back(make_pair(label, v));
         }
     }
+
+    return READ_STAT::SUCCESS;
 }
 
 template <class PropertyRow>
-void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<PidType>& ret) {
+READ_STAT PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vector<PidType>& ret) {
     PropertyRow* current_row = head_;
 
     for (int i = 0; i < property_count_; i++) {
@@ -142,11 +165,18 @@ void PropertyRowList<PropertyRow>::ReadPidList(const uint64_t& trx_id, const uin
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
-        auto storage_header = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+        auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+        if (visible_mvcc == nullptr)
+            return READ_STAT::ABORT;
+
+        auto storage_header = visible_mvcc->GetValue();
 
         if(!storage_header.IsEmpty())
             ret.emplace_back(cell_ref.pid);
     }
+
+    return READ_STAT::SUCCESS;
 }
 
 template <class PropertyRow>

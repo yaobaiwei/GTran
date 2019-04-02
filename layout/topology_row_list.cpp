@@ -59,7 +59,7 @@ MVCCList<EdgeMVCC>* TopologyRowList::InsertInitialCell(const bool& is_out, const
     return mvcc_list;
 }
 
-void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
+READ_STAT TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
                                           const uint64_t& trx_id, const uint64_t& begin_time,
                                           const bool& read_only, vector<vid_t>& ret) {
     VertexEdgeRow* current_row = head_;
@@ -76,7 +76,12 @@ void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const la
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+            if (visible_mvcc == nullptr)
+                return READ_STAT::ABORT;
+
+            auto edge_item = visible_mvcc->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -84,9 +89,11 @@ void TopologyRowList::ReadConnectedVertex(const Direction_T& direction, const la
                 ret.emplace_back(cell_ref.conn_vtx_id);
         }
     }
+
+    return READ_STAT::SUCCESS;
 }
 
-void TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
+READ_STAT TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
                                         const uint64_t& trx_id, const uint64_t& begin_time,
                                         const bool& read_only, vector<eid_t>& ret) {
     VertexEdgeRow* current_row = head_;
@@ -103,7 +110,12 @@ void TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const labe
         if (direction == BOTH ||
             (cell_ref.is_out && direction == OUT) ||
             (!cell_ref.is_out && direction == IN)) {
-            auto edge_item = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only)->GetValue();
+            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+
+            if (visible_mvcc == nullptr)
+                return READ_STAT::ABORT;
+
+            auto edge_item = visible_mvcc->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -115,6 +127,8 @@ void TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const labe
             }
         }
     }
+
+    return READ_STAT::SUCCESS;
 }
 
 MVCCList<EdgeMVCC>* TopologyRowList::ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
