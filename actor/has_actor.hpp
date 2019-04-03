@@ -81,12 +81,13 @@ class HasActor : public AbstractActor {
             pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
         }
 
+        bool read_success = true;
         switch (inType) {
           case Element_T::VERTEX:
-            EvaluateVertex(qplan, msg.data, pred_chain);
+            EvaluateVertex(qplan, msg.data, pred_chain, read_success);
             break;
           case Element_T::EDGE:
-            EvaluateEdge(qplan, msg.data, pred_chain);
+            EvaluateEdge(qplan, msg.data, pred_chain, read_success);
             break;
           default:
             cout << "Wrong inType" << endl;
@@ -94,7 +95,11 @@ class HasActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -150,11 +155,17 @@ class HasActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    void EvaluateVertex(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, const vector<pair<int, PredicateValue>> & pred_chain) {
+    void EvaluateVertex(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
+            const vector<pair<int, PredicateValue>> & pred_chain, bool & read_success) {
         auto checkFunction = [&](value_t& value){
+            if (!read_success) { return false; }
             vid_t v_id(Tool::value_t2int(value));
             vector<pair<label_t, value_t>> vp_kv_pair_list;
-            data_storage_->GetAllVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
+            READ_STAT read_status = data_storage_->GetAllVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
+            if (read_status == READ_STAT::ABORT) {
+                read_success = false;
+                return false;
+            }
 
             for (auto & pred_pair : pred_chain) {
                 int pid = pred_pair.first;
@@ -209,12 +220,18 @@ class HasActor : public AbstractActor {
         }
     }
 
-    void EvaluateEdge(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, const vector<pair<int, PredicateValue>> & pred_chain) {
+    void EvaluateEdge(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
+            const vector<pair<int, PredicateValue>> & pred_chain, bool & read_success) {
         auto checkFunction = [&](value_t& value){
+            if (!read_success) { return false; }
             eid_t e_id;
             uint2eid_t(Tool::value_t2uint64_t(value), e_id);
             vector<pair<label_t, value_t>> ep_kv_pair_list;
-            data_storage_->GetAllEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
+            READ_STAT read_status = data_storage_->GetAllEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
+            if (read_status == READ_STAT::ABORT) {
+                read_success = false;
+                return false;
+            }
 
             for (auto & pred_pair : pred_chain) {
                 int pid = pred_pair.first;

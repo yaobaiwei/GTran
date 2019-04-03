@@ -46,20 +46,25 @@ class LabelActor : public AbstractActor {
         // Get Params
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 
+        bool read_success = true;
         switch (inType) {
           case Element_T::VERTEX:
-            VertexLabel(qplan, msg.data);
+            read_success = VertexLabel(qplan, msg.data);
             break;
           case Element_T::EDGE:
-            EdgeLabel(qplan, msg.data);
+            read_success = EdgeLabel(qplan, msg.data);
             break;
           default:
-                cout << "Wrong in type"  << endl;
+            cout << "Wrong in type"  << endl;
         }
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -79,14 +84,17 @@ class LabelActor : public AbstractActor {
     AbstractMailbox * mailbox_;
     Config* config_;
 
-    void VertexLabel(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
+    bool VertexLabel(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
                 vid_t v_id(Tool::value_t2int(elem));
 
                 label_t label;
-                data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+                READ_STAT read_status = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
+                }
                 string keyStr;
                 data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
 
@@ -97,9 +105,10 @@ class LabelActor : public AbstractActor {
 
             data_pair.second.swap(newData);
         }
+        return true;
     }
 
-    void EdgeLabel(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
+    bool EdgeLabel(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
@@ -107,7 +116,10 @@ class LabelActor : public AbstractActor {
                 uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
                 label_t label;
-                data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+                READ_STAT read_status = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
+                }
                 string keyStr;
                 data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);
 
@@ -117,6 +129,7 @@ class LabelActor : public AbstractActor {
             }
             data_pair.second.swap(newData);
         }
+        return true;
     }
 };
 
