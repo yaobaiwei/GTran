@@ -5,7 +5,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/layout_type.hpp"
 
-namespace std {
+using namespace std;
 
 ibinstream& operator<<(ibinstream& m, const TMPVertex& v) {
     m << v.id;
@@ -231,5 +231,3 @@ obinstream& operator>>(obinstream& m, EProperty& ep) {
     m >> ep.plist;
     return m;
 }
-
-}  // namespace std

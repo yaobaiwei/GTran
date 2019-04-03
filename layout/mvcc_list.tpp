@@ -98,7 +98,6 @@ decltype(MVCC::val)* MVCCList<MVCC>::AppendVersion(const uint64_t& trx_id, const
         return &head_mvcc->val;
     }
 
-    // TODO(entityless): [Blocking] if trx_id == tail_->GetTransactionID(), replace the version
     if (tail_->GetBeginTime() > MVCC::MAX_TIME) {
         // the tail is uncommited
         if (tail_->GetTransactionID() == trx_id) {
@@ -168,4 +167,15 @@ decltype(MVCC::val) MVCCList<MVCC>::AbortVersion(const uint64_t& trx_id) {
     }
 
     return ret;
+}
+
+template<class MVCC>
+void MVCCList<MVCC>::SelfGarbageCollect() {
+    while (head_ != nullptr) {
+        if (head_->NeedGC())
+            head_->InTransactionGC();
+        tail_ = head_->next;  // tail_ used as "the_next_of_head_buffer"
+        mem_pool_->Free(head_);
+        head_ = tail_;
+    }
 }
