@@ -15,12 +15,13 @@ class TopologyRowList {
  private:
     static OffsetConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
 
-    std::atomic_int edge_count_;
+    atomic_int edge_count_;
     VertexEdgeRow* head_, *tail_;
     vid_t my_vid_;
+    pthread_spinlock_t lock_;
 
-    EdgeHeader* AllocateCell();
-    EdgeHeader* LocateCell(eid_t eid);
+    void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
+                      MVCCList<EdgeMVCC>* mvcc_list);
 
  public:
     void Init(const vid_t& my_vid);
@@ -31,13 +32,14 @@ class TopologyRowList {
                                           PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
 
     READ_STAT ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
-                             const uint64_t& trx_id, const uint64_t& begin_time,
-                             const bool& read_only, vector<vid_t>& ret);
+                                  const uint64_t& trx_id, const uint64_t& begin_time,
+                                  const bool& read_only, vector<vid_t>& ret);
 
     READ_STAT ReadConnectedEdge(const Direction_T& direction, const label_t& edge_label,
-                           const uint64_t& trx_id, const uint64_t& begin_time,
-                           const bool& read_only, vector<eid_t>& ret);
+                                const uint64_t& trx_id, const uint64_t& begin_time,
+                                const bool& read_only, vector<eid_t>& ret);
 
+    // this will only be called once for each TopologyRowList, guaranteed by DataStorage
     MVCCList<EdgeMVCC>* ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
                                        const label_t& edge_label,
                                        PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
