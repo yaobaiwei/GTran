@@ -16,6 +16,7 @@ class PropertyRowList {
  private:
     typedef decltype(PropertyRow::cells_[0].pid) PidType;
     typedef typename remove_pointer<decltype(PropertyRow::cells_[0].mvcc_list)>::type MVCCListType;
+    typedef typename MVCCListType::MVCCType MVCCType;
     typedef typename remove_reference<decltype(PropertyRow::cells_[0])>::type CellType;
 
     static OffsetConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp

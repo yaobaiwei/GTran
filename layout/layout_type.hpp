@@ -129,15 +129,15 @@ class MVCCList;
 
 struct VertexItem {
     label_t label;
-    TopologyRowList* ve_row_list;
-    PropertyRowList<VertexPropertyRow>* vp_row_list;
-    MVCCList<VertexMVCC>* mvcc_list;
+    TopologyRowList* ve_row_list = nullptr;
+    PropertyRowList<VertexPropertyRow>* vp_row_list = nullptr;
+    MVCCList<VertexMVCC>* mvcc_list = nullptr;
 };
 
 struct EdgeItem {
     label_t label;  // if 0, then the edge is deleted
     // for in_e or deleted edge, this is always nullptr
-    PropertyRowList<EdgePropertyRow>* ep_row_list;
+    PropertyRowList<EdgePropertyRow>* ep_row_list = nullptr;
 
     bool Exist() const {return label != 0;}
     EdgeItem() {}
