@@ -66,11 +66,12 @@ class TraversalActor : public AbstractActor {
         }
 
         // Get Result
+        bool read_success = true;
         if (inType == Element_T::VERTEX) {
             if (outType == Element_T::VERTEX) {
-                GetNeighborOfVertex(qplan, lid, dir, msg.data);
+                read_success = GetNeighborOfVertex(qplan, lid, dir, msg.data);
             } else if (outType == Element_T::EDGE) {
-                GetEdgeOfVertex(qplan, lid, dir, msg.data);
+                read_success = GetEdgeOfVertex(qplan, lid, dir, msg.data);
             } else {
                 cout << "Wrong Out Element Type: " << outType << endl;
                 return;
@@ -89,7 +90,11 @@ class TraversalActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -140,7 +145,7 @@ class TraversalActor : public AbstractActor {
 
     // ============Vertex===============
     // Get IN/OUT/BOTH of Vertex
-    void GetNeighborOfVertex(const QueryPlan & qplan, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+    bool GetNeighborOfVertex(const QueryPlan & qplan, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto& pair : data) {
             vector<value_t> newData;
 
@@ -148,7 +153,12 @@ class TraversalActor : public AbstractActor {
                 // Get the current vertex id and use it to get vertex instance
                 vid_t cur_vtx_id(Tool::value_t2int(value));
                 vector<vid_t> v_nbs;
-                data_storage_->GetConnectedVertexList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, v_nbs);
+                READ_STAT read_status = data_storage_->
+                                        GetConnectedVertexList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, v_nbs);
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
+                }
+
                 for (auto & neighbor : v_nbs) {
                     value_t new_value;
                     Tool::str2int(to_string(neighbor.value()), new_value);
@@ -159,10 +169,11 @@ class TraversalActor : public AbstractActor {
             // Replace pair.second with new data
             pair.second.swap(newData);
         }
+        return true;
     }
 
     // Get IN/OUT/BOTH-E of Vertex
-    void GetEdgeOfVertex(const QueryPlan & qplan, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
+    bool GetEdgeOfVertex(const QueryPlan & qplan, int lid, Direction_T dir, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto& pair : data) {
             vector<value_t> newData;
 
@@ -170,7 +181,12 @@ class TraversalActor : public AbstractActor {
                 // Get the current vertex id and use it to get vertex instance
                 vid_t cur_vtx_id(Tool::value_t2int(value));
                 vector<eid_t> e_nbs;
-                data_storage_->GetConnectedEdgeList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, e_nbs);
+                READ_STAT read_status = data_storage_->
+                                        GetConnectedEdgeList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, e_nbs);
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
+                }
+
                 for (auto & neighbor : e_nbs) {
                     value_t new_value;
                     Tool::str2uint64_t(to_string(neighbor.value()), new_value);
@@ -181,6 +197,7 @@ class TraversalActor : public AbstractActor {
             // Replace pair.second with new data
             pair.second.swap(newData);
         }
+        return true;
     }
 
     // =============Edge================

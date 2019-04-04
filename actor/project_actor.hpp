@@ -52,7 +52,7 @@ class ProjectActor : public AbstractActor {
         }
 
         // get projection function acccording to element type
-        void (ProjectActor::*proj)(const QueryPlan&, vector<value_t>&, int, int, map<value_t, vector<value_t>>&);
+        bool (ProjectActor::*proj)(const QueryPlan&, vector<value_t>&, int, int, map<value_t, vector<value_t>>&);
         switch (inType) {
           case Element_T::VERTEX: proj = &this->project_vertex; break;
           case Element_T::EDGE:   proj = &this->project_edge; break;
@@ -61,10 +61,14 @@ class ProjectActor : public AbstractActor {
             assert(false);
         }
         vector<pair<history_t, vector<value_t>>> newData;
+        bool read_success = true;
         for (auto & pair : msg.data) {
             map<value_t, vector<value_t>> proj_map;
             // Project E/V to property
-            (this->*proj)(qplan, pair.second, key_id, value_id, proj_map);
+            if (!(this->*proj)(qplan, pair.second, key_id, value_id, proj_map)) {
+                read_success = false;
+                break;
+            }
             // Insert projected kv pair
             for (auto itr = proj_map.begin(); itr != proj_map.end(); itr++) {
                 history_t his = pair.first;
@@ -75,7 +79,11 @@ class ProjectActor : public AbstractActor {
         }
 
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, newData, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, newData, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -128,22 +136,23 @@ class ProjectActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    bool get_properties_for_vertex(const QueryPlan& qplan, const vpid_t& vp_id, value_t& val) {
+    READ_STAT get_properties_for_vertex(const QueryPlan& qplan, const vpid_t& vp_id, value_t& val) {
         if (vp_id.pid == 0) {
             vid_t vid(vp_id.vid);
             label_t label;
-            data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
-            string label_str;
-            data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, label_str);
-            Tool::str2str(label_str, val);
-            return true;
+            READ_STAT read_status = data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+            if (read_status == READ_STAT::SUCCESS) {
+                string label_str;
+                data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, label_str);
+                Tool::str2str(label_str, val);
+            }
+            return read_status;
         } else {
-            return data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val)
-                   == READ_STAT::SUCCESS;
+            return data_storage_->GetVPByPKey(vp_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
         }
     }
 
-    void project_vertex(const QueryPlan& qplan, vector<value_t>& data, int key_id, int value_id,
+    bool project_vertex(const QueryPlan& qplan, vector<value_t>& data, int key_id, int value_id,
                         map<value_t, vector<value_t>>& proj_map) {
         for (auto & val : data) {
             vid_t v_id(Tool::value_t2int(val));
@@ -151,8 +160,12 @@ class ProjectActor : public AbstractActor {
 
             // project key
             vpid_t vp_id(v_id, key_id);
-            if (!get_properties_for_vertex(qplan, vp_id, key)) {
-                continue;
+            READ_STAT read_status = get_properties_for_vertex(qplan, vp_id, key);
+            switch (read_status) {
+              case READ_STAT::SUCCESS: break;
+              case READ_STAT::NOTFOUND: continue;
+              case READ_STAT::ABORT: return false;
+              default : cout << "[Error] Unexpected READ_STAT in ProjectActor" << endl;
             }
 
             if (value_id == -1) {
@@ -160,31 +173,37 @@ class ProjectActor : public AbstractActor {
                 value = move(val);
             } else {
                 vp_id.pid = value_id;
-                if (!get_properties_for_vertex(qplan, vp_id, value)) {
-                    continue;
+                READ_STAT read_status = get_properties_for_vertex(qplan, vp_id, value);
+                switch (read_status) {
+                  case READ_STAT::SUCCESS: break;
+                  case READ_STAT::NOTFOUND: continue;
+                  case READ_STAT::ABORT: return false;
+                  default : cout << "[Error] Unexpected READ_STAT in ProjectActor" << endl;
                 }
             }
 
             proj_map[key].push_back(value);
         }
+        return true;
     }
 
-    bool get_properties_for_edge(const QueryPlan& qplan, const epid_t& ep_id, value_t& val) {
+    READ_STAT get_properties_for_edge(const QueryPlan& qplan, const epid_t& ep_id, value_t& val) {
         if (ep_id.pid == 0) {
             eid_t eid(ep_id.in_vid, ep_id.out_vid);
             label_t label;
-            data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
-            string label_str;
-            data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, label_str);
-            Tool::str2str(label_str, val);
-            return true;
+            READ_STAT read_status = data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+            if (read_status == READ_STAT::SUCCESS) {
+                string label_str;
+                data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, label_str);
+                Tool::str2str(label_str, val);
+            }
+            return read_status;
         } else {
-            return data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val)
-                   == READ_STAT::SUCCESS;
+            return data_storage_->GetEPByPKey(ep_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, val);
         }
     }
 
-    void project_edge(const QueryPlan& qplan, vector<value_t>& data, int key_id, int value_id,
+    bool project_edge(const QueryPlan& qplan, vector<value_t>& data, int key_id, int value_id,
                       map<value_t, vector<value_t>>& proj_map) {
         for (auto & val : data) {
             eid_t e_id;
@@ -193,8 +212,12 @@ class ProjectActor : public AbstractActor {
             value_t key, value;
             // project key
             epid_t ep_id(e_id, key_id);
-            if (!get_properties_for_edge(qplan, ep_id, key)) {
-                continue;
+            READ_STAT read_status = get_properties_for_edge(qplan, ep_id, key);
+            switch (read_status) {
+              case READ_STAT::SUCCESS: break;
+              case READ_STAT::NOTFOUND: continue;
+              case READ_STAT::ABORT: return false;
+              default : cout << "[Error] Unexpected READ_STAT in ProjectActor" << endl;
             }
 
             if (value_id == -1) {
@@ -202,13 +225,18 @@ class ProjectActor : public AbstractActor {
                 value = move(val);
             } else {
                 ep_id.pid = value_id;
-                if (!get_properties_for_edge(qplan, ep_id, value)) {
-                    continue;
+                READ_STAT read_status = get_properties_for_edge(qplan, ep_id, value);
+                switch (read_status) {
+                  case READ_STAT::SUCCESS: break;
+                  case READ_STAT::NOTFOUND: continue;
+                  case READ_STAT::ABORT: return false;
+                  default : cout << "[Error] Unexpected READ_STAT in ProjectActor" << endl;
                 }
             }
 
             proj_map[key].push_back(value);
         }
+        return true;
     }
 };
 

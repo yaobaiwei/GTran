@@ -50,12 +50,13 @@ class KeyActor : public AbstractActor {
             }
         }
 
+        bool read_success = true;
         switch (inType) {
           case Element_T::VERTEX:
-            VertexKeys(qplan, msg.data);
+            read_success = VertexKeys(qplan, msg.data);
             break;
           case Element_T::EDGE:
-            EdgeKeys(qplan, msg.data);
+            read_success = EdgeKeys(qplan, msg.data);
             break;
           default:
                 cout << "Wrong in type"  << endl;
@@ -63,7 +64,11 @@ class KeyActor : public AbstractActor {
 
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -110,14 +115,18 @@ class KeyActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    void VertexKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
+    bool VertexKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
                 vid_t v_id(Tool::value_t2int(elem));
 
                 vector<vpid_t> vp_list;
-                data_storage_->GetVPidList(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_list);
+                READ_STAT read_status = data_storage_->GetVPidList(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_list);
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
+                }
+
                 for (auto & pkey : vp_list) {
                     string keyStr;
                     data_storage_->GetNameFromIndex(Index_T::V_PROPERTY, static_cast<label_t>(pkey.pid), keyStr);
@@ -129,9 +138,10 @@ class KeyActor : public AbstractActor {
             }
             data_pair.second.swap(newData);
         }
+        return true;
     }
 
-    void EdgeKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
+    bool EdgeKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {
             vector<value_t> newData;
             for (auto & elem : data_pair.second) {
@@ -139,7 +149,11 @@ class KeyActor : public AbstractActor {
                 uint2eid_t(Tool::value_t2uint64_t(elem), e_id);
 
                 vector<epid_t> ep_list;
-                data_storage_->GetEPidList(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_list);
+                READ_STAT read_status = data_storage_->GetEPidList(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_list);
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
+                }
+
                 for (auto & pkey : ep_list) {
                     string keyStr;
                     data_storage_->GetNameFromIndex(Index_T::E_PROPERTY, static_cast<label_t>(pkey.pid), keyStr);
@@ -151,6 +165,7 @@ class KeyActor : public AbstractActor {
             }
             data_pair.second.swap(newData);
         }
+        return true;
     }
 };
 

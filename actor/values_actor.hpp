@@ -52,19 +52,24 @@ class ValuesActor : public AbstractActor {
             }
         }
 
+        bool read_success = true;
         switch (inType) {
           case Element_T::VERTEX:
-            get_properties_for_vertex(qplan, key_list, msg.data);
+            read_success = get_properties_for_vertex(qplan, key_list, msg.data);
             break;
           case Element_T::EDGE:
-            get_properties_for_edge(qplan, key_list, msg.data);
+            read_success = get_properties_for_edge(qplan, key_list, msg.data);
             break;
           default:
                 cout << "Wrong in type" << endl;
         }
 
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -117,7 +122,7 @@ class ValuesActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    void get_properties_for_vertex(const QueryPlan & qplan, const vector<label_t> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
+    bool get_properties_for_vertex(const QueryPlan & qplan, const vector<label_t> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
             vector<value_t> newData;
 
@@ -125,10 +130,15 @@ class ValuesActor : public AbstractActor {
                 vid_t v_id(Tool::value_t2int(value));
                 vector<std::pair<label_t, value_t>> vp_kv_pair_list;
 
+                READ_STAT read_status;
                 if (key_list.empty()) {
-                    data_storage_->GetAllVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
+                    read_status = data_storage_->GetAllVP(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
                 } else {
-                    data_storage_->GetVPByPKeyList(v_id, key_list, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
+                    read_status = data_storage_->GetVPByPKeyList(v_id, key_list, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_kv_pair_list);
+                }
+
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
                 }
 
                 for (auto vp_kv_pair : vp_kv_pair_list) {
@@ -137,9 +147,10 @@ class ValuesActor : public AbstractActor {
             }
             pair.second.swap(newData);
         }
+        return true;
     }
 
-    void get_properties_for_edge(const QueryPlan & qplan, const vector<label_t> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
+    bool get_properties_for_edge(const QueryPlan & qplan, const vector<label_t> & key_list, vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
             vector<value_t> newData;
 
@@ -148,10 +159,15 @@ class ValuesActor : public AbstractActor {
                 uint2eid_t(Tool::value_t2uint64_t(value), e_id);
                 vector<std::pair<label_t, value_t>> ep_kv_pair_list;
 
+                READ_STAT read_status;
                 if (key_list.empty()) {
-                    data_storage_->GetAllEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
+                    read_status = data_storage_->GetAllEP(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
                 } else {
-                    data_storage_->GetEPByPKeyList(e_id, key_list, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
+                    read_status = data_storage_->GetEPByPKeyList(e_id, key_list, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_kv_pair_list);
+                }
+
+                if (read_status == READ_STAT::ABORT) {
+                    return false;
                 }
 
                 for (auto ep_kv_pair : ep_kv_pair_list) {
@@ -160,6 +176,7 @@ class ValuesActor : public AbstractActor {
             }
             pair.second.swap(newData);
         }
+        return true;
     }
 };
 

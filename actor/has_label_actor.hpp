@@ -61,19 +61,24 @@ class HasLabelActor : public AbstractActor {
             lid_list.emplace_back(lid);
         }
 
+        bool read_success = true;
         switch (inType) {
           case Element_T::VERTEX:
-            VertexHasLabel(qplan, lid_list, msg.data);
+            VertexHasLabel(qplan, lid_list, msg.data, read_success);
             break;
           case Element_T::EDGE:
-            EdgeHasLabel(qplan, lid_list, msg.data);
+            EdgeHasLabel(qplan, lid_list, msg.data, read_success);
             break;
           default:
             cout << "Wrong in type"  << endl;
         }
         // Create Message
         vector<Message> msg_vec;
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        if (read_success) {
+            msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+        } else {
+            msg.CreateAbortMsg(qplan.actors, msg_vec);
+        }
 
         // Send Message
         for (auto& msg : msg_vec) {
@@ -122,12 +127,18 @@ class HasLabelActor : public AbstractActor {
     // Validation Store
     ActorValidationObject v_obj;
 
-    void VertexHasLabel(const QueryPlan & qplan, vector<label_t> lid_list, vector<pair<history_t, vector<value_t>>> & data) {
+    void VertexHasLabel(const QueryPlan & qplan, vector<label_t> lid_list, vector<pair<history_t, vector<value_t>>> & data, bool & read_success) {
         auto checkFunction = [&](value_t & value) {
+            if (!read_success) { return false; }
             vid_t v_id(Tool::value_t2int(value));
 
             label_t label;
-            data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+            READ_STAT read_status = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+            if (read_status == READ_STAT::ABORT) {
+                read_success = false;
+                return false;
+            }
+
             for (auto & lid : lid_list) {
                 if (lid == label) {
                     return false;
@@ -141,13 +152,19 @@ class HasLabelActor : public AbstractActor {
         }
     }
 
-    void EdgeHasLabel(const QueryPlan & qplan, vector<label_t> lid_list, vector<pair<history_t, vector<value_t>>> & data) {
+    void EdgeHasLabel(const QueryPlan & qplan, vector<label_t> lid_list, vector<pair<history_t, vector<value_t>>> & data, bool & read_success) {
         auto checkFunction = [&](value_t & value) {
+            if (!read_success) { return false; }
             eid_t e_id;
             uint2eid_t(Tool::value_t2uint64_t(value), e_id);
 
             label_t label;
-            data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+            READ_STAT read_status = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
+            if (read_status == READ_STAT::ABORT) {
+                read_success = false;
+                return false;
+            }
+
             for (auto & lid : lid_list) {
                 if (lid == label) {
                     return false;

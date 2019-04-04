@@ -181,12 +181,15 @@ void Message::CreateBroadcastMsg(MSG_T msg_type, int nodes_num, vector<Message>&
     }
 }
 
-void Message::CreateAbortMsg(const vector<Actor_Object>& actors) {
+void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec) {
     // To EndActor directly
-    meta.step = actors.size() - 1;
-    meta.msg_type = MSG_T::ABORT;
-    meta.recver_nid = meta.parent_nid;
-    meta.recver_tid = meta.parent_tid;
+    Message msg;
+    msg.meta = this->meta;
+    msg.meta.step = actors.size() - 1;
+    msg.meta.msg_type = MSG_T::ABORT;
+    msg.meta.recver_nid = meta.parent_nid;
+    msg.meta.recver_tid = meta.parent_tid;
+    vec.emplace_back(move(msg));
 }
 
 void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
