@@ -85,7 +85,7 @@ class ActorAdapter {
         actors_[ACTOR_T::COMMIT] = unique_ptr<AbstractActor>(new CommitActor(id ++, num_thread_, mailbox_, core_affinity_, &actors_));
         actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::DROP] = unique_ptr<AbstractActor>(new DropActor(id ++, num_thread_, node_.get_local_size(), mailbox_, core_affinity_));
+        actors_[ACTOR_T::DROP] = unique_ptr<AbstractActor>(new DropActor(id ++, num_thread_, node_.get_local_rank(), mailbox_, core_affinity_));
         actors_[ACTOR_T::DEDUP] = unique_ptr<AbstractActor>(new DedupActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::END] = unique_ptr<AbstractActor>(new EndActor(id ++, node_.get_local_size(), rc_, mailbox_, core_affinity_));
         actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, num_thread_, mailbox_, core_affinity_));
