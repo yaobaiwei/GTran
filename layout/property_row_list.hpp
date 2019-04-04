@@ -23,9 +23,10 @@ class PropertyRowList {
 
     std::atomic_int property_count_;
     PropertyRow* head_, *tail_;
+    pthread_spinlock_t lock_;
 
-    CellType* AllocateCell();
-    CellType* LocateCell(PidType pid);
+    CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
+    CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
 
  public:
     void Init();
@@ -34,14 +35,14 @@ class PropertyRowList {
     void InsertInitialCell(const PidType& pid, const value_t& value);
 
     READ_STAT ReadProperty(const PidType& pid, const uint64_t& trx_id,
-                      const uint64_t& begin_time, const bool& read_only, value_t& ret);
+                           const uint64_t& begin_time, const bool& read_only, value_t& ret);
     READ_STAT ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
-                                const uint64_t& begin_time, const bool& read_only,
-                                vector<pair<label_t, value_t>>& ret);
+                                     const uint64_t& begin_time, const bool& read_only,
+                                     vector<pair<label_t, value_t>>& ret);
     READ_STAT ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
-                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
+                              const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
-                     const bool& read_only, vector<PidType>& ret);
+                          const bool& read_only, vector<PidType>& ret);
 
     // the bool value is true if "Modify", false if "Add"
     pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value,
