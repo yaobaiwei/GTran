@@ -116,7 +116,7 @@ class Message {
     // vec:     messages to be send
     // mapper:  function that maps value_t to particular machine, default NULL
     void CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                    int num_thread, CoreAffinity* core_affinity, vector<Message>& vec);
+                    int num_thread, CoreAffinity* core_affinity, vector<Message>& vec, bool considerDstVtx = false);
 
     // actors:  actors chain for current message
     // stpes:   branching steps
@@ -140,13 +140,13 @@ class Message {
  private:
     // dispatch input data to different node
     void dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                    int num_thread, CoreAffinity * core_affinity, vector<Message>& vec);
+                    int num_thread, CoreAffinity * core_affinity, vector<Message>& vec, bool considerDstVtx = false);
     // update route to next actor
     bool update_route(Meta& m, const vector<Actor_Object>& actors);
     // update route to barrier or labelled branch actors for msg collection
     bool update_collection_route(Meta& m, const vector<Actor_Object>& actors);
     // get the node where vertex or edge is stored
-    static int get_node_id(const value_t & v, SimpleIdMapper * id_mapper);
+    static int get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool considerDstVtx = false);
     // Redistribute params of actors according to data locality
     static void AssignParamsByLocality(vector<QueryPlan>& qplans);
 };

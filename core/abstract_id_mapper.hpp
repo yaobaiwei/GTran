@@ -25,7 +25,7 @@ class AbstractIdMapper {
 
   // vertex/edge/property -> machine index mapping
   virtual int GetMachineIdForVertex(vid_t v_id) = 0;
-  virtual int GetMachineIdForEdge(eid_t e_id) = 0;
+  virtual int GetMachineIdForEdge(eid_t e_id, bool considerDstVtx = false) = 0;
   virtual int GetMachineIdForVProperty(vpid_t p_id) = 0;
   virtual int GetMachineIdForEProperty(epid_t p_id) = 0;
 };

@@ -193,12 +193,12 @@ void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message>
 }
 
 void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                        int num_thread, CoreAffinity* core_affinity, vector<Message>& vec) {
+                        int num_thread, CoreAffinity* core_affinity, vector<Message>& vec, bool considerDstVtx) {
     Meta m = this->meta;
     m.step = actors[this->meta.step].next_actor;
 
     int count = vec.size();
-    dispatch_data(m, actors, data, num_thread, core_affinity, vec);
+    dispatch_data(m, actors, data, num_thread, core_affinity, vec, considerDstVtx);
 
     // set disptching path
     string num = to_string(vec.size() - count);
@@ -356,7 +356,7 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 }
 
 void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                        int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
+                        int num_thread, CoreAffinity * core_affinity, vector<Message>& vec, bool considerDstVtx) {
     Meta cm = m;
     bool route_assigned = update_route(m, actors);
     bool empty_to_barrier = update_collection_route(cm, actors);
@@ -382,6 +382,10 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
             for (auto& v : p.second) {
                 int node = get_node_id(v, id_mapper);
                 id2value_t[node].push_back(move(v));
+                if (considerDstVtx) {
+                    node = get_node_id(v, id_mapper, considerDstVtx);
+                    id2value_t[node].push_back(move(v));
+                }
             }
 
             // insert his/value pair to corresponding node
@@ -516,7 +520,7 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
     return to_barrier;
 }
 
-int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper) {
+int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool considerDstVtx) {
     int type = v.type;
     if (type == 1) {
         vid_t v_id(Tool::value_t2int(v));
@@ -524,7 +528,7 @@ int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper) {
     } else if (type == 5) {
         eid_t e_id;
         uint2eid_t(Tool::value_t2uint64_t(v), e_id);
-        return id_mapper->GetMachineIdForEdge(e_id);
+        return id_mapper->GetMachineIdForEdge(e_id, considerDstVtx);
     } else {
         cout << "Wrong Type when getting node id" << type << endl;
         return -1;

@@ -1062,6 +1062,15 @@ void Parser::ParseDrop(const vector<string>& params) {
     actor.AddParam(element_type);
     actor.AddParam(isProperty);
     AppendActor(actor);
+
+    // For Vertex, ConnectedEdge need one more actor to handle
+    if (io_type_ == IO_T::VERTEX) {
+        Actor_Object next_actor(ACTOR_T::DROP); 
+        next_actor.AddParam(Element_T::EDGE);
+        next_actor.AddParam(false);
+        AppendActor(next_actor);
+    }
+
     trx_plan->trx_type_ |= TRX_DELETE;
     is_read_only_ = false;
 }
