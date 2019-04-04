@@ -124,8 +124,8 @@ class DataStorage {
  public:
     // MVCC processing stage related
     void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
-    vid_t ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+    vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                            vector<eid_t>& in_eids, vector<eid_t>& out_eids);
     bool ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
                      const uint64_t& trx_id, const uint64_t& begin_time);

@@ -275,7 +275,7 @@ void ValidationActor::get_vstep_for_has(Actor_Object * cur_actor_obj, int step_n
     }
 }
 
-bool ValidationActor::do_step_validation(int cur_trxID, step2TrxRct_map_t_ & check_step_map,
+bool ValidationActor::do_step_validation(uint64_t cur_trxID, step2TrxRct_map_t_ & check_step_map,
         vector<uint64_t> & optimistic_validation_trx, step2aobj_map_t_ & step_aobj_map) {
     for (auto & each_step : check_step_map) {
         // For each step, check status

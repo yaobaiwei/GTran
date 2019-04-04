@@ -77,7 +77,7 @@ class NaiveIdMapper : public AbstractIdMapper {
         return mymath::hash_mod(v_id.hash(), my_node_.get_local_size());
     }
 
-    int GetMachineIdForEdge(eid_t e_id) {
+    int GetMachineIdForEdge(eid_t e_id, bool considerDstVtx = false) {
         return mymath::hash_mod(e_id.hash(), my_node_.get_local_size());
     }
 
@@ -160,7 +160,10 @@ class SimpleIdMapper : public AbstractIdMapper {
         return v_id.value() % my_node_.get_local_size();
     }
 
-    int GetMachineIdForEdge(eid_t e_id) {
+    int GetMachineIdForEdge(eid_t e_id, bool considerDstVtx = false) {
+        if (considerDstVtx) {
+            return e_id.in_v % my_node_.get_local_size();
+        }
         return e_id.out_v % my_node_.get_local_size();
     }
 

@@ -157,7 +157,7 @@ class ValidationActor : public AbstractActor {
     void get_vstep(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
     void get_vstep_for_has(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
 
-    bool do_step_validation(int cur_trxID, step2TrxRct_map_t_ & check_step_map, vector<uint64_t> & optimistic_validation_trx, step2aobj_map_t_ & step_aobj_map);
+    bool do_step_validation(uint64_t cur_trxID, step2TrxRct_map_t_ & check_step_map, vector<uint64_t> & optimistic_validation_trx, step2aobj_map_t_ & step_aobj_map);
     void valid_optimistic_validation(vector<uint64_t> & optimistic_validation_trx, bool & isAbort);
     void valid_optimistic_read(vector<uint64_t> & homo_dep_read, bool & isAbort);
 

@@ -166,8 +166,8 @@ struct hash<vid_t> {
 
 // vid: 64bits 0000|0000|0000|in_v|out_v
 struct eid_t {
-uint64_t in_v : VID_BITS;
-uint64_t out_v : VID_BITS;
+uint64_t in_v : VID_BITS;  // dst_v
+uint64_t out_v : VID_BITS;  // src_v
 
     eid_t(): in_v(0), out_v(0) { }
 
@@ -340,6 +340,13 @@ struct value_t {
     vector<char> content;
     string DebugString() const;
 };
+
+static uint8_t IntValueType = 1;
+static uint8_t DoubleValueType = 2;
+static uint8_t CharValueType = 3;
+static uint8_t StringValueType = 4;
+static uint8_t UintValueType = 5;
+static uint8_t PropKeyValueType = 6;
 
 ibinstream& operator<<(ibinstream& m, const value_t& v);
 

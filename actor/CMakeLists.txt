@@ -6,6 +6,7 @@ file(GLOB actor-src-files
     validation_actor.cpp
     commit_actor.cpp
     barrier_actor.cpp
+    drop_actor.cpp
     )
 
 add_library(actor-objs OBJECT ${actor-src-files})

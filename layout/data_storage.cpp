@@ -693,7 +693,7 @@ void DataStorage::InsertTrxProcessMap(const uint64_t& trx_id, const TransactionI
     t_accessor->second.process_set.emplace(q_item);
 }
 
-vid_t DataStorage::ProcessAddVertex(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time) {
+vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time) {
     // guaranteed that the vid is identical in the whole system
     // so that it's impossible to insert two vertex with the same vid
     vid_t vid = AssignVID();
@@ -718,7 +718,7 @@ vid_t DataStorage::ProcessAddVertex(const label_t& label, const uint64_t& trx_id
     return vid;
 }
 
-bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                     vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
