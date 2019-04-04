@@ -126,7 +126,7 @@ class PropertiesActor : public AbstractActor {
     bool get_properties_for_vertex(const QueryPlan & qplan, int tid, const vector<label_t> & key_list,
                                    vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
-            vector<std::pair<string, string>> result;
+            vector<std::pair<uint64_t, string>> result;
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
@@ -147,7 +147,10 @@ class PropertiesActor : public AbstractActor {
                 for (auto vp_kv_pair : vp_kv_pair_list) {
                     string keyStr;
                     data_storage_->GetNameFromIndex(Index_T::V_PROPERTY, vp_kv_pair.first, keyStr);
-                    result.emplace_back(keyStr, Tool::DebugString(vp_kv_pair.second));
+
+                    vpid_t vpid(v_id, vp_kv_pair.first);
+                    string result_value = "{" + keyStr + ":" + Tool::DebugString(vp_kv_pair.second) + "}";
+                    result.emplace_back(vpid.value(), result_value);
                 }
             }
 
@@ -160,7 +163,7 @@ class PropertiesActor : public AbstractActor {
     bool get_properties_for_edge(const QueryPlan & qplan, int tid, const vector<label_t> & key_list,
                                  vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
-            vector<std::pair<string, string>> result;
+            vector<std::pair<uint64_t, string>> result;
             vector<value_t> newData;
 
             for (auto & value : pair.second) {
@@ -183,7 +186,10 @@ class PropertiesActor : public AbstractActor {
                 for (auto ep_kv_pair : ep_kv_pair_list) {
                     string keyStr;
                     data_storage_->GetNameFromIndex(Index_T::E_PROPERTY, ep_kv_pair.first, keyStr);
-                    result.emplace_back(keyStr, Tool::DebugString(ep_kv_pair.second));
+
+                    epid_t epid(e_id, ep_kv_pair.first);
+                    string result_value = "{" + keyStr + ":" + Tool::DebugString(ep_kv_pair.second) + "}";
+                    result.emplace_back(epid.value(), result_value);
                 }
             }
 

@@ -300,11 +300,15 @@ class Tool{
         }
     }
 
-    static void vec_pair2value_t(const vector<pair<string, string>> & v_p, vector<value_t> & vec) {
+    static void vec_pair2value_t(const vector<pair<uint64_t, string>> & v_p, vector<value_t> & vec) {
+        // type 6 : v/epid(uint64_t) + {pkey : pvalue} (string)
+        //  for supporting drop.
         for (auto& pair : v_p) {
             value_t v;
-            str2str("{" + pair.first + ":" + pair.second + "}", v);
-            vec.push_back(v);
+            uint64_t2value_t(pair.first, v);
+            str2str(pair.second, v);
+            v.type = 6;
+            vec.emplace_back(v);
         }
     }
 
@@ -343,9 +347,14 @@ class Tool{
         double d;
         int i;
         uint64_t u;
+        size_t uint64_sz = sizeof(uint64_t);
         vector<value_t> vec;
         string temp;
         switch (v.type) {
+          case 6:  // v/epid(uint64_t) + {pkey : pvalue} (string)
+            u = Tool::value_t2uint64_t(v);
+            // return to_string(u) + " : " + string(v.content.begin() + uint64_sz, v.content.end()); 
+            return string(v.content.begin() + uint64_sz, v.content.end()); 
           case 5:
             u = Tool::value_t2uint64_t(v);
             return to_string(u);
