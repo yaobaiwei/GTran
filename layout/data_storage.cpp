@@ -171,6 +171,26 @@ void DataStorage::FillContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
 }
 
+bool DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
+                                        const uint64_t& begin_time, const bool& read_only) {
+    auto* visible_mvcc = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+    if (visible_mvcc == nullptr)
+        return false;
+    if (!visible_mvcc->GetValue())
+        return false;
+    return true;
+}
+
+bool DataStorage::CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
+                                        const uint64_t& begin_time, const bool& read_only) {
+    auto* visible_mvcc = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+    if (visible_mvcc == nullptr)
+        return false;
+    if (!visible_mvcc->GetValue())
+        return false;
+    return true;
+}
+
 READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                               const bool& read_only, value_t& ret) {
     vid_t vid = pid.vid;
@@ -178,8 +198,12 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
+        return READ_STAT::ABORT;
 
     return v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
 }
@@ -189,8 +213,12 @@ READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const 
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
+        return READ_STAT::ABORT;
 
     return v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
 }
@@ -201,8 +229,12 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
+        return READ_STAT::ABORT;
 
     return v_accessor->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
 }
@@ -212,8 +244,12 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
+        return READ_STAT::ABORT;
 
     return v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 }
@@ -223,20 +259,16 @@ READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
 
-    auto* visible_mvcc = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
-
-    if (visible_mvcc == nullptr)
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
         return READ_STAT::ABORT;
 
     ret = v_accessor->second.label;
 
-    if (ret == 0)
-        return READ_STAT::NOTFOUND;
-    else
-        return READ_STAT::SUCCESS;
+    return READ_STAT::SUCCESS;
 }
 
 READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -251,7 +283,7 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
 
     if (edge_item.Exist())
         return edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
-    return READ_STAT::NOTFOUND;
+    return READ_STAT::ABORT;
 }
 
 READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -264,7 +296,7 @@ READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const 
 
     if (edge_item.Exist())
        return edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
-    return READ_STAT::NOTFOUND;
+    return READ_STAT::ABORT;
 }
 
 READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
@@ -278,7 +310,7 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
 
     if (edge_item.Exist())
         return edge_item.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
-    return READ_STAT::NOTFOUND;
+    return READ_STAT::ABORT;
 }
 
 READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -291,7 +323,7 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
 
     if (edge_item.Exist())
         return edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
-    return READ_STAT::NOTFOUND;
+    return READ_STAT::ABORT;
 }
 
 READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
@@ -307,7 +339,7 @@ READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
     if (edge_item.Exist())
         return READ_STAT::SUCCESS;
     else
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
 }
 
 READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
@@ -316,8 +348,12 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
+        return READ_STAT::ABORT;
 
     return v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label,
                                                                trx_id, begin_time, read_only, ret);
@@ -330,7 +366,10 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only))
+        return READ_STAT::ABORT;
 
     return v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label, trx_id, begin_time, read_only, ret);
 }
@@ -375,8 +414,9 @@ READ_STAT DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t
                                      const bool& read_only, EdgeItem& item_ref) {
     bool found = out_edge_map_.find(e_accessor, eid.value());
 
+    // system error, need to handle it in the future
     if (!found)
-        return READ_STAT::NOTFOUND;
+        return READ_STAT::ABORT;
 
     auto* visible_mvcc = e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only);
 
@@ -683,9 +723,8 @@ bool DataStorage::ProcessDropVertex(const vid_t& vid, const uint64_t& trx_id, co
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
-    // do nothing
     if (!found)
-        return true;
+        return false;
 
     vector<eid_t> all_connected_edge;
     auto read_stat = GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge);
@@ -725,6 +764,17 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
     // if is_out, this function will add an outE, which means that src_vid is on this node
     //      else, this function will add an inE, which means that dst_vid is on this node
 
+    // anyway, need to check if the vertex exists or not
+    VertexConstAccessor v_accessor;
+    bool found = vertex_map_.find(v_accessor, local_vid.value());
+
+    // system error, need to handle it in the future
+    if (!found)
+        return false;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, false))
+        return false;
+
     if (is_out) {
         is_new = out_edge_map_.insert(e_accessor, eid.value());
         local_vid = src_vid;
@@ -737,9 +787,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
     if (is_new) {
         // a new MVCCList<EdgeItem> will be created; a cell in VertexEdgeRow will be allocated
-        VertexConstAccessor v_accessor;
         // it must exists for the limitation of query
-        vertex_map_.find(v_accessor, local_vid.value());
         PropertyRowList<EdgePropertyRow>* ep_row_list;
         if (is_out) {
             ep_row_list = new PropertyRowList<EdgePropertyRow>;
@@ -812,9 +860,12 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
-    // TODO(entityless): No clear that will this happens and how to deal with it.
+    // system error, need to handle it in the future
     if (!found)
-        return true;
+        return false;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, false))
+        return false;
 
     auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
@@ -838,12 +889,8 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
 
-    if (read_stat == READ_STAT::ABORT)
+    if (read_stat != READ_STAT::SUCCESS)
         return false;
-
-    // TODO(entityless): No clear that will this happens and how to deal with it.
-    if (read_stat == READ_STAT::NOTFOUND)
-        return true;
 
     if (!edge_item.Exist())
         return false;
@@ -868,9 +915,12 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
-    // TODO(entityless): No clear that will this happens and how to deal with it.
+    // system error, need to handle it in the future
     if (!found)
-        return true;
+        return false;
+
+    if (!CheckVertexVisibility(v_accessor, trx_id, begin_time, false))
+        return false;
 
     auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
@@ -887,12 +937,8 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
 
-    if (read_stat == READ_STAT::ABORT)
+    if (read_stat != READ_STAT::SUCCESS)
         return false;
-
-    // TODO(entityless): No clear that will this happens and how to deal with it.
-    if (read_stat == READ_STAT::NOTFOUND)
-        return true;
 
     if (!edge_item.Exist())
         return false;
@@ -934,6 +980,7 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
             mvcc_list->CommitVersion(trx_id, commit_time);
         }
     }
+
     transaction_process_map_.erase(t_accessor);
 }
 
@@ -967,7 +1014,8 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             MVCCList<EdgeMVCC>* mvcc_list = process_item.mvcc_list;
             auto e_item_to_free = mvcc_list->AbortVersion(trx_id);
             if (e_item_to_free.ep_row_list != nullptr) {
-                // TODO(entityless): Implement how to free PropertyRowList
+                e_item_to_free.ep_row_list->SelfGarbageCollect();
+                delete e_item_to_free.ep_row_list;
             }
         }
     }

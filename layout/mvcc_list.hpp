@@ -36,6 +36,8 @@ class MVCCList {
 
     MVCC* GetHead();
 
+    void SelfGarbageCollect();
+
  private:
     static OffsetConcurrentMemPool<MVCC>* mem_pool_;  // Initialized in data_storage.cpp
 

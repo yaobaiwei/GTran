@@ -113,6 +113,14 @@ class DataStorage {
     unordered_map<agg_t, vector<value_t>> agg_data_table;
     mutex agg_mutex;
 
+    READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
+                             const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
+
+    bool CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
+                               const uint64_t& begin_time, const bool& read_only);
+    bool CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
+                               const uint64_t& begin_time, const bool& read_only);
+
  public:
     // MVCC processing stage related
     void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
@@ -155,9 +163,6 @@ class DataStorage {
                      const bool& read_only, vector<epid_t>& ret);
     READ_STAT GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                const bool& read_only, label_t& ret);
-    READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
-                            const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
-
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
     // traversal from vertex
