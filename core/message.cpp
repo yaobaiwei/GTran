@@ -193,12 +193,12 @@ void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message>
 }
 
 void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                        int num_thread, CoreAffinity* core_affinity, vector<Message>& vec, bool considerDstVtx) {
+                        int num_thread, CoreAffinity* core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
     m.step = actors[this->meta.step].next_actor;
 
     int count = vec.size();
-    dispatch_data(m, actors, data, num_thread, core_affinity, vec, considerDstVtx);
+    dispatch_data(m, actors, data, num_thread, core_affinity, vec);
 
     // set disptching path
     string num = to_string(vec.size() - count);
@@ -356,7 +356,7 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
 }
 
 void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
-                        int num_thread, CoreAffinity * core_affinity, vector<Message>& vec, bool considerDstVtx) {
+                        int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta cm = m;
     bool route_assigned = update_route(m, actors);
     bool empty_to_barrier = update_collection_route(cm, actors);
@@ -366,9 +366,15 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
     vector<pair<history_t, vector<value_t>>> empty_his;
 
     bool is_count = actors[m.step].actor_type == ACTOR_T::COUNT;
+    bool is_drop_edge = false;
+    if (actors[m.step].actor_type == ACTOR_T::DROP) {
+        // For DropE and DropEP, send edge src_v and dst_v
+        Element_T inType = static_cast<Element_T>(Tool::value_t2int(actors[m.step].params.at(0)));
+        is_drop_edge = (inType == Element_T::EDGE);
+    }
 
     // enable route mapping
-    if (!route_assigned && actors[this->meta.step].send_remote) {
+    if ((!route_assigned && actors[this->meta.step].send_remote) || is_drop_edge) {
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
         for (auto& p : data) {
             map<int, vector<value_t>> id2value_t;
@@ -380,12 +386,13 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
 
             // get node id
             for (auto& v : p.second) {
-                int node = get_node_id(v, id_mapper);
-                id2value_t[node].push_back(move(v));
-                if (considerDstVtx) {
-                    node = get_node_id(v, id_mapper, considerDstVtx);
-                    id2value_t[node].push_back(move(v));
+                int node;
+                if (is_drop_edge) {
+                    node = get_node_id(v, id_mapper, is_drop_edge);
+                    id2value_t[node].push_back(v);
                 }
+                node = get_node_id(v, id_mapper);
+                id2value_t[node].push_back(move(v));
             }
 
             // insert his/value pair to corresponding node
@@ -520,7 +527,7 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
     return to_barrier;
 }
 
-int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool considerDstVtx) {
+int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool is_drop_edge) {
     int type = v.type;
     if (type == 1) {
         vid_t v_id(Tool::value_t2int(v));
@@ -528,7 +535,7 @@ int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool con
     } else if (type == 5) {
         eid_t e_id;
         uint2eid_t(Tool::value_t2uint64_t(v), e_id);
-        return id_mapper->GetMachineIdForEdge(e_id, considerDstVtx);
+        return id_mapper->GetMachineIdForEdge(e_id, is_drop_edge);
     } else {
         cout << "Wrong Type when getting node id" << type << endl;
         return -1;
