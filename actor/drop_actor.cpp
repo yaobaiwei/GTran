@@ -22,7 +22,7 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
     // Create Message
     vector<Message> msg_vec;
     if (success) {
-        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec, true);
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {
         msg.CreateAbortMsg(qplan.actors, msg_vec);
     }
