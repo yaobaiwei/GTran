@@ -6,6 +6,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 template<class MVCC>
 MVCCList<MVCC>::MVCCList() {
+    pthread_spin_init(&lock_, 0);
 }
 
 template<class MVCC>
@@ -17,28 +18,39 @@ template<class MVCC>
 bool MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, MVCC_PTR& ret) {
     // return false for abort
-    if (tail_->GetTransactionID() == trx_id) {
-        ret = tail_;
+
+    pthread_spin_lock(&lock_);
+    // fetch member variable in critical region
+    MVCC* tmp_head = head_;
+    MVCC* tmp_tail = tail_;
+    MVCC* tmp_tail_last = tail_last_;
+    // tail_last_buffer_ this is not nullptr only when the tail is uncommited
+    MVCC* tmp_tail_last_buffer = tail_last_buffer_;
+    pthread_spin_unlock(&lock_);
+
+    if (tmp_tail->GetTransactionID() == trx_id) {
+        // during the same trx's processing
+        ret = tmp_tail;
         return true;
     }
 
-    ret = head_;
+    if (tmp_tail_last_buffer != nullptr) {
+        // process finished, not commited
+        tmp_tail = tmp_tail_last;
+    }
 
     // the whole MVCCList is not visible, since the list is added in the future commit time
     // or created by another uncommited transaction
-    if (begin_time < head_->GetBeginTime()) {
+    if (begin_time < tmp_head->GetBeginTime()) {
         ret = nullptr;
         return true;
     }
 
-    while (true) {
-        // TODO(entityless): Figure out will this happens? If not, remove 3 lines below
-        // no suitable version, which means that the whole MVCCList is not visible
-        if (ret == nullptr)
-            break;
+    ret = tmp_head;
 
+    while (true) {
         // if suitable, break
-        if (ret->GetTransactionID() == trx_id || begin_time < ret->GetEndTime()) {
+        if (begin_time < ret->GetEndTime()) {
             // Check whether there is next version
             if (ret->next != nullptr) {
                 uint64_t next_ver_trx_id = (static_cast<MVCC*>(ret->next))->GetTransactionID();
@@ -99,6 +111,11 @@ bool MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
             break;
         }
 
+        if (ret == tmp_tail) {
+            // if the last version is still not suitable, system error occurs.
+            assert("not visible version, system error" != "");
+        }
+
         ret = static_cast<MVCC*>(ret->next);
     }
 
@@ -107,6 +124,8 @@ bool MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
 
 template<class MVCC>
 decltype(MVCC::val)* MVCCList<MVCC>::AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time) {
+    SimpleSpinLockGuard lock_guard(&lock_);
+
     if (head_ == nullptr) {
         MVCC* head_mvcc = mem_pool_->Get();
 
@@ -116,6 +135,7 @@ decltype(MVCC::val)* MVCCList<MVCC>::AppendVersion(const uint64_t& trx_id, const
         head_ = head_mvcc;
         tail_ = head_mvcc;
         tail_last_ = head_mvcc;
+        tail_last_buffer_ = head_mvcc;
 
         return &head_mvcc->val;
     }
@@ -163,13 +183,16 @@ decltype(MVCC::val)* MVCCList<MVCC>::AppendInitialVersion() {
 
 template<class MVCC>
 void MVCCList<MVCC>::CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time) {
+    SimpleSpinLockGuard lock_guard(&lock_);
     assert(tail_->GetTransactionID() == trx_id);
 
     tail_->Commit(tail_last_, commit_time);
+    tail_last_buffer_ = nullptr;
 }
 
 template<class MVCC>
 decltype(MVCC::val) MVCCList<MVCC>::AbortVersion(const uint64_t& trx_id) {
+    SimpleSpinLockGuard lock_guard(&lock_);
     assert(tail_->GetTransactionID() == trx_id);
 
     decltype(MVCC::val) ret = (static_cast<MVCC*>(tail_))->val;
@@ -188,6 +211,7 @@ decltype(MVCC::val) MVCCList<MVCC>::AbortVersion(const uint64_t& trx_id) {
         tail_->Commit(tail_last_, 0);
     }
 
+    tail_last_buffer_ = nullptr;
     return ret;
 }
 

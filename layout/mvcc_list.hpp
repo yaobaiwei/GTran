@@ -5,6 +5,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #pragma once
 
+#include <pthread.h>
+
 #include <cstdio>
 
 #include "core/factory.hpp"
@@ -43,6 +45,17 @@ class MVCCList {
 
     void SelfGarbageCollect();
 
+    struct SimpleSpinLockGuard {
+        pthread_spinlock_t* lock_ptr;
+        explicit SimpleSpinLockGuard(pthread_spinlock_t* _lock_ptr) {
+            lock_ptr = _lock_ptr;
+            pthread_spin_lock(lock_ptr);
+        }
+        ~SimpleSpinLockGuard() {
+            pthread_spin_unlock(lock_ptr);
+        }
+    };
+
  private:
     static OffsetConcurrentMemPool<MVCC>* mem_pool_;  // Initialized in data_storage.cpp
 
@@ -52,6 +65,8 @@ class MVCCList {
     MVCC* tail_ = nullptr;
     MVCC* tail_last_ = nullptr;
     MVCC* tail_last_buffer_ = nullptr;
+    // tail_last_buffer_ this is not nullptr only when the tail is uncommited
+    pthread_spinlock_t lock_;
 };
 
 #include "mvcc_list.tpp"
