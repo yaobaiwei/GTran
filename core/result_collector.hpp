@@ -26,6 +26,7 @@ using __gnu_cxx::hash_map;
 struct reply {
     uint64_t qid;
     vector<value_t> results;
+    bool isAbort;
 };
 
 class ResultCollector {
@@ -33,6 +34,25 @@ class ResultCollector {
     void Register(uint64_t qid) {
         lock_guard<mutex> lck(m_mutex_);
         qid_list_.insert(qid);
+    }
+
+    void NotifyAbort(uint64_t qid) {
+        {
+            // check if qid is valid
+            lock_guard<mutex> lck(m_mutex_);
+            auto it = qid_list_.find(qid);
+
+            if (it == qid_list_.end()) {
+                // Multiple abort message, simply ignore
+                return;
+            }
+            qid_list_.erase(it);
+        }
+
+        reply re;
+        re.qid = qid;
+        re.isAbort = true;
+        reply_queue_.Push(move(re));
     }
 
     void InsertResult(uint64_t qid, vector<value_t> & data) {
@@ -51,6 +71,7 @@ class ResultCollector {
         reply re;
         re.results = move(data);
         re.qid = qid;
+        re.isAbort = false;
         reply_queue_.Push(move(re));
     }
 

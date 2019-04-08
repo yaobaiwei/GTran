@@ -482,7 +482,12 @@ class Worker {
             uint2qid_t(re.qid, qid);
 
             TrxPlan& plan = plans_[qid.trxid];
-            plan.FillResult(qid.id, re.results);
+
+            if (re.isAbort) {
+                plan.Abort();
+            } else {
+                plan.FillResult(qid.id, re.results);
+            }
 
             if (!RegisterQuery(plan) && !is_emu_mode_) {
                 // Reply to client when transaction is finished

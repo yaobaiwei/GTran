@@ -45,7 +45,8 @@ class TrxPlan {
     TrxPlan(uint64_t trxid_, uint64_t st, string client_host_) : trxid(trxid_), st_(st), client_host(client_host_) {
         trx_type_ = TRX_READONLY;
         start_time = timer::get_usec();
-        received_ = 0;
+        is_abort_ = false;
+        is_end_ = false;
     }
 
     // Register place holder, dst_index depends on src_index
@@ -55,7 +56,9 @@ class TrxPlan {
     void RegDependency(uint8_t src_index, uint8_t dst_index);
 
     // Fill in placeholder and trx result after query done
-    void FillResult(uint8_t query_index, vector<value_t>& vec);
+    void FillResult(int query_index, vector<value_t>& vec);
+
+    void Abort();
 
     // Get result of queries after transaction finished
     void GetResult(vector<value_t>& vec);
@@ -82,6 +85,9 @@ class TrxPlan {
     uint64_t st_;
     uint8_t trx_type_;
     uint8_t received_;
+
+    bool is_abort_;
+    bool is_end_;
 
     // Info of all queries
     vector<QueryPlan> query_plans_;

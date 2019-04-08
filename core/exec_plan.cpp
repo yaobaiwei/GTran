@@ -39,7 +39,26 @@ void TrxPlan::RegDependency(uint8_t src_index, uint8_t dst_index) {
     }
 }
 
-void TrxPlan::FillResult(uint8_t query_index, vector<value_t>& vec) {
+void TrxPlan::Abort() {
+    if (is_abort_) {
+        // Abort statement already sent
+        return;
+    }
+
+    is_abort_ = true;
+
+    // setup abort statement
+    // erase validation and post_validation actor
+    int index = query_plans_.size() - 1;
+    QueryPlan& plan = query_plans_[index];
+    plan.actors.erase(plan.actors.begin(), plan.actors.begin() + 2);
+
+    // set abort statement to next execution batch
+    deps_count_.clear();
+    deps_count_[index] = 0;
+}
+
+void TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
     // Find placeholders that depend on results of query_index_
     for (position_t& pos : place_holder_[query_index]) {
         Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
@@ -68,27 +87,29 @@ void TrxPlan::FillResult(uint8_t query_index, vector<value_t>& vec) {
         deps_count_[index] --;
     }
 
-    // Append result set if not commit statement
-    if (query_index != query_plans_.size() - 1) {
-        // Add query header info if not parser error
-        if (query_index != -1) {
-            value_t v;
-            string header = "Query " + to_string(query_index + 1) + ": ";
-            Tool::str2str(header, v);
-            results_[query_index].push_back(v);
-        }
-
-        results_[query_index].insert(results_[query_index].end(),
-                                    make_move_iterator(vec.begin()),
-                                    make_move_iterator(vec.end()));
+    // Add query header info if not parser error
+    if (query_index != -1) {
+        value_t v;
+        string header = "Query " + to_string(query_index + 1) + ": ";
+        Tool::str2str(header, v);
+        results_[query_index].push_back(v);
     }
 
-    received_++;
+    results_[query_index].insert(results_[query_index].end(),
+                                make_move_iterator(vec.begin()),
+                                make_move_iterator(vec.end()));
+
+    // check if commit statement or parser error
+    if (query_index == query_plans_.size() - 1 || query_index == -1) {
+        is_end_ = true;
+        return;
+    }
 }
 
+// return false if transaction end
 bool TrxPlan::NextQueries(vector<QueryPlan>& plans) {
-    // End of transaction
-    if (received_ == query_plans_.size()) {
+    if (is_end_) {
+        // End of transaction
         return false;
     }
 
@@ -113,8 +134,14 @@ bool TrxPlan::NextQueries(vector<QueryPlan>& plans) {
 }
 
 void TrxPlan::GetResult(vector<value_t>& vec) {
-    // Append query results in increasing order
-    for (auto itr = results_.begin(); itr != results_.end(); itr ++) {
-        vec.insert(vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
+    if (is_abort_) {
+        value_t v;
+        Tool::str2str("Transaction aborted!" , v);
+        vec.push_back(move(v));
+    } else {
+        // Append query results in increasing order
+        for (auto itr = results_.begin(); itr != results_.end(); itr ++) {
+            vec.insert(vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
+        }
     }
 }

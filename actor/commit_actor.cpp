@@ -10,7 +10,10 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
 
     // Get info of transaction
     Meta & m = msg.meta;
-    if (m.msg_type == MSG_T::ABORT) {
+
+    if (m.msg_type == MSG_T::ABORT || m.msg_type == MSG_T::INIT) {
+        // verification abort: MSG_T::ABORT
+        // processing abort : MSG_T::INIT
         data_storage_->Abort(qplan.trxid);
         // TODO : Erase Barrier TmpData
     } else if (m.msg_type == MSG_T::COMMIT) {
