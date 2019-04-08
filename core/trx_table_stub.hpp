@@ -23,7 +23,7 @@ class TrxTableStub {
 
  public:
     virtual bool Init() = 0;
-    virtual bool update_status(uint64_t trx_id, TRX_STAT new_status,
+    virtual bool update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only = false,
                        std::vector<uint64_t>* trx_ids = nullptr) = 0;
 
     virtual bool read_status(uint64_t trx_id, TRX_STAT& status) = 0;

@@ -170,7 +170,7 @@ class Master {
                 trx_p -> query_bt(req.trx_id, bt);
 
                 // update state and get a ct
-                trx_p -> modify_status(req.trx_id, req.new_status, ct);
+                trx_p -> modify_status(req.trx_id, req.new_status, ct, req.is_read_only);
                 trx_p -> print_single_item(req.trx_id);
 
                 // query RCT
@@ -204,17 +204,18 @@ class Master {
         int n_id;
         uint64_t trx_id;
         int status_i;
+        bool is_read_only;
 
         while (true) {
             obinstream out;
             mailbox -> Recv_Notify(out);
 
             TRX_STAT new_status;
-            out >> n_id >> trx_id >> status_i;
+            out >> n_id >> trx_id >> status_i >> is_read_only;
 
             // printf("Master recvs a update state req: %llx\t%llx\t%d\n", n_id, trx_id, status_i);
 
-            UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i)};
+            UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
             pending_trx_updates_.Push(req);
         }
     }
