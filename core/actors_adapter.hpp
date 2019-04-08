@@ -35,6 +35,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "actor/labelled_branch_actor.hpp"
 #include "actor/project_actor.hpp"
 #include "actor/properties_actor.hpp"
+#include "actor/property_actor.hpp"
 #include "actor/select_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
@@ -103,6 +104,7 @@ class ActorAdapter {
         actors_[ACTOR_T::POSTVALIDATION] = unique_ptr<AbstractActor>(new PostValidationActor(id ++, node_.get_local_size(), mailbox_, core_affinity_));
         actors_[ACTOR_T::PROJECT] = unique_ptr<AbstractActor>(new ProjectActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::PROPERTIES] = unique_ptr<AbstractActor>(new PropertiesActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::PROPERTY] = unique_ptr<AbstractActor>(new PropertyActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::RANGE] = unique_ptr<AbstractActor>(new RangeActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, num_thread_, mailbox_, core_affinity_));

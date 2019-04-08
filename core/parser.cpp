@@ -1475,6 +1475,7 @@ void Parser::ParseProperty(const vector<string>& params) {
     if (!IsElement(element_type)) {
         throw ParserException("expect vertex/edge input for property");
     }
+    actor.AddParam(element_type);
 
     int key;
     uint8_t key_type;
