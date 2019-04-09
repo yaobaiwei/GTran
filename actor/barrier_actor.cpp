@@ -19,7 +19,8 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
     bool end_of_trx = false;
     if (msg.meta.msg_type == MSG_T::ABORT) {
-        // TODO(Nick): Notify worker that transaction is aborted
+        rc_->NotifyAbort(msg.meta.qid);
+        return;
     } else if (isReady) {
         // all msg are collected
         // insert data to result collector
