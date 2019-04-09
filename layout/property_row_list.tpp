@@ -126,12 +126,16 @@ READ_STAT PropertyRowList<PropertyRow>::
     if (cell == nullptr)
         return READ_STAT::NOTFOUND;
 
+    pthread_spin_lock(&lock_);
+    MVCCListType* mvcc_list = cell->mvcc_list;
+    pthread_spin_unlock(&lock_);
+
     // being edited by other transaction
-    if (cell->mvcc_list == nullptr)
-        return read_only ? READ_STAT::ABORT : READ_STAT::NOTFOUND;
+    if (mvcc_list == nullptr)  // if not read-only, my read set has been modified
+        return read_only ? READ_STAT::NOTFOUND : READ_STAT::ABORT;
 
     MVCCType* visible_version;
-    bool success = cell->mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+    bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
     if (!success)
         return READ_STAT::ABORT;
@@ -174,16 +178,19 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
         if (pkey_set.count(cell_ref.pid.pid) > 0) {
             pkey_set.erase(cell_ref.pid.pid);
 
+            pthread_spin_lock(&lock_);
+            MVCCListType* mvcc_list = cell_ref.mvcc_list;
+            pthread_spin_unlock(&lock_);
             // being edited by other transaction
-            if (cell_ref.mvcc_list == nullptr) {
+            if (mvcc_list == nullptr) {
                 if (read_only)
                     continue;
-                else
+                else  // read set has been modified
                     return READ_STAT::ABORT;
             }
 
             MVCCType* visible_version;
-            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+            bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
             if (!success)
                 return READ_STAT::ABORT;
@@ -222,16 +229,19 @@ READ_STAT PropertyRowList<PropertyRow>::
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
+        pthread_spin_lock(&lock_);
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
+        pthread_spin_unlock(&lock_);
         // being edited by other transaction
-        if (cell_ref.mvcc_list == nullptr) {
+        if (mvcc_list == nullptr) {
             if (read_only)
                 continue;
-            else
+            else  // read set has been modified
                 return READ_STAT::ABORT;
         }
 
         MVCCType* visible_version;
-        bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+        bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
         if (!success)
             return READ_STAT::ABORT;
@@ -266,16 +276,19 @@ READ_STAT PropertyRowList<PropertyRow>::
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
+        pthread_spin_lock(&lock_);
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
+        pthread_spin_unlock(&lock_);
         // being edited by other transaction
-        if (cell_ref.mvcc_list == nullptr) {
+        if (mvcc_list == nullptr) {
             if (read_only)
                 continue;
-            else
+            else  // read set has been modified
                 return READ_STAT::ABORT;
         }
 
         MVCCType* visible_version;
-        bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+        bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
         if (!success)
             return READ_STAT::ABORT;
@@ -299,6 +312,7 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     PropertyRow* tmp_tail;
     auto* cell = LocateCell(pid, &tmp_count, &tmp_tail);
     bool modify_flag = true;
+    MVCCListType* mvcc_list;
 
     if (cell == nullptr) {
         cell = AllocateCell(pid, &tmp_count, &tmp_tail);
@@ -307,19 +321,30 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
         if (cell == nullptr)  // add failed
             return make_pair(false, nullptr);
 
-        cell->mvcc_list = new MVCCListType;
+        // cell->mvcc_list = new MVCCListType;
+        mvcc_list = new MVCCListType;
+    } else {
+        pthread_spin_lock(&lock_);
+        mvcc_list = cell->mvcc_list;
+        pthread_spin_unlock(&lock_);
     }
 
-    // being edited by other transaction
-    if (cell->mvcc_list == nullptr)
+    // being edited by other transaction, write-write conflict occurs
+    if (mvcc_list == nullptr)  // modify failed
         return make_pair(true, nullptr);
 
-    auto* version_val_ptr = cell->mvcc_list->AppendVersion(trx_id, begin_time);
+    auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
     if (version_val_ptr == nullptr)  // modify failed
         return make_pair(true, nullptr);
 
     version_val_ptr[0] = value_storage_->InsertValue(value);
-    return make_pair(modify_flag, cell->mvcc_list);
+
+    pthread_spin_lock(&lock_);
+    if (!modify_flag)
+        cell->mvcc_list = mvcc_list;
+    pthread_spin_unlock(&lock_);
+
+    return make_pair(modify_flag, mvcc_list);
 }
 
 template <class PropertyRow>
@@ -329,15 +354,18 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
 
     // system error; since this function is called by .drop() step, two conditions below won't happens
     assert(cell != nullptr);
-    assert(cell->mvcc_list != nullptr);
+    pthread_spin_lock(&lock_);
+    MVCCListType* mvcc_list = cell->mvcc_list;
+    pthread_spin_unlock(&lock_);
+    assert(mvcc_list != nullptr);
 
-    auto* version_val_ptr = cell->mvcc_list->AppendVersion(trx_id, begin_time);
+    auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
     if (version_val_ptr == nullptr)  // modify failed
         return nullptr;
 
     version_val_ptr[0].count = 0;  // then IsEmpty() == true
 
-    return cell->mvcc_list;
+    return mvcc_list;
 }
 
 template <class PropertyRow>
