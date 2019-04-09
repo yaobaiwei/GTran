@@ -5,18 +5,38 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 template<class MVCC>
+MVCCList<MVCC>::MVCCList() {
+}
+
+template<class MVCC>
 MVCC* MVCCList<MVCC>::GetHead() {
     return head_;
 }
 
 template<class MVCC>
-MVCC* MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only) {
-    if (tail_->GetTransactionID() == trx_id)
-        return tail_;
+bool MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                                       const bool& read_only, MVCC_PTR& ret) {
+    // return false for abort
+    if (tail_->GetTransactionID() == trx_id) {
+        ret = tail_;
+        return true;
+    }
 
-    MVCC* ret = head_;
+    ret = head_;
+
+    // the whole MVCCList is not visible, since the list is added in the future commit time
+    // or created by another uncommited transaction
+    if (begin_time < head_->GetBeginTime()) {
+        ret = nullptr;
+        return true;
+    }
 
     while (true) {
+        // TODO(entityless): Figure out will this happens? If not, remove 3 lines below
+        // no suitable version, which means that the whole MVCCList is not visible
+        if (ret == nullptr)
+            break;
+
         // if suitable, break
         if (ret->GetTransactionID() == trx_id || begin_time < ret->GetEndTime()) {
             // Check whether there is next version
@@ -29,6 +49,7 @@ MVCC* MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& 
                         // Abort directly for non-read_only
                         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
                         ret = nullptr;
+                        return false;
                     }
                 } else {   // Next version NOT committed
                     /** Need to compare current_transaction_bt(BT) and next_version_tranasction_ct(NCT)
@@ -69,6 +90,7 @@ MVCC* MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& 
                                 // Abort
                                 trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
                                 ret = nullptr;
+                                return false;
                             }
                         }
                     }
@@ -80,7 +102,7 @@ MVCC* MVCCList<MVCC>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& 
         ret = static_cast<MVCC*>(ret->next);
     }
 
-    return ret;
+    return true;
 }
 
 template<class MVCC>

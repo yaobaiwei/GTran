@@ -33,7 +33,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     int current_property_count = property_count_;
     int recent_count = property_count_ptr[0];
     CellType* ret = nullptr;
-    bool found = false;
+    bool allocated_already = false;
     if (recent_count != current_property_count) {
         PropertyRow* recent_row = tail_ptr[0];
         PropertyRow* current_row = recent_row;
@@ -46,13 +46,13 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
             if (current_row->cells_[cell_id_in_row].pid == pid) {
                 // a cell with the same pid has already been allocated
                 // abort
-                found = true;
+                allocated_already = true;
                 break;
             }
         }
     }
 
-    if (!found) {
+    if (!allocated_already) {
         // allocate a new cell
         int cell_id = current_property_count;
         int cell_id_in_row = cell_id % PropertyRow::RowItemCount();
@@ -127,21 +127,24 @@ READ_STAT PropertyRowList<PropertyRow>::
         return READ_STAT::NOTFOUND;
 
     // being edited by other transaction
-    // TODO(entityless): double check this in the future
     if (cell->mvcc_list == nullptr)
+        return read_only ? READ_STAT::ABORT : READ_STAT::NOTFOUND;
+
+    MVCCType* visible_version;
+    bool success = cell->mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+
+    if (!success)
+        return READ_STAT::ABORT;
+    if (visible_version == nullptr)
         return READ_STAT::NOTFOUND;
 
-    auto* visible_mvcc = cell->mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
-
-    if (visible_mvcc == nullptr)
-        return READ_STAT::ABORT;
-
-    auto storage_header = visible_mvcc->GetValue();
+    auto storage_header = visible_version->GetValue();
     if (!storage_header.IsEmpty()) {
         value_storage_->GetValue(storage_header, ret);
         return READ_STAT::SUCCESS;
     }
 
+    // property empty, means deleted
     return READ_STAT::NOTFOUND;
 }
 
@@ -172,16 +175,22 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
             pkey_set.erase(cell_ref.pid.pid);
 
             // being edited by other transaction
-            // TODO(entityless): double check this in the future
-            if (cell_ref.mvcc_list == nullptr)
+            if (cell_ref.mvcc_list == nullptr) {
+                if (read_only)
+                    continue;
+                else
+                    return READ_STAT::ABORT;
+            }
+
+            MVCCType* visible_version;
+            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+
+            if (!success)
+                return READ_STAT::ABORT;
+            if (visible_version == nullptr)
                 continue;
 
-            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
-
-            if (visible_mvcc == nullptr)
-                return READ_STAT::ABORT;
-
-            auto storage_header = visible_mvcc->GetValue();
+            auto storage_header = visible_version->GetValue();
 
             if (!storage_header.IsEmpty()) {
                 value_t v;
@@ -214,16 +223,22 @@ READ_STAT PropertyRowList<PropertyRow>::
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         // being edited by other transaction
-        // TODO(entityless): double check this in the future
-        if (cell_ref.mvcc_list == nullptr)
+        if (cell_ref.mvcc_list == nullptr) {
+            if (read_only)
+                continue;
+            else
+                return READ_STAT::ABORT;
+        }
+
+        MVCCType* visible_version;
+        bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+
+        if (!success)
+            return READ_STAT::ABORT;
+        if (visible_version == nullptr)
             continue;
 
-        auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
-
-        if (visible_mvcc == nullptr)
-            return READ_STAT::ABORT;
-
-        auto storage_header = visible_mvcc->GetValue();
+        auto storage_header = visible_version->GetValue();
 
         if (!storage_header.IsEmpty()) {
             value_t v;
@@ -252,16 +267,22 @@ READ_STAT PropertyRowList<PropertyRow>::
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         // being edited by other transaction
-        // TODO(entityless): double check this in the future
-        if (cell_ref.mvcc_list == nullptr)
+        if (cell_ref.mvcc_list == nullptr) {
+            if (read_only)
+                continue;
+            else
+                return READ_STAT::ABORT;
+        }
+
+        MVCCType* visible_version;
+        bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+
+        if (!success)
+            return READ_STAT::ABORT;
+        if (visible_version == nullptr)
             continue;
 
-        auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
-
-        if (visible_mvcc == nullptr)
-            return READ_STAT::ABORT;
-
-        auto storage_header = visible_mvcc->GetValue();
+        auto storage_header = visible_version->GetValue();
 
         if (!storage_header.IsEmpty())
             ret.emplace_back(cell_ref.pid);
@@ -290,7 +311,6 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     }
 
     // being edited by other transaction
-    // TODO(entityless): double check this in the future
     if (cell->mvcc_list == nullptr)
         return make_pair(true, nullptr);
 

@@ -57,12 +57,15 @@ READ_STAT TopologyRowList::ReadConnectedVertex(const Direction_T& direction, con
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         if (direction == BOTH || (cell_ref.is_out == (direction == OUT))) {
-            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+            EdgeMVCC* visible_version;
+            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
-            if (visible_mvcc == nullptr)
+            if (!success)
                 return READ_STAT::ABORT;
+            if (visible_version == nullptr)
+                continue;
 
-            auto edge_item = visible_mvcc->GetValue();
+            auto edge_item = visible_version->GetValue();
             if (!edge_item.Exist())
                 continue;
 
@@ -89,12 +92,15 @@ READ_STAT TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         if (direction == BOTH || (cell_ref.is_out == (direction == OUT))) {
-            auto* visible_mvcc = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only);
+            EdgeMVCC* visible_version;
+            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
-            if (visible_mvcc == nullptr)
+            if (!success)
                 return READ_STAT::ABORT;
+            if (visible_version == nullptr)
+                continue;
 
-            auto edge_item = visible_mvcc->GetValue();
+            auto edge_item = visible_version->GetValue();
             if (!edge_item.Exist())
                 continue;
 

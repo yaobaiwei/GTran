@@ -116,9 +116,9 @@ class DataStorage {
     READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
 
-    bool CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
+    READ_STAT CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                const uint64_t& begin_time, const bool& read_only);
-    bool CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
+    READ_STAT CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
                                const uint64_t& begin_time, const bool& read_only);
 
  public:

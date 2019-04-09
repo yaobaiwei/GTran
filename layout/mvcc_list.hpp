@@ -17,12 +17,17 @@ class MVCCList {
     static_assert(std::is_base_of<AbstractMVCC, MVCC>::value, "MVCC must derive from AbstractMVCC");
 
  public:
+    typedef MVCC MVCCType;
+    typedef MVCC* MVCC_PTR;
+
+    MVCCList();
+
     typedef decltype(MVCC::val) ValueType;
     // Invoked only when data loading
     MVCC* GetInitVersion();
 
     // TODO(entityless): Implement thread safe when modifying data
-    MVCC* GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
+    bool GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, MVCC_PTR& ret);
 
     // If nullptr, then append failed.
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
@@ -41,6 +46,8 @@ class MVCCList {
  private:
     static OffsetConcurrentMemPool<MVCC>* mem_pool_;  // Initialized in data_storage.cpp
 
+    // when a MVCCList is visible outside who created it, head_ must != nullptr,
+    // this can only be guaranteed by the developer who use it.
     MVCC* head_ = nullptr;
     MVCC* tail_ = nullptr;
     MVCC* tail_last_ = nullptr;
