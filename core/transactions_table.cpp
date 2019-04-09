@@ -175,10 +175,15 @@ bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     return false;
 }
 
-bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct) {
+bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct, bool is_read_only) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
-    allocate_ct(ct);
+    if (is_read_only) {
+        query_bt(trx_id, ct);
+    } else {
+        allocate_ct(ct);
+    }
+
     if (!register_ct(trx_id, ct)) {
         return false;
     }

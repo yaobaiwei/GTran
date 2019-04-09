@@ -43,13 +43,13 @@ void DataStorage::Init() {
     snapshot_manager_->SetComm(node_.local_comm);
     snapshot_manager_->ConfirmConfig();
 
+    vid_to_assign_divided_ = worker_rank_;
+
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
     hdfs_data_loader_->LoadData();
     FillContainer();
     PrintLoadedData();
     hdfs_data_loader_->FreeMemory();
-
-    vid_to_assign_divided_ = worker_rank_;
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::Init() all finished\n");
 }

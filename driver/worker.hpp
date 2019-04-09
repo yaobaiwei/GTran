@@ -335,7 +335,7 @@ class Worker {
 
                 if (qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
                     vector<uint64_t> trxIDList;
-                    trx_table_stub_->update_status(plan.trxid, TRX_STAT::VALIDATING, &trxIDList);
+                    trx_table_stub_->update_status(plan.trxid, TRX_STAT::VALIDATING, qplan.trx_type == TRX_READONLY, &trxIDList);
                     for (auto & trxID : trxIDList) {
                         value_t v;
                         Tool::uint64_t2value_t(trxID, v);

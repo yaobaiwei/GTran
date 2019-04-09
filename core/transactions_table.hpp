@@ -94,7 +94,7 @@ class TrxGlobalCoordinator{
     bool modify_status(uint64_t trx_id, TRX_STAT new_status);
 
     // called if p->V
-    bool modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct);
+    bool modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct, bool is_read_only);
 
     bool query_bt(uint64_t trx_id, uint64_t& bt);
 
