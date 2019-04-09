@@ -5,15 +5,13 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <inttypes.h>
-#include <set>
+#include <stdint.h>
 #include <iostream>
-#include "glog/logging.h"
+#include <set>
+#include "bplustreelib/bplustree.hpp"
 #include "core/common.hpp"
-extern "C" {
-    #include "bplustreelib/bplustree.h"
-}
+#include "glog/logging.h"
 
 struct bplus_tree_config {
         int order;
@@ -31,10 +29,8 @@ class RCTable {  // RecentCommittedTrxTable
 
     static RCTable * rct_;
 
-    int trxid2int(uint64_t trx_id);
-    uint64_t int2trxid(int trx_id);
-
-    int ct2int(uint64_t ct);
+    long long trxid2llint(uint64_t trx_id);
+    uint64_t llint2trxid(long long trx_id);
 
  public:
     static RCTable * GetInstance() {

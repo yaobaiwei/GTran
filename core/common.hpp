@@ -12,8 +12,7 @@
 #include "base/type.hpp"
 #include "glog/logging.h"
 
-#define IS_VALID_TRX_ID(trx_id) (trx_id & 0x8000000000000000) && (((trx_id >> 32) & 0x7FFFFFFF) == 0)
-#define IS_VALID_TIME(t) ((t & 0xFFFFFFFF00000000) == 0)
+#define IS_VALID_TRX_ID(trx_id) (trx_id & 0x8000000000000000)
 
 /*
  * trx_id : status : if empty

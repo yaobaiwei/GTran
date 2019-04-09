@@ -286,7 +286,7 @@ bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
 }
 
 bool TrxGlobalCoordinator::register_ct(uint64_t trx_id, uint64_t ct) {
-    CHECK(IS_VALID_TRX_ID(trx_id) && IS_VALID_TIME(ct));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p;
     if (find_trx(trx_id, &p)) {
@@ -306,7 +306,7 @@ bool TrxGlobalCoordinator::deregister_bt(uint64_t trx_id) {
 }
 
 bool TrxGlobalCoordinator::register_bt(uint64_t trx_id, uint64_t bt) {
-    CHECK(IS_VALID_TRX_ID(trx_id) && IS_VALID_TIME(bt));
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
     bt_table_accessor ac;
     bt_table_.insert(ac, trx_id);
