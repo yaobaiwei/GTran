@@ -29,6 +29,7 @@ using namespace std;
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
 
+static uint64_t _56HFLAG = 0xFFFFFFFFFFFFFF00;
 static uint64_t _56LFLAG = 0xFFFFFFFFFFFFFF;
 static uint64_t _32LFLAG = 0xFFFFFFFF;
 static uint64_t _28LFLAG = 0xFFFFFFF;
@@ -441,10 +442,8 @@ enum Direction_T{ IN, OUT, BOTH };
 enum Order_T {INCR, DECR};
 enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSIDE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
-enum {NBITS_TRXID = 56};
-
 struct qid_t{
-    uint64_t trxid : NBITS_TRXID;
+    uint64_t trxid; // lower 8 bits = 0, reserved for query index
     uint8_t id;
 
     qid_t(): trxid(0), id(0) {}
@@ -458,11 +457,7 @@ struct qid_t{
     }
 
     uint64_t value() {
-        uint64_t r = 0;
-        r += trxid;
-        r <<= 8;
-        r += id;
-        return r;
+        return trxid + id;
     }
 };
 
@@ -516,21 +511,14 @@ struct MkeyHashCompare {
 // Aggregate data Key
 //  trxid | side_effect_key
 //  56  |        8
-enum { NBITS_SEK = 8 };
 struct agg_t {
-    uint64_t trxid : NBITS_TRXID;
-    uint64_t label_key : NBITS_SEK;
+    uint64_t trxid;
+    uint8_t label_key;
 
     agg_t() : trxid(0), label_key(0) {}
-    agg_t(qid_t _qid, int _label_key) : label_key(_label_key) {
-        trxid = _qid.trxid;
-    }
 
     agg_t(uint64_t qid_value, int _label_key) : label_key(_label_key) {
-        qid_t _qid;
-        uint2qid_t(qid_value, _qid);
-
-        trxid = _qid.trxid;
+        trxid = qid_value & _56HFLAG;
     }
 
     bool operator==(const agg_t & key) const {
@@ -541,11 +529,7 @@ struct agg_t {
     }
 
     uint64_t value() {
-        uint64_t r = 0;
-        r += trxid;
-        r <<= NBITS_SEK;
-        r += label_key;
-        return r;
+        return trxid + label_key;
     }
 
     uint64_t hash() {
