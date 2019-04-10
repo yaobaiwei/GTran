@@ -15,17 +15,17 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 // note: this file is only for implementing InTransactionGC()
 
-void VPropertyMVCC::InTransactionGC() {
+void VPropertyMVCCItem::InTransactionGC() {
     value_store->FreeValue(val);
 }
 
-void EPropertyMVCC::InTransactionGC() {
+void EPropertyMVCCItem::InTransactionGC() {
     value_store->FreeValue(val);
 }
 
-void VertexMVCC::InTransactionGC() {}
+void VertexMVCCItem::InTransactionGC() {}
 
-void EdgeMVCC::InTransactionGC() {
+void EdgeMVCCItem::InTransactionGC() {
     PropertyRowList<EdgePropertyRow>* ep_row_list = val.ep_row_list;
     ep_row_list->SelfGarbageCollect();
     delete ep_row_list;

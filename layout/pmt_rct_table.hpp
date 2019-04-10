@@ -3,8 +3,7 @@
 Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 */
 
-#ifndef LAYOUT_PMT_RCT_TABLE_HPP_
-#define LAYOUT_PMT_RCT_TABLE_HPP_
+#pragma once
 
 #include <ext/hash_map>
 #include <ext/hash_set>
@@ -29,7 +28,7 @@ class PrimitiveRCTTable {
 
     // Validation : Get RCT data
     void GetRecentActionSet(Primitive_T p, const vector<uint64_t> & trxIDList,
-            unordered_map<uint64_t, vector<rct_extract_data_t>> & trx_rct_map);
+                            unordered_map<uint64_t, vector<rct_extract_data_t>> & trx_rct_map);
     void InsertRecentActionSet(Primitive_T p, uint64_t trxIDList, const vector<uint64_t> & data);
 
  private:
@@ -45,5 +44,3 @@ class PrimitiveRCTTable {
     // Primitive_T -> rct
     unordered_map<Primitive_T, rct_type, PrimitiveEnumClassHash> rct_map;
 };
-
-#endif  // LAYOUT_PMT_RCT_TABLE_HPP_

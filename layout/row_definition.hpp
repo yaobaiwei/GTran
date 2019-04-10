@@ -16,8 +16,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct VPHeader {
     vpid_t pid;
-    MVCCList<VPropertyMVCC>* mvcc_list;
-    typedef VPropertyMVCC MVCCType;
+    MVCCList<VPropertyMVCCItem>* mvcc_list;
+    typedef VPropertyMVCCItem MVCCItemType;
 };
 
 #define VP_ROW_ITEM_COUNT InferElementCount<VPHeader>(256, sizeof(void*))
@@ -25,8 +25,8 @@ struct VPHeader {
 
 struct EPHeader {
     epid_t pid;
-    MVCCList<EPropertyMVCC>* mvcc_list;
-    typedef EPropertyMVCC MVCCType;
+    MVCCList<EPropertyMVCCItem>* mvcc_list;
+    typedef EPropertyMVCCItem MVCCItemType;
 };
 
 #define EP_ROW_ITEM_COUNT InferElementCount<EPHeader>(256, sizeof(void*))
@@ -36,7 +36,7 @@ struct EdgeHeader {
     bool is_out;  // if this vtx is a, true: a -> b, false: a <- b
     // no label here, as edges with the same eid may have different labels.
     vid_t conn_vtx_id;
-    MVCCList<EdgeMVCC>* mvcc_list;
+    MVCCList<EdgeMVCCItem>* mvcc_list;
 };
 
 #define VE_ROW_ITEM_COUNT InferElementCount<EdgeHeader>(256, sizeof(void*))

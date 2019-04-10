@@ -9,8 +9,8 @@ template<class MVCC> OffsetConcurrentMemPool<MVCC>* MVCCList<MVCC>::mem_pool_ = 
 template<class PropertyRow> OffsetConcurrentMemPool<PropertyRow>* PropertyRowList<PropertyRow>::mem_pool_ = nullptr;
 template<class PropertyRow> MVCCValueStore* PropertyRowList<PropertyRow>::value_storage_ = nullptr;
 OffsetConcurrentMemPool<VertexEdgeRow>* TopologyRowList::mem_pool_ = nullptr;
-MVCCValueStore* VPropertyMVCC::value_store = nullptr;
-MVCCValueStore* EPropertyMVCC::value_store = nullptr;
+MVCCValueStore* VPropertyMVCCItem::value_store = nullptr;
+MVCCValueStore* EPropertyMVCCItem::value_store = nullptr;
 
 void DataStorage::Init() {
     node_ = Node::StaticInstance();
@@ -30,8 +30,8 @@ void DataStorage::Init() {
                        "EP_ROW_ITEM_COUNT = %d, sizeof(EPHeader) = %d, sizeof(EdgePropertyRow) = %d\n",
                        EP_ROW_ITEM_COUNT, sizeof(EPHeader), sizeof(EdgePropertyRow));
     node_.Rank0PrintfWithWorkerBarrier(
-                       "sizeof(PropertyMVCC) = %d, sizeof(VertexMVCC) = %d, sizeof(EdgeMVCC) = %d\n",
-                       sizeof(PropertyMVCC), sizeof(VertexMVCC), sizeof(EdgeMVCC));
+                       "sizeof(PropertyMVCCItem) = %d, sizeof(VertexMVCCItem) = %d, sizeof(EdgeMVCCItem) = %d\n",
+                       sizeof(PropertyMVCCItem), sizeof(VertexMVCCItem), sizeof(EdgeMVCCItem));
 
     CreateContainer();
 
@@ -60,17 +60,18 @@ void DataStorage::CreateContainer() {
     ve_row_pool_ = OffsetConcurrentMemPool<VertexEdgeRow>::GetInstance(nullptr, config_->global_ve_row_pool_size);
     vp_row_pool_ = OffsetConcurrentMemPool<VertexPropertyRow>::GetInstance(nullptr, config_->global_vp_row_pool_size);
     ep_row_pool_ = OffsetConcurrentMemPool<EdgePropertyRow>::GetInstance(nullptr, config_->global_ep_row_pool_size);
-    vp_mvcc_pool_ = OffsetConcurrentMemPool<VPropertyMVCC>::GetInstance(
+    vp_mvcc_pool_ = OffsetConcurrentMemPool<VPropertyMVCCItem>::GetInstance(
                           nullptr, config_->global_property_mvcc_pool_size);
-    ep_mvcc_pool_ = OffsetConcurrentMemPool<EPropertyMVCC>::GetInstance(
+    ep_mvcc_pool_ = OffsetConcurrentMemPool<EPropertyMVCCItem>::GetInstance(
                           nullptr, config_->global_property_mvcc_pool_size);
-    vertex_mvcc_pool_ = OffsetConcurrentMemPool<VertexMVCC>::GetInstance(nullptr, config_->global_topo_mvcc_pool_size);
-    edge_mvcc_pool_ = OffsetConcurrentMemPool<EdgeMVCC>::GetInstance(nullptr, config_->global_topo_mvcc_pool_size);
+    vertex_mvcc_pool_ = OffsetConcurrentMemPool<VertexMVCCItem>::GetInstance(
+                          nullptr, config_->global_topo_mvcc_pool_size);
+    edge_mvcc_pool_ = OffsetConcurrentMemPool<EdgeMVCCItem>::GetInstance(nullptr, config_->global_topo_mvcc_pool_size);
 
-    MVCCList<VPropertyMVCC>::SetGlobalMemoryPool(vp_mvcc_pool_);
-    MVCCList<EPropertyMVCC>::SetGlobalMemoryPool(ep_mvcc_pool_);
-    MVCCList<VertexMVCC>::SetGlobalMemoryPool(vertex_mvcc_pool_);
-    MVCCList<EdgeMVCC>::SetGlobalMemoryPool(edge_mvcc_pool_);
+    MVCCList<VPropertyMVCCItem>::SetGlobalMemoryPool(vp_mvcc_pool_);
+    MVCCList<EPropertyMVCCItem>::SetGlobalMemoryPool(ep_mvcc_pool_);
+    MVCCList<VertexMVCCItem>::SetGlobalMemoryPool(vertex_mvcc_pool_);
+    MVCCList<EdgeMVCCItem>::SetGlobalMemoryPool(edge_mvcc_pool_);
     PropertyRowList<EdgePropertyRow>::SetGlobalMemoryPool(ep_row_pool_);
     PropertyRowList<VertexPropertyRow>::SetGlobalMemoryPool(vp_row_pool_);
     TopologyRowList::SetGlobalMemoryPool(ve_row_pool_);
@@ -81,8 +82,8 @@ void DataStorage::CreateContainer() {
     ep_store_ = new MVCCValueStore(nullptr, ep_sz / MemItemSize);
     PropertyRowList<VertexPropertyRow>::SetGlobalValueStore(vp_store_);
     PropertyRowList<EdgePropertyRow>::SetGlobalValueStore(ep_store_);
-    VPropertyMVCC::SetGlobalValueStore(vp_store_);
-    EPropertyMVCC::SetGlobalValueStore(ep_store_);
+    VPropertyMVCCItem::SetGlobalValueStore(vp_store_);
+    EPropertyMVCCItem::SetGlobalValueStore(ep_store_);
 }
 
 void DataStorage::FillContainer() {
@@ -106,7 +107,7 @@ void DataStorage::FillContainer() {
         v_accessor->second.vp_row_list->Init();
         v_accessor->second.ve_row_list->Init(vtx.id);
 
-        v_accessor->second.mvcc_list = new MVCCList<VertexMVCC>;
+        v_accessor->second.mvcc_list = new MVCCList<VertexMVCCItem>;
         v_accessor->second.mvcc_list->AppendInitialVersion()[0] = true;
 
         for (auto in_nb : vtx.in_nbs) {
@@ -149,7 +150,7 @@ void DataStorage::FillContainer() {
         EdgeConstAccessor e_accessor;
         out_edge_map_.find(e_accessor, edge.id.value());
 
-        EdgeMVCC* edge_mvcc;
+        EdgeMVCCItem* edge_mvcc;
         e_accessor->second->GetVisibleVersion(0, 0, true, edge_mvcc);
         auto edge_item = edge_mvcc->GetValue();
 
@@ -176,8 +177,8 @@ void DataStorage::FillContainer() {
 }
 
 READ_STAT DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
-                                        const uint64_t& begin_time, const bool& read_only) {
-    VertexMVCC* visible_version;
+                                             const uint64_t& begin_time, const bool& read_only) {
+    VertexMVCCItem* visible_version;
     bool success = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
     if (!success)
         return READ_STAT::ABORT;
@@ -190,8 +191,8 @@ READ_STAT DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, co
 }
 
 READ_STAT DataStorage::CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
-                                        const uint64_t& begin_time, const bool& read_only) {
-    VertexMVCC* visible_version;
+                                             const uint64_t& begin_time, const bool& read_only) {
+    VertexMVCCItem* visible_version;
     bool success = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
     if (!success)
         return READ_STAT::ABORT;
@@ -204,7 +205,7 @@ READ_STAT DataStorage::CheckVertexVisibility(VertexAccessor& v_accessor, const u
 }
 
 READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                              const bool& read_only, value_t& ret) {
+                                   const bool& read_only, value_t& ret) {
     vid_t vid = pid.vid;
 
     VertexConstAccessor v_accessor;
@@ -221,7 +222,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 }
 
 READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                           const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+                                const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -236,8 +237,8 @@ READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const 
 }
 
 READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
-                                  const uint64_t& trx_id, const uint64_t& begin_time,
-                                  const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+                                       const uint64_t& trx_id, const uint64_t& begin_time,
+                                       const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -252,7 +253,7 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
 }
 
 READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                              const bool& read_only, vector<vpid_t>& ret) {
+                                   const bool& read_only, vector<vpid_t>& ret) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -267,7 +268,7 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
 }
 
 READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
-                           const uint64_t& begin_time, const bool& read_only, label_t& ret) {
+                             const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -284,7 +285,7 @@ READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
 }
 
 READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                              const bool& read_only, value_t& ret) {
+                                   const bool& read_only, value_t& ret) {
     eid_t eid = eid_t(pid.in_vid, pid.out_vid);
 
     EdgeConstAccessor e_accessor;
@@ -299,7 +300,7 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
 }
 
 READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                           const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+                                const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
@@ -312,8 +313,8 @@ READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const 
 }
 
 READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
-                                  const uint64_t& trx_id, const uint64_t& begin_time,
-                                  const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+                                       const uint64_t& trx_id, const uint64_t& begin_time,
+                                       const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
@@ -326,7 +327,7 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
 }
 
 READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                              const bool& read_only, vector<epid_t>& ret) {
+                                   const bool& read_only, vector<epid_t>& ret) {
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
@@ -339,7 +340,7 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
 }
 
 READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
-                           const uint64_t& begin_time, const bool& read_only, label_t& ret) {
+                             const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
@@ -355,8 +356,8 @@ READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
 }
 
 READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                         const uint64_t& trx_id, const uint64_t& begin_time,
-                                         const bool& read_only, vector<vid_t>& ret) {
+                                              const uint64_t& trx_id, const uint64_t& begin_time,
+                                              const bool& read_only, vector<vid_t>& ret) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -372,8 +373,8 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
 }
 
 READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                       const uint64_t& trx_id, const uint64_t& begin_time,
-                                       const bool& read_only, vector<eid_t>& ret) {
+                                            const uint64_t& trx_id, const uint64_t& begin_time,
+                                            const bool& read_only, vector<eid_t>& ret) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -387,11 +388,11 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
 }
 
 READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
-                                 const bool& read_only, vector<vid_t>& ret) {
+                                      const bool& read_only, vector<vid_t>& ret) {
     for (auto v_pair = vertex_map_.begin(); v_pair != vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
-        VertexMVCC* visible_version;
+        VertexMVCCItem* visible_version;
         bool success = v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
         if (!success)
             return READ_STAT::ABORT;
@@ -407,10 +408,10 @@ READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& be
 }
 
 READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
-                              const bool& read_only, vector<eid_t>& ret) {
+                                   const bool& read_only, vector<eid_t>& ret) {
     // TODO(entityless): Simplify the code by editing eid_t::value()
     for (auto e_pair = out_edge_map_.begin(); e_pair != out_edge_map_.end(); e_pair++) {
-        EdgeMVCC* visible_version;
+        EdgeMVCCItem* visible_version;
         bool success = e_pair->second->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
         if (!success)
             return READ_STAT::ABORT;
@@ -428,15 +429,15 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
 }
 
 READ_STAT DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
-                                     const uint64_t& trx_id, const uint64_t& begin_time,
-                                     const bool& read_only, EdgeItem& item_ref) {
+                                      const uint64_t& trx_id, const uint64_t& begin_time,
+                                      const bool& read_only, EdgeItem& item_ref) {
     bool found = out_edge_map_.find(e_accessor, eid.value());
 
     // system error, need to handle it in the future
     if (!found)
         return READ_STAT::ABORT;
 
-    EdgeMVCC* visible_version;
+    EdgeMVCCItem* visible_version;
     bool success = e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
     if (!success)
@@ -729,7 +730,7 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
     v_accessor->second.ve_row_list->Init(vid);
     v_accessor->second.vp_row_list->Init();
 
-    auto* mvcc_list = new MVCCList<VertexMVCC>;
+    auto* mvcc_list = new MVCCList<VertexMVCCItem>;
 
     // this won't fail as it's the first version in the list
     mvcc_list->AppendVersion(trx_id, begin_time)[0] = true;
@@ -742,7 +743,7 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 }
 
 bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                                    vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
+                               vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -1024,20 +1025,20 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
-            MVCCList<VPropertyMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
-            MVCCList<EPropertyMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_V ||
                    process_item.type == TransactionItem::PROCESS_DROP_V) {
-            MVCCList<VertexMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_E ||
                    process_item.type == TransactionItem::PROCESS_DROP_E) {
-            MVCCList<EdgeMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         }
     }
@@ -1055,24 +1056,24 @@ void DataStorage::Abort(const uint64_t& trx_id) {
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
-            MVCCList<VPropertyMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto header_to_free = mvcc_list->AbortVersion(trx_id);
             if (!header_to_free.IsEmpty())
                 vp_store_->FreeValue(header_to_free);
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
-            MVCCList<EPropertyMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto header_to_free = mvcc_list->AbortVersion(trx_id);
             if (!header_to_free.IsEmpty())
                 ep_store_->FreeValue(header_to_free);
         } else if (process_item.type == TransactionItem::PROCESS_DROP_V ||
                    process_item.type == TransactionItem::PROCESS_ADD_V) {
-            MVCCList<VertexMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->AbortVersion(trx_id);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_E ||
                    process_item.type == TransactionItem::PROCESS_DROP_E) {
-            MVCCList<EdgeMVCC>* mvcc_list = process_item.mvcc_list;
+            MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto e_item_to_free = mvcc_list->AbortVersion(trx_id);
             if (e_item_to_free.ep_row_list != nullptr) {
                 e_item_to_free.ep_row_list->SelfGarbageCollect();

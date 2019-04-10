@@ -134,7 +134,7 @@ READ_STAT PropertyRowList<PropertyRow>::
     if (mvcc_list == nullptr)  // if not read-only, my read set has been modified
         return read_only ? READ_STAT::NOTFOUND : READ_STAT::ABORT;
 
-    MVCCType* visible_version;
+    MVCCItemType* visible_version;
     bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
     if (!success)
@@ -189,7 +189,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                     return READ_STAT::ABORT;
             }
 
-            MVCCType* visible_version;
+            MVCCItemType* visible_version;
             bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
             if (!success)
@@ -240,7 +240,7 @@ READ_STAT PropertyRowList<PropertyRow>::
                 return READ_STAT::ABORT;
         }
 
-        MVCCType* visible_version;
+        MVCCItemType* visible_version;
         bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
         if (!success)
@@ -287,7 +287,7 @@ READ_STAT PropertyRowList<PropertyRow>::
                 return READ_STAT::ABORT;
         }
 
-        MVCCType* visible_version;
+        MVCCItemType* visible_version;
         bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
         if (!success)
