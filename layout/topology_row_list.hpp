@@ -21,15 +21,15 @@ class TopologyRowList {
     pthread_spinlock_t lock_;
 
     void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
-                      MVCCList<EdgeMVCC>* mvcc_list);
+                      MVCCList<EdgeMVCCItem>* mvcc_list);
 
  public:
     void Init(const vid_t& my_vid);
 
     // this function will only be called when loading data from hdfs
-    MVCCList<EdgeMVCC>* InsertInitialCell(const bool& is_out, const vid_t& conn_vtx_id,
-                                          const label_t& edge_label,
-                                          PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
+    MVCCList<EdgeMVCCItem>* InsertInitialCell(const bool& is_out, const vid_t& conn_vtx_id,
+                                              const label_t& edge_label,
+                                              PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
 
     READ_STAT ReadConnectedVertex(const Direction_T& direction, const label_t& edge_label,
                                   const uint64_t& trx_id, const uint64_t& begin_time,
@@ -40,10 +40,10 @@ class TopologyRowList {
                                 const bool& read_only, vector<eid_t>& ret);
 
     // this will only be called once for each TopologyRowList, guaranteed by DataStorage
-    MVCCList<EdgeMVCC>* ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
-                                       const label_t& edge_label,
-                                       PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
-                                       const uint64_t& trx_id, const uint64_t& begin_time);
+    MVCCList<EdgeMVCCItem>* ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
+                                           const label_t& edge_label,
+                                           PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
+                                           const uint64_t& trx_id, const uint64_t& begin_time);
 
     static void SetGlobalMemoryPool(OffsetConcurrentMemPool<VertexEdgeRow>* mem_pool) {
         mem_pool_ = mem_pool;

@@ -10,13 +10,13 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/mvcc_value_store.hpp"
 #include "layout/layout_type.hpp"
 
-struct AbstractMVCC {
+struct AbstractMVCCItem {
  private:
     uint64_t begin_time;
     uint64_t end_time;
 
  protected:
-    AbstractMVCC* next;
+    AbstractMVCCItem* next;
 
     // if begin_time field is not a transaction id, return 0. else, return trx_id starts from 1 | 0x8000000000000000.
     uint64_t GetTransactionID() const {return (begin_time >> 63) * begin_time;}
@@ -28,7 +28,7 @@ struct AbstractMVCC {
         end_time = _begin_time;  // notice that this is not commit time
     }
 
-    uint64_t Commit(AbstractMVCC* last, const uint64_t& commit_time) {
+    uint64_t Commit(AbstractMVCCItem* last, const uint64_t& commit_time) {
         end_time = MAX_TIME;
         begin_time = commit_time;
 
@@ -41,10 +41,10 @@ struct AbstractMVCC {
     static constexpr uint64_t MAX_TIME = 0x7FFFFFFFFFFFFFFF;
 
  public:
-    AbstractMVCC* GetNext() const {return next;}
+    AbstractMVCCItem* GetNext() const {return next;}
 };
 
-struct PropertyMVCC : public AbstractMVCC {
+struct PropertyMVCCItem : public AbstractMVCCItem {
  protected:
     ValueHeader val;
 
@@ -58,7 +58,7 @@ struct PropertyMVCC : public AbstractMVCC {
     template<class MVCC> friend class MVCCList;
 };
 
-struct VPropertyMVCC : public PropertyMVCC {
+struct VPropertyMVCCItem : public PropertyMVCCItem {
  public:
     void InTransactionGC();
     static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
@@ -66,7 +66,7 @@ struct VPropertyMVCC : public PropertyMVCC {
     static MVCCValueStore* value_store;
 };
 
-struct EPropertyMVCC : public PropertyMVCC {
+struct EPropertyMVCCItem : public PropertyMVCCItem {
  public:
     void InTransactionGC();
     static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
@@ -74,7 +74,7 @@ struct EPropertyMVCC : public PropertyMVCC {
     static MVCCValueStore* value_store;
 };
 
-struct VertexMVCC : public AbstractMVCC {
+struct VertexMVCCItem : public AbstractMVCCItem {
  private:
     bool val;  // whether the edge exists or not
  public:
@@ -88,7 +88,7 @@ struct VertexMVCC : public AbstractMVCC {
     template<class MVCC> friend class MVCCList;
 };
 
-struct EdgeMVCC : public AbstractMVCC {
+struct EdgeMVCCItem : public AbstractMVCCItem {
  private:
     EdgeItem val;
  public:

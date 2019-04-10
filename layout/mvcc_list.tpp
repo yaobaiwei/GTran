@@ -16,7 +16,7 @@ Item* MVCCList<Item>::GetHead() {
 
 template<class Item>
 bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
-                                       const bool& read_only, MVCC_PTR& ret) {
+                                       const bool& read_only, MVCCItem_PTR& ret) {
     // return false for abort
 
     pthread_spin_lock(&lock_);

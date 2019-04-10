@@ -5,7 +5,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 template<class ItemT, class OffsetT>
 OffsetConcurrentMemPool<ItemT, OffsetT>::~OffsetConcurrentMemPool() {
-    if(next_offset_ != nullptr)
+    if (next_offset_ != nullptr)
         _mm_free(next_offset_);
     if (mem_allocated_)
         _mm_free(attached_mem_);
@@ -16,15 +16,14 @@ void OffsetConcurrentMemPool<ItemT, OffsetT>::Init(ItemT* mem, size_t element_co
     if (mem != nullptr) {
         attached_mem_ = mem;
         mem_allocated_ = false;
-    }
-    else {
-        attached_mem_ = (ItemT*)_mm_malloc(sizeof(ItemT) * element_count, 4096);
+    } else {
+        attached_mem_ = reinterpret_cast<ItemT*>(_mm_malloc(sizeof(ItemT) * element_count, 4096));
         mem_allocated_ = true;
     }
 
     element_count_ = element_count;
 
-    next_offset_ = (OffsetT*)_mm_malloc(sizeof(OffsetT) * element_count, 4096);
+    next_offset_ = reinterpret_cast<OffsetT*>(_mm_malloc(sizeof(OffsetT) * element_count, 4096));
 
     for (OffsetT i = 0; i < element_count; i++) {
         next_offset_[i] = i + 1;

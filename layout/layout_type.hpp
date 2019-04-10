@@ -123,15 +123,15 @@ struct VertexPropertyRow;
 template <class T>
 class PropertyRowList;
 class TopologyRowList;
-struct VertexMVCC;
-template <class MVCC>
+struct VertexMVCCItem;
+template <class Item>
 class MVCCList;
 
 struct VertexItem {
     label_t label;
     TopologyRowList* ve_row_list = nullptr;
     PropertyRowList<VertexPropertyRow>* vp_row_list = nullptr;
-    MVCCList<VertexMVCC>* mvcc_list = nullptr;
+    MVCCList<VertexMVCCItem>* mvcc_list = nullptr;
 };
 
 struct EdgeItem {

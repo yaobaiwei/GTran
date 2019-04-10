@@ -74,13 +74,13 @@ class DataStorage {
     SimpleIdMapper* id_mapper_ = nullptr;
 
     // from vid & eid to the first row of the entity
-    // the MVCCList<EdgeMVCC>* pointer will point to the same instance
+    // the MVCCList<EdgeMVCCItem>* pointer will point to the same instance
     // in this edge's src_v's VertexEdgeRow's element's mvcc_list
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> out_edge_map_;
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*> in_edge_map_;
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> out_edge_map_;
+    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> in_edge_map_;
     // since edge properties are attached to out_e, the in_e instance does not record any properties
-    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::accessor EdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCC>*>::const_accessor EdgeConstAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::accessor EdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::const_accessor EdgeConstAccessor;
     tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::accessor VertexAccessor;
     typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::const_accessor VertexConstAccessor;
@@ -95,10 +95,10 @@ class DataStorage {
     OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
     OffsetConcurrentMemPool<VertexPropertyRow>* vp_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<VPropertyMVCC>* vp_mvcc_pool_ = nullptr;
-    OffsetConcurrentMemPool<EPropertyMVCC>* ep_mvcc_pool_ = nullptr;
-    OffsetConcurrentMemPool<VertexMVCC>* vertex_mvcc_pool_ = nullptr;
-    OffsetConcurrentMemPool<EdgeMVCC>* edge_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<VPropertyMVCCItem>* vp_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<EPropertyMVCCItem>* ep_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<VertexMVCCItem>* vertex_mvcc_pool_ = nullptr;
+    OffsetConcurrentMemPool<EdgeMVCCItem>* edge_mvcc_pool_ = nullptr;
 
     // VID related. Used when adding a new vertex.
     std::atomic_int vid_to_assign_divided_;
@@ -121,16 +121,16 @@ class DataStorage {
                              const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
 
     READ_STAT CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
-                               const uint64_t& begin_time, const bool& read_only);
+                                    const uint64_t& begin_time, const bool& read_only);
     READ_STAT CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
-                               const uint64_t& begin_time, const bool& read_only);
+                                    const uint64_t& begin_time, const bool& read_only);
 
  public:
     // MVCC processing stage related
     void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
     vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                           vector<eid_t>& in_eids, vector<eid_t>& out_eids);
+                      vector<eid_t>& in_eids, vector<eid_t>& out_eids);
     bool ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
                      const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessDropE(const eid_t& eid, const bool& is_out, const uint64_t& trx_id, const uint64_t& begin_time);
@@ -145,38 +145,38 @@ class DataStorage {
 
     // data access
     READ_STAT GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     const bool& read_only, value_t& ret);
+                          const bool& read_only, value_t& ret);
     READ_STAT GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                  const bool& read_only, vector<pair<label_t, value_t>>& ret);
+                       const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
                          const uint64_t& trx_id, const uint64_t& begin_time,
                          const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     const bool& read_only, vector<vpid_t>& ret);
+                          const bool& read_only, vector<vpid_t>& ret);
     READ_STAT GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-               const bool& read_only, label_t& ret);
+                    const bool& read_only, label_t& ret);
 
     READ_STAT GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     const bool& read_only, value_t& ret);
+                          const bool& read_only, value_t& ret);
     READ_STAT GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                  const bool& read_only, vector<pair<label_t, value_t>>& ret);
+                       const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
                          const uint64_t& trx_id, const uint64_t& begin_time,
                          const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-                     const bool& read_only, vector<epid_t>& ret);
+                          const bool& read_only, vector<epid_t>& ret);
     READ_STAT GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
-               const bool& read_only, label_t& ret);
+                    const bool& read_only, label_t& ret);
     // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
     // traversal from vertex
     // if label == 0, then do not filter by label
     READ_STAT GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                              const uint64_t& trx_id, const uint64_t& begin_time,
-                              const bool& read_only, vector<eid_t>& ret);
+                                   const uint64_t& trx_id, const uint64_t& begin_time,
+                                   const bool& read_only, vector<eid_t>& ret);
     READ_STAT GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                const uint64_t& trx_id, const uint64_t& begin_time,
-                                const bool& read_only, vector<vid_t>& ret);
+                                     const uint64_t& trx_id, const uint64_t& begin_time,
+                                     const bool& read_only, vector<vid_t>& ret);
 
     // TODO(entityless): Figure out how to run two functions efficiently
     READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,

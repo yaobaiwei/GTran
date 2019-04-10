@@ -16,11 +16,11 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 template<class Item>
 class MVCCList {
-    static_assert(std::is_base_of<AbstractMVCC, Item>::value, "Item must derive from AbstractMVCC");
+    static_assert(std::is_base_of<AbstractMVCCItem, Item>::value, "Item must derive from AbstractMVCCItem");
 
  public:
-    typedef Item MVCCType;
-    typedef Item* MVCC_PTR;
+    typedef Item MVCCItemType;
+    typedef Item* MVCCItem_PTR;
 
     MVCCList();
 
@@ -28,7 +28,8 @@ class MVCCList {
     // Invoked only when data loading
     Item* GetInitVersion();
 
-    bool GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, MVCC_PTR& ret);
+    bool GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                           const bool& read_only, MVCCItem_PTR& ret);
 
     // If nullptr, then append failed.
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
