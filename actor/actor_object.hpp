@@ -31,6 +31,8 @@ class Actor_Object {
 
     void AddParam(int key);
     bool AddParam(string s);
+    bool ModifyParam(int key, int index);
+    bool ModifyParam(string s, int index);
     bool IsBarrier() const;
 
     string DebugString() const;

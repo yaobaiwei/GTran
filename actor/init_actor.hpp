@@ -53,11 +53,16 @@ class InitActor : public AbstractActor {
         bool with_input = Tool::value_t2int(actor_obj.params[1]);
 
         vector<pair<history_t, vector<value_t>>> init_data;
-        InitWithoutIndex(tid, qplan, init_data, msg);
+        if (with_input) {
+            InitWithInput(tid, qplan.actors, init_data, msg);
+        } else {
+            InitWithoutIndex(tid, qplan, init_data, msg);
+        }
 
         vector<Message> msg_vec;
         msg.CreateNextMsg(qplan.actors, init_data, num_thread_, core_affinity_, msg_vec);
         for (auto & msg_ : msg_vec) {
+            cout << "[InitActor] Send Msg val_size : " << msg_.data[0].second.size() << endl;
             mailbox_->Send(tid, msg_);
         }
 
@@ -152,26 +157,16 @@ class InitActor : public AbstractActor {
         vector<eid_t>().swap(eid_list);
     }
 
-    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
-        // Meta m = msg.meta;
-        // const Actor_Object& actor_obj = actor_objs[m.step];
+    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, vector<pair<history_t, vector<value_t>>>& init_data, Message & msg) {
+        Meta m = msg.meta;
+        const Actor_Object& actor_obj = actor_objs[m.step];
+        msg.max_data_size = config_->max_data_size;
 
-        // msg.max_data_size = config_->max_data_size;
-        // msg.data.clear();
-        // msg.data.emplace_back(history_t(), vector<value_t>());
-
-        // // Get V/E from actor params
-        // msg.data[0].second.insert(msg.data[0].second.end(),
-        //                          make_move_iterator(actor_obj.params.begin() + 2),
-        //                          make_move_iterator(actor_obj.params.end()));
-
-        // vector<Message> vec;
-        // msg.CreateNextMsg(actor_objs, msg.data, num_thread_, core_affinity_, vec);
-
-        // // Send Message
-        // for (auto& msg_ : vec) {
-        //     mailbox_->Send(tid, msg_);
-        // }
+        init_data.emplace_back(history_t(), vector<value_t>());
+        // Get V/E from actor params
+        init_data[0].second.insert(init_data[0].second.end(),
+                                 make_move_iterator(actor_obj.params.begin() + 2),
+                                 make_move_iterator(actor_obj.params.end()));
     }
 
     void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {

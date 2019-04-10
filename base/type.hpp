@@ -596,3 +596,7 @@ struct PrimitiveEnumClassHash {
         return t1 == t2;
     }
 };
+
+// For Modification (AddE)
+//  PlaceHolder, AsLabel, NotApplicable
+enum AddEdgeMethodType { PlaceHolder, StepLabel, NotApplicable };

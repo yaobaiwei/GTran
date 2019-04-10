@@ -23,6 +23,33 @@ bool Actor_Object::AddParam(string s) {
     return true;
 }
 
+bool Actor_Object::ModifyParam(int key, int index) {
+    value_t v;
+    Tool::str2int(to_string(key), v);
+    if (index < params.size()) {
+        params[index] = move(v);
+    } else {
+        return false;
+    }
+    return true;
+}
+
+bool Actor_Object::ModifyParam(string s, int index) {
+    value_t v;
+    string s_value = Tool::trim(s, " ");  // delete all spaces
+    if (!Tool::str2value_t(s_value, v)) {
+        return false;
+    }
+
+    if (index < params.size()) {
+        params[index] = move(v);
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 bool Actor_Object::IsBarrier() const {
     switch (actor_type) {
       case ACTOR_T::AGGREGATE:

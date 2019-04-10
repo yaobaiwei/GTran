@@ -146,9 +146,15 @@ class Message {
     // update route to barrier or labelled branch actors for msg collection
     bool update_collection_route(Meta& m, const vector<Actor_Object>& actors);
     // get the node where vertex or edge is stored
-    static int get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool is_drop_edge = false);
+    static int get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge = false);
     // Redistribute params of actors according to data locality
     static void AssignParamsByLocality(vector<QueryPlan>& qplans);
+
+    // Construct EdgeID for AddE
+    void constructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj);
+    void generate_edge_with_data(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom);
+    void generate_edge_with_history(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom);
+    void generate_edge_with_both_history(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label);
 };
 
 ibinstream& operator<<(ibinstream& m, const Message& msg);
