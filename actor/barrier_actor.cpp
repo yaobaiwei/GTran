@@ -17,27 +17,12 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
                     std::make_move_iterator(pair.second.end()));
     }
 
-    bool end_of_trx = false;
     if (msg.meta.msg_type == MSG_T::ABORT) {
         rc_->NotifyAbort(msg.meta.qid);
-        return;
     } else if (isReady) {
         // all msg are collected
         // insert data to result collector
         rc_->InsertResult(msg.meta.qid, data);
-
-        // check if commit statement
-        if (qplan.actors[0].actor_type != ACTOR_T::INIT) {
-            end_of_trx = true;
-        }
-    }
-
-    if (end_of_trx) {
-        vector<Message> vec;
-        msg.CreateBroadcastMsg(MSG_T::EXIT, num_nodes_, vec);
-        for (auto& m : vec) {
-            mailbox_->Send(tid, m);
-        }
     }
 }
 

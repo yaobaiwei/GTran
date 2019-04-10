@@ -36,11 +36,13 @@ class CommitActor : public AbstractActor {
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity * core_affinity,
-            map<ACTOR_T, unique_ptr<AbstractActor>> * actors) :
+            map<ACTOR_T, unique_ptr<AbstractActor>> * actors,
+            tbb::concurrent_hash_map<uint64_t, QueryPlan> * msg_logic_table) :
         AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
         actors_(actors),
+        msg_logic_table_(msg_logic_table),
         type_(ACTOR_T::COMMIT) {
         config_ = Config::GetInstance();
         prepare_clean_actor_set();
@@ -61,6 +63,10 @@ class CommitActor : public AbstractActor {
 
     // Actor Set
     set<ACTOR_T> need_clean_actor_set_;
+
+    // Trx-QueryPlan-map
+    typedef tbb::concurrent_hash_map<uint64_t, QueryPlan> trx_actors_hashmap;
+    trx_actors_hashmap* msg_logic_table_;
 
     // Actor Pointer
     map<ACTOR_T, unique_ptr<AbstractActor>>* actors_;

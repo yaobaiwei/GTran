@@ -281,5 +281,5 @@ obinstream& operator>>(obinstream& m, ACTOR_T& type) {
 
 void uint2qid_t(uint64_t v, qid_t & qid) {
     qid.id = (v & _8LFLAG);
-    qid.trxid = ((v >> 8) & _56LFLAG);
+    qid.trxid = v & _56HFLAG;
 }

@@ -231,7 +231,8 @@ bool TrxGlobalCoordinator::delete_single_item(uint64_t trx_id) {
 // private functions part:
 
 uint64_t TrxGlobalCoordinator::next_trx_id() {
-    return 0x8000000000000000 | next_trx_id_;
+    // Trxid : lower 8 bits are reserved for query index
+    return 0x8000000000000000 | (next_trx_id_ << 8);
 }
 
 bool TrxGlobalCoordinator::allocate_trx_id(uint64_t& trx_id) {
@@ -313,4 +314,3 @@ bool TrxGlobalCoordinator::register_bt(uint64_t trx_id, uint64_t bt) {
     ac->second = bt;
     return true;
 }
-

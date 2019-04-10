@@ -1774,8 +1774,6 @@ void Parser::AddCommitStatement(TrxPlan& plan) {
     valid_vec.emplace_back(ACTOR_T::COMMIT);
     valid_vec[2].next_actor = 3;
 
-    valid_vec.emplace_back(ACTOR_T::END);
-
     plan.query_plans_[line_index].actors = move(valid_vec);
     plan.deps_count_[line_index] = 0;
     uint8_t begin = (last_update > 0) ? last_update : 0;

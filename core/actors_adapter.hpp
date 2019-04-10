@@ -87,7 +87,7 @@ class ActorAdapter {
         actors_[ACTOR_T::BRANCH] = unique_ptr<AbstractActor>(new BranchActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::BRANCHFILTER] = unique_ptr<AbstractActor>(new BranchFilterActor(id ++, num_thread_, mailbox_, core_affinity_, &id_allocator_));
         actors_[ACTOR_T::CAP] = unique_ptr<AbstractActor>(new CapActor(id ++, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::COMMIT] = unique_ptr<AbstractActor>(new CommitActor(id ++, num_thread_, mailbox_, core_affinity_, &actors_));
+        actors_[ACTOR_T::COMMIT] = unique_ptr<AbstractActor>(new CommitActor(id ++, num_thread_, mailbox_, core_affinity_, &actors_, &msg_logic_table_));
         actors_[ACTOR_T::CONFIG] = unique_ptr<AbstractActor>(new ConfigActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::COUNT] = unique_ptr<AbstractActor>(new CountActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::DROP] = unique_ptr<AbstractActor>(new DropActor(id ++, num_thread_, node_.get_local_rank(), mailbox_, core_affinity_));
@@ -145,30 +145,29 @@ class ActorAdapter {
 
             return;
         } else if (m.msg_type == MSG_T::EXIT) {
-            const_accessor ac;
-            msg_logic_table_.find(ac, m.qid);
-
-            // erase aggregate result
-            int i = 0;
-            for (auto& act : ac->second.actors) {
-                if (act.actor_type == ACTOR_T::AGGREGATE) {
-                    agg_t agg_key(m.qid, i);
-                    data_storage_->DeleteAggData(agg_key);
-                }
-                i++;
+            tbb::concurrent_hash_map<uint64_t, uint64_t>::accessor ac;
+            if (exit_msg_count_table_.insert(ac, m.qid)) {
+                ac->second = 0;
             }
-
-            // earse only after query with qid is done
-            // TODO : Erase table after all transaction is done;
-            //      Do not erase currently
-            // msg_logic_table_.erase(ac);
-
+            // collection done
+            if (++ac->second == config_->global_num_workers) {
+                rc_->InsertResult(m.qid, msg.data[0].second);
+                // erase counter map
+                exit_msg_count_table_.erase(ac);
+            }
             return;
         }
 
         const_accessor ac;
         // qid not found
         if (!msg_logic_table_.find(ac, m.qid)) {
+            // First check if transaction aborted
+            TRX_STAT status;
+            trx_table_stub_->read_status(m.qid & _56HFLAG, status);
+            if (status == TRX_STAT::ABORT) {
+                return;
+            }
+
             // throw msg to the same thread as init msg
             msg.meta.recver_tid = msg.meta.parent_tid;
             mailbox_->Send(tid, msg);
@@ -192,6 +191,11 @@ class ActorAdapter {
             ACTOR_T next_actor = ac->second.actors[current_step].actor_type;
             actors_[next_actor]->process(ac->second, msg);
         }while(current_step != msg.meta.step);  // process next actor directly if step is modified
+
+        // Commit actor cannot erase its own qid in process
+        if (ac->second.actors[current_step].actor_type == ACTOR_T::COMMIT) {
+            msg_logic_table_.erase(ac);
+        }
     }
 
     void ThreadExecutor(int tid) {
@@ -260,6 +264,9 @@ class ActorAdapter {
     tbb::concurrent_hash_map<uint64_t, QueryPlan> msg_logic_table_;
     typedef tbb::concurrent_hash_map<uint64_t, QueryPlan>::accessor accessor;
     typedef tbb::concurrent_hash_map<uint64_t, QueryPlan>::const_accessor const_accessor;
+
+    tbb::concurrent_hash_map<uint64_t, uint64_t> exit_msg_count_table_;
+
     // Thread pool
     vector<thread> thread_pool_;
 

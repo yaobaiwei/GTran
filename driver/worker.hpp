@@ -268,7 +268,7 @@ class Worker {
             if (RegisterQuery(plan)) {
                 // Only take lower 56 bits of trxid
                 // Since qid = (trxid : 56, query_index : 8)
-                plans_[trxid & _56LFLAG] = move(plan);
+                plans_[trxid] = move(plan);
             } else {
                 error_msg = "Error: Empty transaction";
                 goto ERROR;
