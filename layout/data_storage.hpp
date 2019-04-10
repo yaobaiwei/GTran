@@ -201,7 +201,7 @@ class DataStorage {
     // TODO(entityless): Optimize this, as these implementations are extremely inefficient
     void InsertAggData(agg_t key, vector<value_t> & data);
     void GetAggData(agg_t key, vector<value_t> & data);
-    void DeleteAggData(agg_t key);
+    void DeleteAggData(uint64_t qid);
 
     bool VPKeyIsLocal(vpid_t vp_id);
     bool EPKeyIsLocal(epid_t ep_id);

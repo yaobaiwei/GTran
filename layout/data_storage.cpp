@@ -471,12 +471,14 @@ void DataStorage::GetAggData(agg_t key, vector<value_t> & data) {
     }
 }
 
-void DataStorage::DeleteAggData(agg_t key) {
+void DataStorage::DeleteAggData(uint64_t qid) {
     lock_guard<mutex> lock(agg_mutex);
 
-    unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(key);
-    if (itr != agg_data_table.end()) {
+    uint8_t se_label = 0;
+    unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(agg_t(qid, se_label++));
+    while(itr != agg_data_table.end()) {
         agg_data_table.erase(itr);
+        itr = agg_data_table.find(agg_t(qid, se_label++));
     }
 }
 
