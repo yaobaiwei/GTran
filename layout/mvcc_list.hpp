@@ -14,21 +14,20 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/mvcc_definition.hpp"
 #include "layout/layout_type.hpp"
 
-template<class MVCC>
+template<class Item>
 class MVCCList {
-    static_assert(std::is_base_of<AbstractMVCC, MVCC>::value, "MVCC must derive from AbstractMVCC");
+    static_assert(std::is_base_of<AbstractMVCC, Item>::value, "Item must derive from AbstractMVCC");
 
  public:
-    typedef MVCC MVCCType;
-    typedef MVCC* MVCC_PTR;
+    typedef Item MVCCType;
+    typedef Item* MVCC_PTR;
 
     MVCCList();
 
-    typedef decltype(MVCC::val) ValueType;
+    typedef decltype(Item::val) ValueType;
     // Invoked only when data loading
-    MVCC* GetInitVersion();
+    Item* GetInitVersion();
 
-    // TODO(entityless): Implement thread safe when modifying data
     bool GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, MVCC_PTR& ret);
 
     // If nullptr, then append failed.
@@ -37,11 +36,11 @@ class MVCCList {
     void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);  // TODO(entityless): Finish this
     ValueType AbortVersion(const uint64_t& trx_id);
 
-    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<MVCC>* mem_pool) {
+    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<Item>* mem_pool) {
         mem_pool_ = mem_pool;
     }
 
-    MVCC* GetHead();
+    Item* GetHead();
 
     void SelfGarbageCollect();
 
@@ -57,15 +56,15 @@ class MVCCList {
     };
 
  private:
-    static OffsetConcurrentMemPool<MVCC>* mem_pool_;  // Initialized in data_storage.cpp
+    static OffsetConcurrentMemPool<Item>* mem_pool_;  // Initialized in data_storage.cpp
 
     // when a MVCCList is visible outside who created it, head_ must != nullptr,
     // this can only be guaranteed by the developer who use it.
-    MVCC* head_ = nullptr;
-    MVCC* tail_ = nullptr;
-    MVCC* tail_last_ = nullptr;
-    MVCC* tail_last_buffer_ = nullptr;
-    // tail_last_buffer_ this is not nullptr only when the tail is uncommited
+    Item* head_ = nullptr;
+    Item* tail_ = nullptr;
+    Item* pre_tail_ = nullptr;
+    Item* tmp_pre_tail_ = nullptr;
+    // tmp_pre_tail_ is not nullptr only when the tail is uncommitted
     pthread_spinlock_t lock_;
 };
 
