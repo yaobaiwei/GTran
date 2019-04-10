@@ -784,6 +784,13 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
     // if is_out, this function will add an outE, which means that src_vid is on this node
     //      else, this function will add an inE, which means that dst_vid is on this node
+    if (is_out) {
+        local_vid = src_vid;
+        conn_vid = dst_vid;
+    } else {
+        local_vid = dst_vid;
+        conn_vid = src_vid;
+    }
 
     // anyway, need to check if the vertex exists or not
     VertexConstAccessor v_accessor;
@@ -798,12 +805,8 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
     if (is_out) {
         is_new = out_edge_map_.insert(e_accessor, eid.value());
-        local_vid = src_vid;
-        conn_vid = dst_vid;
     } else {
         is_new = in_edge_map_.insert(e_accessor, eid.value());
-        local_vid = dst_vid;
-        conn_vid = src_vid;
     }
 
     if (is_new) {
