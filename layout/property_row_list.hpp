@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
+#include "tbb/concurrent_hash_map.h"
 
 template <class PropertyRow>
 class PropertyRowList {
@@ -28,6 +29,12 @@ class PropertyRowList {
 
     CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
+
+    typedef tbb::concurrent_hash_map<label_t, CellType*> CellMap;
+    CellMap* cell_map_;
+    typedef typename tbb::concurrent_hash_map<label_t, CellType*>::accessor CellAccessor;
+    typedef typename tbb::concurrent_hash_map<label_t, CellType*>::const_accessor CellConstAccessor;
+    static constexpr int MAP_THRESHOLD = PropertyRow::ROW_ITEM_COUNT;
 
  public:
     void Init();

@@ -53,7 +53,7 @@ struct VertexPropertyRow {
     template<class PropertyRow> friend class PropertyRowList;
 
  public:
-    static inline int RowItemCount() {return VP_ROW_ITEM_COUNT;}
+    static constexpr int ROW_ITEM_COUNT = VP_ROW_ITEM_COUNT;
 
     // call this after MemPool::Get()
     void Init() {next_ = nullptr;}
@@ -68,7 +68,7 @@ struct EdgePropertyRow {
     template<class PropertyRow> friend class PropertyRowList;
 
  public:
-    static inline int RowItemCount() {return EP_ROW_ITEM_COUNT;}
+    static constexpr int ROW_ITEM_COUNT = EP_ROW_ITEM_COUNT;
 
     // call this after MemPool::Get()
     void Init() {next_ = nullptr;}
