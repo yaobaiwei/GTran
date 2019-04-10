@@ -140,6 +140,164 @@ void Message::AssignParamsByLocality(vector<QueryPlan>& qplans) {
     }
 }
 
+void Message::constructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj) {
+    CHECK(actor_obj.actor_type == ACTOR_T::ADDE);
+
+    // Get info from params
+    int label_id = static_cast<int>(Tool::value_t2int(actor_obj.params.at(0)));
+    AddEdgeMethodType from_method_type = static_cast<AddEdgeMethodType>(Tool::value_t2int(actor_obj.params.at(1)));
+    AddEdgeMethodType to_method_type = static_cast<AddEdgeMethodType>(Tool::value_t2int(actor_obj.params.at(3)));
+    bool from_applicable = from_method_type != AddEdgeMethodType::NotApplicable;
+    bool to_applicable = to_method_type != AddEdgeMethodType::NotApplicable;
+    int from_params, to_params;
+    if (from_applicable) { from_params = Tool::value_t2int(actor_obj.params.at(2)); }
+    if (to_applicable) { to_params = Tool::value_t2int(actor_obj.params.at(4)); }
+
+    if (from_applicable && to_applicable) {
+        // addE().from().to()
+        if (from_method_type == AddEdgeMethodType::PlaceHolder && to_method_type == AddEdgeMethodType::PlaceHolder) {
+            eid_t eid(to_params, from_params);
+            value_t new_val;
+            Tool::uint64_t2value_t(eid.value(), new_val);
+
+            data.clear();
+            data.emplace_back(history_t(), vector<value_t>{move(new_val)});
+        } else if (from_method_type == AddEdgeMethodType::StepLabel && to_method_type == AddEdgeMethodType::PlaceHolder) {
+            generate_edge_with_history(data, from_params, to_params, true);
+        } else if (from_method_type == AddEdgeMethodType::PlaceHolder && to_method_type == AddEdgeMethodType::StepLabel) {
+            generate_edge_with_history(data, to_params, from_params, false);
+        } else {
+            generate_edge_with_both_history(data, from_params, to_params);
+        }
+    } else if (from_applicable && !to_applicable) {
+        // addE().from()
+        generate_edge_with_data(data, from_method_type, from_params, true);
+    } else if (!from_applicable && to_applicable) {
+        // addE().to()
+        generate_edge_with_data(data, to_method_type, to_params, false);
+    } else {
+        cout << "[Error] Unexpected Error for from() and to()" << endl;
+        assert(false);
+    }
+}
+
+void Message::generate_edge_with_data(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom) {
+    if (method_type == AddEdgeMethodType::PlaceHolder) {
+        for (auto & pair : data) {
+            vector<value_t> newData;
+            for (auto & val : pair.second) {
+                int data_vid_value = Tool::value_t2int(val);
+                eid_t eid;
+                if (isFrom) {  // from()
+                    eid = eid_t(data_vid_value, step_param);
+                } else {  // to()
+                    eid = eid_t(step_param, data_vid_value);
+                }
+
+                value_t new_val;
+                Tool::uint64_t2value_t(eid.value(), new_val);
+                newData.emplace_back(new_val);
+            }
+            pair.second.swap(newData);
+        }
+    } else if (method_type == AddEdgeMethodType::StepLabel) {
+        for (auto & pair : data) {
+            history_t::iterator his_itr = pair.first.begin();
+            bool found = false;
+            int his_vid_value;
+            do {
+                if ((*his_itr).first == step_param) {
+                    CHECK((*his_itr).second.type == IntValueType);
+                    his_vid_value = Tool::value_t2int((*his_itr).second);
+                    found = true;
+                    break;
+                }
+            } while (his_itr != pair.first.end());
+
+            // It's possible that history was already deleted.
+            if (!found) { pair.second.clear(); continue; }
+
+            vector<value_t> newData;
+            for (auto & val : pair.second) {
+                int data_vid_value = Tool::value_t2int(val);
+                eid_t eid;
+                if (isFrom) {
+                    eid = eid_t(data_vid_value, his_vid_value);
+                } else {
+                    eid = eid_t(his_vid_value, data_vid_value);
+                }
+                value_t new_val;
+                Tool::uint64_t2value_t(eid.value(), new_val);
+                newData.emplace_back(new_val);
+            }
+            pair.second.swap(newData);
+        }
+    }
+}
+
+void Message::generate_edge_with_history(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom) {
+    for (auto & pair : data) {
+        history_t::iterator his_itr = pair.first.begin();
+        bool found = false;
+        int his_vid_value;
+        do {
+            if ((*his_itr).first == step_param) {
+                CHECK((*his_itr).second.type == IntValueType);
+                his_vid_value = Tool::value_t2int((*his_itr).second);
+                found = true;
+                break;
+            }
+        } while (his_itr != pair.first.end());
+
+        // It's possible that history was already deleted.
+        if (!found) { pair.second.clear(); continue; }
+
+        eid_t eid;
+        if (isFrom) {
+            eid = eid_t(other_end_vid, his_vid_value);
+        } else {
+            eid = eid_t(his_vid_value, other_end_vid);
+        }
+        value_t new_val;
+        Tool::uint64_t2value_t(eid.value(), new_val);
+
+        pair.second.clear();
+        pair.second.emplace_back(new_val);
+    }
+}
+
+void Message::generate_edge_with_both_history(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label) {
+    for (auto & pair : data) {
+        history_t::iterator his_itr = pair.first.begin();
+        int found_cnt = 2;
+        int from_vid_value, to_vid_value;
+        do {
+            if ((*his_itr).first == from_label) {
+                CHECK((*his_itr).second.type == IntValueType);
+                from_vid_value = Tool::value_t2int((*his_itr).second);
+                found_cnt--;
+            }
+
+            if ((*his_itr).first == to_label) {
+                CHECK((*his_itr).second.type == IntValueType);
+                to_vid_value = Tool::value_t2int((*his_itr).second);
+                found_cnt--;
+            }
+            if (found_cnt == 0) { break; }
+        } while (his_itr != pair.first.end());
+
+        // It's possible that history was already deleted.
+        if (found_cnt != 0) { pair.second.clear(); continue; }
+
+        eid_t eid(to_vid_value, from_vid_value);
+        value_t new_val;
+        Tool::uint64_t2value_t(eid.value(), new_val);
+
+        pair.second.clear();
+        pair.second.emplace_back(new_val);
+    }
+}
+
 void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
                             QueryPlan& qplan, vector<Message>& vec) {
     // assign receiver thread id
@@ -366,15 +524,18 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
     vector<pair<history_t, vector<value_t>>> empty_his;
 
     bool is_count = actors[m.step].actor_type == ACTOR_T::COUNT;
-    bool is_drop_edge = false;
+    bool consider_both_edge = false;
     if (actors[m.step].actor_type == ACTOR_T::DROP) {
         // For DropE and DropEP, send edge src_v and dst_v
         Element_T inType = static_cast<Element_T>(Tool::value_t2int(actors[m.step].params.at(0)));
-        is_drop_edge = (inType == Element_T::EDGE);
+        consider_both_edge = (inType == Element_T::EDGE);
+    } else if (actors[m.step].actor_type == ACTOR_T::ADDE) {
+        constructEdge(data, actors[m.step]);
+        consider_both_edge = true;
     }
 
     // enable route mapping
-    if ((!route_assigned && actors[this->meta.step].send_remote) || is_drop_edge) {
+    if ((!route_assigned && actors[this->meta.step].send_remote) || consider_both_edge) {
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
         for (auto& p : data) {
             map<int, vector<value_t>> id2value_t;
@@ -386,13 +547,15 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
 
             // get node id
             for (auto& v : p.second) {
-                int node;
-                if (is_drop_edge) {
-                    node = get_node_id(v, id_mapper, is_drop_edge);
-                    id2value_t[node].push_back(v);
+                int node, dst_v_node = -1;
+                if (consider_both_edge) {
+                    dst_v_node = get_node_id(v, id_mapper, consider_both_edge);
+                    id2value_t[dst_v_node].push_back(v);
                 }
                 node = get_node_id(v, id_mapper);
-                id2value_t[node].push_back(move(v));
+                if (node != dst_v_node) {
+                    id2value_t[node].push_back(move(v));
+                }
             }
 
             // insert his/value pair to corresponding node
@@ -527,7 +690,7 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
     return to_barrier;
 }
 
-int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool is_drop_edge) {
+int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge) {
     int type = v.type;
     if (type == 1) {
         vid_t v_id(Tool::value_t2int(v));
@@ -535,7 +698,7 @@ int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool is_
     } else if (type == 5) {
         eid_t e_id;
         uint2eid_t(Tool::value_t2uint64_t(v), e_id);
-        return id_mapper->GetMachineIdForEdge(e_id, is_drop_edge);
+        return id_mapper->GetMachineIdForEdge(e_id, consider_both_edge);
     } else {
         cout << "Wrong Type when getting node id" << type << endl;
         return -1;

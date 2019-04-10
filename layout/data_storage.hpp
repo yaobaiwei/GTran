@@ -12,6 +12,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <unordered_set>
 #include <vector>
 
+#include "core/factory.hpp"
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
@@ -112,6 +113,9 @@ class DataStorage {
     // DataStore compatible
     unordered_map<agg_t, vector<value_t>> agg_data_table;
     mutex agg_mutex;
+
+    // TrxTableStub
+    TrxTableStub * trx_table_stub_;
 
     READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);

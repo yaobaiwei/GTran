@@ -66,20 +66,20 @@ void TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
             // insert to the end of params
             pos.param = actor.params.size();
         }
+
+        value_t result;
         switch (actor.actor_type) {
           case ACTOR_T::INIT:
-          case ACTOR_T::ADDE:
             actor.params.insert(actor.params.begin() + pos.param, vec.begin(), vec.end());
             break;
-          default:
-            value_t result;
+          case ACTOR_T::ADDE:
             if (vec.size() == 1) {
                 result = vec[0];
-            } else {
-                Tool::vec2value_t(vec, result);
             }
             actor.params[pos.param] = result;
             break;
+          default:
+            cout << "[Error][ExecPlan] Unexpected ActorType" << endl;
         }
     }
 

@@ -832,7 +832,7 @@ void Parser::ParseInit(const string& line, string& var_name, string& query) {
 }
 
 void Parser::ParseAddE(const vector<string>& params) {
-    //@ AddEActor params: (int label, Direction_T dir, bool isLabelStep, [vid_t vids....])
+    //@ AddEActor params: (int label, AddEdgeMethodType type, value_t labelKey/src_vid, AddEdgeMethodType type, value_t labelKey/dst_vid)
     //  i_type = Vertex, o_type = Edge
     Actor_Object actor(ACTOR_T::ADDE);
     if (params.size() != 1) {
@@ -850,6 +850,12 @@ void Parser::ParseAddE(const vector<string>& params) {
     }
 
     actor.AddParam(lid);
+    // Add default value for rest params
+    actor.AddParam(AddEdgeMethodType::NotApplicable);
+    actor.params.emplace_back();
+    actor.AddParam(AddEdgeMethodType::NotApplicable);
+    actor.params.emplace_back();
+
     AppendActor(actor);
     io_type_ = IO_T::EDGE;
     trx_plan->trx_type_ |= TRX_ADD;
@@ -862,35 +868,28 @@ void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
         throw ParserException("expect 'addE()' before from/to");
     }
     Actor_Object &actor = actors_[actors_.size() - 1];
-    if (actor.params.size() > 1) {
-        throw ParserException("expect only one from/to after 'addE()'");
-    }
-    if (params.size() != 1) {
-        throw ParserException("expect only one param in from/to");
-    }
 
-    Direction_T dir;
+    int param_index;
     switch (type) {
-      case Step_T::FROM: dir = Direction_T::IN; break;
-      case Step_T::TO: dir = Direction_T::OUT; break;
+      case Step_T::FROM: param_index = 1; break;  // 1 is the position of from_method_type
+      case Step_T::TO: param_index = 3; break;  // 3 is the position of to_method_type
       default:
         throw ParserException("unexpected error");
     }
 
-    bool isLabelStep;
+    bool isLabelStep = false;
     int labelKey = -1;
     if (str2ls_.count(params[0]) != 0) {
         isLabelStep = true;
         labelKey = str2ls_[params[0]];
     } else if (place_holder.count(params[0]) != 0) {
-        RegPlaceHolder(params[0], actors_.size() - 1, 3, IO_T::VERTEX);
+        RegPlaceHolder(params[0], actors_.size() - 1, param_index + 1, IO_T::VERTEX);
     } else {
         throw ParserException("unexpected varaiable " + params[0]);
     }
 
-    actor.AddParam(dir);
-    actor.AddParam(isLabelStep);
-    actor.AddParam(labelKey);
+    actor.ModifyParam(isLabelStep ? AddEdgeMethodType::StepLabel : AddEdgeMethodType::PlaceHolder, param_index);
+    actor.ModifyParam(labelKey, param_index + 1);
 }
 
 void Parser::ParseAddV(const vector<string>& params) {

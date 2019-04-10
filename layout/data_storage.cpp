@@ -51,6 +51,8 @@ void DataStorage::Init() {
     PrintLoadedData();
     hdfs_data_loader_->FreeMemory();
 
+    trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
+
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::Init() all finished\n");
 }
 
@@ -744,19 +746,25 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     vector<eid_t> all_connected_edge;
     auto read_stat = GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge);
 
-    if (read_stat == READ_STAT::ABORT)
+    if (read_stat == READ_STAT::ABORT) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     bool* mvcc_value_ptr = v_accessor->second.mvcc_list->AppendVersion(trx_id, begin_time);
 
-    if (mvcc_value_ptr == nullptr)
+    if (mvcc_value_ptr == nullptr) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     mvcc_value_ptr[0] = false;
 
@@ -797,8 +805,10 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
     bool found = vertex_map_.find(v_accessor, local_vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS)
         return false;
@@ -825,8 +835,11 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
     } else {
         // do not need to access VertexEdgeRow
         EdgeItem* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
-        if (e_item == nullptr)
+        if (e_item == nullptr) {
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return false;
+        }
+
         PropertyRowList<EdgePropertyRow>* ep_row_list;
         if (is_out) {
             ep_row_list = new PropertyRowList<EdgePropertyRow>;
@@ -864,12 +877,16 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     }
 
     // do nothing
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return true;
+    }
 
     EdgeItem* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
-    if (e_item == nullptr)
+    if (e_item == nullptr) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     e_item->label = 0;
     e_item->ep_row_list = nullptr;
@@ -885,16 +902,20 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS)
         return false;
 
     auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
-    if (ret.second == nullptr)
+    if (ret.second == nullptr) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     TransactionItem::ProcessType process_type;
     if (ret.first)
@@ -913,16 +934,22 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
 
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
-    if (!edge_item.Exist())
+    if (!edge_item.Exist()) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     auto ret = edge_item.ep_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
-    if (ret.second == nullptr)
+    if (ret.second == nullptr) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     TransactionItem::ProcessType process_type;
     if (ret.first)
@@ -940,16 +967,20 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) == READ_STAT::SUCCESS)
         return false;
 
     auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
-    if (ret == nullptr)
+    if (ret == nullptr) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_DROP_VP, ret);
 
@@ -961,16 +992,22 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
 
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
-    if (!edge_item.Exist())
+    if (!edge_item.Exist()) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     auto ret = edge_item.ep_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
-    if (ret == nullptr)
+    if (ret == nullptr) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_DROP_EP, ret);
 
