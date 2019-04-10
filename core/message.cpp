@@ -153,13 +153,9 @@ void Message::constructEdge(vector<pair<history_t, vector<value_t>>> & data, con
     if (from_applicable) { from_params = Tool::value_t2int(actor_obj.params.at(2)); }
     if (to_applicable) { to_params = Tool::value_t2int(actor_obj.params.at(4)); }
 
-    cout << "[constructEdge] After grab parameters" << endl;
-
     if (from_applicable && to_applicable) {
-        cout << "[constructEdge] 1" << endl;
         // addE().from().to()
         if (from_method_type == AddEdgeMethodType::PlaceHolder && to_method_type == AddEdgeMethodType::PlaceHolder) {
-            cout << "[constructEdge] 2" << endl;
             eid_t eid(to_params, from_params);
             value_t new_val;
             Tool::uint64_t2value_t(eid.value(), new_val);
@@ -167,57 +163,44 @@ void Message::constructEdge(vector<pair<history_t, vector<value_t>>> & data, con
             data.clear();
             data.emplace_back(history_t(), vector<value_t>{move(new_val)});
         } else if (from_method_type == AddEdgeMethodType::StepLabel && to_method_type == AddEdgeMethodType::PlaceHolder) {
-            cout << "[constructEdge] 3" << endl;
             generate_edge_with_history(data, from_params, to_params, true);
         } else if (from_method_type == AddEdgeMethodType::PlaceHolder && to_method_type == AddEdgeMethodType::StepLabel) {
-            cout << "[constructEdge] 4" << endl;
             generate_edge_with_history(data, to_params, from_params, false);
         } else {
-            cout << "[constructEdge] 5" << endl;
             generate_edge_with_both_history(data, from_params, to_params);
         }
     } else if (from_applicable && !to_applicable) {
         // addE().from()
-        cout << "[constructEdge] 6" << endl;
         generate_edge_with_data(data, from_method_type, from_params, true);
     } else if (!from_applicable && to_applicable) {
         // addE().to()
-        cout << "[constructEdge] 7" << endl;
         generate_edge_with_data(data, to_method_type, to_params, false);
     } else {
         cout << "[Error] Unexpected Error for from() and to()" << endl;
         assert(false);
     }
-    cout << "[constructEdge] Out!" << endl;
 }
 
 void Message::generate_edge_with_data(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom) {
     if (method_type == AddEdgeMethodType::PlaceHolder) {
-        cout << "[generateEdgeData] 1" << endl;
         for (auto & pair : data) {
-            cout << "Size of data in each his : " << pair.second.size() << endl;
             vector<value_t> newData;
             for (auto & val : pair.second) {
-                cout << "Type of value_t : " << val.type << endl;
                 int data_vid_value = Tool::value_t2int(val);
-                cout << "Get vid_value" << endl;
                 eid_t eid;
                 if (isFrom) {  // from()
                     eid = eid_t(data_vid_value, step_param);
                 } else {  // to()
                     eid = eid_t(step_param, data_vid_value);
                 }
-                cout << "[Get Eid] " << eid.value() << " src_v : " << eid.out_v << " dst_v : " << eid.in_v << endl;
+
                 value_t new_val;
                 Tool::uint64_t2value_t(eid.value(), new_val);
                 newData.emplace_back(new_val);
             }
-            cout << "[For Out]" << endl;
             pair.second.swap(newData);
-            cout << "[Swap Done]" << endl;
         }
     } else if (method_type == AddEdgeMethodType::StepLabel) {
-        cout << "[generateEdgeData] 2" << endl;
         for (auto & pair : data) {
             history_t::iterator his_itr = pair.first.begin();
             bool found = false;

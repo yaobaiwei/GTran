@@ -62,7 +62,6 @@ class InitActor : public AbstractActor {
         vector<Message> msg_vec;
         msg.CreateNextMsg(qplan.actors, init_data, num_thread_, core_affinity_, msg_vec);
         for (auto & msg_ : msg_vec) {
-            cout << "[InitActor] Send Msg val_size : " << msg_.data[0].second.size() << endl;
             mailbox_->Send(tid, msg_);
         }
 
