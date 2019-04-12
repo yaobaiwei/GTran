@@ -486,7 +486,9 @@ class Worker {
             if (re.isAbort) {
                 plan.Abort();
             } else {
-                plan.FillResult(qid.id, re.results);
+                if (!plan.FillResult(qid.id, re.results)) {
+                    trx_table_stub_->update_status(plan.trxid, TRX_STAT::ABORT);
+                }
             }
 
             if (!RegisterQuery(plan) && !is_emu_mode_) {
