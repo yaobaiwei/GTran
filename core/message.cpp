@@ -311,6 +311,21 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
     m.msg_type = MSG_T::INIT;
     m.msg_path = to_string(nodes_num);
 
+    // Check first actor type
+    bool isAddV = qplan.actors[0].actor_type == ACTOR_T::ADDV;
+    bool isAddE = qplan.actors[0].actor_type == ACTOR_T::ADDE;
+    value_t eid;
+    int src_node = -1;
+    int dst_node = -1;
+    if (isAddE) {
+        vector<pair<history_t, vector<value_t>>> data;
+        constructEdge(data, qplan.actors[0]);
+        eid = data[0].second[0];
+        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
+        src_node = get_node_id(eid, id_mapper);
+        dst_node = get_node_id(eid, id_mapper, true);
+    }
+
     // Redistribute actor params
     vector<QueryPlan> qplans(nodes_num - 1, qplan);
     qplans.push_back(move(qplan));
@@ -321,6 +336,13 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
         msg.meta = m;
         msg.meta.recver_nid = i;
         msg.meta.qplan = move(qplans[i]);
+        if (isAddV && i == parent_node) {
+            // only parent node will add one vertex
+            msg.data.emplace_back(history_t(), vector<value_t>(1));
+        } else if (isAddE && (i == src_node || i == dst_node)) {
+            // add eid to both src and dst node
+            msg.data.emplace_back(history_t(), vector<value_t>{eid});
+        }
         vec.push_back(move(msg));
     }
 }

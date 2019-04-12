@@ -136,13 +136,32 @@ bool Parser::ParseLine(const string& line, vector<Actor_Object>& vec, string& er
         return false;
     }
 
+    int i = 0;
     for (auto& actor : actors_) {
-        if (actor.actor_type == ACTOR_T::ADDE && actor.params.size() == 1) {
-            error_msg = error_prefix + to_string(line_index + 1) + ":\n"
-                        + line + "\n"+ "addE should be followed by from/to step";
-            return false;
+        if (actor.actor_type == ACTOR_T::ADDE) {
+            // Need to check addE actor params
+            AddEdgeMethodType fromType = Tool::value_t2int(actor.params[1]);
+            AddEdgeMethodType toType = Tool::value_t2int(actor.params[3]);
+            int count = 0;
+            // No from/to = 0, both with placeholer = 4
+            if (fromType != AddEdgeMethodType::NotApplicable) {
+                count += (fromType == AddEdgeMethodType::PlaceHolder) ? 2 : 1;
+            }
+            if (toType != AddEdgeMethodType::NotApplicable) {
+                count += (toType == AddEdgeMethodType::PlaceHolder) ? 2 : 1;
+            }
+
+            if ((i == 0 && count != 4) ||
+                (i != 0 && (count == 0 || count == 4))) {
+                // 1: g.addE, need both from and to steps with PlaceHolder type
+                // 2: not the first step, need at least one from/to, and do not allow both steps with placeholder
+                error_msg = error_prefix + to_string(line_index + 1) + ":\n"
+                            + line + "\n"+ "addE params not match";
+                return false;
+            }
         }
         vec.push_back(move(actor));
+        i++;
     }
 
     vec.emplace_back(ACTOR_T::END);
@@ -803,6 +822,14 @@ void Parser::ParseInit(const string& line, string& var_name, string& query) {
     } else if (query.find("g.E") == 0) {
         io_type_ = IO_T::EDGE;
         element_type = Element_T::EDGE;
+    } else if (query.find("g.addV")) {
+        io_type_ = IO_T::VERTEX;
+        query = query.substr(2);
+        return;
+    } else if (query.find("g.addE")) {
+        io_type_ = IO_T::EDGE;
+        query = query.substr(2);
+        return;
     } else {
         throw ParserException("Execute query with g.V or g.E");
     }
@@ -857,7 +884,6 @@ void Parser::ParseAddE(const vector<string>& params) {
     actor.params.emplace_back();
 
     AppendActor(actor);
-    io_type_ = IO_T::EDGE;
     trx_plan->trx_type_ |= TRX_ADD;
     is_read_only_ = false;
 }
@@ -900,6 +926,7 @@ void Parser::ParseAddV(const vector<string>& params) {
         throw ParserException("expect one parameter for addV");
     }
 
+    io_type_ = IO_T::VERTEX;
     int lid;
     if (!ParseKeyId(params[0], true, lid)) {
         throw ParserException("unexpected label in addV : " + params[0] + ", expected is " + ExpectedKey(true));
@@ -907,7 +934,6 @@ void Parser::ParseAddV(const vector<string>& params) {
 
     actor.AddParam(lid);
     AppendActor(actor);
-    io_type_ = IO_T::VERTEX;
     trx_plan->trx_type_ |= TRX_ADD;
     is_read_only_ = false;
 }
@@ -1064,7 +1090,7 @@ void Parser::ParseDrop(const vector<string>& params) {
 
     // For Vertex, ConnectedEdge need one more actor to handle
     if (io_type_ == IO_T::VERTEX) {
-        Actor_Object next_actor(ACTOR_T::DROP); 
+        Actor_Object next_actor(ACTOR_T::DROP);
         next_actor.AddParam(Element_T::EDGE);
         next_actor.AddParam(false);
         AppendActor(next_actor);
