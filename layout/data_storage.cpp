@@ -176,6 +176,28 @@ void DataStorage::FillContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
 }
 
+READ_STAT DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
+                                      const uint64_t& trx_id, const uint64_t& begin_time,
+                                      const bool& read_only, EdgeItem& item_ref) {
+    bool found = out_edge_map_.find(e_accessor, eid.value());
+
+    // system error, need to handle it in the future
+    if (!found)
+        return READ_STAT::ABORT;
+
+    EdgeMVCCItem* visible_version;
+    bool success = e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+
+    if (!success)
+        return READ_STAT::ABORT;
+    if (visible_version == nullptr)
+        return READ_STAT::NOTFOUND;
+
+    item_ref = visible_version->GetValue();
+
+    return READ_STAT::SUCCESS;
+}
+
 READ_STAT DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                              const uint64_t& begin_time, const bool& read_only) {
     VertexMVCCItem* visible_version;
@@ -424,28 +446,6 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
             ret.emplace_back(eid_t(tmp_eid_p->out_v, tmp_eid_p->in_v));
         }
     }
-
-    return READ_STAT::SUCCESS;
-}
-
-READ_STAT DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
-                                      const uint64_t& trx_id, const uint64_t& begin_time,
-                                      const bool& read_only, EdgeItem& item_ref) {
-    bool found = out_edge_map_.find(e_accessor, eid.value());
-
-    // system error, need to handle it in the future
-    if (!found)
-        return READ_STAT::ABORT;
-
-    EdgeMVCCItem* visible_version;
-    bool success = e_accessor->second->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-
-    if (!success)
-        return READ_STAT::ABORT;
-    if (visible_version == nullptr)
-        return READ_STAT::NOTFOUND;
-
-    item_ref = visible_version->GetValue();
 
     return READ_STAT::SUCCESS;
 }
