@@ -109,6 +109,7 @@ class DataStorage {
     tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
+    void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
 
     // DataStore compatible
     unordered_map<agg_t, vector<value_t>> agg_data_table;
@@ -126,23 +127,7 @@ class DataStorage {
                                     const uint64_t& begin_time, const bool& read_only);
 
  public:
-    // MVCC processing stage related
-    void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
-    vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                      vector<eid_t>& in_eids, vector<eid_t>& out_eids);
-    bool ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
-                     const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropE(const eid_t& eid, const bool& is_out, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
-
-    // MVCC abort or commit
-    void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
-    void Abort(const uint64_t& trx_id);
-
+    // any public data access interfaces
     // data access
     READ_STAT GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, value_t& ret);
@@ -171,18 +156,34 @@ class DataStorage {
 
     // traversal from vertex
     // if label == 0, then do not filter by label
-    READ_STAT GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
-                                   const uint64_t& trx_id, const uint64_t& begin_time,
-                                   const bool& read_only, vector<eid_t>& ret);
     READ_STAT GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                      const uint64_t& trx_id, const uint64_t& begin_time,
                                      const bool& read_only, vector<vid_t>& ret);
+    READ_STAT GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
+                                   const uint64_t& trx_id, const uint64_t& begin_time,
+                                   const bool& read_only, vector<eid_t>& ret);
 
     // TODO(entityless): Figure out how to run two functions efficiently
     READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
                              const bool& read_only, vector<vid_t>& ret);
     READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, vector<eid_t>& ret);
+
+    // MVCC processing stage related
+    vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                      vector<eid_t>& in_eids, vector<eid_t>& out_eids);
+    bool ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
+                     const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropE(const eid_t& eid, const bool& is_out, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessModifyVP(const vpid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessModifyEP(const epid_t& pid, const value_t& value, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
+    bool ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
+
+    // MVCC abort or commit
+    void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
+    void Abort(const uint64_t& trx_id);
 
     //// Indexed data access
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);
