@@ -189,7 +189,7 @@ bool ValidationActor::valid_dependency_read(uint64_t trxID, vector<uint64_t> & h
     return true;
 }
 
-void ValidationActor::process_trx(int num_queries, int cur_qid, set<vstep_t> & trx_step_sets, step2aobj_map_t_& step_aobj_map) {
+void ValidationActor::process_trx(int num_queries, uint64_t cur_qid, set<vstep_t> & trx_step_sets, step2aobj_map_t_& step_aobj_map) {
     for (uint64_t query_index = 0; query_index < num_queries; query_index++) {
         // Generate qid for each query
         uint64_t _qid = ((cur_qid >> 8) << 8) | query_index;

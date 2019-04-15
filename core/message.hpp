@@ -139,22 +139,22 @@ class Message {
 
  private:
     // dispatch input data to different node
-    void dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
+    void DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
                     int num_thread, CoreAffinity * core_affinity, vector<Message>& vec);
     // update route to next actor
-    bool update_route(Meta& m, const vector<Actor_Object>& actors);
+    bool UpdateRoute(Meta& m, const vector<Actor_Object>& actors);
     // update route to barrier or labelled branch actors for msg collection
-    bool update_collection_route(Meta& m, const vector<Actor_Object>& actors);
+    bool UpdateCollectionRoute(Meta& m, const vector<Actor_Object>& actors);
     // get the node where vertex or edge is stored
-    static int get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge = false);
+    static int GetNodeId(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge = false);
     // Redistribute params of actors according to data locality
     static void AssignParamsByLocality(vector<QueryPlan>& qplans);
 
     // Construct EdgeID for AddE
-    void constructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj);
-    void generate_edge_with_data(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom);
-    void generate_edge_with_history(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom);
-    void generate_edge_with_both_history(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label);
+    static void ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj);
+    static void GenerateEdgeWithData(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom);
+    static void GenerateEdgeWithHistory(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom);
+    static void GenerateEdgeWithBothHistory(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label);
 };
 
 ibinstream& operator<<(ibinstream& m, const Message& msg);

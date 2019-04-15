@@ -123,7 +123,7 @@ void Message::AssignParamsByLocality(vector<QueryPlan>& qplans) {
         map<int, vector<value_t>> nid2data;
         // Redistribute V/E to corresponding machine
         for (int j = data_index; j < params.size(); j ++) {
-            int node = get_node_id(params[j], id_mapper);
+            int node = GetNodeId(params[j], id_mapper);
             nid2data[node].push_back(move(params[j]));
         }
 
@@ -140,7 +140,7 @@ void Message::AssignParamsByLocality(vector<QueryPlan>& qplans) {
     }
 }
 
-void Message::constructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj) {
+void Message::ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj) {
     CHECK(actor_obj.actor_type == ACTOR_T::ADDE);
 
     // Get info from params
@@ -163,25 +163,25 @@ void Message::constructEdge(vector<pair<history_t, vector<value_t>>> & data, con
             data.clear();
             data.emplace_back(history_t(), vector<value_t>{move(new_val)});
         } else if (from_method_type == AddEdgeMethodType::StepLabel && to_method_type == AddEdgeMethodType::PlaceHolder) {
-            generate_edge_with_history(data, from_params, to_params, true);
+            GenerateEdgeWithHistory(data, from_params, to_params, true);
         } else if (from_method_type == AddEdgeMethodType::PlaceHolder && to_method_type == AddEdgeMethodType::StepLabel) {
-            generate_edge_with_history(data, to_params, from_params, false);
+            GenerateEdgeWithHistory(data, to_params, from_params, false);
         } else {
-            generate_edge_with_both_history(data, from_params, to_params);
+            GenerateEdgeWithBothHistory(data, from_params, to_params);
         }
     } else if (from_applicable && !to_applicable) {
         // addE().from()
-        generate_edge_with_data(data, from_method_type, from_params, true);
+        GenerateEdgeWithData(data, from_method_type, from_params, true);
     } else if (!from_applicable && to_applicable) {
         // addE().to()
-        generate_edge_with_data(data, to_method_type, to_params, false);
+        GenerateEdgeWithData(data, to_method_type, to_params, false);
     } else {
         cout << "[Error] Unexpected Error for from() and to()" << endl;
         assert(false);
     }
 }
 
-void Message::generate_edge_with_data(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom) {
+void Message::GenerateEdgeWithData(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom) {
     if (method_type == AddEdgeMethodType::PlaceHolder) {
         for (auto & pair : data) {
             vector<value_t> newData;
@@ -235,7 +235,7 @@ void Message::generate_edge_with_data(vector<pair<history_t, vector<value_t>>> &
     }
 }
 
-void Message::generate_edge_with_history(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom) {
+void Message::GenerateEdgeWithHistory(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom) {
     for (auto & pair : data) {
         history_t::iterator his_itr = pair.first.begin();
         bool found = false;
@@ -266,7 +266,7 @@ void Message::generate_edge_with_history(vector<pair<history_t, vector<value_t>>
     }
 }
 
-void Message::generate_edge_with_both_history(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label) {
+void Message::GenerateEdgeWithBothHistory(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label) {
     for (auto & pair : data) {
         history_t::iterator his_itr = pair.first.begin();
         int found_cnt = 2;
@@ -311,6 +311,21 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
     m.msg_type = MSG_T::INIT;
     m.msg_path = to_string(nodes_num);
 
+    // Check first actor type
+    bool isAddV = qplan.actors[0].actor_type == ACTOR_T::ADDV;
+    bool isAddE = qplan.actors[0].actor_type == ACTOR_T::ADDE;
+    value_t eid;
+    int src_node = -1;
+    int dst_node = -1;
+    if (isAddE) {
+        vector<pair<history_t, vector<value_t>>> data;
+        ConstructEdge(data, qplan.actors[0]);
+        eid = data[0].second[0];
+        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
+        src_node = GetNodeId(eid, id_mapper);
+        dst_node = GetNodeId(eid, id_mapper, true);
+    }
+
     // Redistribute actor params
     vector<QueryPlan> qplans(nodes_num - 1, qplan);
     qplans.push_back(move(qplan));
@@ -321,6 +336,13 @@ void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int re
         msg.meta = m;
         msg.meta.recver_nid = i;
         msg.meta.qplan = move(qplans[i]);
+        if (isAddV && i == parent_node) {
+            // only parent node will add one vertex
+            msg.data.emplace_back(history_t(), vector<value_t>(1));
+        } else if (isAddE && (i == src_node || i == dst_node)) {
+            // add eid to both src and dst node
+            msg.data.emplace_back(history_t(), vector<value_t>{eid});
+        }
         vec.push_back(move(msg));
     }
 }
@@ -356,7 +378,7 @@ void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<hist
     m.step = actors[this->meta.step].next_actor;
 
     int count = vec.size();
-    dispatch_data(m, actors, data, num_thread, core_affinity, vec);
+    DispatchData(m, actors, data, num_thread, core_affinity, vec);
 
     // set disptching path
     string num = to_string(vec.size() - count);
@@ -427,7 +449,7 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
         auto temp = data;
         // dispatch data to msg vec
         int count = vec.size();
-        dispatch_data(step_meta, actors, temp, num_thread, core_affinity, vec);
+        DispatchData(step_meta, actors, temp, num_thread, core_affinity, vec);
 
         // set msg_path for each branch
         for (int j = count; j < vec.size(); j++) {
@@ -482,7 +504,7 @@ void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, 
 
         // dispatch data to msg vec
         int count = vec.size();
-        dispatch_data(step_meta, actors, temp, num_thread, core_affinity, vec);
+        DispatchData(step_meta, actors, temp, num_thread, core_affinity, vec);
 
         // set msg_path for each branch
         for (int j = count; j < vec.size(); j++) {
@@ -513,11 +535,11 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
     }
 }
 
-void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
+void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
                         int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta cm = m;
-    bool route_assigned = update_route(m, actors);
-    bool empty_to_barrier = update_collection_route(cm, actors);
+    bool route_assigned = UpdateRoute(m, actors);
+    bool empty_to_barrier = UpdateCollectionRoute(cm, actors);
     // <node id, data>
     map<int, vector<pair<history_t, vector<value_t>>>> id2data;
     // store history with empty data
@@ -530,7 +552,7 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
         Element_T inType = static_cast<Element_T>(Tool::value_t2int(actors[m.step].params.at(0)));
         consider_both_edge = (inType == Element_T::EDGE);
     } else if (actors[m.step].actor_type == ACTOR_T::ADDE) {
-        constructEdge(data, actors[m.step]);
+        ConstructEdge(data, actors[m.step]);
         consider_both_edge = true;
     }
 
@@ -549,10 +571,10 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
             for (auto& v : p.second) {
                 int node, dst_v_node = -1;
                 if (consider_both_edge) {
-                    dst_v_node = get_node_id(v, id_mapper, consider_both_edge);
+                    dst_v_node = GetNodeId(v, id_mapper, consider_both_edge);
                     id2value_t[dst_v_node].push_back(v);
                 }
-                node = get_node_id(v, id_mapper);
+                node = GetNodeId(v, id_mapper);
                 if (node != dst_v_node) {
                     id2value_t[node].push_back(move(v));
                 }
@@ -617,7 +639,7 @@ void Message::dispatch_data(Meta& m, const vector<Actor_Object>& actors, vector<
     }
 }
 
-bool Message::update_route(Meta& m, const vector<Actor_Object>& actors) {
+bool Message::UpdateRoute(Meta& m, const vector<Actor_Object>& actors) {
     int branch_depth = m.branch_infos.size() - 1;
     // update recver route & msg_type
     if (actors[m.step].IsBarrier()) {
@@ -642,7 +664,7 @@ bool Message::update_route(Meta& m, const vector<Actor_Object>& actors) {
             m.step = actors[m.step].next_actor;
             m.branch_infos.pop_back();
 
-            return update_route(m, actors);
+            return UpdateRoute(m, actors);
         } else {
             // aggregate labelled branch actors to parent machine
             m.recver_nid = m.branch_infos[branch_depth].node_id;
@@ -657,7 +679,7 @@ bool Message::update_route(Meta& m, const vector<Actor_Object>& actors) {
     }
 }
 
-bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actors) {
+bool Message::UpdateCollectionRoute(Meta& m, const vector<Actor_Object>& actors) {
     bool to_barrier = false;
     // empty data should be send to:
     // 1. barrier actor, msg_type = BARRIER
@@ -685,12 +707,12 @@ bool Message::update_collection_route(Meta& m, const vector<Actor_Object>& actor
         m.step = actors[m.step].next_actor;
     }
 
-    update_route(m, actors);
+    UpdateRoute(m, actors);
 
     return to_barrier;
 }
 
-int Message::get_node_id(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge) {
+int Message::GetNodeId(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge) {
     int type = v.type;
     if (type == 1) {
         vid_t v_id(Tool::value_t2int(v));

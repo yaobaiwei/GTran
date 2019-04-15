@@ -56,7 +56,8 @@ class TrxPlan {
     void RegDependency(uint8_t src_index, uint8_t dst_index);
 
     // Fill in placeholder and trx result after query done
-    void FillResult(int query_index, vector<value_t>& vec);
+    // Return false if the transaction is aborted due to placeholder error
+    bool FillResult(int query_index, vector<value_t>& vec);
 
     void Abort();
 

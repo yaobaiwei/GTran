@@ -58,7 +58,7 @@ void TrxPlan::Abort() {
     deps_count_[index] = 0;
 }
 
-void TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
+bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
     // Find placeholders that depend on results of query_index_
     for (position_t& pos : place_holder_[query_index]) {
         Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
@@ -75,6 +75,9 @@ void TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
           case ACTOR_T::ADDE:
             if (vec.size() == 1) {
                 result = vec[0];
+            } else {
+                Abort();
+                return false;
             }
             actor.params[pos.param] = result;
             break;
@@ -90,7 +93,12 @@ void TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
     // Add query header info if not parser error
     if (query_index != -1) {
         value_t v;
-        string header = "Query " + to_string(query_index + 1) + ": ";
+        string header;
+        if (query_index == query_plans_.size() - 1) {
+            header = "Status: ";
+        } else {
+            header = "Query " + to_string(query_index + 1) + ": ";
+        }
         Tool::str2str(header, v);
         results_[query_index].push_back(v);
     }
@@ -102,8 +110,8 @@ void TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
     // check if commit statement or parser error
     if (query_index == query_plans_.size() - 1 || query_index == -1) {
         is_end_ = true;
-        return;
     }
+    return true;
 }
 
 // return false if transaction end
@@ -134,14 +142,9 @@ bool TrxPlan::NextQueries(vector<QueryPlan>& plans) {
 }
 
 void TrxPlan::GetResult(vector<value_t>& vec) {
-    if (is_abort_) {
-        value_t v;
-        Tool::str2str("Transaction aborted!" , v);
-        vec.push_back(move(v));
-    } else {
-        // Append query results in increasing order
-        for (auto itr = results_.begin(); itr != results_.end(); itr ++) {
-            vec.insert(vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
-        }
+    // Append query results in increasing order
+    // Transaction status (aborted/committed) is handled by commit actor
+    for (auto itr = results_.begin(); itr != results_.end(); itr ++) {
+        vec.insert(vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
     }
 }
