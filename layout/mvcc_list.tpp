@@ -57,7 +57,6 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
                 if (next_ver_trx_id == 0) {   // Next version committed
                     if (!read_only) {
                         // Abort directly for non-read_only
-                        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
                         ret = nullptr;
                         return false;
                     }
@@ -98,7 +97,6 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
                         } else {
                             if (!read_only) {
                                 // Abort
-                                trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
                                 ret = nullptr;
                                 return false;
                             }

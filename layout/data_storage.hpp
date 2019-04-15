@@ -127,6 +127,7 @@ class DataStorage {
                                     const uint64_t& begin_time, const bool& read_only);
 
  public:
+    // any public data access interfaces
     // data access
     READ_STAT GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, value_t& ret);

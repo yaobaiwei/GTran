@@ -234,13 +234,22 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    return v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+    return stat;
 }
 
 READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -249,13 +258,22 @@ READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const 
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    return v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+    return stat;
 }
 
 READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
@@ -265,13 +283,22 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    return v_accessor->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+    return stat;
 }
 
 READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -280,13 +307,22 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    return v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+    return stat;
 }
 
 READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
@@ -295,11 +331,15 @@ READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
     ret = v_accessor->second.label;
 
@@ -313,11 +353,21 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (edge_item.Exist())
-        return edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+    if (edge_item.Exist()) {
+        auto stat = edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+
+        if (stat == READ_STAT::ABORT)
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+        return stat;
+    }
+
+    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
     return READ_STAT::ABORT;
 }
 
@@ -326,11 +376,21 @@ READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const 
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (edge_item.Exist())
-       return edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+    if (edge_item.Exist()) {
+       auto stat = edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+
+       if (stat == READ_STAT::ABORT)
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+        return stat;
+    }
+    
+    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
     return READ_STAT::ABORT;
 }
 
@@ -340,11 +400,21 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (edge_item.Exist())
-        return edge_item.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+    if (edge_item.Exist()) {
+        auto stat = edge_item.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+
+        if (stat == READ_STAT::ABORT)
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+        return stat;
+    }
+
+    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
     return READ_STAT::ABORT;
 }
 
@@ -353,11 +423,21 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (edge_item.Exist())
-        return edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+    if (edge_item.Exist()) {
+        auto stat = edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+
+        if (stat == READ_STAT::ABORT)
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+        return stat;
+    }
+
+    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
     return READ_STAT::ABORT;
 }
 
@@ -366,15 +446,19 @@ READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
     EdgeConstAccessor e_accessor;
     EdgeItem edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
-    if (read_stat != READ_STAT::SUCCESS)
+    if (read_stat != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
     // an deleted edge will returns 0
     ret = edge_item.label;
-    if (edge_item.Exist())
+    if (edge_item.Exist()) {
         return READ_STAT::SUCCESS;
-    else
+    } else {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 }
 
 READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
@@ -384,14 +468,23 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     // system error, need to handle it in the future
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    return v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label,
-                                                               trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label,
+                                                                    trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+    return stat;
 }
 
 READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
@@ -400,13 +493,22 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
-    if (!found)
+    if (!found) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
+    }
 
-    return v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label, trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label, trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+
+    return stat;
 }
 
 READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
@@ -416,8 +518,11 @@ READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& be
 
         VertexMVCCItem* visible_version;
         bool success = v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-        if (!success)
+        if (!success) {
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return READ_STAT::ABORT;
+        }
+
         if (visible_version == nullptr)
             continue;
 
@@ -435,8 +540,11 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
     for (auto e_pair = out_edge_map_.begin(); e_pair != out_edge_map_.end(); e_pair++) {
         EdgeMVCCItem* visible_version;
         bool success = e_pair->second->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-        if (!success)
+        if (!success) {
+            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return READ_STAT::ABORT;
+        }
+
         if (visible_version == nullptr)
             continue;
 
@@ -813,8 +921,10 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
         return false;
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     if (is_out) {
         is_new = out_edge_map_.insert(e_accessor, eid.value());
@@ -880,10 +990,9 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     }
 
     // do nothing
-    if (!found) {
-        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+    if (!found)
         return true;
-    }
+
 
     EdgeItem* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
     if (e_item == nullptr) {
@@ -910,8 +1019,10 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
         return false;
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
@@ -975,8 +1086,10 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
         return false;
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) == READ_STAT::SUCCESS)
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) == READ_STAT::SUCCESS) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
+    }
 
     auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
