@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
+#include "utils/tid_mapper.hpp"
 #include "tbb/concurrent_hash_map.h"
 
 template <class PropertyRow>
@@ -20,7 +21,7 @@ class PropertyRowList {
     typedef typename MVCCListType::MVCCItemType MVCCItemType;
     typedef typename remove_reference<decltype(PropertyRow::cells_[0])>::type CellType;
 
-    static OffsetConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
+    static ConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
     static MVCCValueStore* value_storage_;
 
     std::atomic_int property_count_;
@@ -57,7 +58,7 @@ class PropertyRowList {
                                                     const uint64_t& trx_id, const uint64_t& begin_time);
     MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);
 
-    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<PropertyRow>* mem_pool) {
+    static void SetGlobalMemoryPool(ConcurrentMemPool<PropertyRow>* mem_pool) {
         mem_pool_ = mem_pool;
     }
     static void SetGlobalValueStore(MVCCValueStore* value_storage_ptr) {

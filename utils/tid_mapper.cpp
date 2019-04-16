@@ -9,24 +9,27 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 using std::TidMapper;
 
 TidMapper::TidMapper() {
-    pthread_spin_init(&lock_, 0);
+    thread_count_ = 0;
 }
 
 void TidMapper::Register(int tid) {
-    pthread_spin_lock(&lock_);
+    TidAccessor unique_accessor, manual_accessor;
+    int unique_tid = thread_count_++;
+    unique_tid_map_.insert(unique_accessor, pthread_self());
+    manual_tid_map_.insert(manual_accessor, pthread_self());
 
-    unique_tid_map_.insert(make_pair(pthread_self(), unique_tid_map_.size()));
-    manual_tid_map_.insert(make_pair(pthread_self(), tid));
-
-    pthread_spin_unlock(&lock_);
+    unique_accessor->second = unique_tid;
+    manual_accessor->second = tid;
 }
 
 int TidMapper::GetTid() {
-    assert(manual_tid_map_.count(pthread_self()) != 0);
-    return manual_tid_map_[pthread_self()];
+    TidAccessor manual_accessor;
+    assert(manual_tid_map_.find(manual_accessor, pthread_self()));
+    return manual_accessor->second;
 }
 
 int TidMapper::GetTidUnique() {
-    assert(unique_tid_map_.count(pthread_self()) != 0);
-    return unique_tid_map_[pthread_self()];
+    TidAccessor unique_accessor;
+    assert(unique_tid_map_.find(unique_accessor, pthread_self()));
+    return unique_accessor->second;
 }

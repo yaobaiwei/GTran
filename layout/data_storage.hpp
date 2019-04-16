@@ -23,6 +23,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/topology_row_list.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
+#include "utils/tid_mapper.hpp"
 
 // EdgeItem defined in mvcc_definition.hpp
 
@@ -72,6 +73,7 @@ class DataStorage {
     Config* config_ = nullptr;
     Node node_;
     SimpleIdMapper* id_mapper_ = nullptr;
+    int nthreads_;
 
     // from vid & eid to the first row of the entity
     // the MVCCList<EdgeMVCCItem>* pointer will point to the same instance
@@ -92,13 +94,13 @@ class DataStorage {
     MPISnapshotManager* snapshot_manager_ = nullptr;
 
     // Containers
-    OffsetConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<VertexPropertyRow>* vp_row_pool_ = nullptr;
-    OffsetConcurrentMemPool<VPropertyMVCCItem>* vp_mvcc_pool_ = nullptr;
-    OffsetConcurrentMemPool<EPropertyMVCCItem>* ep_mvcc_pool_ = nullptr;
-    OffsetConcurrentMemPool<VertexMVCCItem>* vertex_mvcc_pool_ = nullptr;
-    OffsetConcurrentMemPool<EdgeMVCCItem>* edge_mvcc_pool_ = nullptr;
+    ConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;
+    ConcurrentMemPool<VertexEdgeRow>* ve_row_pool_ = nullptr;
+    ConcurrentMemPool<VertexPropertyRow>* vp_row_pool_ = nullptr;
+    ConcurrentMemPool<VPropertyMVCCItem>* vp_mvcc_pool_ = nullptr;
+    ConcurrentMemPool<EPropertyMVCCItem>* ep_mvcc_pool_ = nullptr;
+    ConcurrentMemPool<VertexMVCCItem>* vertex_mvcc_pool_ = nullptr;
+    ConcurrentMemPool<EdgeMVCCItem>* edge_mvcc_pool_ = nullptr;
 
     // VID related. Used when adding a new vertex.
     std::atomic_int vid_to_assign_divided_;

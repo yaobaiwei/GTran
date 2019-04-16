@@ -5,15 +5,18 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #pragma once
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
 #include <pthread.h>
 #include <string.h>
-#include <vector>
-#include <map>
+
+#include <atomic>
 #include <iostream>
+
+#include "tbb/concurrent_hash_map.h"
 
 namespace std {
 class TidMapper {
@@ -22,10 +25,11 @@ class TidMapper {
     TidMapper& operator=(const TidMapper&);
     ~TidMapper() {}
 
-    map<pthread_t, int> manual_tid_map_;
-    map<pthread_t, int> unique_tid_map_;
+    typedef tbb::concurrent_hash_map<pthread_t, int>::accessor TidAccessor;
+    tbb::concurrent_hash_map<pthread_t, int> manual_tid_map_;
+    tbb::concurrent_hash_map<pthread_t, int> unique_tid_map_;
 
-    pthread_spinlock_t lock_;
+    atomic_int thread_count_;
 
  public:
     static TidMapper* GetInstance() {

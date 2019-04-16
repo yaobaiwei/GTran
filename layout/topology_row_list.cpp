@@ -7,7 +7,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 void TopologyRowList::Init(const vid_t& my_vid) {
     my_vid_ = my_vid;
-    head_ = tail_ = mem_pool_->Get();
+    head_ = tail_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
     edge_count_ = 0;
     pthread_spin_init(&lock_, 0);
 }
@@ -19,7 +19,7 @@ void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
     int cell_id_in_row = cell_id % VE_ROW_ITEM_COUNT;
 
     if (cell_id_in_row == 0 && cell_id > 0) {
-        tail_->next_ = mem_pool_->Get();
+        tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
         tail_ = tail_->next_;
     }
 

@@ -123,7 +123,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
     SimpleSpinLockGuard lock_guard(&lock_);
 
     if (head_ == nullptr) {
-        Item* head_mvcc = mem_pool_->Get();
+        Item* head_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
         head_mvcc->Init(trx_id, begin_time);
         head_mvcc->next = nullptr;
@@ -149,7 +149,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
         }
     }
 
-    Item* new_version = mem_pool_->Get();
+    Item* new_version = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     new_version->Init(trx_id, begin_time);
     new_version->next = nullptr;
@@ -165,7 +165,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
 template<class Item>
 decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
     // load data from HDFS
-    Item* initial_mvcc = mem_pool_->Get();
+    Item* initial_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     initial_mvcc->Init(Item::MIN_TIME, Item::MAX_TIME);
     initial_mvcc->next = nullptr;
@@ -197,7 +197,7 @@ decltype(Item::val) MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
         // abort modification
         pre_tail_->next = nullptr;
 
-        mem_pool_->Free(tail_);
+        mem_pool_->Free(tail_, TidMapper::GetInstance()->GetTidUnique());
         tail_ = pre_tail_;
         pre_tail_ = tmp_pre_tail_;
     } else {
@@ -217,7 +217,7 @@ void MVCCList<Item>::SelfGarbageCollect() {
         if (head_->NeedGC())
             head_->InTransactionGC();
         Item* tmp_next = head_->next;
-        mem_pool_->Free(head_);
+        mem_pool_->Free(head_, TidMapper::GetInstance()->GetTidUnique());
         head_ = tmp_next;
     }
 }
