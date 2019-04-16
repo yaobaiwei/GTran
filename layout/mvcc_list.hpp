@@ -13,6 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_definition.hpp"
 #include "layout/layout_type.hpp"
+#include "utils/tid_mapper.hpp"
 
 template<class Item>
 class MVCCList {

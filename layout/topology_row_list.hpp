@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/row_definition.hpp"
+#include "utils/tid_mapper.hpp"
 
 class TopologyRowList {
  private:

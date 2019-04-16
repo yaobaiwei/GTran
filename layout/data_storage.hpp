@@ -23,6 +23,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/topology_row_list.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
+#include "utils/tid_mapper.hpp"
 
 // EdgeItem defined in mvcc_definition.hpp
 
@@ -72,6 +73,7 @@ class DataStorage {
     Config* config_ = nullptr;
     Node node_;
     SimpleIdMapper* id_mapper_ = nullptr;
+    int nthreads_;
 
     // from vid & eid to the first row of the entity
     // the MVCCList<EdgeMVCCItem>* pointer will point to the same instance

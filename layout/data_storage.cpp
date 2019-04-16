@@ -19,6 +19,8 @@ void DataStorage::Init() {
     snapshot_manager_ = MPISnapshotManager::GetInstance();
     worker_rank_ = node_.get_local_rank();
     worker_size_ = node_.get_local_size();
+    nthreads_ = config_->global_num_threads + 1;  // allow the main thread to use memory pool
+    TidMapper::GetInstance()->Register(-1);  // register the main thread in TidMapper
 
     node_.Rank0PrintfWithWorkerBarrier(
                       "VE_ROW_ITEM_COUNT = %d, sizeof(EdgeHeader) = %d, sizeof(VertexEdgeRow) = %d\n",
@@ -57,16 +59,20 @@ void DataStorage::Init() {
 }
 
 void DataStorage::CreateContainer() {
-    ve_row_pool_ = OffsetConcurrentMemPool<VertexEdgeRow>::GetInstance(nullptr, config_->global_ve_row_pool_size);
-    vp_row_pool_ = OffsetConcurrentMemPool<VertexPropertyRow>::GetInstance(nullptr, config_->global_vp_row_pool_size);
-    ep_row_pool_ = OffsetConcurrentMemPool<EdgePropertyRow>::GetInstance(nullptr, config_->global_ep_row_pool_size);
+    ve_row_pool_ = OffsetConcurrentMemPool<VertexEdgeRow>::GetInstance(nullptr, config_->global_ve_row_pool_size,
+                                                                       nthreads_);
+    vp_row_pool_ = OffsetConcurrentMemPool<VertexPropertyRow>::GetInstance(nullptr, config_->global_vp_row_pool_size,
+                                                                           nthreads_);
+    ep_row_pool_ = OffsetConcurrentMemPool<EdgePropertyRow>::GetInstance(nullptr, config_->global_ep_row_pool_size,
+                                                                         nthreads_);
     vp_mvcc_pool_ = OffsetConcurrentMemPool<VPropertyMVCCItem>::GetInstance(
-                          nullptr, config_->global_property_mvcc_pool_size);
+                          nullptr, config_->global_property_mvcc_pool_size, nthreads_);
     ep_mvcc_pool_ = OffsetConcurrentMemPool<EPropertyMVCCItem>::GetInstance(
-                          nullptr, config_->global_property_mvcc_pool_size);
+                          nullptr, config_->global_property_mvcc_pool_size, nthreads_);
     vertex_mvcc_pool_ = OffsetConcurrentMemPool<VertexMVCCItem>::GetInstance(
-                          nullptr, config_->global_topo_mvcc_pool_size);
-    edge_mvcc_pool_ = OffsetConcurrentMemPool<EdgeMVCCItem>::GetInstance(nullptr, config_->global_topo_mvcc_pool_size);
+                          nullptr, config_->global_topo_mvcc_pool_size, nthreads_);
+    edge_mvcc_pool_ = OffsetConcurrentMemPool<EdgeMVCCItem>::GetInstance(nullptr, config_->global_topo_mvcc_pool_size,
+                                                                         nthreads_);
 
     MVCCList<VPropertyMVCCItem>::SetGlobalMemoryPool(vp_mvcc_pool_);
     MVCCList<EPropertyMVCCItem>::SetGlobalMemoryPool(ep_mvcc_pool_);

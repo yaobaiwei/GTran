@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
+#include "utils/tid_mapper.hpp"
 #include "tbb/concurrent_hash_map.h"
 
 template <class PropertyRow>

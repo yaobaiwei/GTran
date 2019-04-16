@@ -5,7 +5,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 template <class PropertyRow>
 void PropertyRowList<PropertyRow>::Init() {
-    head_ = tail_ = mem_pool_->Get();
+    head_ = tail_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
     property_count_ = 0;
     cell_map_ = nullptr;
     pthread_spin_init(&lock_, 0);
@@ -20,7 +20,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
         if (cell_id_in_row == 0 && cell_id > 0) {
-            tail_->next_ = mem_pool_->Get();
+            tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
             tail_ = tail_->next_;
         }
 
@@ -59,7 +59,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
         if (cell_id_in_row == 0 && cell_id > 0) {
-            tail_->next_ = mem_pool_->Get();
+            tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
             tail_ = tail_->next_;
         }
 
@@ -472,7 +472,7 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     }
 
     for (int i = row_count - 1; i >= 0; i--) {
-        mem_pool_->Free(row_ptrs[i]);
+        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
     }
 
     delete[] row_ptrs;
