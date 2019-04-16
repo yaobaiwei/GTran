@@ -23,47 +23,59 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #define OFFSET_MEMORY_POOL_DEBUG
 
-// if element_cnt is small than 65535, OffsetT can be set to uint16_t
-// if element_cnt is larger than 4G, OffsetT can be set to uint64_t
-template<class ItemT, class OffsetT = uint32_t>
+// if element_count is small than 65535, OffsetT can be set to uint16_t
+// if element_count is larger than 4G, OffsetT can be set to uint64_t
+template<class ItemT, class OffsetT = uint32_t, int BLOCK_SIZE = 2048>
 class OffsetConcurrentMemPool {
  private:
     OffsetConcurrentMemPool() {}
     OffsetConcurrentMemPool(const OffsetConcurrentMemPool&);
     ~OffsetConcurrentMemPool();
 
-    void Init(ItemT* mem, size_t element_cnt);
+    void Init(ItemT* mem, OffsetT element_count, int nthreads);
 
-    // TODO(entityless): find out a way to avoid false sharing
-    ItemT* attached_mem_ = nullptr;
-    bool mem_allocated_ = false;
-    size_t element_count_;
+    bool mem_allocated_ __attribute__((aligned(16))) = false;
+    ItemT* attached_mem_ __attribute__((aligned(16))) = nullptr;
+    OffsetT* next_offset_ __attribute__((aligned(16))) = nullptr;
 
     #ifdef OFFSET_MEMORY_POOL_DEBUG
+    OffsetT element_count_;
+    int nthreads_;
     std::atomic_int get_counter_, free_counter_;
     #endif  // OFFSET_MEMORY_POOL_DEBUG
 
     // simple implemention with acceptable performance
-    OffsetT head_, tail_;
-    OffsetT* next_offset_ = nullptr;
+    OffsetT head_ __attribute__((aligned(64)));
+    OffsetT tail_ __attribute__((aligned(64)));
 
-    pthread_spinlock_t head_lock_, tail_lock_;
+    pthread_spinlock_t lock_ __attribute__((aligned(64)));
+
+    // the user should guarantee that a specific tid will only be used by one specific thread.
+    struct ThreadStat {
+        OffsetT block_head __attribute__((aligned(16)));
+        OffsetT block_tail __attribute__((aligned(16)));
+        OffsetT free_cell_count __attribute__((aligned(16)));
+    } __attribute__((aligned(64)));
+
+    static_assert(sizeof(ThreadStat) % 64 == 0, "concurrent_mem_pool.hpp, sizeof(ThreadStat) % 64 != 0");
+
+    ThreadStat* thread_stat_ __attribute__((aligned(64)));
 
  public:
-    static OffsetConcurrentMemPool* GetInstance(ItemT* mem = nullptr, size_t element_cnt = -1) {
+    static OffsetConcurrentMemPool* GetInstance(ItemT* mem = nullptr, OffsetT element_count = -1, int nthreads = 1) {
         static OffsetConcurrentMemPool* p = nullptr;
 
         // null and var avail
-        if (p == nullptr && element_cnt > 0) {
+        if (p == nullptr && element_count > 0) {
             p = new OffsetConcurrentMemPool();
-            p->Init(mem, element_cnt);
+            p->Init(mem, element_count, nthreads);
         }
 
         return p;
     }
 
-    ItemT* Get();
-    void Free(ItemT* element);
+    ItemT* Get(int tid = 0);
+    void Free(ItemT* element, int tid = 0);
     #ifdef OFFSET_MEMORY_POOL_DEBUG
     std::string UsageString();
     #endif  // OFFSET_MEMORY_POOL_DEBUG
