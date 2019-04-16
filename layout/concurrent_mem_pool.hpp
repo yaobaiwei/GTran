@@ -26,11 +26,11 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 // if element_count is small than 65535, OffsetT can be set to uint16_t
 // if element_count is larger than 4G, OffsetT can be set to uint64_t
 template<class ItemT, class OffsetT = uint32_t, int BLOCK_SIZE = 2048>
-class OffsetConcurrentMemPool {
+class ConcurrentMemPool {
  private:
-    OffsetConcurrentMemPool() {}
-    OffsetConcurrentMemPool(const OffsetConcurrentMemPool&);
-    ~OffsetConcurrentMemPool();
+    ConcurrentMemPool() {}
+    ConcurrentMemPool(const ConcurrentMemPool&);
+    ~ConcurrentMemPool();
 
     void Init(ItemT* mem, OffsetT element_count, int nthreads);
 
@@ -62,12 +62,12 @@ class OffsetConcurrentMemPool {
     ThreadStat* thread_stat_ __attribute__((aligned(64)));
 
  public:
-    static OffsetConcurrentMemPool* GetInstance(ItemT* mem = nullptr, OffsetT element_count = -1, int nthreads = 1) {
-        static OffsetConcurrentMemPool* p = nullptr;
+    static ConcurrentMemPool* GetInstance(ItemT* mem = nullptr, OffsetT element_count = -1, int nthreads = 1) {
+        static ConcurrentMemPool* p = nullptr;
 
         // null and var avail
         if (p == nullptr && element_count > 0) {
-            p = new OffsetConcurrentMemPool();
+            p = new ConcurrentMemPool();
             p->Init(mem, element_count, nthreads);
         }
 

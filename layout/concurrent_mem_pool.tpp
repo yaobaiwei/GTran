@@ -4,7 +4,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::~OffsetConcurrentMemPool() {
+ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::~ConcurrentMemPool() {
     if (next_offset_ != nullptr)
         _mm_free(next_offset_);
     if (mem_allocated_)
@@ -12,7 +12,7 @@ OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::~OffsetConcurrentMemPool() 
 }
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-void OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT element_count, int nthreads) {
+void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT element_count, int nthreads) {
     assert(element_count > nthreads * (BLOCK_SIZE + 2));
 
     if (mem != nullptr) {
@@ -62,7 +62,7 @@ void OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, Offse
 }
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-ItemT* OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Get(int tid) {
+ItemT* ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Get(int tid) {
     ItemT* ret;
     auto& local_stat = thread_stat_[tid];
 
@@ -92,7 +92,7 @@ ItemT* OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Get(int tid) {
 }
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-void OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Free(ItemT* element, int tid) {
+void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Free(ItemT* element, int tid) {
     OffsetT mem_off = element - attached_mem_;
 
     auto& local_stat = thread_stat_[tid];
@@ -121,7 +121,7 @@ void OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Free(ItemT* element, i
 
 #ifdef OFFSET_MEMORY_POOL_DEBUG
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-std::string OffsetConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::UsageString() {
+std::string ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::UsageString() {
     int get_counter = get_counter_;
     int free_counter = free_counter_;
     return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter)

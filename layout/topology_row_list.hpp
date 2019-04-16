@@ -14,7 +14,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 class TopologyRowList {
  private:
-    static OffsetConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
+    static ConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
 
     atomic_int edge_count_;
     VertexEdgeRow* head_, *tail_;
@@ -46,7 +46,7 @@ class TopologyRowList {
                                            PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
                                            const uint64_t& trx_id, const uint64_t& begin_time);
 
-    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<VertexEdgeRow>* mem_pool) {
+    static void SetGlobalMemoryPool(ConcurrentMemPool<VertexEdgeRow>* mem_pool) {
         mem_pool_ = mem_pool;
     }
 };

@@ -38,7 +38,7 @@ class MVCCList {
     void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);  // TODO(entityless): Finish this
     ValueType AbortVersion(const uint64_t& trx_id);
 
-    static void SetGlobalMemoryPool(OffsetConcurrentMemPool<Item>* mem_pool) {
+    static void SetGlobalMemoryPool(ConcurrentMemPool<Item>* mem_pool) {
         mem_pool_ = mem_pool;
     }
 
@@ -58,7 +58,7 @@ class MVCCList {
     };
 
  private:
-    static OffsetConcurrentMemPool<Item>* mem_pool_;  // Initialized in data_storage.cpp
+    static ConcurrentMemPool<Item>* mem_pool_;  // Initialized in data_storage.cpp
 
     // when a MVCCList is visible outside who created it, head_ must != nullptr,
     // this can only be guaranteed by the developer who use it.
