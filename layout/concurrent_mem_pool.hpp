@@ -62,7 +62,7 @@ class ConcurrentMemPool {
     ThreadStat* thread_stat_ __attribute__((aligned(64)));
 
  public:
-    static ConcurrentMemPool* GetInstance(ItemT* mem = nullptr, OffsetT element_count = -1, int nthreads = 1) {
+    static ConcurrentMemPool* GetInstance(ItemT* mem = nullptr, OffsetT element_count = 0, int nthreads = 10) {
         static ConcurrentMemPool* p = nullptr;
 
         // null and var avail
