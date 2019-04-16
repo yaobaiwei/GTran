@@ -84,8 +84,8 @@ void DataStorage::CreateContainer() {
 
     uint64_t vp_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
     uint64_t ep_sz = GiB2B(config_->global_edge_property_kv_sz_gb);
-    vp_store_ = new MVCCValueStore(nullptr, vp_sz / MemItemSize);
-    ep_store_ = new MVCCValueStore(nullptr, ep_sz / MemItemSize);
+    vp_store_ = new MVCCValueStore(nullptr, vp_sz / MEM_ITEM_SIZE, nthreads_);
+    ep_store_ = new MVCCValueStore(nullptr, ep_sz / MEM_ITEM_SIZE, nthreads_);
     PropertyRowList<VertexPropertyRow>::SetGlobalValueStore(vp_store_);
     PropertyRowList<EdgePropertyRow>::SetGlobalValueStore(ep_store_);
     VPropertyMVCCItem::SetGlobalValueStore(vp_store_);

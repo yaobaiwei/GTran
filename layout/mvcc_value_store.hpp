@@ -23,15 +23,13 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/type.hpp"
 
-#define MVCC_VALUE_STORE_DEBUG
-
-// A single class to store both VP and EP
+// #define MVCC_VALUE_STORE_DEBUG
 
 #define OffsetT uint32_t
-#define MemItemSize 8
-static_assert(MemItemSize % 8 == 0, "mvcc_value_store.hpp, MemItemSize % 8 != 0");
+#define MEM_ITEM_SIZE 8
+static_assert(MEM_ITEM_SIZE % 8 == 0, "mvcc_value_store.hpp, MEM_ITEM_SIZE % 8 != 0");
 
-// TODO(entityless): Figure out how to store empty string
+// empty value is not allowed.
 struct ValueHeader {
     OffsetT head_offset;
     OffsetT count;
@@ -41,37 +39,49 @@ struct ValueHeader {
     constexpr ValueHeader(OffsetT _head_offset, OffsetT _count) : head_offset(_head_offset), count(_count) {}
 };
 
-// TODO(entityless): implement this as a template class instread of hardcode with macro
-// template<size_t ItemSize = 8, class OffsetT = uint32_t>
 class MVCCValueStore {
  private:
     MVCCValueStore(const MVCCValueStore&);
     ~MVCCValueStore();
 
-    // memory pool elements
-    char* attached_mem_ = nullptr;
-    OffsetT item_count_;
-    OffsetT head_, tail_;
-    OffsetT* next_offset_ = nullptr;
-    bool mem_allocated_ = false;
-    pthread_spinlock_t head_lock_, tail_lock_;
+    bool mem_allocated_ __attribute__((aligned(16))) = false;
+    char* attached_mem_ __attribute__((aligned(16))) = nullptr;
+    OffsetT* next_offset_ __attribute__((aligned(32))) = nullptr;
 
     #ifdef MVCC_VALUE_STORE_DEBUG
+    OffsetT item_count_;
     OffsetT get_counter_, free_counter_;
     #endif  // MVCC_VALUE_STORE_DEBUG
 
-    OffsetT Get(const OffsetT& count);
-    void Free(const OffsetT& offset, const OffsetT& count);
+    OffsetT head_ __attribute__((aligned(64)));
+    OffsetT tail_ __attribute__((aligned(64)));
+
+    pthread_spinlock_t lock_ __attribute__((aligned(64)));
+
+    // the user should guarantee that a specific tid will only be used by one specific thread.
+    struct ThreadStat {
+        OffsetT block_head __attribute__((aligned(16)));
+        OffsetT block_tail __attribute__((aligned(16)));
+        OffsetT free_cell_count __attribute__((aligned(16)));
+    } __attribute__((aligned(64)));
+
+    static_assert(sizeof(ThreadStat) % 64 == 0, "concurrent_mem_pool.hpp, sizeof(ThreadStat) % 64 != 0");
+
+    ThreadStat* thread_stat_ __attribute__((aligned(64)));
+
+    OffsetT Get(const OffsetT& count, int tid);
+    void Free(const OffsetT& offset, const OffsetT& count, int tid);
     char* GetItemPtr(const OffsetT& offset);
 
-    void Init(char* mem, OffsetT item_count);
+    void Init(char* mem, OffsetT item_count, int nthreads);
 
  public:
-    // TODO(entityless): store value.type in somewhere else.
-    ValueHeader InsertValue(const value_t& value);
-    void GetValue(const ValueHeader& header, value_t& value);
-    void FreeValue(const ValueHeader& header);
-    MVCCValueStore(char* mem, OffsetT item_count);
+    ValueHeader InsertValue(const value_t& value, int tid = 0);
+    void GetValue(const ValueHeader& header, value_t& value, int tid = 0);
+    void FreeValue(const ValueHeader& header, int tid = 0);
+    MVCCValueStore(char* mem, OffsetT item_count, int nthreads);
+
+    static constexpr int BLOCK_SIZE = 1024;
 
     #ifdef MVCC_VALUE_STORE_DEBUG
     std::string UsageString();
