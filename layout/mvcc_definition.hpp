@@ -9,6 +9,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/mvcc_value_store.hpp"
 #include "layout/layout_type.hpp"
+#include "utils/tid_mapper.hpp"
 
 struct AbstractMVCCItem {
  private:

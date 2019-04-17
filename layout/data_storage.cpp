@@ -1180,14 +1180,14 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto header_to_free = mvcc_list->AbortVersion(trx_id);
             if (!header_to_free.IsEmpty())
-                vp_store_->FreeValue(header_to_free);
+                vp_store_->FreeValue(header_to_free, TidMapper::GetInstance()->GetTidUnique());
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
             MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto header_to_free = mvcc_list->AbortVersion(trx_id);
             if (!header_to_free.IsEmpty())
-                ep_store_->FreeValue(header_to_free);
+                ep_store_->FreeValue(header_to_free, TidMapper::GetInstance()->GetTidUnique());
         } else if (process_item.type == TransactionItem::PROCESS_DROP_V ||
                    process_item.type == TransactionItem::PROCESS_ADD_V) {
             MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;

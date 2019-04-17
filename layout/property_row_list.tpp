@@ -150,7 +150,7 @@ void PropertyRowList<PropertyRow>::InsertInitialCell(const PidType& pid, const v
 
     MVCCListType* mvcc_list = new MVCCListType;
 
-    mvcc_list->AppendInitialVersion()[0] = value_storage_->InsertValue(value);
+    mvcc_list->AppendInitialVersion()[0] = value_storage_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
 
     cell->mvcc_list = mvcc_list;
 }
@@ -413,7 +413,7 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     if (version_val_ptr == nullptr)  // modify failed
         return make_pair(true, nullptr);
 
-    version_val_ptr[0] = value_storage_->InsertValue(value);
+    version_val_ptr[0] = value_storage_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
 
     pthread_spin_lock(&lock_);
     if (!modify_flag)
