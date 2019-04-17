@@ -76,6 +76,7 @@ class ActorAdapter {
         config_ = Config::GetInstance();
         num_thread_ = config_->global_num_threads;
         times_.resize(num_thread_, 0);
+        data_storage_ = DataStorage::GetInstance();
     }
 
     void Init() {
