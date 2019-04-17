@@ -16,11 +16,11 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 // note: this file is only for implementing InTransactionGC()
 
 void VPropertyMVCCItem::InTransactionGC() {
-    value_store->FreeValue(val);
+    value_store->FreeValue(val, TidMapper::GetInstance()->GetTidUnique());
 }
 
 void EPropertyMVCCItem::InTransactionGC() {
-    value_store->FreeValue(val);
+    value_store->FreeValue(val, TidMapper::GetInstance()->GetTidUnique());
 }
 
 void VertexMVCCItem::InTransactionGC() {}
