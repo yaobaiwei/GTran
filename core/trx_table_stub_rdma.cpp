@@ -13,11 +13,14 @@ bool RDMATrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool 
     ibinstream in;
     int status_i = int(new_status);
     in << node_.get_local_rank() << trx_id << status_i << is_read_only;
+
+    unique_lock<mutex> lk(update_mutex_);
     mailbox_ ->Send_Notify(config_->global_num_workers, in);
 
     if (new_status == TRX_STAT::VALIDATING) {
         obinstream out;
         mailbox_ -> Recv_Notify(out);
+        lk.unlock();
         out >> *trx_ids;
     }
     return true;
@@ -28,7 +31,7 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
 
     int t_id = TidMapper::GetInstance()->GetTid();
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
-    DLOG(INFO) << "[RDMATrxTableStub] read_status： t_id = " << t_id << "; bucket_id = " << bucket_id;
+    DLOG(INFO) << "[RDMATrxTableStub] read_status: t_id = " << t_id << "; bucket_id = " << bucket_id;
 
     while (true) {
         char * send_buffer = buf_->GetSendBuf(t_id);
@@ -68,7 +71,7 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
 
     int t_id = TidMapper::GetInstance()->GetTid();
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
-    DLOG(INFO) << "[RDMATrxTableStub] read_status： t_id = " << t_id << "; bucket_id = " << bucket_id;
+    DLOG(INFO) << "[RDMATrxTableStub] read_status: t_id = " << t_id << "; bucket_id = " << bucket_id;
 
     while (true) {
         char * send_buffer = buf_->GetSendBuf(t_id);

@@ -26,6 +26,8 @@ class TcpTrxTableStub : public TrxTableStub {
     vector<zmq::socket_t *> senders_;
     vector<zmq::socket_t *> receivers_;  // global_num_threads
 
+    mutex update_mutex_;
+
     TcpTrxTableStub(AbstractMailbox *mailbox, Node &master) : master_(master) {
         mailbox_ = mailbox;
         config_ = Config::GetInstance();

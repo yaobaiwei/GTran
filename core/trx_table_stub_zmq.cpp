@@ -13,14 +13,17 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool i
     ibinstream in;
     int status_i = int(new_status);
     in << node_.get_local_rank() << trx_id << status_i << is_read_only;
+
+    unique_lock<mutex> lk(update_mutex_);
     mailbox_ ->Send_Notify(config_->global_num_workers, in);
 
     if (new_status == TRX_STAT::VALIDATING) {
         obinstream out;
         mailbox_ -> Recv_Notify(out);
+        lk.unlock();
         out >> *trx_ids;
     }
-    return true;    
+    return true;
 }
 
 bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
