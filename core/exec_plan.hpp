@@ -15,11 +15,12 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 // Execution plan for query
 class QueryPlan {
  public:
-    QueryPlan() {}
+    QueryPlan() : is_process(true){}
 
     // Query info
     uint8_t query_index;
     vector<Actor_Object> actors;
+    bool is_process;  // True if query is in process phase
 
     // Transaction info
     uint64_t trxid;

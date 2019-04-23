@@ -175,10 +175,10 @@ class ActorAdapter {
             return;
         }
 
-        // Check status of transaction itself
+        // Check status of transaction itself, only for process phase query
         //  if abort, return directly
         //  TODO :  Most fine-grained check, need to consider trade-off
-        if (ac->second.trx_type != TRX_READONLY && m.msg_type != MSG_T::COMMIT && m.msg_type != MSG_T::ABORT) {
+        if (ac->second.is_process && m.msg_type != MSG_T::ABORT) {
             TRX_STAT status;
             trx_table_stub_->read_status(ac->second.trxid, status);
             if (status == TRX_STAT::ABORT) {

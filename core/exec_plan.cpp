@@ -8,6 +8,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 ibinstream& operator<<(ibinstream& m, const QueryPlan& plan) {
     m << plan.query_index;
     m << plan.actors;
+    m << plan.is_process;
     m << plan.trx_type;
     m << plan.trxid;
     m << plan.st;
@@ -17,6 +18,7 @@ ibinstream& operator<<(ibinstream& m, const QueryPlan& plan) {
 obinstream& operator>>(obinstream& m, QueryPlan& plan) {
     m >> plan.query_index;
     m >> plan.actors;
+    m >> plan.is_process;
     m >> plan.trx_type;
     m >> plan.trxid;
     m >> plan.st;
