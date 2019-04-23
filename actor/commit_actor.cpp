@@ -62,4 +62,17 @@ void CommitActor::prepare_clean_actor_set() {
     need_clean_actor_set_.emplace(ACTOR_T::HASLABEL);
     need_clean_actor_set_.emplace(ACTOR_T::HAS);
     need_clean_actor_set_.emplace(ACTOR_T::PROJECT);
+
+    // Barrier Actors, clean BarrierDataTable
+    need_clean_actor_set_.emplace(ACTOR_T::END);
+    need_clean_actor_set_.emplace(ACTOR_T::AGGREGATE);
+    need_clean_actor_set_.emplace(ACTOR_T::CAP);
+    need_clean_actor_set_.emplace(ACTOR_T::COUNT);
+    need_clean_actor_set_.emplace(ACTOR_T::DEDUP);
+    need_clean_actor_set_.emplace(ACTOR_T::GROUP);
+    need_clean_actor_set_.emplace(ACTOR_T::ORDER);
+    need_clean_actor_set_.emplace(ACTOR_T::POSTVALIDATION);
+    need_clean_actor_set_.emplace(ACTOR_T::RANGE);
+    need_clean_actor_set_.emplace(ACTOR_T::COIN);
+    need_clean_actor_set_.emplace(ACTOR_T::MATH);
 }

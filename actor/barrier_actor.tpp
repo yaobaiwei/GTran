@@ -8,7 +8,12 @@ void BarrierActorBase<T>::process(const QueryPlan & qplan, Message & msg) {
     GetMsgInfo(msg, key, end_path);
 
     typename BarrierDataTable::accessor ac;
-    data_table_.insert(ac, key);
+    if (data_table_.insert(ac, key)){
+        // Insert key into set<mkey_t> by trxid
+        typename TrxTable::accessor tac;
+        trx_table_.insert(tac, qplan.trxid);
+        tac->second.insert(key);
+    }
 
     bool isReady = IsReady(ac, msg.meta, end_path);
 
@@ -16,6 +21,14 @@ void BarrierActorBase<T>::process(const QueryPlan & qplan, Message & msg) {
 
     if (isReady) {
         data_table_.erase(ac);
+
+        typename TrxTable::accessor tac;
+        if (trx_table_.find(tac, qplan.trxid)){
+            // Earse key in set<mkey_t> after barrier actor finished
+            tac->second.erase(key);
+            tac.release();
+        }
+
         // don't need to send out msg when next actor is still barrier actor
         if (is_next_barrier(qplan.actors, msg.meta.step)) {
             // move to next actor
@@ -31,6 +44,21 @@ void BarrierActorBase<T>::process(const QueryPlan & qplan, Message & msg) {
         }
     }
 }
+
+template<class T>
+void BarrierActorBase<T>::clean_input_set(uint64_t trxid) {
+    TrxTable::accessor ac;
+    if (trx_table_.find(ac, trxid)) {
+        // Erase tmp data of not finished barrier actor
+        // ac->second is not empty only when transaction is aborted in Processing Phase
+        for (const mkey_t& k : ac->second) {
+            data_table_.erase(k);
+        }
+
+        trx_table_.erase(ac);
+    }
+}
+
 template<class T>
 int BarrierActorBase<T>::get_branch_key(Meta & m) {
     // check if barrier actor in branch

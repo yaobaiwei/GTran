@@ -34,12 +34,15 @@ class BarrierActorBase :  public AbstractActor {
     static_assert(std::is_base_of<BarrierData::barrier_data_base, T>::value,
                 "T must derive from barrier_data_base");
     using BarrierDataTable = tbb::concurrent_hash_map<mkey_t, T, MkeyHashCompare>;
+    using TrxTable = tbb::concurrent_hash_map<uint64_t, set<mkey_t>>;
 
  public:
     BarrierActorBase(int id, CoreAffinity* core_affinity, AbstractMailbox * mailbox)
         : AbstractActor(id, core_affinity), mailbox_(mailbox) {}
 
     void process(const QueryPlan & qplan, Message & msg);
+
+    void clean_input_set(uint64_t TrxID) override;
 
  protected:
     virtual void do_work(int tid,
@@ -67,6 +70,10 @@ class BarrierActorBase :  public AbstractActor {
  private:
     // concurrent_hash_map, storing data for barrier processing
     BarrierDataTable data_table_;
+
+    // Trxid to set of mkey_t
+    // Record not earsed mkey_t in data_table_
+    TrxTable trx_table_;
 
     // Check if msg all collected
     static bool IsReady(typename BarrierDataTable::accessor& ac, Meta& m, string end_path);
