@@ -31,6 +31,8 @@ class RDMATrxTableStub : public TrxTableStub{
 
     uint64_t ASSOCIATIVITY_;
 
+    mutex update_mutex_;
+
     RDMATrxTableStub(AbstractMailbox * mailbox){
         config_ = Config::GetInstance();
         mailbox_ = mailbox;
@@ -66,6 +68,3 @@ class RDMATrxTableStub : public TrxTableStub{
     bool read_status(uint64_t trx_id, TRX_STAT& status) override;
     bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) override;
 };
-
-
-
