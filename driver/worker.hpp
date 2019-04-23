@@ -420,10 +420,6 @@ class Worker {
                 << "]: DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
 
-        // =================DataStorage=====================
-        data_storage_ = DataStorage::GetInstance();
-        data_storage_->Init();
-
         // =================MailBox=========================
         AbstractMailbox * mailbox;
         if (config_->global_use_rdma) {
@@ -444,6 +440,10 @@ class Worker {
         trx_table_stub_->Init();
         cout << "[Worker" << my_node_.get_local_rank()
              << "]: DONE -> TrxTableStub->Init()" << endl;
+
+        // =================DataStorage=====================
+        data_storage_ = DataStorage::GetInstance();
+        data_storage_->Init();
 
         // =================ParserLoadMapping===============
         parser_->LoadMapping(data_storage_);
