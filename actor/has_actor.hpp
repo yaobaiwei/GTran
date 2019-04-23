@@ -138,7 +138,7 @@ class HasActor : public AbstractActor {
         return true;
     }
 
-    void clean_input_set(uint64_t TrxID) { v_obj.DeleteInputSet(TrxID); }
+    void clean_trx_data(uint64_t TrxID) { v_obj.DeleteInputSet(TrxID); }
 
  private:
     // Number of Threads
