@@ -42,7 +42,7 @@ class BarrierActorBase :  public AbstractActor {
 
     void process(const QueryPlan & qplan, Message & msg);
 
-    void clean_input_set(uint64_t TrxID) override;
+    void clean_trx_data(uint64_t TrxID) override;
 
  protected:
     virtual void do_work(int tid,

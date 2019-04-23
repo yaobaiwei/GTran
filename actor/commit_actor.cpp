@@ -32,9 +32,9 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
 
     // Clean Dependency Read
     data_storage_->CleanDepReadTrxList(qplan.trxid);
-    // Clean Input Set
+    // Clean Transaction tmp data
     for (auto & actor_type_ : need_clean_actor_set_) {
-        actors_->at(actor_type_)->clean_input_set(qplan.trxid);
+        actors_->at(actor_type_)->clean_trx_data(qplan.trxid);
     }
 
     // Clean trx->QueryPlan table
@@ -55,6 +55,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
 }
 
 void CommitActor::prepare_clean_actor_set() {
+    // Sequential Actors, clean input set
     need_clean_actor_set_.emplace(ACTOR_T::TRAVERSAL);
     need_clean_actor_set_.emplace(ACTOR_T::VALUES);
     need_clean_actor_set_.emplace(ACTOR_T::PROPERTIES);

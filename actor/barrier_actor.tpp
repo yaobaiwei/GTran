@@ -46,7 +46,7 @@ void BarrierActorBase<T>::process(const QueryPlan & qplan, Message & msg) {
 }
 
 template<class T>
-void BarrierActorBase<T>::clean_input_set(uint64_t trxid) {
+void BarrierActorBase<T>::clean_trx_data(uint64_t trxid) {
     TrxTable::accessor ac;
     if (trx_table_.find(ac, trxid)) {
         // Erase tmp data of not finished barrier actor
