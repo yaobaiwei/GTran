@@ -15,6 +15,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
+#include "layout/gc_executor.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
@@ -118,7 +119,10 @@ class DataStorage {
     mutex agg_mutex;
 
     // TrxTableStub
-    TrxTableStub * trx_table_stub_;
+    TrxTableStub * trx_table_stub_ = nullptr;
+
+    // Garbage Collection
+    GCExecutor* gc_executor_ = nullptr;
 
     READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
@@ -136,8 +140,8 @@ class DataStorage {
     READ_STAT GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                        const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
-                         const uint64_t& trx_id, const uint64_t& begin_time,
-                         const bool& read_only, vector<pair<label_t, value_t>>& ret);
+                              const uint64_t& trx_id, const uint64_t& begin_time,
+                              const bool& read_only, vector<pair<label_t, value_t>>& ret);
     READ_STAT GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, vector<vpid_t>& ret);
     READ_STAT GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,

@@ -55,6 +55,9 @@ void DataStorage::Init() {
 
     trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
+    gc_executor_ = GCExecutor::GetInstance();
+    gc_executor_->Init(&out_edge_map_, &in_edge_map_, &vertex_map_, vp_store_, ep_store_);
+
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::Init() all finished\n");
 }
 
@@ -395,7 +398,7 @@ READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const 
 
         return stat;
     }
-    
+
     trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
     return READ_STAT::ABORT;
 }
@@ -509,7 +512,8 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label, trx_id, begin_time, read_only, ret);
+    auto stat = v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label,
+                                                                  trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -590,7 +594,7 @@ void DataStorage::DeleteAggData(uint64_t qid) {
 
     uint8_t se_label = 0;
     unordered_map<agg_t, vector<value_t>>::iterator itr = agg_data_table.find(agg_t(qid, se_label++));
-    while(itr != agg_data_table.end()) {
+    while (itr != agg_data_table.end()) {
         agg_data_table.erase(itr);
         itr = agg_data_table.find(agg_t(qid, se_label++));
     }
