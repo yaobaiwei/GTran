@@ -43,6 +43,8 @@ struct AbstractMVCCItem {
 
  public:
     AbstractMVCCItem* GetNext() const {return next;}
+
+    friend class GCExecutor;
 };
 
 struct PropertyMVCCItem : public AbstractMVCCItem {

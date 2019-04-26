@@ -49,4 +49,6 @@ class TopologyRowList {
     static void SetGlobalMemoryPool(ConcurrentMemPool<VertexEdgeRow>* mem_pool) {
         mem_pool_ = mem_pool;
     }
+
+    void SelfGarbageCollect();
 };

@@ -41,12 +41,12 @@ class GCExecutor {
     ConcurrentMemPool<VertexMVCCItem>* vertex_mvcc_pool_ = nullptr;
     ConcurrentMemPool<EdgeMVCCItem>* edge_mvcc_pool_ = nullptr;
 
-    void VPropertyMVCCItemGC();
-    void EPropertyMVCCItemGC();
-    void VertexMVCCItemGC();
-    void EdgeMVCCItemGC();
-    void VertexItemGC();
-    void EdgeItemGC();
+    void VPropertyMVCCItemGC(VPropertyMVCCItem*);
+    void EPropertyMVCCItemGC(EPropertyMVCCItem*);
+    void VertexMVCCItemGC(VertexMVCCItem*);
+    void EdgeMVCCItemGC(EdgeMVCCItem*);
+    void VertexItemGC(VertexItem*);
+    void EdgeItemGC(EdgeItem*);
 
  public:
     void Init(tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>*,

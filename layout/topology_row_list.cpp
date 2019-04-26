@@ -127,3 +127,35 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
 
     return mvcc_list;
 }
+
+void TopologyRowList::SelfGarbageCollect() {
+    VertexEdgeRow* current_row = head_;
+    int row_count = edge_count_ / VE_ROW_ITEM_COUNT;
+    if (row_count * VE_ROW_ITEM_COUNT != edge_count_)
+        row_count++;
+    if (row_count == 0)
+        row_count = 1;
+
+    VertexEdgeRow** row_ptrs = new VertexEdgeRow*[row_count];
+    row_ptrs[0] = head_;
+    int row_ptr_count = 1;
+
+    for (int i = 0; i < edge_count_; i++) {
+        int cell_id_in_row = i % VE_ROW_ITEM_COUNT;
+        if (i > 0 && cell_id_in_row == 0) {
+            current_row = current_row->next_;
+            row_ptrs[row_ptr_count++] = current_row;
+        }
+
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
+
+        cell_ref.mvcc_list->SelfGarbageCollect();
+        delete cell_ref.mvcc_list;
+    }
+
+    for (int i = row_count - 1; i >= 0; i--) {
+        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+    }
+
+    delete[] row_ptrs;
+}
