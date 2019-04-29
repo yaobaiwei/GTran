@@ -28,6 +28,15 @@ void GCExecutor::Init(tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*
     // TODO(entityless): spawn threads here
 }
 
+/* When GC performs on a MVCCList with v1 as its head:
+ *  |   invisible   |   visible    |         (visibility to the system)
+ *    v1 ---> v2 ---> v3 ---> v4 ---> NULL   (the original MVCCList content)
+ *  the MVCCList will be splitted:
+ *    v1 ---> v2 ---> NULL (v1 will be collected for GCExecutor)
+ *    v3 ---> v4 ---> NULL (v3 will be the new head of the MVCCList)
+ *  and v1 will be passed to function GCExecutor::*MVCCItemGC
+ *  to perform physical garbage collect
+ */
 void GCExecutor::VPropertyMVCCItemGC(VPropertyMVCCItem* item) {
     auto* cur_item = item;
     while (cur_item != nullptr) {

@@ -832,6 +832,7 @@ void DataStorage::InsertTrxProcessMap(const uint64_t& trx_id, const TransactionI
     q_item.type = type;
     q_item.mvcc_list = mvcc_list;
 
+    // Pointer of MVCCList will be unique in process_set
     t_accessor->second.process_set.emplace(q_item);
 }
 
@@ -1150,19 +1151,23 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
+            // VP related
             MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
+            // EP related
             MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_V ||
                    process_item.type == TransactionItem::PROCESS_DROP_V) {
+            // V related
             MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_E ||
                    process_item.type == TransactionItem::PROCESS_DROP_E) {
+            // E related
             MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->CommitVersion(trx_id, commit_time);
         }
@@ -1177,10 +1182,23 @@ void DataStorage::Abort(const uint64_t& trx_id) {
         return;
     }
 
+    /* Since a MVCCList may be modified for multiple time in one transaction,
+     * we need to use a unordered_set to record it,
+     * to make sure that any MVCCList will only be commited or aborted once.
+     * 
+     * For a special case: (1). Add vertex V1; (2). Add property VP1 on V1;
+     *   Both (1) and (2) will be needed to be aborted
+     *   When we want to abort (1), if we do it recursively before aborting (2),
+     *   things will goes wrong. So currently the recursive physical deallocation
+     *   is managed by GC.
+     */
+
     for (auto process_item : t_accessor->second.process_set) {
+        // Pointer of MVCCList will be unique in process_set
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
+            // VP related
             MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto header_to_free = mvcc_list->AbortVersion(trx_id);
             if (!header_to_free.IsEmpty())
@@ -1188,16 +1206,25 @@ void DataStorage::Abort(const uint64_t& trx_id) {
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
+            // EP related
             MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto header_to_free = mvcc_list->AbortVersion(trx_id);
             if (!header_to_free.IsEmpty())
                 ep_store_->FreeValue(header_to_free, TidMapper::GetInstance()->GetTidUnique());
         } else if (process_item.type == TransactionItem::PROCESS_DROP_V ||
                    process_item.type == TransactionItem::PROCESS_ADD_V) {
+            // V related
+            // New item in vertex_map will not deallocated here
+            // TODO(entityless): [Fix me] Find out an elegant way to physically abort
             MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;
             mvcc_list->AbortVersion(trx_id);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_E ||
                    process_item.type == TransactionItem::PROCESS_DROP_E) {
+            // E related
+            /* If the trx allocates new item in edge_map,
+             * the item in the map will not be deallocated here.
+            */
+            // TODO(entityless): [Fix me] Find out an elegant way to physically abort
             MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
             auto e_item_to_free = mvcc_list->AbortVersion(trx_id);
             if (e_item_to_free.ep_row_list != nullptr) {
