@@ -63,7 +63,7 @@ struct PropertyMVCCItem : public AbstractMVCCItem {
 
 struct VPropertyMVCCItem : public PropertyMVCCItem {
  public:
-    void InTransactionGC();
+    void ValueGC();
     static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
  private:
     static MVCCValueStore* value_store;
@@ -71,7 +71,7 @@ struct VPropertyMVCCItem : public PropertyMVCCItem {
 
 struct EPropertyMVCCItem : public PropertyMVCCItem {
  public:
-    void InTransactionGC();
+    void ValueGC();
     static void SetGlobalValueStore(MVCCValueStore* ptr) {value_store = ptr;}
  private:
     static MVCCValueStore* value_store;
@@ -86,7 +86,7 @@ struct VertexMVCCItem : public AbstractMVCCItem {
     static constexpr bool EMPTY_VALUE = false;
 
     bool NeedGC() const {return false;}
-    void InTransactionGC();
+    void ValueGC();
 
     template<class MVCC> friend class MVCCList;
 };
@@ -100,7 +100,7 @@ struct EdgeMVCCItem : public AbstractMVCCItem {
     static constexpr EdgeItem EMPTY_VALUE = EdgeItem(0, nullptr);
 
     bool NeedGC() const {return val.ep_row_list != nullptr;}
-    void InTransactionGC();
+    void ValueGC();
 
     template<class MVCC> friend class MVCCList;
 };
@@ -111,5 +111,5 @@ struct EdgeMVCCItem : public AbstractMVCCItem {
  *   Interfaces (all public):
  *      ValueType GetValue(): get val
  *      bool NeedGC(): identify if recycling this MVCC needs to invokes GC for val
- *      void InTransactionGC(): called when the version is overwritten in the same transaction, and NeedGC()
+ *      void ValueGC(): called when the version is overwritten in the same transaction, and NeedGC()
  */

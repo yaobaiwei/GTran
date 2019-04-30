@@ -13,19 +13,19 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 // including row_definition.hpp in mvcc_definition.hpp will cause failure
 
-// note: this file is only for implementing InTransactionGC()
+// note: this file is only for implementing ValueGC()
 
-void VPropertyMVCCItem::InTransactionGC() {
+void VPropertyMVCCItem::ValueGC() {
     value_store->FreeValue(val, TidMapper::GetInstance()->GetTidUnique());
 }
 
-void EPropertyMVCCItem::InTransactionGC() {
+void EPropertyMVCCItem::ValueGC() {
     value_store->FreeValue(val, TidMapper::GetInstance()->GetTidUnique());
 }
 
-void VertexMVCCItem::InTransactionGC() {}
+void VertexMVCCItem::ValueGC() {}
 
-void EdgeMVCCItem::InTransactionGC() {
+void EdgeMVCCItem::ValueGC() {
     PropertyRowList<EdgePropertyRow>* ep_row_list = val.ep_row_list;
     ep_row_list->SelfGarbageCollect();
     delete ep_row_list;

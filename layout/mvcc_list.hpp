@@ -36,7 +36,7 @@ class MVCCList {
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
     ValueType* AppendInitialVersion();
     void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);  // TODO(entityless): Finish this
-    ValueType AbortVersion(const uint64_t& trx_id);
+    void AbortVersion(const uint64_t& trx_id);
 
     static void SetGlobalMemoryPool(ConcurrentMemPool<Item>* mem_pool) {
         mem_pool_ = mem_pool;
