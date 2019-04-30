@@ -833,7 +833,7 @@ void DataStorage::InsertTrxProcessMap(const uint64_t& trx_id, const TransactionI
     q_item.mvcc_list = mvcc_list;
 
     // Pointer of MVCCList will be unique in process_set
-    t_accessor->second.process_set.emplace(q_item);
+    t_accessor->second.process_vector.emplace_back(q_item);
 }
 
 vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time) {
@@ -1147,7 +1147,14 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
         return;
     }
 
-    for (auto process_item : t_accessor->second.process_set) {
+    auto& vec_ref = t_accessor->second.process_vector;
+    unordered_set<TransactionItem::ProcessItem, TransactionItem::ProcessItemHash> process_set;
+
+    for (int i = 0; i < vec_ref.size(); i++) {
+        auto& process_item = vec_ref[i];
+        if (process_set.count(process_item) > 0)
+            continue;
+        process_set.emplace(process_item);
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
@@ -1193,7 +1200,14 @@ void DataStorage::Abort(const uint64_t& trx_id) {
      *   is managed by GC.
      */
 
-    for (auto process_item : t_accessor->second.process_set) {
+    auto& vec_ref = t_accessor->second.process_vector;
+    unordered_set<TransactionItem::ProcessItem, TransactionItem::ProcessItemHash> process_set;
+
+    for (int i = vec_ref.size() - 1; i >= 0; i--) {
+        auto& process_item = vec_ref[i];
+        if (process_set.count(process_item) > 0)
+            continue;
+        process_set.emplace(process_item);
         // Pointer of MVCCList will be unique in process_set
         if (process_item.type == TransactionItem::PROCESS_MODIFY_VP ||
             process_item.type == TransactionItem::PROCESS_ADD_VP ||

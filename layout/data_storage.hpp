@@ -58,7 +58,7 @@ struct TransactionItem {
         }
     };
 
-    std::unordered_set<ProcessItem, ProcessItemHash> process_set;
+    std::vector<ProcessItem> process_vector;
 };
 
 class DataStorage {
