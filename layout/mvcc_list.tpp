@@ -141,7 +141,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
         if (tail_->GetTransactionID() == trx_id) {
             // in the same transaction, the original value will be overwritten
             if (tail_->NeedGC())
-                tail_->InTransactionGC();
+                tail_->ValueGC();
 
             return &tail_->val;
         } else {
@@ -187,11 +187,12 @@ void MVCCList<Item>::CommitVersion(const uint64_t& trx_id, const uint64_t& commi
 }
 
 template<class Item>
-decltype(Item::val) MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
+void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
     SimpleSpinLockGuard lock_guard(&lock_);
     assert(tail_->GetTransactionID() == trx_id);
 
-    decltype(Item::val) ret = (static_cast<Item*>(tail_))->val;
+    if (tail_->NeedGC())
+        tail_->ValueGC();
 
     if (tail_ != pre_tail_) {
         // abort modification
@@ -208,14 +209,13 @@ decltype(Item::val) MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
     }
 
     tmp_pre_tail_ = nullptr;
-    return ret;
 }
 
 template<class Item>
 void MVCCList<Item>::SelfGarbageCollect() {
     while (head_ != nullptr) {
         if (head_->NeedGC())
-            head_->InTransactionGC();
+            head_->ValueGC();
         Item* tmp_next = head_->next;
         mem_pool_->Free(head_, TidMapper::GetInstance()->GetTidUnique());
         head_ = tmp_next;

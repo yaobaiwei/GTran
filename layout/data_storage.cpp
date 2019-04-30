@@ -1200,17 +1200,13 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
             // VP related
             MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
-            auto header_to_free = mvcc_list->AbortVersion(trx_id);
-            if (!header_to_free.IsEmpty())
-                vp_store_->FreeValue(header_to_free, TidMapper::GetInstance()->GetTidUnique());
+            mvcc_list->AbortVersion(trx_id);
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
             // EP related
             MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
-            auto header_to_free = mvcc_list->AbortVersion(trx_id);
-            if (!header_to_free.IsEmpty())
-                ep_store_->FreeValue(header_to_free, TidMapper::GetInstance()->GetTidUnique());
+            mvcc_list->AbortVersion(trx_id);
         } else if (process_item.type == TransactionItem::PROCESS_DROP_V ||
                    process_item.type == TransactionItem::PROCESS_ADD_V) {
             // V related
@@ -1226,11 +1222,7 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             */
             // TODO(entityless): [Fix me] Find out an elegant way to physically abort
             MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
-            auto e_item_to_free = mvcc_list->AbortVersion(trx_id);
-            if (e_item_to_free.ep_row_list != nullptr) {
-                e_item_to_free.ep_row_list->SelfGarbageCollect();
-                delete e_item_to_free.ep_row_list;
-            }
+            mvcc_list->AbortVersion(trx_id);
         }
     }
 
