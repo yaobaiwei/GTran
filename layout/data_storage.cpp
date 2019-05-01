@@ -823,8 +823,8 @@ vid_t DataStorage::AssignVID() {
     return vid_t(vid_local * worker_size_ + worker_rank_);
 }
 
-void DataStorage::InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
-                                      void* mvcc_list) {
+void DataStorage::InsertTrxProcessMapStd(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
+                                         void* mvcc_list) {
     TransactionAccessor t_accessor;
     transaction_process_map_.insert(t_accessor, trx_id);
 
@@ -832,8 +832,22 @@ void DataStorage::InsertTrxProcessMap(const uint64_t& trx_id, const TransactionI
     q_item.type = type;
     q_item.mvcc_list = mvcc_list;
 
-    // Pointer of MVCCList will be unique in process_set
     t_accessor->second.process_vector.emplace_back(q_item);
+}
+
+void DataStorage::InsertTrxProcessMapAddV(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
+                                          void* mvcc_list, vid_t vid) {
+    TransactionAccessor t_accessor;
+    transaction_process_map_.insert(t_accessor, trx_id);
+
+    TransactionItem::ProcessItem q_item;
+    q_item.type = type;
+    q_item.mvcc_list = mvcc_list;
+
+    t_accessor->second.process_vector.emplace_back(q_item);
+
+    // this map will be used when the trx is aborted
+    t_accessor->second.addv_map[mvcc_list] = vid.value();
 }
 
 vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time) {
@@ -858,7 +872,8 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 
     v_accessor->second.mvcc_list = mvcc_list;
 
-    InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_ADD_V, v_accessor->second.mvcc_list);
+    InsertTrxProcessMapAddV(trx_id, TransactionItem::PROCESS_ADD_V,
+                            v_accessor->second.mvcc_list, v_accessor->first);
 
     return vid;
 }
@@ -890,7 +905,7 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
 
     mvcc_value_ptr[0] = false;
 
-    InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_DROP_V, v_accessor->second.mvcc_list);
+    InsertTrxProcessMapStd(trx_id, TransactionItem::PROCESS_DROP_V, v_accessor->second.mvcc_list);
 
     for (auto eid : all_connected_edge) {
         if (eid.out_v == vid.value()) {
@@ -976,7 +991,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
         e_item->ep_row_list = ep_row_list;
     }
 
-    InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_ADD_E, e_accessor->second);
+    InsertTrxProcessMapStd(trx_id, TransactionItem::PROCESS_ADD_E, e_accessor->second);
 
     return true;
 }
@@ -1014,7 +1029,7 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     e_item->label = 0;
     e_item->ep_row_list = nullptr;
 
-    InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_DROP_E, e_accessor->second);
+    InsertTrxProcessMapStd(trx_id, TransactionItem::PROCESS_DROP_E, e_accessor->second);
 
     return true;
 }
@@ -1048,7 +1063,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
     else
         process_type = TransactionItem::PROCESS_ADD_VP;
 
-    InsertTrxProcessMap(trx_id, process_type, ret.second);
+    InsertTrxProcessMapStd(trx_id, process_type, ret.second);
 
     return true;
 }
@@ -1082,7 +1097,7 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     else
         process_type = TransactionItem::PROCESS_ADD_EP;
 
-    InsertTrxProcessMap(trx_id, process_type, ret.second);
+    InsertTrxProcessMapStd(trx_id, process_type, ret.second);
 
     return true;
 }
@@ -1109,7 +1124,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
         return false;
     }
 
-    InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_DROP_VP, ret);
+    InsertTrxProcessMapStd(trx_id, TransactionItem::PROCESS_DROP_VP, ret);
 
     return true;
 }
@@ -1136,7 +1151,7 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
         return false;
     }
 
-    InsertTrxProcessMap(trx_id, TransactionItem::PROCESS_DROP_EP, ret);
+    InsertTrxProcessMapStd(trx_id, TransactionItem::PROCESS_DROP_EP, ret);
 
     return true;
 }
@@ -1147,11 +1162,11 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
         return;
     }
 
-    auto& vec_ref = t_accessor->second.process_vector;
+    auto& process_vec_ref = t_accessor->second.process_vector;
     unordered_set<TransactionItem::ProcessItem, TransactionItem::ProcessItemHash> process_set;
 
-    for (int i = 0; i < vec_ref.size(); i++) {
-        auto& process_item = vec_ref[i];
+    for (int i = 0; i < process_vec_ref.size(); i++) {
+        auto& process_item = process_vec_ref[i];
         if (process_set.count(process_item) > 0)
             continue;
         process_set.emplace(process_item);
@@ -1159,24 +1174,24 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
             // VP related
-            MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->CommitVersion(trx_id, commit_time);
+            MVCCList<VPropertyMVCCItem>* vp_mvcc_list = process_item.mvcc_list;
+            vp_mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
             // EP related
-            MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->CommitVersion(trx_id, commit_time);
+            MVCCList<EPropertyMVCCItem>* ep_mvcc_list = process_item.mvcc_list;
+            ep_mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_V ||
                    process_item.type == TransactionItem::PROCESS_DROP_V) {
             // V related
-            MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->CommitVersion(trx_id, commit_time);
+            MVCCList<VertexMVCCItem>* v_mvcc_list = process_item.mvcc_list;
+            v_mvcc_list->CommitVersion(trx_id, commit_time);
         } else if (process_item.type == TransactionItem::PROCESS_ADD_E ||
                    process_item.type == TransactionItem::PROCESS_DROP_E) {
             // E related
-            MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->CommitVersion(trx_id, commit_time);
+            MVCCList<EdgeMVCCItem>* e_mvcc_list = process_item.mvcc_list;
+            e_mvcc_list->CommitVersion(trx_id, commit_time);
         }
     }
 
@@ -1200,11 +1215,12 @@ void DataStorage::Abort(const uint64_t& trx_id) {
      *   is managed by GC.
      */
 
-    auto& vec_ref = t_accessor->second.process_vector;
+    auto& process_vec_ref = t_accessor->second.process_vector;
+    auto& vid_map_ref = t_accessor->second.addv_map;
     unordered_set<TransactionItem::ProcessItem, TransactionItem::ProcessItemHash> process_set;
 
-    for (int i = vec_ref.size() - 1; i >= 0; i--) {
-        auto& process_item = vec_ref[i];
+    for (int i = process_vec_ref.size() - 1; i >= 0; i--) {
+        auto& process_item = process_vec_ref[i];
         if (process_set.count(process_item) > 0)
             continue;
         process_set.emplace(process_item);
@@ -1213,30 +1229,41 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             process_item.type == TransactionItem::PROCESS_ADD_VP ||
             process_item.type == TransactionItem::PROCESS_DROP_VP) {
             // VP related
-            MVCCList<VPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->AbortVersion(trx_id);
+            MVCCList<VPropertyMVCCItem>* vp_mvcc_list = process_item.mvcc_list;
+            vp_mvcc_list->AbortVersion(trx_id);
         } else if (process_item.type == TransactionItem::PROCESS_MODIFY_EP ||
                    process_item.type == TransactionItem::PROCESS_ADD_EP ||
                    process_item.type == TransactionItem::PROCESS_DROP_EP) {
             // EP related
-            MVCCList<EPropertyMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->AbortVersion(trx_id);
+            MVCCList<EPropertyMVCCItem>* ep_mvcc_list = process_item.mvcc_list;
+            ep_mvcc_list->AbortVersion(trx_id);
         } else if (process_item.type == TransactionItem::PROCESS_DROP_V ||
                    process_item.type == TransactionItem::PROCESS_ADD_V) {
             // V related
             // New item in vertex_map will not deallocated here
-            // TODO(entityless): [Fix me] Find out an elegant way to physically abort
-            MVCCList<VertexMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->AbortVersion(trx_id);
+            MVCCList<VertexMVCCItem>* v_mvcc_list = process_item.mvcc_list;
+            v_mvcc_list->AbortVersion(trx_id);
+            if (process_item.type == TransactionItem::PROCESS_ADD_V) {
+                // access the item in the v_map
+                VertexAccessor v_accessor;
+                vertex_map_.find(v_accessor, vid_map_ref[v_mvcc_list]);
+                v_accessor->second.ve_row_list->SelfGarbageCollect();
+                delete v_accessor->second.ve_row_list;
+                v_accessor->second.ve_row_list = nullptr;
+                v_accessor->second.vp_row_list->SelfGarbageCollect();
+                delete v_accessor->second.vp_row_list;
+                v_accessor->second.vp_row_list = nullptr;
+                v_accessor->second.mvcc_list->SelfGarbageCollect();
+                // do not delete v_accessor->second.mvcc_list
+            }
         } else if (process_item.type == TransactionItem::PROCESS_ADD_E ||
                    process_item.type == TransactionItem::PROCESS_DROP_E) {
             // E related
             /* If the trx allocates new item in edge_map,
              * the item in the map will not be deallocated here.
             */
-            // TODO(entityless): [Fix me] Find out an elegant way to physically abort
-            MVCCList<EdgeMVCCItem>* mvcc_list = process_item.mvcc_list;
-            mvcc_list->AbortVersion(trx_id);
+            MVCCList<EdgeMVCCItem>* e_mvcc_list = process_item.mvcc_list;
+            e_mvcc_list->AbortVersion(trx_id);
         }
     }
 

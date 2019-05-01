@@ -150,7 +150,9 @@ void TopologyRowList::SelfGarbageCollect() {
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         cell_ref.mvcc_list->SelfGarbageCollect();
-        delete cell_ref.mvcc_list;
+
+        // do not delete this, since mvcc_list is still referred by e_map
+        // delete cell_ref.mvcc_list;
     }
 
     for (int i = row_count - 1; i >= 0; i--) {

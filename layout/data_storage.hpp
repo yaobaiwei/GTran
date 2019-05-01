@@ -59,6 +59,12 @@ struct TransactionItem {
     };
 
     std::vector<ProcessItem> process_vector;
+
+    // extra metadata is needed when abort AddV
+    // we need to find the VertexItem in the vertex_map_
+    // and free any element attached to the VertexItem
+    // mapping from mvcc_list to vid
+    std::unordered_map<void*, uint32_t> addv_map;
 };
 
 class DataStorage {
@@ -112,7 +118,9 @@ class DataStorage {
     tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
-    void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
+    void InsertTrxProcessMapStd(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
+    void InsertTrxProcessMapAddV(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
+                                 void* mvcc_list, vid_t vid);
 
     // DataStore compatible
     unordered_map<agg_t, vector<value_t>> agg_data_table;

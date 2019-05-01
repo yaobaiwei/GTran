@@ -27,6 +27,11 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
     Item* tmp_pre_tail_snapshot = tmp_pre_tail_;
     pthread_spin_unlock(&lock_);
 
+    if (head_snapshot == nullptr) {
+        ret = nullptr;
+        return true;
+    }
+
     if (tail_snapshot->GetTransactionID() == trx_id) {
         // in the same trx
         ret = tail_snapshot;
@@ -164,7 +169,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
 
 template<class Item>
 decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
-    // load data from HDFS
+    // load data from HDFS, do not need to lock the list
     Item* initial_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     initial_mvcc->Init(Item::MIN_TIME, Item::MAX_TIME);
@@ -213,6 +218,7 @@ void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
 
 template<class Item>
 void MVCCList<Item>::SelfGarbageCollect() {
+    SimpleSpinLockGuard lock_guard(&lock_);
     while (head_ != nullptr) {
         if (head_->NeedGC())
             head_->ValueGC();
@@ -220,4 +226,6 @@ void MVCCList<Item>::SelfGarbageCollect() {
         mem_pool_->Free(head_, TidMapper::GetInstance()->GetTidUnique());
         head_ = tmp_next;
     }
+
+    tail_ = pre_tail_ = tmp_pre_tail_ = nullptr;
 }
