@@ -26,7 +26,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
 
-// EdgeItem defined in mvcc_definition.hpp
+// Edge defined in mvcc_definition.hpp
 
 struct TransactionItem {
     enum ProcessType {
@@ -58,7 +58,13 @@ struct TransactionItem {
         }
     };
 
-    std::unordered_set<ProcessItem, ProcessItemHash> process_set;
+    std::vector<ProcessItem> process_vector;
+
+    // extra metadata is needed when abort AddV
+    // we need to find the Vertex in the vertex_map_
+    // and free any element attached to the Vertex
+    // mapping from mvcc_list to vid
+    std::unordered_map<void*, uint32_t> addv_map;
 };
 
 class DataStorage {
@@ -84,9 +90,9 @@ class DataStorage {
     // since edge properties are attached to out_e, the in_e instance does not record any properties
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::accessor EdgeAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::const_accessor EdgeConstAccessor;
-    tbb::concurrent_hash_map<uint32_t, VertexItem> vertex_map_;
-    typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::accessor VertexAccessor;
-    typedef tbb::concurrent_hash_map<uint32_t, VertexItem>::const_accessor VertexConstAccessor;
+    tbb::concurrent_hash_map<uint32_t, Vertex> vertex_map_;
+    typedef tbb::concurrent_hash_map<uint32_t, Vertex>::accessor VertexAccessor;
+    typedef tbb::concurrent_hash_map<uint32_t, Vertex>::const_accessor VertexConstAccessor;
     MVCCValueStore* vp_store_ = nullptr;
     MVCCValueStore* ep_store_ = nullptr;
 
@@ -112,7 +118,9 @@ class DataStorage {
     tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
-    void InsertTrxProcessMap(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
+    void InsertTrxProcessMapStd(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
+    void InsertTrxProcessMapAddV(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
+                                 void* mvcc_list, vid_t vid);
 
     // DataStore compatible
     unordered_map<agg_t, vector<value_t>> agg_data_table;
@@ -125,7 +133,7 @@ class DataStorage {
     GCExecutor* gc_executor_ = nullptr;
 
     READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
-                             const uint64_t& begin_time, const bool& read_only, EdgeItem& item_ref);
+                             const uint64_t& begin_time, const bool& read_only, Edge& item_ref);
 
     READ_STAT CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);

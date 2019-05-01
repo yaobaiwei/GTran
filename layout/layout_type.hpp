@@ -54,7 +54,7 @@ extern tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
 typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::accessor dep_trx_accessor;
 typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::const_accessor dep_trx_const_accessor;
 
-struct Vertex {
+struct TMPVertexInfo {
     vid_t id;
     // label_t label;
     vector<vid_t> in_nbs;
@@ -63,20 +63,20 @@ struct Vertex {
     string DebugString() const;
 };
 
-ibinstream& operator<<(ibinstream& m, const Vertex& v);
+ibinstream& operator<<(ibinstream& m, const TMPVertexInfo& v);
 
-obinstream& operator>>(obinstream& m, Vertex& v);
+obinstream& operator>>(obinstream& m, TMPVertexInfo& v);
 
-struct Edge {
+struct TMPEdgeInfo {
     eid_t id;
     // label_t label;
     vector<label_t> ep_list;
     string DebugString() const;
 };
 
-ibinstream& operator<<(ibinstream& m, const Edge& e);
+ibinstream& operator<<(ibinstream& m, const TMPEdgeInfo& e);
 
-obinstream& operator>>(obinstream& m, Edge& e);
+obinstream& operator>>(obinstream& m, TMPEdgeInfo& e);
 
 struct V_KVpair {
     vpid_t key;
@@ -127,21 +127,21 @@ struct VertexMVCCItem;
 template <class Item>
 class MVCCList;
 
-struct VertexItem {
+struct Vertex {
     label_t label;
     TopologyRowList* ve_row_list = nullptr;
     PropertyRowList<VertexPropertyRow>* vp_row_list = nullptr;
     MVCCList<VertexMVCCItem>* mvcc_list = nullptr;
 };
 
-struct EdgeItem {
+struct Edge {
     label_t label;  // if 0, then the edge is deleted
     // for in_e or deleted edge, this is always nullptr
     PropertyRowList<EdgePropertyRow>* ep_row_list = nullptr;
 
     bool Exist() const {return label != 0;}
-    EdgeItem() {}
+    Edge() {}
 
-    constexpr EdgeItem(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
+    constexpr Edge(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
     label(_label), ep_row_list(_ep_row_list) {}
 };

@@ -92,9 +92,9 @@ string TMPEdge::DebugString() const {
 
 tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
 
-string Vertex::DebugString() const {
+string TMPVertexInfo::DebugString() const {
     stringstream ss;
-    ss << "Vertex: { id = " << id.vid << " in_nbs = [";
+    ss << "TMPVertexInfo: { id = " << id.vid << " in_nbs = [";
     for (auto & vid : in_nbs)
         ss << vid.vid << ", ";
     ss << "] out_nbs = [";
@@ -107,7 +107,7 @@ string Vertex::DebugString() const {
     return ss.str();
 }
 
-ibinstream& operator<<(ibinstream& m, const Vertex& v) {
+ibinstream& operator<<(ibinstream& m, const TMPVertexInfo& v) {
     m << v.id;
     // m << v.label;
     m << v.in_nbs;
@@ -116,7 +116,7 @@ ibinstream& operator<<(ibinstream& m, const Vertex& v) {
     return m;
 }
 
-obinstream& operator>>(obinstream& m, Vertex& v) {
+obinstream& operator>>(obinstream& m, TMPVertexInfo& v) {
     m >> v.id;
     // m >> v.label;
     m >> v.in_nbs;
@@ -126,23 +126,23 @@ obinstream& operator>>(obinstream& m, Vertex& v) {
     return m;
 }
 
-string Edge::DebugString() const {
+string TMPEdgeInfo::DebugString() const {
     stringstream ss;
-    ss << "Edge: { id = " << id.in_v << "," << id.out_v <<  " ep_list = [";
+    ss << "TMPEdgeInfo: { id = " << id.in_v << "," << id.out_v <<  " ep_list = [";
     for (auto & ep : ep_list)
         ss << ep << ", ";
     ss << "]}" << endl;
     return ss.str();
 }
 
-ibinstream& operator<<(ibinstream& m, const Edge& e) {
+ibinstream& operator<<(ibinstream& m, const TMPEdgeInfo& e) {
     m << e.id;
     // m << e.label;
     m << e.ep_list;
     return m;
 }
 
-obinstream& operator>>(obinstream& m, Edge& e) {
+obinstream& operator>>(obinstream& m, TMPEdgeInfo& e) {
     m >> e.id;
     // m >> e.label;
     m >> e.ep_list;

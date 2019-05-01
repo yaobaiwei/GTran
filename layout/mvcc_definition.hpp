@@ -93,11 +93,11 @@ struct VertexMVCCItem : public AbstractMVCCItem {
 
 struct EdgeMVCCItem : public AbstractMVCCItem {
  private:
-    EdgeItem val;
+    Edge val;
  public:
-    EdgeItem GetValue() const {return val;}
+    Edge GetValue() const {return val;}
 
-    static constexpr EdgeItem EMPTY_VALUE = EdgeItem(0, nullptr);
+    static constexpr Edge EMPTY_VALUE = Edge(0, nullptr);
 
     bool NeedGC() const {return val.ep_row_list != nullptr;}
     void ValueGC();
