@@ -30,15 +30,15 @@ class HDFSDataLoader {
     HDFSDataLoader(const HDFSDataLoader&);
 
     // free them after calling Shuffle()
-    vector<Edge*> edges_;
-    vector<Vertex*> vertices_;
+    vector<TMPEdgeInfo*> edges_;
+    vector<TMPVertexInfo*> vertices_;
     vector<VProperty*> vplist_;
     vector<EProperty*> eplist_;
 
     void LoadVertices(const char* inpath);
     void LoadVPList(const char* inpath);
     void LoadEPList(const char* inpath);
-    Vertex* ToVertex(char* line);
+    TMPVertexInfo* ToVertex(char* line);
     void ToVP(char* line);
     void ToEP(char* line);
 

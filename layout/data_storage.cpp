@@ -187,7 +187,7 @@ void DataStorage::FillContainer() {
 
 READ_STAT DataStorage::GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid,
                                       const uint64_t& trx_id, const uint64_t& begin_time,
-                                      const bool& read_only, EdgeItem& item_ref) {
+                                      const bool& read_only, Edge& item_ref) {
     bool found = out_edge_map_.find(e_accessor, eid.value());
 
     // system error, need to handle it in the future
@@ -360,7 +360,7 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
     eid_t eid = eid_t(pid.in_vid, pid.out_vid);
 
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -383,7 +383,7 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
 READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -407,7 +407,7 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -430,7 +430,7 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
 READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<epid_t>& ret) {
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -453,7 +453,7 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
 READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid, trx_id, begin_time, read_only, edge_item);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -959,7 +959,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
     }
 
     if (is_new) {
-        // a new MVCCList<EdgeItem> will be created; a cell in VertexEdgeRow will be allocated
+        // a new MVCCList<Edge> will be created; a cell in VertexEdgeRow will be allocated
         // it must exists for the limitation of query
         PropertyRowList<EdgePropertyRow>* ep_row_list;
         if (is_out) {
@@ -973,7 +973,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
         e_accessor->second = mvcc_list;
     } else {
         // do not need to access VertexEdgeRow
-        EdgeItem* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
+        Edge* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
         if (e_item == nullptr) {
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return false;
@@ -1020,7 +1020,7 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
         return true;
 
 
-    EdgeItem* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
+    Edge* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
     if (e_item == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
@@ -1071,7 +1071,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
 bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
                                   const uint64_t& trx_id, const uint64_t& begin_time) {
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
 
     if (read_stat != READ_STAT::SUCCESS) {
@@ -1131,7 +1131,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
 
 bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time) {
     EdgeConstAccessor e_accessor;
-    EdgeItem edge_item;
+    Edge edge_item;
     auto read_stat = GetOutEdgeItem(e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
 
     if (read_stat != READ_STAT::SUCCESS) {

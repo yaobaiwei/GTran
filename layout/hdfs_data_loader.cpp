@@ -153,7 +153,7 @@ void HDFSDataLoader::LoadVertices(const char* inpath) {
     while (true) {
         reader.read_line();
         if (!reader.eof()) {
-            Vertex * v = ToVertex(reader.get_line());
+            TMPVertexInfo * v = ToVertex(reader.get_line());
             vertices_.push_back(v);
         } else {
             break;
@@ -165,8 +165,8 @@ void HDFSDataLoader::LoadVertices(const char* inpath) {
 
 // Format
 // vid [\t] #in_nbs [\t] nb1 [space] nb2 [space] ... #out_nbs [\t] nb1 [space] nb2 [space] ...
-Vertex* HDFSDataLoader::ToVertex(char* line) {
-    Vertex * v = new Vertex;
+TMPVertexInfo* HDFSDataLoader::ToVertex(char* line) {
+    TMPVertexInfo * v = new TMPVertexInfo;
 
     char * pch;
     pch = strtok(line, "\t");
@@ -305,7 +305,7 @@ void HDFSDataLoader::LoadEPList(const char* inpath) {
 
 
 void HDFSDataLoader::ToEP(char* line) {
-    Edge * e = new Edge;
+    TMPEdgeInfo * e = new TMPEdgeInfo;
     EProperty * ep = new EProperty;
 
     uint64_t atoi_time = timer::get_usec();
@@ -401,10 +401,10 @@ void HDFSDataLoader::WriteSnapshot() {
 
 void HDFSDataLoader::Shuffle() {
     // vertices_
-    vector<vector<Vertex*>> vtx_parts;
+    vector<vector<TMPVertexInfo*>> vtx_parts;
     vtx_parts.resize(node_.get_local_size());
     for (int i = 0; i < vertices_.size(); i++) {
-        Vertex* v = vertices_[i];
+        TMPVertexInfo* v = vertices_[i];
         vtx_parts[id_mapper_->GetMachineIdForVertex(v->id)].push_back(v);
     }
     all_to_all(node_, false, vtx_parts);
@@ -416,13 +416,13 @@ void HDFSDataLoader::Shuffle() {
         vertices_.insert(vertices_.end(), vtx_parts[i].begin(), vtx_parts[i].end());
     }
     vtx_parts.clear();
-    vector<vector<Vertex*>>().swap(vtx_parts);
+    vector<vector<TMPVertexInfo*>>().swap(vtx_parts);
 
     // edges_
-    vector<vector<Edge*>> edges_parts;
+    vector<vector<TMPEdgeInfo*>> edges_parts;
     edges_parts.resize(node_.get_local_size());
     for (int i = 0; i < edges_.size(); i++) {
-        Edge* e = edges_[i];
+        TMPEdgeInfo* e = edges_[i];
         edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
     }
     all_to_all(node_, false, edges_parts);
@@ -433,7 +433,7 @@ void HDFSDataLoader::Shuffle() {
         edges_.insert(edges_.end(), edges_parts[i].begin(), edges_parts[i].end());
     }
     edges_parts.clear();
-    vector<vector<Edge*>>().swap(edges_parts);
+    vector<vector<TMPEdgeInfo*>>().swap(edges_parts);
 
     // VProperty
     vector<vector<VProperty*>> vp_parts;
@@ -574,8 +574,8 @@ void HDFSDataLoader::Shuffle() {
         delete ptr;
     for (auto ptr : eplist_)
         delete ptr;
-    vector<Edge*>().swap(edges_);
-    vector<Vertex*>().swap(vertices_);
+    vector<TMPEdgeInfo*>().swap(edges_);
+    vector<TMPVertexInfo*>().swap(vertices_);
     vector<VProperty*>().swap(vplist_);
     vector<EProperty*>().swap(eplist_);
 }

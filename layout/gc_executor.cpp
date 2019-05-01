@@ -9,7 +9,7 @@ using namespace std;
 
 void GCExecutor::Init(tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>* out_edge_map,
                       tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>* in_edge_map,
-                      tbb::concurrent_hash_map<uint32_t, VertexItem>* vertex_map,
+                      tbb::concurrent_hash_map<uint32_t, Vertex>* vertex_map,
                       MVCCValueStore* vp_store, MVCCValueStore* ep_store) {
     out_edge_map_ = out_edge_map;
     in_edge_map_ = in_edge_map;
@@ -71,7 +71,7 @@ void GCExecutor::VertexMVCCItemGC(VertexMVCCItem* item) {
 void GCExecutor::EdgeMVCCItemGC(EdgeMVCCItem* item) {
     auto* cur_item = item;
     while (cur_item != nullptr) {
-        EdgeItemGC(&cur_item->GetValue());
+        EdgeGC(&cur_item->GetValue());
 
         auto* to_free = cur_item;
         cur_item = item->next;
@@ -79,18 +79,18 @@ void GCExecutor::EdgeMVCCItemGC(EdgeMVCCItem* item) {
     }
 }
 
-void GCExecutor::VertexItemGC(VertexItem* item) {
-    item->vp_row_list->SelfGarbageCollect();
-    delete item->vp_row_list;
-    item->mvcc_list->SelfGarbageCollect();
-    delete item->mvcc_list;
-    item->ve_row_list->SelfGarbageCollect();
-    delete item->ve_row_list;
+void GCExecutor::VertexGC(Vertex* vertex) {
+    vertex->vp_row_list->SelfGarbageCollect();
+    delete vertex->vp_row_list;
+    vertex->mvcc_list->SelfGarbageCollect();
+    delete vertex->mvcc_list;
+    vertex->ve_row_list->SelfGarbageCollect();
+    delete vertex->ve_row_list;
 }
 
-void GCExecutor::EdgeItemGC(EdgeItem* item) {
-    if (item->ep_row_list == nullptr)
+void GCExecutor::EdgeGC(Edge* edge) {
+    if (edge->ep_row_list == nullptr)
         return;
-    item->ep_row_list->SelfGarbageCollect();
-    delete item->ep_row_list;
+    edge->ep_row_list->SelfGarbageCollect();
+    delete edge->ep_row_list;
 }

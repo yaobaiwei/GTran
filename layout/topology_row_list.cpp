@@ -35,7 +35,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::InsertInitialCell(const bool& is_out, c
                                                            const label_t& label,
                                                            PropertyRowList<EdgePropertyRow>* ep_row_list_ptr) {
     MVCCList<EdgeMVCCItem>* mvcc_list = new MVCCList<EdgeMVCCItem>;
-    mvcc_list->AppendInitialVersion()[0] = EdgeItem(label, ep_row_list_ptr);
+    mvcc_list->AppendInitialVersion()[0] = Edge(label, ep_row_list_ptr);
 
     AllocateCell(is_out, conn_vtx_id, mvcc_list);
 
@@ -121,7 +121,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
                                                         PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
                                                         const uint64_t& trx_id, const uint64_t& begin_time) {
     MVCCList<EdgeMVCCItem>* mvcc_list = new MVCCList<EdgeMVCCItem>;
-    mvcc_list->AppendVersion(trx_id, begin_time)[0] = EdgeItem(edge_label, ep_row_list_ptr);
+    mvcc_list->AppendVersion(trx_id, begin_time)[0] = Edge(edge_label, ep_row_list_ptr);
 
     AllocateCell(is_out, conn_vtx_id, mvcc_list);
 
