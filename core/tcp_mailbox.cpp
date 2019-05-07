@@ -133,26 +133,28 @@ int TCPMailbox::Send(int tid, const Message & msg) {
 
 bool TCPMailbox::TryRecv(int tid, Message & msg) {
     int type = (schedulers[tid].rr_cnt++) % rr_size;
+
+    // Try local message queue in higher priority
+    // Use round-robin to avoid starvation
     if (type != 0) {
-        // try msg queue
         if (local_msgs[tid]->Size() != 0) {
             local_msgs[tid]->WaitAndPop(msg);
             return true;
         }
-    } else {
-        // try tcp recv
-        zmq::message_t zmq_msg;
-        obinstream um;
+    }
 
-        if (receivers_[tid]->recv(&zmq_msg) < 0) {
-            cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
-        } else {
-            char* buf = new char[zmq_msg.size()];
-            memcpy(buf, zmq_msg.data(), zmq_msg.size());
-            um.assign(buf, zmq_msg.size(), 0);
-            um >> msg;
-            return true;
-        }
+    // Try tcp recv
+    zmq::message_t zmq_msg;
+    obinstream um;
+
+    if (receivers_[tid]->recv(&zmq_msg) < 0) {
+        cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
+    } else {
+        char* buf = new char[zmq_msg.size()];
+        memcpy(buf, zmq_msg.data(), zmq_msg.size());
+        um.assign(buf, zmq_msg.size(), 0);
+        um >> msg;
+        return true;
     }
     return false;
 }

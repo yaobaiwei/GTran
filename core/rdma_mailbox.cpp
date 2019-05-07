@@ -167,25 +167,27 @@ void RdmaMailbox::Recv(int tid, Message & msg) {
 bool RdmaMailbox::TryRecv(int tid, Message & msg) {
     pthread_spin_lock(&recv_locks[tid]);
     int type = (schedulers[tid].rr_cnt++) % rr_size;
+
+    // Try local message queue in higher priority
+    // Use round-robin to avoid starvation
     if (type != 0) {
-        // try msg queue
         if (local_msgs[tid]->Size() != 0) {
             local_msgs[tid]->WaitAndPop(msg);
             pthread_spin_unlock(&recv_locks[tid]);
             return true;
         }
-    } else {
-        // try rdma memory
-        for (int i = 0; i < node_.get_local_size(); i++) {
-            int machine_id = (schedulers[tid].machine_rr_cnt++) % node_.get_local_size();
-            if (machine_id != node_.get_local_rank() && CheckRecvBuf(tid, machine_id)) {
-                obinstream um;
-                FetchMsgFromRecvBuf(tid, machine_id, um);
-                pthread_spin_unlock(&recv_locks[tid]);
+    }
 
-                um >> msg;
-                return true;
-            }
+    // Try rdma memory
+    for (int i = 0; i < node_.get_local_size(); i++) {
+        int machine_id = (schedulers[tid].machine_rr_cnt++) % node_.get_local_size();
+        if (machine_id != node_.get_local_rank() && CheckRecvBuf(tid, machine_id)) {
+            obinstream um;
+            FetchMsgFromRecvBuf(tid, machine_id, um);
+            pthread_spin_unlock(&recv_locks[tid]);
+
+            um >> msg;
+            return true;
         }
     }
     pthread_spin_unlock(&recv_locks[tid]);
