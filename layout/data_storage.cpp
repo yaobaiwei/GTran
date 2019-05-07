@@ -45,8 +45,6 @@ void DataStorage::Init() {
     snapshot_manager_->SetComm(node_.local_comm);
     snapshot_manager_->ConfirmConfig();
 
-    vid_to_assign_divided_ = worker_rank_;
-
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
     hdfs_data_loader_->LoadData();
     FillContainer();
@@ -102,12 +100,14 @@ void DataStorage::FillContainer() {
     hash_map<uint32_t, TMPVertex*>& v_map = hdfs_data_loader_->vtx_part_map_;
     hash_map<uint64_t, TMPEdge*>& e_map = hdfs_data_loader_->edge_part_map_;
 
+    int max_vid = worker_rank_;
+
     for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
         VertexAccessor v_accessor;
         vertex_map_.insert(v_accessor, vtx.id.value());
 
-        if (vid_to_assign_divided_ <= vtx.id.value())
-            vid_to_assign_divided_ = vtx.id.value() + worker_size_;
+        if (max_vid < vtx.id.value())
+            max_vid = vtx.id.value();
 
         v_accessor->second.label = vtx.label;
         // create containers that attached to a Vertex
@@ -160,12 +160,7 @@ void DataStorage::FillContainer() {
         }
     }
 
-    /* Vertex with vid will be mapped to worker(vid % num_workers).
-     * When ProcessAddV is called:
-     *      vid_to_assign_divided_++ (atomic)
-     *      vid_to_assign = vid_to_assign_divided_ * num_workers +worker_rank
-     */
-    vid_to_assign_divided_ = (vid_to_assign_divided_ - worker_rank_) / worker_size_;
+    num_of_vertex_ = (max_vid - worker_rank_) / worker_size_;
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() load vtx finished\n");
 
@@ -844,7 +839,7 @@ void DataStorage::PrintLoadedData() {
 }
 
 vid_t DataStorage::AssignVID() {
-    int vid_local = vid_to_assign_divided_++;
+    int vid_local = ++num_of_vertex_;
     return vid_t(vid_local * worker_size_ + worker_rank_);
 }
 
