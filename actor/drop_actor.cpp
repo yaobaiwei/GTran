@@ -13,15 +13,22 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
     Meta & m = msg.meta;
     Actor_Object actor_obj = qplan.actors[m.step];
 
+    // Prepare for RCT
+    vector<uint64_t> rct_insert_data;
+    Primitive_T pmt_type;
+
     // Get Params
     Element_T elem_type = static_cast<Element_T>(Tool::value_t2int(actor_obj.params.at(0)));
     bool isProperty = static_cast<bool>(Tool::value_t2int(actor_obj.params.at(1)));
 
-    bool success = processDrop(qplan, msg.data, elem_type, isProperty);
+    bool success = processDrop(qplan, msg.data, elem_type, isProperty, rct_insert_data, pmt_type);
 
     // Create Message
     vector<Message> msg_vec;
     if (success) {
+        // Insert Updates Information into RCT Table if success
+        pmt_rct_table_->InsertRecentActionSet(pmt_type, qplan.trxid, rct_insert_data);
+
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {
         msg.CreateAbortMsg(qplan.actors, msg_vec);
@@ -33,20 +40,29 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
     }
 }
 
-bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type, bool isProperty) {
+bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
+        Element_T elem_type, bool isProperty, vector<uint64_t> & rct_insert_data, Primitive_T& pmt_type) {
     vector<value_t> newData;  // For dropV, store connected edge
     for (auto & pair : data) {
         for (auto & val : pair.second) {
             if (elem_type == Element_T::VERTEX) {
                 if (isProperty) {
                     CHECK(val.type == PropKeyValueType);
+                    uint64_t vpid_uint64 = Tool::value_t2uint64_t(val);
+                    rct_insert_data.emplace_back(vpid_uint64);
+                    pmt_type = Primitive_T::DVP;
+
                     vpid_t vpid;
-                    uint2vpid_t(Tool::value_t2uint64_t(val), vpid);
+                    uint2vpid_t(vpid_uint64, vpid);
                     if (!data_storage_->ProcessDropVP(vpid, qplan.trxid, qplan.st)) {
                         return false;
                     }
                 } else {
-                    vid_t v_id(Tool::value_t2int(val));
+                    int vid_int = Tool::value_t2int(val);
+                    rct_insert_data.emplace_back(static_cast<uint64_t>(vid_int));
+                    pmt_type = Primitive_T::DV;
+
+                    vid_t v_id(vid_int);
                     vector<eid_t> in_eids; vector<eid_t> out_eids;
                     // Drop V
                     if (!data_storage_->ProcessDropV(v_id, qplan.trxid, qplan.st, in_eids, out_eids)) {
@@ -72,14 +88,22 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
             } else if (elem_type == Element_T::EDGE) {
                 if (isProperty) {
                     CHECK(val.type == PropKeyValueType);
+                    uint64_t epid_uint64 = Tool::value_t2uint64_t(val);
+                    rct_insert_data.emplace_back(epid_uint64);
+                    pmt_type = Primitive_T::DEP;
+
                     epid_t epid;
-                    uint2epid_t(Tool::value_t2uint64_t(val), epid);
+                    uint2epid_t(epid_uint64, epid);
                     if (!data_storage_->ProcessDropEP(epid, qplan.trxid, qplan.st)) {
                         return false;
                     }
                 } else {
+                    uint64_t eid_uint64 = Tool::value_t2uint64_t(val);
+                    rct_insert_data.emplace_back(eid_uint64);
+                    pmt_type = Primitive_T::DE;
+
                     eid_t e_id;
-                    uint2eid_t(Tool::value_t2uint64_t(val), e_id);
+                    uint2eid_t(eid_uint64, e_id);
                     // outE
                     if (id_mapper_->GetMachineIdForVertex(e_id.out_v) == machine_id_) {
                         if (!data_storage_->ProcessDropE(e_id, true, qplan.trxid, qplan.st)) {

@@ -15,6 +15,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "core/message.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/pmt_rct_table.hpp"
 
 class AddEdgeActor : public AbstractActor {
  public:
@@ -29,6 +30,7 @@ class AddEdgeActor : public AbstractActor {
         mailbox_(mailbox),
         type_(ACTOR_T::ADDE) {
         config_ = Config::GetInstance();
+        pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         id_mapper_ = SimpleIdMapper::GetInstance();
     }
 
@@ -49,6 +51,9 @@ class AddEdgeActor : public AbstractActor {
     // Id Mapper
     // For check which side of edge stored in current machine
     SimpleIdMapper * id_mapper_;
+
+    // RCT Table
+    PrimitiveRCTTable * pmt_rct_table_;
 };
 
 #endif  // ACTOR_ADD_EDGE_ACTOR_HPP_

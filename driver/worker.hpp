@@ -410,7 +410,7 @@ class Worker {
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init Core Affinity" << endl;
 
         // =================PrimitiveRCTTable===============
-        PrimitiveRCTTable * pmt_rct_table_ = new PrimitiveRCTTable();
+        PrimitiveRCTTable * pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         pmt_rct_table_->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init PrimitiveRCTTable" << endl;
 
@@ -463,7 +463,7 @@ class Worker {
         worker_barrier(my_node_);
 
         // =================ActorAdapter====================
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity, index_store_, pmt_rct_table_);
+        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity, index_store_);
         actor_adapter->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 

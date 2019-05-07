@@ -37,18 +37,17 @@ class ValidationActor : public AbstractActor {
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity * core_affinity,
-            PrimitiveRCTTable * pmt_rct_table,
             map<ACTOR_T, unique_ptr<AbstractActor>> * actors,
             tbb::concurrent_hash_map<uint64_t, QueryPlan> * msg_logic_table) :
         AbstractActor(id, core_affinity),
         machine_id_(machine_id),
         num_thread_(num_thread),
         mailbox_(mailbox),
-        pmt_rct_table_(pmt_rct_table),
         type_(ACTOR_T::VALIDATION),
         actors_(actors),
         msg_logic_table_(msg_logic_table) {
         config_ = Config::GetInstance();
+        pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
         prepare_primitive_list();
     }

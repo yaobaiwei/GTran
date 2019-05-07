@@ -44,6 +44,9 @@ void PrimitiveRCTTable::GetRecentActionSet(Primitive_T p, const vector<uint64_t>
 
 // p : Primitive
 void PrimitiveRCTTable::InsertRecentActionSet(Primitive_T p, uint64_t trxID, const vector<uint64_t> & data) {
+    CHECK((int)p >= 0 && p < Primitive_T::COUNT);
+    if (data.size() == 0) { return; }
+
     rct_accessor rcta;
     rct_map.at(p).insert(rcta, trxID);
 

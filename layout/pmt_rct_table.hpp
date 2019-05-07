@@ -15,6 +15,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include <vector>
 
 #include "base/type.hpp"
+#include "glog/logging.h"
 
 class PrimitiveRCTTable {
  public:
@@ -29,7 +30,17 @@ class PrimitiveRCTTable {
     // Validation : Get RCT data
     void GetRecentActionSet(Primitive_T p, const vector<uint64_t> & trxIDList,
                             unordered_map<uint64_t, vector<rct_extract_data_t>> & trx_rct_map);
-    void InsertRecentActionSet(Primitive_T p, uint64_t trxIDList, const vector<uint64_t> & data);
+    void InsertRecentActionSet(Primitive_T p, uint64_t trxID, const vector<uint64_t> & data);
+
+    static PrimitiveRCTTable* GetInstance() {
+        static PrimitiveRCTTable* pmt_rct_table_ptr = nullptr;
+
+        if (pmt_rct_table_ptr == nullptr) {
+            pmt_rct_table_ptr = new PrimitiveRCTTable();
+        }
+
+        return pmt_rct_table_ptr;
+    }
 
  private:
     // Insert V/E, Delete V/E (4 tables)
