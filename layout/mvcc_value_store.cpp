@@ -100,7 +100,7 @@ ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
     return ret;
 }
 
-void MVCCValueStore::GetValue(const ValueHeader& header, value_t& value, int tid) {
+void MVCCValueStore::ReadValue(const ValueHeader& header, value_t& value) {
     if (header.count == 0)
         return;
 
@@ -135,9 +135,10 @@ void MVCCValueStore::FreeValue(const ValueHeader& header, int tid) {
     Free(header.head_offset, item_count, tid);
 }
 
+// Called by InsertValue
 OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
     auto& local_stat = thread_stat_[tid];
-    
+
     #ifdef MVCC_VALUE_STORE_DEBUG
     get_counter_ += count;
     #endif  // MVCC_VALUE_STORE_DEBUG
@@ -176,6 +177,7 @@ OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
     return ori_head;
 }
 
+// Called by FreeValue
 void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) {
     #ifdef MVCC_VALUE_STORE_DEBUG
     free_counter_ += count;

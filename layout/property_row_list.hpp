@@ -29,6 +29,7 @@ class PropertyRowList {
     pthread_spinlock_t lock_;
 
     CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
+    // 
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
 
     typedef tbb::concurrent_hash_map<label_t, CellType*> CellMap;
@@ -40,7 +41,7 @@ class PropertyRowList {
  public:
     void Init();
 
-    // this function will only be called when loading data from hdfs
+    // This function will only be called when loading data from hdfs
     void InsertInitialCell(const PidType& pid, const value_t& value);
 
     READ_STAT ReadProperty(const PidType& pid, const uint64_t& trx_id,
@@ -53,7 +54,7 @@ class PropertyRowList {
     READ_STAT ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, vector<PidType>& ret);
 
-    // the bool value is true if "Modify", false if "Add"
+    // the bool value will be true if "Modify", false if "Add"
     pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value,
                                                     const uint64_t& trx_id, const uint64_t& begin_time);
     MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);

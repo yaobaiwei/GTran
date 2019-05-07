@@ -21,13 +21,14 @@ class TopologyRowList {
     vid_t my_vid_;
     pthread_spinlock_t lock_;
 
+
     void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
                       MVCCList<EdgeMVCCItem>* mvcc_list);
 
  public:
     void Init(const vid_t& my_vid);
 
-    // this function will only be called when loading data from hdfs
+    // This function will only be called when loading data from hdfs
     MVCCList<EdgeMVCCItem>* InsertInitialCell(const bool& is_out, const vid_t& conn_vtx_id,
                                               const label_t& edge_label,
                                               PropertyRowList<EdgePropertyRow>* ep_row_list_ptr);
@@ -40,7 +41,9 @@ class TopologyRowList {
                                 const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<eid_t>& ret);
 
-    // this will only be called once for each TopologyRowList, guaranteed by DataStorage
+    /* For an specific eid on a vertex, ProcessAddEdge will only be called once.
+     * This is guaranteed by DataStorage::ProcessAddE
+     */
     MVCCList<EdgeMVCCItem>* ProcessAddEdge(const bool& is_out, const vid_t& conn_vtx_id,
                                            const label_t& edge_label,
                                            PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,

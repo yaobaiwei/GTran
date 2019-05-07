@@ -54,6 +54,7 @@ extern tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
 typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::accessor dep_trx_accessor;
 typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::const_accessor dep_trx_const_accessor;
 
+// tmp datatype for HDFSDataLoader
 struct TMPVertexInfo {
     vid_t id;
     // label_t label;
@@ -67,6 +68,7 @@ ibinstream& operator<<(ibinstream& m, const TMPVertexInfo& v);
 
 obinstream& operator>>(obinstream& m, TMPVertexInfo& v);
 
+// tmp datatype for HDFSDataLoader
 struct TMPEdgeInfo {
     eid_t id;
     // label_t label;
@@ -78,6 +80,7 @@ ibinstream& operator<<(ibinstream& m, const TMPEdgeInfo& e);
 
 obinstream& operator>>(obinstream& m, TMPEdgeInfo& e);
 
+// tmp datatype for HDFSDataLoader
 struct V_KVpair {
     vpid_t key;
     value_t value;
@@ -88,6 +91,7 @@ ibinstream& operator<<(ibinstream& m, const V_KVpair& pair);
 
 obinstream& operator>>(obinstream& m, V_KVpair& pair);
 
+// tmp datatype for HDFSDataLoader
 struct VProperty{
     vid_t id;
     vector<V_KVpair> plist;
@@ -98,6 +102,7 @@ ibinstream& operator<<(ibinstream& m, const VProperty& vp);
 
 obinstream& operator>>(obinstream& m, VProperty& vp);
 
+// tmp datatype for HDFSDataLoader
 struct E_KVpair {
     epid_t key;
     value_t value;
@@ -108,6 +113,7 @@ ibinstream& operator<<(ibinstream& m, const E_KVpair& pair);
 
 obinstream& operator>>(obinstream& m, E_KVpair& pair);
 
+// tmp datatype for HDFSDataLoader
 struct EProperty {
     eid_t id;
     vector<E_KVpair> plist;
@@ -129,11 +135,23 @@ class MVCCList;
 
 struct Vertex {
     label_t label;
+    // container to hold inE and outE
     TopologyRowList* ve_row_list = nullptr;
+    // container to hold VP
     PropertyRowList<VertexPropertyRow>* vp_row_list = nullptr;
+    /* Two version in the list at most:
+     *  the first version is "true", means "visible";
+     *  the second version is "false", means "deleted";
+     */
     MVCCList<VertexMVCCItem>* mvcc_list = nullptr;
 };
 
+/* Since eid consists of src_vid and dst_vid, there will be multiple Edge
+ * instance with the same eid in the system if we add an edge with an eid (Edge0),
+ * then delete it, and then add it back (Edge1).
+ * Edge0 and Edge1 just have the same eid, and share nothing.
+ * A transaction will only be able to see one Edge instance with a specific eid at most.
+ */
 struct Edge {
     label_t label;  // if 0, then the edge is deleted
     // for in_e or deleted edge, this is always nullptr

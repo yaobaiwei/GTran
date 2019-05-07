@@ -20,6 +20,9 @@ struct VPHeader {
     typedef VPropertyMVCCItem MVCCItemType;
 };
 
+/* Use constexpr function InferElementCount to get row capacity during compilation
+ * Similarly hereinafter.
+ */
 #define VP_ROW_ITEM_COUNT InferElementCount<VPHeader>(256, sizeof(void*))
 
 
@@ -33,8 +36,8 @@ struct EPHeader {
 
 
 struct EdgeHeader {
-    bool is_out;  // if this vtx is a, true: a -> b, false: a <- b
-    // no label here, as edges with the same eid may have different labels.
+    bool is_out;  // If this vtx is a, true: a -> b, false: a <- b
+    // Edge labels are stored in EdgeMVCCItem->val
     vid_t conn_vtx_id;
     MVCCList<EdgeMVCCItem>* mvcc_list;
 };
@@ -55,7 +58,7 @@ struct VertexPropertyRow {
  public:
     static constexpr int ROW_ITEM_COUNT = VP_ROW_ITEM_COUNT;
 
-    // call this after MemPool::Get()
+    // Call this after MemPool::Get()
     void Init() {next_ = nullptr;}
 }  __attribute__((aligned(64)));
 
@@ -70,19 +73,19 @@ struct EdgePropertyRow {
  public:
     static constexpr int ROW_ITEM_COUNT = EP_ROW_ITEM_COUNT;
 
-    // call this after MemPool::Get()
+    // Call this after MemPool::Get()
     void Init() {next_ = nullptr;}
 }  __attribute__((aligned(64)));
 
 
 struct VertexEdgeRow {
  private:
-    VertexEdgeRow* next_;  // need to set to nullptr after MemPool::Get()
+    VertexEdgeRow* next_;
     EdgeHeader cells_[VE_ROW_ITEM_COUNT];
 
     friend class TopologyRowList;
 
  public:
-    // call this after MemPool::Get()
+    // Call this after MemPool::Get()
     void Init() {next_ = nullptr;}
 }  __attribute__((aligned(64)));

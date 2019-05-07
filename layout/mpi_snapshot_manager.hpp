@@ -36,6 +36,15 @@ class MPISnapshotManager {
 
     MPISnapshotManager() {}
 
+    /* MPISnapshotManager has three status:
+     *   1. ROOT_NOT_SET: Before setting the root path
+     *   2. APPENDING_CONFIG: Adding config to the config_info_map_
+     *   3. CONFIG_CONFIRMED: The config is fixed. According to the config,
+     *                        the folder name is generated.
+     *
+     *       SetRootPath       ConfirmConfig
+     *   1 ---------------> 2 ---------------> 3
+     */
     enum Status{
         ROOT_NOT_SET,
         APPENDING_CONFIG,
@@ -60,8 +69,14 @@ class MPISnapshotManager {
     // you can use this if you are test on a tiny dataset to avoid write snapshot
     bool EnableWrite(bool enabled) {write_enabled_ = enabled;}
 
+    // test if a snapshoted data has been read / written
     bool TestRead(string key);
     bool TestWrite(string key);
+
+    /* Since MPISnapshotManager is designed to manage where to read and write the snapshot,
+     * the function of serializing and deserializing a specific type of data need to be
+     * passed to WriteData and ReadData via parameter.
+     */
     template<class T>
     bool ReadData(string key, T& data, void(ReadFunction)(ifstream&, T&), bool data_const = true);
     template<class T>

@@ -15,8 +15,13 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/abstract_mailbox.hpp"
 #include "layout/layout_type.hpp"
 
-// void(WriteFunction)(ofstream&, T&)
-// void(ReadFunction)(ifstream&, T&)
+/* In MPISnapshotManager:
+ *      template<class T>
+ *      bool ReadData(string key, T& data, void(ReadFunction)(ifstream&, T&), bool data_const = true);
+ *      template<class T>
+ *      bool WriteData(string key, T& data, void(WriteFunction)(ofstream&, T&));
+ * This .hpp file is dedicated to implement ReadFunction and WriteFunction.
+ */
 
 template<typename T>
 static inline void WriteBySerialization(ofstream& out_f, T& data) {
