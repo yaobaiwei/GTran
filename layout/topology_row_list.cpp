@@ -11,7 +11,10 @@ void TopologyRowList::Init(const vid_t& my_vid) {
     edge_count_ = 0;
     pthread_spin_init(&lock_, 0);
 }
-
+/* For an specific eid on a vertex, ProcessAddEdge will only be called once.
+ * This is guaranteed by DataStorage::ProcessAddE
+ * So we do not need to perform cell check like PropertyRowList::AllocateCell
+ */
 void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
                                    MVCCList<EdgeMVCCItem>* mvcc_list) {
     pthread_spin_lock(&lock_);
@@ -31,6 +34,7 @@ void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
     pthread_spin_unlock(&lock_);
 }
 
+// This function will only be called when loading data from hdfs
 MVCCList<EdgeMVCCItem>* TopologyRowList::InsertInitialCell(const bool& is_out, const vid_t& conn_vtx_id,
                                                            const label_t& label,
                                                            PropertyRowList<EdgePropertyRow>* ep_row_list_ptr) {
@@ -123,6 +127,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
     MVCCList<EdgeMVCCItem>* mvcc_list = new MVCCList<EdgeMVCCItem>;
     mvcc_list->AppendVersion(trx_id, begin_time)[0] = Edge(edge_label, ep_row_list_ptr);
 
+    // This won't fail, guaranteed by DataStorage::ProcessAddE
     AllocateCell(is_out, conn_vtx_id, mvcc_list);
 
     return mvcc_list;
@@ -151,8 +156,7 @@ void TopologyRowList::SelfGarbageCollect() {
 
         cell_ref.mvcc_list->SelfGarbageCollect();
 
-        // do not delete this, since mvcc_list is still referred by e_map
-        // delete cell_ref.mvcc_list;
+        // Do not need to delete mvcc_list, since mvcc_list is still referred by e_map
     }
 
     for (int i = row_count - 1; i >= 0; i--) {

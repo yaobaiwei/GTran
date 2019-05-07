@@ -110,6 +110,7 @@ void DataStorage::FillContainer() {
             vid_to_assign_divided_ = vtx.id.value() + worker_size_;
 
         v_accessor->second.label = vtx.label;
+        // create containers that attached to a Vertex
         v_accessor->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
         v_accessor->second.ve_row_list = new TopologyRowList;
 
@@ -118,20 +119,24 @@ void DataStorage::FillContainer() {
 
         v_accessor->second.mvcc_list = new MVCCList<VertexMVCCItem>;
         v_accessor->second.mvcc_list->AppendInitialVersion()[0] = true;
+        // true means that the Vertex is visible
 
+        // Insert in edges
         for (auto in_nb : vtx.in_nbs) {
             eid_t eid = eid_t(vtx.id.vid, in_nb.vid);
 
             EdgeAccessor e_accessor;
             in_edge_map_.insert(e_accessor, eid.value());
 
-            // "false" means that is_out = false
+            // "false" means that is_out = false, as this edge is an inE to the Vertex
             auto* mvcc_list = v_accessor->second.ve_row_list
                               ->InsertInitialCell(false, in_nb, e_map[eid.value()]->label, nullptr);
 
+            // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
             e_accessor->second = mvcc_list;
         }
 
+        // Insert out edges
         for (auto out_nb : vtx.out_nbs) {
             eid_t eid = eid_t(out_nb.vid, vtx.id.vid);
 
@@ -140,21 +145,31 @@ void DataStorage::FillContainer() {
             auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
             ep_row_list->Init();
 
-            // "true" means that is_out = true
+            // "true" means that is_out = true, as this edge is an outE to the Vertex
             auto* mvcc_list = v_accessor->second.ve_row_list
                               ->InsertInitialCell(true, out_nb, e_map[eid.value()]->label, ep_row_list);
+
+            // pointer of MVCCList<EdgeMVCCItem> is shared with out_edge_map_
             e_accessor->second = mvcc_list;
         }
 
+        // Insert vertex properties
         for (int i = 0; i < vtx.vp_label_list.size(); i++) {
             v_accessor->second.vp_row_list->InsertInitialCell(vpid_t(vtx.id, vtx.vp_label_list[i]),
                                                                  vtx.vp_value_list[i]);
         }
     }
+
+    /* Vertex with vid will be mapped to worker(vid % num_workers).
+     * When ProcessAddV is called:
+     *      vid_to_assign_divided_++ (atomic)
+     *      vid_to_assign = vid_to_assign_divided_ * num_workers +worker_rank
+     */
     vid_to_assign_divided_ = (vid_to_assign_divided_ - worker_rank_) / worker_size_;
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() load vtx finished\n");
 
+    // Insert edge properties
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
         EdgeConstAccessor e_accessor;
         out_edge_map_.find(e_accessor, edge.id.value());
@@ -213,7 +228,7 @@ READ_STAT DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, co
     bool success = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
     if (!success)
         return READ_STAT::ABORT;
-    // how to deal with "not found" is decided by the function calling it
+    // how to deal with "not found" is determined by the function calling it
     if (visible_version == nullptr)
         return READ_STAT::NOTFOUND;
     if (!visible_version->GetValue())
@@ -227,7 +242,7 @@ READ_STAT DataStorage::CheckVertexVisibility(VertexAccessor& v_accessor, const u
     bool success = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
     if (!success)
         return READ_STAT::ABORT;
-    // how to deal with "not found" is decided by the function calling it
+    // how to deal with "not found" is determined by the function calling it
     if (visible_version == nullptr)
         return READ_STAT::NOTFOUND;
     if (!visible_version->GetValue())
@@ -244,11 +259,18 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 
     // system error, need to handle it in the future
     if (!found) {
+        /* Update the global status of this transaction to ABORT.
+         * Similarly hereinafter.
+         */
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        /* The vertex with given vid is invisible, which means that the read dependency (vertex)
+         * of this transaction has been modified.
+         * Similarly hereinafter.
+         */
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
@@ -376,6 +398,10 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
         return stat;
     }
 
+    /* The edge with given pid.eid is invisible, which means that the read dependency (edge)
+     * of this transaction has been modified.
+     * Similarly hereinafter.
+     */
     trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
     return READ_STAT::ABORT;
 }
@@ -460,14 +486,13 @@ READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
         return READ_STAT::ABORT;
     }
 
-    // an deleted edge will returns 0
-    ret = edge_item.label;
     if (edge_item.Exist()) {
+        ret = edge_item.label;
         return READ_STAT::SUCCESS;
-    } else {
-        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return READ_STAT::ABORT;
     }
+
+    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+    return READ_STAT::ABORT;
 }
 
 READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
@@ -823,6 +848,9 @@ vid_t DataStorage::AssignVID() {
     return vid_t(vid_local * worker_size_ + worker_rank_);
 }
 
+/* For each Process function, a MVCCList instance will be modified. InsertTrxProcessMap will record the pointer
+ * of MVCCList in corresponding trx's TransactionItem, which will be necessary when calling Abort or Commit.
+ */
 void DataStorage::InsertTrxProcessMapStd(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
                                          void* mvcc_list) {
     TransactionAccessor t_accessor;
@@ -835,6 +863,10 @@ void DataStorage::InsertTrxProcessMapStd(const uint64_t& trx_id, const Transacti
     t_accessor->second.process_vector.emplace_back(q_item);
 }
 
+/* However, if we want to abort AddV, the pointer of MVCCList is not enough, since we need to free vp_row_list
+ * and ve_row_list attached to the Vertex added. InsertTrxProcessMapAddV requires one more parameter (vid) than
+ * InsertTrxProcessMapStd, dedicated for ProcessAddV.
+ */
 void DataStorage::InsertTrxProcessMapAddV(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
                                           void* mvcc_list, vid_t vid) {
     TransactionAccessor t_accessor;
@@ -851,8 +883,9 @@ void DataStorage::InsertTrxProcessMapAddV(const uint64_t& trx_id, const Transact
 }
 
 vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time) {
-    // guaranteed that the vid is identical in the whole system
-    // so that it's impossible to insert two vertex with the same vid
+    /* Guaranteed that the vid is identical in the whole system.
+     * Thus, it's impossible to insert two vertex with the same vid
+     */
     vid_t vid = AssignVID();
 
     VertexAccessor v_accessor;
@@ -872,6 +905,9 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 
     v_accessor->second.mvcc_list = mvcc_list;
 
+    /* The only usage of InsertTrxProcessMapAddV in the project,
+     * since vid is needed when aborting AddV.
+     */
     InsertTrxProcessMapAddV(trx_id, TransactionItem::PROCESS_ADD_V,
                             v_accessor->second.mvcc_list, v_accessor->first);
 
@@ -898,15 +934,20 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
 
     bool* mvcc_value_ptr = v_accessor->second.mvcc_list->AppendVersion(trx_id, begin_time);
 
+    /* If AppendVersion returns nullptr, the transaction should be aborted.
+     * Similarly hereinafter.
+     */
     if (mvcc_value_ptr == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
+    // false means invisible
     mvcc_value_ptr[0] = false;
 
     InsertTrxProcessMapStd(trx_id, TransactionItem::PROCESS_DROP_V, v_accessor->second.mvcc_list);
 
+    // return connected edges via references of vectors (out_eids and in_eids)
     for (auto eid : all_connected_edge) {
         if (eid.out_v == vid.value()) {
             // this is an out edge
@@ -920,6 +961,13 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
     return true;
 }
 
+
+/* If we are going to add an edge from v1 (on worker1) to v2 (on worker2) with edge id e1,
+ * on worker1:
+ *      ProcessAddE(e1, label, true, trx_id, begin_time);
+ * on worker2:
+ *      ProcessAddE(e1, label, false, trx_id, begin_time);
+ */
 bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
                               const uint64_t& trx_id, const uint64_t& begin_time) {
     EdgeAccessor e_accessor;
@@ -927,8 +975,9 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
     vid_t src_vid = eid.out_v, dst_vid = eid.in_v;
     vid_t conn_vid, local_vid;
 
-    // if is_out, this function will add an outE, which means that src_vid is on this node
-    //      else, this function will add an inE, which means that dst_vid is on this node
+    /* if is_out, this function will add an outE, which means that src_vid is on this node;
+     *      else, this function will add an inE, which means that dst_vid is on this node.
+     */
     if (is_out) {
         local_vid = src_vid;
         conn_vid = dst_vid;
@@ -960,9 +1009,9 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
     if (is_new) {
         // a new MVCCList<Edge> will be created; a cell in VertexEdgeRow will be allocated
-        // it must exists for the limitation of query
         PropertyRowList<EdgePropertyRow>* ep_row_list;
         if (is_out) {
+            // edge properties are only attached to outE
             ep_row_list = new PropertyRowList<EdgePropertyRow>;
             ep_row_list->Init();
         } else {
@@ -998,15 +1047,14 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
 bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
                                const uint64_t& trx_id, const uint64_t& begin_time) {
-    // TODO(entityless): confirm that if this will happens on a edge that does not exists
     EdgeConstAccessor e_accessor;
     bool found;
     vid_t src_vid = eid.out_v, dst_vid = eid.in_v;
     vid_t conn_vid;
 
-    // if is_out, this function will drop an outE, which means that src_vid is on this node
-    //      else, this function will drop an inE, which means that dst_vid is on this node
-
+    /* if is_out, this function will add an outE, which means that src_vid is on this node;
+     *      else, this function will add an inE, which means that dst_vid is on this node.
+     */
     if (is_out) {
         found = out_edge_map_.find(e_accessor, eid.value());
         conn_vid = dst_vid;
@@ -1019,13 +1067,13 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     if (!found)
         return true;
 
-
     Edge* e_item = e_accessor->second->AppendVersion(trx_id, begin_time);
     if (e_item == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
+    // label == 0 represents that the edge does not exists
     e_item->label = 0;
     e_item->ep_row_list = nullptr;
 
@@ -1050,14 +1098,17 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
         return false;
     }
 
+    // Modify the property in vp_row_list
     auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
+    // ret.second: pointer of MVCCList<VP>
     if (ret.second == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
     TransactionItem::ProcessType process_type;
+    // ret.first == true means that the property already exists, and the transaction modified it.
     if (ret.first)
         process_type = TransactionItem::PROCESS_MODIFY_VP;
     else
@@ -1084,14 +1135,17 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
         return false;
     }
 
+    // Modify the property in ep_row_list
     auto ret = edge_item.ep_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
+    // ret.second: pointer of MVCCList<EP>
     if (ret.second == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
     TransactionItem::ProcessType process_type;
+    // ret.first == true means that the property already exists, and the transaction modified it.
     if (ret.first)
         process_type = TransactionItem::PROCESS_MODIFY_EP;
     else
@@ -1117,6 +1171,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
         return false;
     }
 
+    // ret: pointer of MVCCList<VP>
     auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
     if (ret == nullptr) {
@@ -1144,6 +1199,7 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
         return false;
     }
 
+    // ret: pointer of MVCCList<EP>
     auto ret = edge_item.ep_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
     if (ret == nullptr) {
@@ -1156,6 +1212,11 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
     return true;
 }
 
+/* Commit the transaction on this worker.
+ * Operates on the MVCCList modified by the transaction:
+ *      make the last version of the MVCCList visible to transactions that
+ *      begin after the commit_time
+ */
 void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
     TransactionAccessor t_accessor;
     if (!transaction_process_map_.find(t_accessor, trx_id)) {
@@ -1163,6 +1224,12 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
     }
 
     auto& process_vec_ref = t_accessor->second.process_vector;
+
+
+    /* Since a MVCCList may be modified for multiple time in one transaction,
+     * we need to use a unordered_set to record it,
+     * to make sure that any MVCCList will only be commited or aborted once.
+     */
     unordered_set<TransactionItem::ProcessItem, TransactionItem::ProcessItemHash> process_set;
 
     for (int i = 0; i < process_vec_ref.size(); i++) {
@@ -1198,27 +1265,28 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
     transaction_process_map_.erase(t_accessor);
 }
 
+/* Abort the transaction on this worker.
+ * Operates on the MVCCList modified by the transaction:
+ *      remove the version appended by the transaction.
+ * For aborting AddV, ep_row_list and ve_row_list on Vertex will be freed.
+ */
 void DataStorage::Abort(const uint64_t& trx_id) {
     TransactionAccessor t_accessor;
     if (!transaction_process_map_.find(t_accessor, trx_id)) {
         return;
     }
 
-    /* Since a MVCCList may be modified for multiple time in one transaction,
-     * we need to use a unordered_set to record it,
-     * to make sure that any MVCCList will only be commited or aborted once.
-     * 
-     * For a special case: (1). Add vertex V1; (2). Add property VP1 on V1;
-     *   Both (1) and (2) will be needed to be aborted
-     *   When we want to abort (1), if we do it recursively before aborting (2),
-     *   things will goes wrong. So currently the recursive physical deallocation
-     *   is managed by GC.
-     */
-
     auto& process_vec_ref = t_accessor->second.process_vector;
     auto& vid_map_ref = t_accessor->second.addv_map;
     unordered_set<TransactionItem::ProcessItem, TransactionItem::ProcessItemHash> process_set;
 
+    /* Reverse abort.
+     * Considering a special case: (Q1). Add vertex V1; (Q2). Add property VP1 on V1;
+     *   Both (Q1) and (Q2) will be needed to be aborted.
+     *   If we abort (Q1) before aborting (Q2), the MVCCList for (Q2) will be deallocated before
+     *   aborting (Q2), which will causes undefined behavior.
+     *   Thus, we need to abort (Q2) before aborting (Q1).
+     */
     for (int i = process_vec_ref.size() - 1; i >= 0; i--) {
         auto& process_item = process_vec_ref[i];
         if (process_set.count(process_item) > 0)

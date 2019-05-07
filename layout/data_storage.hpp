@@ -26,8 +26,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
 
-// Edge defined in mvcc_definition.hpp
-
 struct TransactionItem {
     enum ProcessType {
         PROCESS_ADD_V,
@@ -60,10 +58,12 @@ struct TransactionItem {
 
     std::vector<ProcessItem> process_vector;
 
-    // extra metadata is needed when abort AddV
-    // we need to find the Vertex in the vertex_map_
-    // and free any element attached to the Vertex
-    // mapping from mvcc_list to vid
+    /* When we want to abort AddV,
+     * we need to find the Vertex in the vertex_map_,
+     * and free all elements attached to the Vertex.
+     * Thus, addv_map is used to map from mvcc_list pointer to vid,
+     * as this map will be modified in ProcessAddV function.
+     */
     std::unordered_map<void*, uint32_t> addv_map;
 };
 
@@ -82,21 +82,22 @@ class DataStorage {
     SimpleIdMapper* id_mapper_ = nullptr;
     int nthreads_;
 
-    // from vid & eid to the first row of the entity
-    // the MVCCList<EdgeMVCCItem>* pointer will point to the same instance
-    // in this edge's src_v's VertexEdgeRow's element's mvcc_list
+    /* the MVCCList<EdgeMVCCItem>* pointer will be the same in the EdgeHeader in
+     * corresponding Vertex's ve_row_list
+     */
     tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> out_edge_map_;
     tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> in_edge_map_;
     // since edge properties are attached to out_e, the in_e instance does not record any properties
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::accessor EdgeAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::const_accessor EdgeConstAccessor;
+    // the vid of Vertex is unique
     tbb::concurrent_hash_map<uint32_t, Vertex> vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, Vertex>::accessor VertexAccessor;
     typedef tbb::concurrent_hash_map<uint32_t, Vertex>::const_accessor VertexConstAccessor;
     MVCCValueStore* vp_store_ = nullptr;
     MVCCValueStore* ep_store_ = nullptr;
 
-    // for data initial
+    // for data initialization
     HDFSDataLoader* hdfs_data_loader_ = nullptr;
     MPISnapshotManager* snapshot_manager_ = nullptr;
 
@@ -109,20 +110,30 @@ class DataStorage {
     ConcurrentMemPool<VertexMVCCItem>* vertex_mvcc_pool_ = nullptr;
     ConcurrentMemPool<EdgeMVCCItem>* edge_mvcc_pool_ = nullptr;
 
-    // VID related. Used when adding a new vertex.
+    // VID assignment related. Used when adding a new vertex.
     std::atomic_int vid_to_assign_divided_;
     int worker_rank_, worker_size_;
     vid_t AssignVID();
 
-    // MVCC processing related
+    /* Transaction processing stage related
+     * transaction_process_map_ is used to record the "modify sequence" of transactions.
+     * The key of this map is trx_id. TransactionItem records the "modify sequence" of a transaction.
+     */
     tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
+    /* For each Process function, a MVCCList instance will be modified. InsertTrxProcessMap will record the pointer
+     * of MVCCList in corresponding trx's TransactionItem, which will be necessary when calling Abort or Commit.
+     */
     void InsertTrxProcessMapStd(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
+    /* However, if we want to abort AddV, the pointer of MVCCList is not enough, since we need to free vp_row_list
+     * and ve_row_list attached to the Vertex added. InsertTrxProcessMapAddV requires one more parameter (vid) than
+     * InsertTrxProcessMapStd, dedicated for ProcessAddV.
+     */
     void InsertTrxProcessMapAddV(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
                                  void* mvcc_list, vid_t vid);
 
-    // DataStore compatible
+    // aggregated data related
     unordered_map<agg_t, vector<value_t>> agg_data_table;
     mutex agg_mutex;
 
@@ -132,17 +143,20 @@ class DataStorage {
     // Garbage Collection
     GCExecutor* gc_executor_ = nullptr;
 
+    /* used before reading or editing edge properties
+     * e_accessor and item_ref will be modified
+     */
     READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, Edge& item_ref);
 
+    // v_accessor will not be modified
     READ_STAT CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);
     READ_STAT CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);
 
  public:
-    // any public data access interfaces
-    // data access
+    // data access of vertices
     READ_STAT GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, value_t& ret);
     READ_STAT GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -154,7 +168,7 @@ class DataStorage {
                           const bool& read_only, vector<vpid_t>& ret);
     READ_STAT GetVL(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                     const bool& read_only, label_t& ret);
-
+    // data access of edges
     READ_STAT GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, value_t& ret);
     READ_STAT GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -166,10 +180,10 @@ class DataStorage {
                           const bool& read_only, vector<epid_t>& ret);
     READ_STAT GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                     const bool& read_only, label_t& ret);
-    // do not need to implement traversal from edge since eid_t contains in_v and out_v
 
-    // traversal from vertex
-    // if label == 0, then do not filter by label
+    /* do not need to implement GetInV and GetOutV of Edge since eid_t contains in_v and out_v
+     * if edge_label == 0, then do not filter by edge_label
+     */
     READ_STAT GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                      const uint64_t& trx_id, const uint64_t& begin_time,
                                      const bool& read_only, vector<vid_t>& ret);
@@ -183,7 +197,7 @@ class DataStorage {
     READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, vector<eid_t>& ret);
 
-    // MVCC processing stage related
+    // Transaction processing stage related
     vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                       vector<eid_t>& in_eids, vector<eid_t>& out_eids);
@@ -195,11 +209,14 @@ class DataStorage {
     bool ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time);
 
-    // MVCC abort or commit
+    /* Transaction abort or commit
+     * For each transaction, on each worker, Commit or Abort will need to be called only once.
+     */
     void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
     void Abort(const uint64_t& trx_id);
 
     //// Indexed data access
+    // Dynamic label (V, E, VP, EP) creation is not enabled.
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);
 
     static DataStorage* GetInstance() {
@@ -212,7 +229,7 @@ class DataStorage {
         return data_storage_instance_ptr;
     }
 
-    // DataStore compatible
+    // aggregated data related
     // TODO(entityless): Optimize this, as these implementations are extremely inefficient
     void InsertAggData(agg_t key, vector<value_t> & data);
     void GetAggData(agg_t key, vector<value_t> & data);
@@ -221,14 +238,14 @@ class DataStorage {
     bool VPKeyIsLocal(vpid_t vp_id);
     bool EPKeyIsLocal(epid_t ep_id);
 
-
-    // Initial related
+    // Initialization related
     void Init();
 
     // Dependency Read
     void GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxDList, vector<uint64_t> & heteroTrxIDList);
     void CleanDepReadTrxList(uint64_t trxID);
 
+    // Debug function, called after FillContainer.
     void PrintLoadedData();  // TODO(entityless): remove this in the future
 
     // "schema" (indexes)

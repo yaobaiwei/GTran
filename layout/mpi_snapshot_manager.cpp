@@ -30,6 +30,7 @@ void MPISnapshotManager::AppendConfig(string key, string str_val) {
     config_info_map_[key] = str_val;
 }
 
+// optional
 void MPISnapshotManager::SetComm(MPI_Comm comm) {
     int my_rank, comm_sz;
     MPI_Comm_rank(comm, &my_rank);
@@ -44,7 +45,6 @@ void MPISnapshotManager::SetComm(MPI_Comm comm) {
 
     MPI_Allgather(&hn_len, 1, MPI_INT, hn_lens, 1, MPI_INT, comm);
 
-    // int total_len = hn_lens[0] + 1;
     int total_len = hn_lens[0];
     hn_displs[0] = 0;
 
@@ -84,7 +84,7 @@ void MPISnapshotManager::ConfirmConfig() {
     string cmd = "mkdir -p " + path_;
     system(cmd.c_str());
 
-    // // write snapshot_info.md
+    // write snapshot_info.md (consists of all configurations of the MPISnapshotManager)
     string info_path = path_ + "snapshot_info.md";
     FILE* info_file = fopen(info_path.c_str(), "w");
     if (info_file) {

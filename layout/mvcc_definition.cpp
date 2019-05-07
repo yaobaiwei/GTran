@@ -7,11 +7,13 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include <cstdio>
 
+/* Including row_definition.hpp in mvcc_definition.hpp
+ * will cause error during compilation
+ */
+
 #include "layout/mvcc_definition.hpp"
 #include "layout/row_definition.hpp"
 #include "layout/property_row_list.hpp"
-
-// including row_definition.hpp in mvcc_definition.hpp will cause failure
 
 // note: this file is only for implementing ValueGC()
 

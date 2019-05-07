@@ -14,59 +14,60 @@ Item* MVCCList<Item>::GetHead() {
     return head_;
 }
 
+// return false if abort
 template<class Item>
 bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, MVCCItem_PTR& ret) {
-    // return false for abort
-
+    // get a snapshot of 4 pointers of the MVCCList in critical region
     pthread_spin_lock(&lock_);
     Item* head_snapshot = head_;
     Item* tail_snapshot = tail_;
     Item* pre_tail_snapshot = pre_tail_;
-    // tmp_pre_tail_ is not nullptr only when the tail is uncommitted
     Item* tmp_pre_tail_snapshot = tmp_pre_tail_;
     pthread_spin_unlock(&lock_);
 
+    // the MVCCList is empty
     if (head_snapshot == nullptr) {
         ret = nullptr;
         return true;
     }
 
     if (tail_snapshot->GetTransactionID() == trx_id) {
-        // in the same trx
+        // In the same trx, the uncommitted tail is visible.
         ret = tail_snapshot;
         return true;
     }
 
+    // tmp_pre_tail_ is not nullptr only when the tail_ is uncommitted.
     if (tmp_pre_tail_snapshot != nullptr) {
-        // process finished, not committed/aborted
         tail_snapshot = pre_tail_snapshot;
     }
 
-    // the whole MVCCList is not visible to the current trx
+    // The whole MVCCList is not visible to the current trx
     if (begin_time < head_snapshot->GetBeginTime()) {
         ret = nullptr;
         return true;
     }
 
+    // Begin the iteration from the head of MVCCList
     ret = head_snapshot;
 
     while (true) {
-        // if visible, break
+        // If visible, break
         if (begin_time < ret->GetEndTime()) {
             // Check whether there is next version
             if (ret->next != nullptr) {
                 uint64_t next_ver_trx_id = (static_cast<Item*>(ret->next))->GetTransactionID();
                 TrxTableStub * trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
-                if (next_ver_trx_id == 0) {   // Next version committed
+                if (next_ver_trx_id == 0) {  // Next version committed
                     if (!read_only) {
-                        // Abort directly for non-read_only
+                        // Abort directly for non-read_only (read set has been modified)
                         ret = nullptr;
                         return false;
                     }
-                } else {   // Next version NOT committed
-                    /** Need to compare current_transaction_bt(BT) and next_version_tranasction_ct(NCT)
+                } else {  // Next version NOT committed
+                    /* Need to compare current_transaction_bt(BT) and next_version_tranasction_ct(NCT)
                      *   case 1. Processing ---> Ignore (Will valid in normal validation for non-read_only)
                      *   case 2. Validation && BT > NCT ---> Optimistic read, read next_version ---> HomoDependency
                      *   case 3. Validation && BT < NCT ---> Read current_version,
@@ -113,7 +114,7 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
         }
 
         if (ret == tail_snapshot) {
-            // if the last version is still not visible, system error occurs.
+            // If the last version is still not visible, system error occurs.
             assert("no visible version, system error" != "");
         }
 
@@ -142,14 +143,17 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
     }
 
     if (tail_->GetBeginTime() > Item::MAX_TIME) {
-        // the tail is uncommitted
+        // The tail is uncommitted
         if (tail_->GetTransactionID() == trx_id) {
-            // in the same transaction, the original value will be overwritten
+            /* In the same transaction, the original value will be overwritten,
+             * and the MVCCList will not be extended.
+             */
             if (tail_->NeedGC())
                 tail_->ValueGC();
 
             return &tail_->val;
         } else {
+            // write-write conflict occurs, abort
             return nullptr;
         }
     }
@@ -159,8 +163,12 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
     new_version->Init(trx_id, begin_time);
     new_version->next = nullptr;
 
+    // Append a new version
     tail_->next = new_version;
+    // Stores the original pre_tail, will be used in AbortVersion.
     tmp_pre_tail_ = pre_tail_;
+
+    // extend the MVCCList
     pre_tail_ = tail_;
     tail_ = new_version;
 
@@ -169,7 +177,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
 
 template<class Item>
 decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
-    // load data from HDFS, do not need to lock the list
+    // Loading data from HDFS, do not need to lock the list
     Item* initial_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     initial_mvcc->Init(Item::MIN_TIME, Item::MAX_TIME);
@@ -182,6 +190,10 @@ decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
     return &initial_mvcc->val;
 }
 
+/* During commit stage, not only the tail_ need to be modified.
+ * The end_time of the pre_tail_ need to be modified,
+ * and it won't be visible to transaction with timestamp >= commit_time after Commit.
+ */
 template<class Item>
 void MVCCList<Item>::CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time) {
     SimpleSpinLockGuard lock_guard(&lock_);
@@ -191,6 +203,7 @@ void MVCCList<Item>::CommitVersion(const uint64_t& trx_id, const uint64_t& commi
     tmp_pre_tail_ = nullptr;
 }
 
+// Remove the tail_ added during processing stage.
 template<class Item>
 void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
     SimpleSpinLockGuard lock_guard(&lock_);
@@ -199,23 +212,23 @@ void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
     if (tail_->NeedGC())
         tail_->ValueGC();
 
+    mem_pool_->Free(tail_, TidMapper::GetInstance()->GetTidUnique());
+
     if (tail_ != pre_tail_) {
-        // abort modification
+        // More than one version in MVCCList
         pre_tail_->next = nullptr;
 
-        mem_pool_->Free(tail_, TidMapper::GetInstance()->GetTidUnique());
         tail_ = pre_tail_;
         pre_tail_ = tmp_pre_tail_;
     } else {
-        // tail_ == head_, only one version in the list
-        // occurs only in "Add" functions, like AddVertex, AddVP...
-        tail_->val = Item::EMPTY_VALUE;
-        tail_->Commit(pre_tail_, 0);
+        // Only one version in MVCCList
+        tail_ = head_ = pre_tail_ = nullptr;
     }
 
     tmp_pre_tail_ = nullptr;
 }
 
+// Clear the MVCCList
 template<class Item>
 void MVCCList<Item>::SelfGarbageCollect() {
     SimpleSpinLockGuard lock_guard(&lock_);

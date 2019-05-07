@@ -29,7 +29,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #define MEM_ITEM_SIZE 8
 static_assert(MEM_ITEM_SIZE % 8 == 0, "mvcc_value_store.hpp, MEM_ITEM_SIZE % 8 != 0");
 
-// empty value is not allowed.
+// Empty string is not allowed, since "count == 0" means that the property has been dropped.
 struct ValueHeader {
     OffsetT head_offset;
     OffsetT count;
@@ -76,9 +76,19 @@ class MVCCValueStore {
     void Init(char* mem, OffsetT item_count, int nthreads);
 
  public:
+    // Insert a value_t to the MVCCValueStore, returns a ValueHeader used to fetch and free this value_t
     ValueHeader InsertValue(const value_t& value, int tid = 0);
-    void GetValue(const ValueHeader& header, value_t& value, int tid = 0);
+    // Free spaces allocated for the ValueHeader
     void FreeValue(const ValueHeader& header, int tid = 0);
+    /* There is no lock in each thread local block, thus if different threads call above 2
+     * functions and pass the same tid, error may occurs.
+     */
+
+    void ReadValue(const ValueHeader& header, value_t& value);
+
+    /* In the constructor, nthreads thread local blocks will be allocated, which means that
+     * the concurrency of MVCCValueStore is nthreads at most (InsertValue and FreeValue).
+     */
     MVCCValueStore(char* mem, OffsetT item_count, int nthreads);
 
     static constexpr int BLOCK_SIZE = 1024;

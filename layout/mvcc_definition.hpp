@@ -13,8 +13,19 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct AbstractMVCCItem {
  private:
+    /* In out system, a timestamp's highest bit is always 0,
+     *      while a trx_id's highest bit is always 1.
+     * If this MVCCItem is commited, it will be visible to a transaction with timestamp
+     *      in range of [begin_time, end_time).
+     * If this MVCCItem is uncommited (inserted in processing stage), the begin_time field
+     *      stores the trx_id (with 1 as the highest bit, always > MAX_TIME), and the
+     *      end_time field stores the begin timestamp of the transaction that inserts this MVCCItem.
+     */
     uint64_t begin_time;
     uint64_t end_time;
+    /* MVCCList is not the friend class of AbstractMVCCItem, which means that
+     * variable begin_time and end_time cannot be directly modified.
+     */
 
  protected:
     AbstractMVCCItem* next;
@@ -24,17 +35,29 @@ struct AbstractMVCCItem {
     uint64_t GetEndTime() const {return GetTransactionID() > 0 ? MIN_TIME : end_time;}
     uint64_t GetBeginTime() const {return begin_time;}
 
+    /* Init the begin_time and end_time after creating MVCCItem.
+     *   Case 1. Called by AppendInitialVersion:
+     *      This happens only during loading data; begin_time will be
+     *      set to MIN_TIME, and end_time will be set to MAX_TIME.
+     *   Case 2. Called by AppendVersion:
+     *      This happens during processing stage; _trx_id is the transaction
+     *      id, and _begin_time is the begin timestamp of the transaction.
+     */
     uint64_t Init(const uint64_t& _trx_id, const uint64_t& _begin_time) {
         begin_time = _trx_id;
         end_time = _begin_time;  // notice that this is not commit time
     }
 
-    uint64_t Commit(AbstractMVCCItem* last, const uint64_t& commit_time) {
+    /* During commit stage, not only the current MVCCItem need to be modified.
+     * The end_time of the previous MVCCItem of the current MVCCItem need to be modified,
+     * and it won't be visible to transaction with timestamp >= commit_time after Commit.
+     */
+    uint64_t Commit(AbstractMVCCItem* previous_item, const uint64_t& commit_time) {
         end_time = MAX_TIME;
         begin_time = commit_time;
 
-        if (last != nullptr && last != this) {
-            last->end_time = begin_time;
+        if (previous_item != nullptr && previous_item != this) {
+            previous_item->end_time = begin_time;
         }
     }
 
@@ -47,20 +70,29 @@ struct AbstractMVCCItem {
     friend class GCExecutor;
 };
 
+/* Each type of MVCC needs to provides memvers and interfaces below:
+ *   Members:
+ *      ValueType val: the value of a specific version
+ *   Interfaces (all public):
+ *      ValueType GetValue(): get a copy of val
+ *      bool NeedGC(): identify if recycling this MVCC needs to invokes GC for val
+ *      void ValueGC(): called when the version is overwritten in the same transaction, and NeedGC()
+ */
+
 struct PropertyMVCCItem : public AbstractMVCCItem {
  protected:
+    // ValueHeader is the metadata of a inserted value in MVCCValueStore,
     ValueHeader val;
 
  public:
     ValueHeader GetValue() const {return val;}
-
-    static constexpr ValueHeader EMPTY_VALUE = ValueHeader(0, 0);
 
     bool NeedGC() {return !val.IsEmpty();}
 
     template<class MVCC> friend class MVCCList;
 };
 
+// MVCCItem for VP and EP is seperated, as their value_store pointer is different.
 struct VPropertyMVCCItem : public PropertyMVCCItem {
  public:
     void ValueGC();
@@ -83,8 +115,6 @@ struct VertexMVCCItem : public AbstractMVCCItem {
  public:
     bool GetValue() const {return val;}
 
-    static constexpr bool EMPTY_VALUE = false;
-
     bool NeedGC() const {return false;}
     void ValueGC();
 
@@ -97,19 +127,8 @@ struct EdgeMVCCItem : public AbstractMVCCItem {
  public:
     Edge GetValue() const {return val;}
 
-    static constexpr Edge EMPTY_VALUE = Edge(0, nullptr);
-
     bool NeedGC() const {return val.ep_row_list != nullptr;}
     void ValueGC();
 
     template<class MVCC> friend class MVCCList;
 };
-/** For each type of MVCC:
- *   Member:
- *      ValueType val: the specific version value
- *      ValueType EMPTY_VALUE: constexpr, an empty ValueType
- *   Interfaces (all public):
- *      ValueType GetValue(): get val
- *      bool NeedGC(): identify if recycling this MVCC needs to invokes GC for val
- *      void ValueGC(): called when the version is overwritten in the same transaction, and NeedGC()
- */

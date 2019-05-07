@@ -15,7 +15,7 @@ template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         AllocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
     if (property_count_ptr == nullptr) {
-        // called by InsertInitialCell
+        // Called by InsertInitialCell
         int cell_id = property_count_++;
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
@@ -28,16 +28,30 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         return &tail_->cells_[cell_id_in_row];
     }
 
-    // thread safe needed
+    // Called by ProcessModifyProperty, thread safety need to be guaranteed.
+
+    /* Why we need to check before allocating a cell to a pid:
+     *      1. In a PropertyRowList, a pid will only occupy one cell.
+     *      2. AllocateCell is called only when LocateCell fail to find the cell with pid.
+     *          However, after LocateCell (T1), other threads may have inserted cells into the
+     *          PropertyRowList before the current thread calls AllocateCell (T2).
+     */
+
     pthread_spin_lock(&lock_);
-    // check if pid already exists
+
+
     int property_count_snapshot = property_count_;
     int recent_count = property_count_ptr[0];
     CellType* ret = nullptr;
     bool allocated_already = false;
+
+    // Check if new cell allocated between T1 and T2
     if (recent_count != property_count_snapshot) {
-        PropertyRow* recent_row = tail_ptr[0];
-        PropertyRow* current_row = recent_row;
+        /* So, we need to check if a cell with pid has been allocated between T1 and T2.
+         * At T1, the property_count_ of this PropertyRowList is recent_count,
+         * and the tail_ of this PropertyRowList is tail_ptr[0].
+         */
+        PropertyRow* current_row = tail_ptr[0];
 
         for (int i = recent_count; i < property_count_snapshot; i++) {
             int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
@@ -45,8 +59,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
                 current_row = current_row->next_;
             }
             if (current_row->cells_[cell_id_in_row].pid == pid) {
-                // a cell with the same pid has already been allocated
-                // abort
+                // A cell with the same pid has already been allocated. Just abort.
                 allocated_already = true;
                 break;
             }
@@ -54,7 +67,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     }
 
     if (!allocated_already) {
-        // allocate a new cell
+        // Do not need to abort, allocate a new cell;
         int cell_id = property_count_snapshot;
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
@@ -68,7 +81,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
 
         ret = &tail_->cells_[cell_id_in_row];
 
-        // create map for fast traversal if needed
+        // Create map for fast traversal if needed
         if (property_count_snapshot >= MAP_THRESHOLD) {
             if (cell_map_ == nullptr) {
                 cell_map_ = new CellMap;
@@ -108,6 +121,9 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     int property_count_snapshot;
     CellMap* map_snapshot;
 
+    /* Get the snapshot of the PropertyRowList in critical region
+     * Similarly hereinafter.
+     */
     if (property_count_ptr != nullptr) {
         pthread_spin_lock(&lock_);
         map_snapshot = cell_map_;
@@ -122,6 +138,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     }
 
     if (map_snapshot == nullptr) {
+        // Traverse the whole PropertyRowList
         for (int i = 0; i < property_count_snapshot; i++) {
             int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
             if (i > 0 && cell_id_in_row == 0) {
@@ -163,11 +180,17 @@ READ_STAT PropertyRowList<PropertyRow>::
     if (cell == nullptr)
         return READ_STAT::NOTFOUND;
 
+    /* When a cell is visible, it just means that it has been allocated in AllocateCell.
+     * However, the mvcc_list will be nullptr before the property has been inserted.
+     * We need to fetch the cell->mvcc_list pointer in critical region, as cell->mvcc_list
+     * will also be modified in critical region in ProcessModifyProperty.
+     * Similarly hereinafter.
+     */
     pthread_spin_lock(&lock_);
     MVCCListType* mvcc_list = cell->mvcc_list;
     pthread_spin_unlock(&lock_);
 
-    // being edited by other transaction
+    // Being edited by other transaction.
     if (mvcc_list == nullptr)  // if not read-only, my read set has been modified
         return read_only ? READ_STAT::NOTFOUND : READ_STAT::ABORT;
 
@@ -181,11 +204,11 @@ READ_STAT PropertyRowList<PropertyRow>::
 
     auto storage_header = visible_version->GetValue();
     if (!storage_header.IsEmpty()) {
-        value_storage_->GetValue(storage_header, ret);
+        value_storage_->ReadValue(storage_header, ret);
         return READ_STAT::SUCCESS;
     }
 
-    // property empty, means deleted
+    // Property's storage_header IsEmpty(), means deleted
     return READ_STAT::NOTFOUND;
 }
 
@@ -200,14 +223,17 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
     pthread_spin_unlock(&lock_);
 
     if (map_snapshot == nullptr) {
+        // Traverse the whole PropertyRowList
         set<label_t> pkey_set;
         for (auto p_label : p_key) {
             pkey_set.insert(p_label);
         }
 
         for (int i = 0; i < property_count_snapshot; i++) {
-            if (pkey_set.size() == 0)
+            if (pkey_set.size() == 0) {
+                // All properties has been fetched.
                 break;
+            }
 
             int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
             if (i > 0 && cell_id_in_row == 0) {
@@ -219,53 +245,20 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
             if (pkey_set.count(cell_ref.pid.pid) > 0) {
                 pkey_set.erase(cell_ref.pid.pid);
 
-            pthread_spin_lock(&lock_);
-            MVCCListType* mvcc_list = cell_ref.mvcc_list;
-            pthread_spin_unlock(&lock_);
+                pthread_spin_lock(&lock_);
+                MVCCListType* mvcc_list = cell_ref.mvcc_list;
+                pthread_spin_unlock(&lock_);
 
-            // being edited by other transaction
-            if (mvcc_list == nullptr) {
-                if (read_only)
-                    continue;
-                else  // read set has been modified
-                    return READ_STAT::ABORT;
-            }
-
-            MVCCItemType* visible_version;
-            bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-
-            if (!success)
-                return READ_STAT::ABORT;
-            if (visible_version == nullptr)
-                continue;
-
-            auto storage_header = visible_version->GetValue();
-
-            if (!storage_header.IsEmpty()) {
-                value_t v;
-                label_t label = cell_ref.pid.pid;
-                value_storage_->GetValue(storage_header, v);
-                ret.emplace_back(make_pair(label, v));
-            }
-            }
-        }
-    } else {
-        for (auto p_label : p_key) {
-            CellConstAccessor accessor;
-            if (map_snapshot->find(accessor, p_label)) {
-                auto& cell_ref = *(accessor->second);
-
-                // being edited by other transaction
-                if (cell_ref.mvcc_list == nullptr) {
+                // Being edited by other transaction.
+                if (mvcc_list == nullptr) {
                     if (read_only)
                         continue;
-                    else
+                    else  // Read set has been modified
                         return READ_STAT::ABORT;
                 }
 
-                // TODO(entityless): Remove repead code below
                 MVCCItemType* visible_version;
-                bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+                bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
 
                 if (!success)
                     return READ_STAT::ABORT;
@@ -277,7 +270,44 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                 if (!storage_header.IsEmpty()) {
                     value_t v;
                     label_t label = cell_ref.pid.pid;
-                    value_storage_->GetValue(storage_header, v);
+                    value_storage_->ReadValue(storage_header, v);
+                    ret.emplace_back(make_pair(label, v));
+                }
+            }
+        }
+    } else {
+        // The index map exists
+        for (auto p_label : p_key) {
+            CellConstAccessor accessor;
+            if (map_snapshot->find(accessor, p_label)) {
+                auto& cell_ref = *(accessor->second);
+
+                pthread_spin_lock(&lock_);
+                MVCCListType* mvcc_list = cell_ref.mvcc_list;
+                pthread_spin_unlock(&lock_);
+
+                // Being edited by other transaction
+                if (mvcc_list == nullptr) {
+                    if (read_only)
+                        continue;
+                    else
+                        return READ_STAT::ABORT;
+                }
+
+                MVCCItemType* visible_version;
+                bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+
+                if (!success)
+                    return READ_STAT::ABORT;
+                if (visible_version == nullptr)
+                    continue;
+
+                auto storage_header = visible_version->GetValue();
+
+                if (!storage_header.IsEmpty()) {
+                    value_t v;
+                    label_t label = cell_ref.pid.pid;
+                    value_storage_->ReadValue(storage_header, v);
                     ret.emplace_back(make_pair(label, v));
                 }
             }
@@ -308,11 +338,11 @@ READ_STAT PropertyRowList<PropertyRow>::
         pthread_spin_lock(&lock_);
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
         pthread_spin_unlock(&lock_);
-        // being edited by other transaction
+        // Being edited by other transaction
         if (mvcc_list == nullptr) {
             if (read_only)
                 continue;
-            else  // read set has been modified
+            else  // Read set has been modified
                 return READ_STAT::ABORT;
         }
 
@@ -329,7 +359,7 @@ READ_STAT PropertyRowList<PropertyRow>::
         if (!storage_header.IsEmpty()) {
             value_t v;
             label_t label = cell_ref.pid.pid;
-            value_storage_->GetValue(storage_header, v);
+            value_storage_->ReadValue(storage_header, v);
             ret.emplace_back(make_pair(label, v));
         }
     }
@@ -355,11 +385,11 @@ READ_STAT PropertyRowList<PropertyRow>::
         pthread_spin_lock(&lock_);
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
         pthread_spin_unlock(&lock_);
-        // being edited by other transaction
+        // Being edited by other transaction
         if (mvcc_list == nullptr) {
             if (read_only)
                 continue;
-            else  // read set has been modified
+            else  // Read set has been modified
                 return READ_STAT::ABORT;
         }
 
@@ -387,14 +417,14 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     int tmp_count;
     PropertyRow* tmp_tail;
     auto* cell = LocateCell(pid, &tmp_count, &tmp_tail);
-    bool modify_flag = true;
+    bool modify_flag = true;  // Will be false if this property does not exists.
     MVCCListType* mvcc_list;
 
     if (cell == nullptr) {
         cell = AllocateCell(pid, &tmp_count, &tmp_tail);
         modify_flag = false;  // Add property
 
-        if (cell == nullptr)  // add failed
+        if (cell == nullptr)  // Allocate cell failed.
             return make_pair(false, nullptr);
 
         // cell->mvcc_list = new MVCCListType;
@@ -405,8 +435,8 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
         pthread_spin_unlock(&lock_);
     }
 
-    // being edited by other transaction, write-write conflict occurs
-    if (mvcc_list == nullptr)  // modify failed
+    // Being edited by other transaction, write-write conflict occurs
+    if (mvcc_list == nullptr)
         return make_pair(true, nullptr);
 
     auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
@@ -415,10 +445,12 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
 
     version_val_ptr[0] = value_storage_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
 
-    pthread_spin_lock(&lock_);
-    if (!modify_flag)
+    if (!modify_flag) {
+        // For a newly added cell, assign the mvcc_list after it has been initialized.
+        pthread_spin_lock(&lock_);
         cell->mvcc_list = mvcc_list;
-    pthread_spin_unlock(&lock_);
+        pthread_spin_unlock(&lock_);
+    }
 
     return make_pair(modify_flag, mvcc_list);
 }
@@ -436,17 +468,17 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
     assert(mvcc_list != nullptr);
 
     auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
-    if (version_val_ptr == nullptr)  // modify failed
+    if (version_val_ptr == nullptr)  // Modify failed, abort
         return nullptr;
 
-    version_val_ptr[0].count = 0;  // then IsEmpty() == true
+    version_val_ptr[0].count = 0;  // IsEmpty() == true
 
     return mvcc_list;
 }
 
 template <class PropertyRow>
 void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
-    // free all cells
+    // Free all cells
     PropertyRow* current_row = head_;
     int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
     if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)

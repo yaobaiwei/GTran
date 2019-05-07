@@ -35,7 +35,7 @@ class MVCCList {
     // If nullptr, then append failed.
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
     ValueType* AppendInitialVersion();
-    void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);  // TODO(entityless): Finish this
+    void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);
     void AbortVersion(const uint64_t& trx_id);
 
     static void SetGlobalMemoryPool(ConcurrentMemPool<Item>* mem_pool) {
@@ -44,8 +44,10 @@ class MVCCList {
 
     Item* GetHead();
 
+    // Clear the MVCCList
     void SelfGarbageCollect();
 
+    // Constructed when entering function AppendVersion, CommitVersion, AbortVersion and SelfGarbageCollect
     struct SimpleSpinLockGuard {
         pthread_spinlock_t* lock_ptr;
         explicit SimpleSpinLockGuard(pthread_spinlock_t* _lock_ptr) {
@@ -66,7 +68,7 @@ class MVCCList {
     Item* tail_ = nullptr;
     Item* pre_tail_ = nullptr;
     Item* tmp_pre_tail_ = nullptr;
-    // tmp_pre_tail_ is not nullptr only when the tail is uncommitted
+    // tmp_pre_tail_ is not nullptr only when the tail_ is uncommitted
     pthread_spinlock_t lock_;
 };
 
