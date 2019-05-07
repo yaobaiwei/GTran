@@ -84,6 +84,11 @@ class RdmaMailbox : public AbstractMailbox {
     bool IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz);
     bool SendData(int tid, const mailbox_data_t& data);
 
+    inline int GetIndex(int tid, int nid) {
+        nid = nid < node_.get_local_rank() ? nid : nid - 1;
+        return nid * config_->global_num_threads + tid;
+    }
+
     Node & node_;
     Node & master_;
     Config* config_;

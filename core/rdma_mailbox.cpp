@@ -35,7 +35,7 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     }
     RDMA_init(config_->global_num_workers, config_->global_num_threads + 1, nid, mem_info, nodes, master_);
 
-    int nrbfs = config_->global_num_workers * config_->global_num_threads;
+    int nrbfs = (config_->global_num_workers - 1) * config_->global_num_threads;
 
     rmetas = (rbf_rmeta_t *)malloc(sizeof(rbf_rmeta_t) * nrbfs);
     memset(rmetas, 0, sizeof(rbf_rmeta_t) * nrbfs);
@@ -114,7 +114,7 @@ bool RdmaMailbox::SendData(int tid, const mailbox_data_t& data) {
     size_t data_sz = data.stream.size();
     uint64_t msg_sz = sizeof(uint64_t) + ceil(data_sz, sizeof(uint64_t)) + sizeof(uint64_t);
 
-    rbf_rmeta_t *rmeta = &rmetas[dst_nid * config_->global_num_threads + dst_tid];
+    rbf_rmeta_t *rmeta = &rmetas[GetIndex(dst_tid, dst_nid)];
 
     pthread_spin_lock(&rmeta->lock);
      // detect overflow
@@ -139,7 +139,7 @@ bool RdmaMailbox::SendData(int tid, const mailbox_data_t& data) {
     *((uint64_t*)rdma_buf) = data_sz;   // footer
 
     RDMA &rdma = RDMA::get_rdma();
-    uint64_t rdma_off = buffer_->GetRecvBufOffset(dst_tid, node_.get_local_rank());
+    uint64_t rdma_off = buffer_->GetRecvBufOffset(dst_tid, dst_nid);
     pthread_spin_lock(&rmeta->lock);
     if (off / rbf_sz == (off + msg_sz - 1) / rbf_sz) {
         rdma.dev->RdmaWrite(dst_tid, dst_nid, buffer_->GetSendBuf(tid), msg_sz, rdma_off + (off % rbf_sz));
@@ -155,7 +155,7 @@ bool RdmaMailbox::SendData(int tid, const mailbox_data_t& data) {
 void RdmaMailbox::Recv(int tid, Message & msg) {
     while (true) {
         int machine_id = (schedulers[tid].rr_cnt++) % node_.get_local_size();
-        if (CheckRecvBuf(tid, machine_id)) {
+        if (machine_id != node_.get_local_rank() && CheckRecvBuf(tid, machine_id)) {
             obinstream um;
             FetchMsgFromRecvBuf(tid, machine_id, um);
             um >> msg;
@@ -167,25 +167,27 @@ void RdmaMailbox::Recv(int tid, Message & msg) {
 bool RdmaMailbox::TryRecv(int tid, Message & msg) {
     pthread_spin_lock(&recv_locks[tid]);
     int type = (schedulers[tid].rr_cnt++) % rr_size;
+
+    // Try local message queue in higher priority
+    // Use round-robin to avoid starvation
     if (type != 0) {
-        // try msg queue
         if (local_msgs[tid]->Size() != 0) {
             local_msgs[tid]->WaitAndPop(msg);
             pthread_spin_unlock(&recv_locks[tid]);
             return true;
         }
-    } else {
-        // try rdma memory
-        for (int i = 0; i < node_.get_local_size(); i++) {
-            int machine_id = (schedulers[tid].machine_rr_cnt++) % node_.get_local_size();
-            if (CheckRecvBuf(tid, machine_id)) {
-                obinstream um;
-                FetchMsgFromRecvBuf(tid, machine_id, um);
-                pthread_spin_unlock(&recv_locks[tid]);
+    }
 
-                um >> msg;
-                return true;
-            }
+    // Try rdma memory
+    for (int i = 0; i < node_.get_local_size(); i++) {
+        int machine_id = (schedulers[tid].machine_rr_cnt++) % node_.get_local_size();
+        if (machine_id != node_.get_local_rank() && CheckRecvBuf(tid, machine_id)) {
+            obinstream um;
+            FetchMsgFromRecvBuf(tid, machine_id, um);
+            pthread_spin_unlock(&recv_locks[tid]);
+
+            um >> msg;
+            return true;
         }
     }
     pthread_spin_unlock(&recv_locks[tid]);
@@ -193,7 +195,7 @@ bool RdmaMailbox::TryRecv(int tid, Message & msg) {
 }
 
 bool RdmaMailbox::CheckRecvBuf(int tid, int nid) {
-    rbf_lmeta_t *lmeta = &lmetas[tid * config_->global_num_workers + nid];
+    rbf_lmeta_t *lmeta = &lmetas[GetIndex(tid, nid)];
     char * rbf = buffer_->GetRecvBuf(tid, nid);
     uint64_t rbf_sz = buffer_->GetRecvBufSize();
     volatile uint64_t msg_size = *(volatile uint64_t *)(rbf + lmeta->head % rbf_sz);  // header
@@ -201,7 +203,7 @@ bool RdmaMailbox::CheckRecvBuf(int tid, int nid) {
 }
 
 void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
-    rbf_lmeta_t *lmeta = &lmetas[tid * config_->global_num_workers + nid];
+    rbf_lmeta_t *lmeta = &lmetas[GetIndex(tid, nid)];
     char * rbf = buffer_->GetRecvBuf(tid, nid);
     uint64_t rbf_sz = buffer_->GetRecvBufSize();
     volatile uint64_t pop_msg_size = *(volatile uint64_t *)(rbf + lmeta->head % rbf_sz);  // header
@@ -256,9 +258,9 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
             if (node_.get_local_rank() == nid) {
                 *(uint64_t *)buffer_->GetRemoteHeadBuf(tid, nid) = lmeta->head;
             } else {
-                rbf_rmeta_t *rmeta = &rmetas[nid * config_->global_num_threads + tid];
+                rbf_rmeta_t *rmeta = &rmetas[GetIndex(tid, nid)];
                 RDMA &rdma = RDMA::get_rdma();
-                uint64_t off = buffer_->GetRemoteHeadBufOffset(tid, node_.get_local_rank());
+                uint64_t off = buffer_->GetRemoteHeadBufOffset(tid, nid);
                 pthread_spin_lock(&rmeta->lock);
                 rdma.dev->RdmaWrite(tid, nid, head, sizeof(uint64_t), off);
                 pthread_spin_unlock(&rmeta->lock);
