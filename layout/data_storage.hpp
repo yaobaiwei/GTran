@@ -110,8 +110,8 @@ class DataStorage {
     ConcurrentMemPool<VertexMVCCItem>* vertex_mvcc_pool_ = nullptr;
     ConcurrentMemPool<EdgeMVCCItem>* edge_mvcc_pool_ = nullptr;
 
-    // VID assignment related. Used when adding a new vertex.
-    std::atomic_int vid_to_assign_divided_;
+    // Notice that even if a vertex is dropped, num_of_vertex_ will not decrease.
+    std::atomic_int num_of_vertex_;
     int worker_rank_, worker_size_;
     vid_t AssignVID();
 
