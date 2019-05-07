@@ -100,21 +100,22 @@ class Config{
     uint64_t kvstore_offset;
 
     // send_buffer_sz = (num_threads + 1) * global_per_send_buffer_sz_mb
+    // one more thread for worker SendQueryMsg thread
     uint64_t send_buffer_sz;
     // send_buffer_offset = kvstore_sz + kvstore_offset
     uint64_t send_buffer_offset;
 
-    // recv_buffer_sz = num_machines * num_threads *global_per_recv_buffer_sz_mb
+    // recv_buffer_sz = (num_machines - 1) * num_threads *global_per_recv_buffer_sz_mb
     uint64_t recv_buffer_sz;
     // recv_buffer_offset = send_buffer_sz + send_buffer_offset
     uint64_t recv_buffer_offset;
 
-    // local_head_buffer_sz = num_machines * num_threads *sizeof(uint64_t)
+    // local_head_buffer_sz = (num_machines - 1) * num_threads *sizeof(uint64_t)
     uint64_t local_head_buffer_sz;
     // local_head_buffer_offset = recv_buffer_sz * recv_buffer_offset
     uint64_t local_head_buffer_offset;
 
-    // remote_head_buffer_sz = num_machines * num_threads *sizeof(uint64_t)
+    // remote_head_buffer_sz = (num_machines - 1) * num_threads *sizeof(uint64_t)
     uint64_t remote_head_buffer_sz;
     // remote_head_buffer_offset = local_head_buffer_sz * local_head_buffer_offset
     uint64_t remote_head_buffer_offset;
@@ -462,13 +463,13 @@ class Config{
             send_buffer_sz = (global_num_threads + 1) * MiB2B(global_per_send_buffer_sz_mb);
             send_buffer_offset = kvstore_offset + kvstore_sz;
 
-            recv_buffer_sz = global_num_workers * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
+            recv_buffer_sz = (global_num_workers - 1) * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);
             recv_buffer_offset = send_buffer_offset + send_buffer_sz;
 
-            local_head_buffer_sz = global_num_workers * global_num_threads * sizeof(uint64_t);
+            local_head_buffer_sz = (global_num_workers - 1) * global_num_threads * sizeof(uint64_t);
             local_head_buffer_offset = recv_buffer_sz + recv_buffer_offset;
 
-            remote_head_buffer_sz = global_num_workers * global_num_threads * sizeof(uint64_t);
+            remote_head_buffer_sz = (global_num_workers - 1) * global_num_threads * sizeof(uint64_t);
             remote_head_buffer_offset = local_head_buffer_sz + local_head_buffer_offset;
 
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);

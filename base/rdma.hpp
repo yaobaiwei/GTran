@@ -156,11 +156,36 @@ class RDMA {
                 }
             } else {
                 // RC connection between workers
-                for (uint j = 0; j < num_threads * 2; ++j) {
-                    for (uint i = 0; i < num_workers; ++i) {
+                for (uint i = 0; i< num_workers; ++i) {
+                    if (i == nid) {
+                        // skip local qp
+                        continue;
+                    }
+                    for (uint j = 0; j < num_threads * 2; ++j) {
                         Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
                         assert(qp != NULL);
                     }
+                }
+
+                while (1) {
+                    int connected = 0;
+                    for (uint i = 0; i< num_workers; ++i) {
+                        if (i == nid) {
+                            continue;
+                        }
+                        for (uint j = 0; j < num_threads * 2; ++j) {
+                            Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
+                            if (qp->inited_) {
+                                connected += 1;
+                            } else if (qp->connect_rc()) {
+                                connected += 1;
+                            }
+                        }
+                    }
+                    if (connected == (num_workers - 1) * num_threads * 2)
+                        break;
+                    else
+                        sleep(1);
                 }
 
                 for (uint j = 0; j < num_threads; ++ j) {
@@ -184,23 +209,6 @@ class RDMA {
                         sleep(1);
                 }
 
-                while (1) {
-                    int connected = 0;
-                    for (uint j = 0; j < num_threads * 2; ++j) {
-                        for (uint i = 0; i < num_workers; ++i) {
-                            Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
-                            if (qp->inited_) {
-                                connected += 1;
-                            } else if (qp->connect_rc()) {
-                                connected += 1;
-                            }
-                        }
-                    }
-                    if (connected == num_workers * num_threads * 2)
-                        break;
-                    else
-                        sleep(1);
-                }
                 // UD connection between master and workers
                 // Each worker will only have one send/recv qp
                 ud_qp = ctrl->create_ud_qp(0, 0, 1, 0);

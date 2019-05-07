@@ -27,6 +27,15 @@ class Buffer {
         delete[] buffer_;
     }
 
+    // Get index of (nid, tid) at reference node
+    // GetxxxBuf: get local address, nid = remote_nid, ref_nid = local_nid
+    // GetxxxBufOffset: get offset at remote machine, nid = local_nid, ref_nid = remote_nid
+    inline int GetIndex(int tid, int nid, int ref_nid) {
+        // Get virtual nid at ref_nid
+        nid = nid < ref_nid ? nid : nid - 1;
+        return nid * config_->global_num_threads + tid;
+    }
+
     inline char* GetBuf() {
         return buffer_;
     }
@@ -73,7 +82,7 @@ class Buffer {
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_workers);
         return config_->recv_buf +
-               (tid * config_->global_num_workers + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
+               GetIndex(tid, nid, node_.get_local_rank()) * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
     inline uint64_t GetRecvBufSize() {
@@ -86,14 +95,14 @@ class Buffer {
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_workers);
         return config_->recv_buffer_offset +
-               (tid * config_->global_num_workers + nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
+               GetIndex(tid, node_.get_local_rank(), nid) * MiB2B(config_->global_per_recv_buffer_sz_mb);
     }
 
     inline char* GetLocalHeadBuf(int tid, int nid) {
         assert(config_->global_use_rdma);
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_workers);
-        return config_->local_head_buf + (tid * config_->global_num_workers + nid) * sizeof(uint64_t);
+        return config_->local_head_buf + GetIndex(tid, nid, node_.get_local_rank()) * sizeof(uint64_t);
     }
 
     inline uint64_t GetLocalHeadBufSize() {
@@ -105,14 +114,14 @@ class Buffer {
         assert(config_->global_use_rdma);
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_workers);
-        return config_->local_head_buffer_offset + (tid * config_->global_num_workers + nid) * sizeof(uint64_t);
+        return config_->local_head_buffer_offset + GetIndex(tid, node_.get_local_rank(), nid) * sizeof(uint64_t);
     }
 
     inline char* GetRemoteHeadBuf(int tid, int nid) {
         assert(config_->global_use_rdma);
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_workers);
-        return config_->remote_head_buf + (tid * config_->global_num_workers + nid) * sizeof(uint64_t);
+        return config_->remote_head_buf + GetIndex(tid, nid, node_.get_local_rank()) * sizeof(uint64_t);
     }
 
     inline uint64_t GetRemoteHeadBufSize() {
@@ -124,7 +133,7 @@ class Buffer {
         assert(config_->global_use_rdma);
         CHECK_LT(tid, config_->global_num_threads);
         CHECK_LT(nid, config_->global_num_workers);
-        return config_->remote_head_buffer_offset + (tid * config_->global_num_workers + nid) * sizeof(uint64_t);
+        return config_->remote_head_buffer_offset + GetIndex(tid, node_.get_local_rank(), nid) * sizeof(uint64_t);
     }
 
  private:
