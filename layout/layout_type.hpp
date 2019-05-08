@@ -130,6 +130,7 @@ template <class T>
 class PropertyRowList;
 class TopologyRowList;
 struct VertexMVCCItem;
+struct EdgeMVCCItem;
 template <class Item>
 class MVCCList;
 
@@ -146,20 +147,29 @@ struct Vertex {
     MVCCList<VertexMVCCItem>* mvcc_list = nullptr;
 };
 
-/* Since eid consists of src_vid and dst_vid, there will be multiple Edge
+/* Since eid consists of src_vid and dst_vid, there will be multiple EdgeVersion
  * instance with the same eid in the system if we add an edge with an eid (Edge0),
  * then delete it, and then add it back (Edge1).
  * Edge0 and Edge1 just have the same eid, and share nothing.
- * A transaction will only be able to see one Edge instance with a specific eid at most.
+ * A transaction will only be able to see one EdgeVersion instance with a specific eid at most.
  */
-struct Edge {
+struct EdgeVersion {
     label_t label;  // if 0, then the edge is deleted
     // for in_e or deleted edge, this is always nullptr
     PropertyRowList<EdgePropertyRow>* ep_row_list = nullptr;
 
     bool Exist() const {return label != 0;}
-    Edge() {}
+    EdgeVersion() {}
 
-    constexpr Edge(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
+    constexpr EdgeVersion(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
     label(_label), ep_row_list(_ep_row_list) {}
+};
+
+struct InEdge {
+    MVCCList<EdgeMVCCItem>* mvcc_list;
+};
+
+struct OutEdge {
+    uint32_t edge_version_count;
+    MVCCList<EdgeMVCCItem>* mvcc_list;
 };

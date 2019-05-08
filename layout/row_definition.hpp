@@ -37,7 +37,7 @@ struct EPHeader {
 
 struct EdgeHeader {
     bool is_out;  // If this vtx is a, true: a -> b, false: a <- b
-    // Edge labels are stored in EdgeMVCCItem->val
+    // EdgeVersion labels are stored in EdgeMVCCItem->val
     vid_t conn_vtx_id;
     MVCCList<EdgeMVCCItem>* mvcc_list;
 };
