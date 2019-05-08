@@ -54,7 +54,8 @@ class LabelledBranchActorBase :  public AbstractActor {
         int tid = TidMapper::GetInstance()->GetTid();
 
         if (msg.meta.msg_type == MSG_T::SPAWN) {
-            uint64_t msg_id = send_branch_msg(tid, qplan.actors, msg);
+            uint64_t msg_id;
+            id_allocator_->AssignId(msg_id);
 
             // set up data for sub branch collection
             int index = 0;
@@ -66,6 +67,7 @@ class LabelledBranchActorBase :  public AbstractActor {
 
             typename BranchDataTable::accessor ac;
             data_table_.insert(ac, key);
+            send_branch_msg(tid, qplan.actors, msg, msg_id);
             ac->second.branch_counter = make_pair(get_steps_count(qplan.actors[msg.meta.step]), 0);
 
             process_spawn(msg, ac);
@@ -116,10 +118,7 @@ class LabelledBranchActorBase :  public AbstractActor {
     BranchDataTable data_table_;
 
     // send out msg with history label to indicate each input traverser
-    uint64_t send_branch_msg(int tid, const vector<Actor_Object> & actors, Message & msg) {
-        uint64_t msg_id;
-        id_allocator_->AssignId(msg_id);
-
+    void send_branch_msg(int tid, const vector<Actor_Object> & actors, Message & msg, uint64_t msg_id) {
         vector<int> step_vec;
         get_steps(actors[msg.meta.step], step_vec);
 
@@ -128,8 +127,6 @@ class LabelledBranchActorBase :  public AbstractActor {
         for (auto& msg : msg_vec) {
             mailbox_->Send(tid, msg);
         }
-
-        return msg_id;
     }
 
     // check if all branched steps are collected
