@@ -11,16 +11,19 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
     // Get Actor_Object
     Meta & m = msg.meta;
     Actor_Object actor_obj = qplan.actors[m.step];
+    vector<uint64_t> rct_insert_data;
 
     // Get Params
     int lid = static_cast<int>(Tool::value_t2int(actor_obj.params.at(0)));
     bool success = true;
     for (auto & pair : msg.data) {
-        // TODO(nick) : support g.addE()
         vector<value_t>::iterator itr = pair.second.begin();
         do {
             eid_t e_id;
-            uint2eid_t(Tool::value_t2uint64_t(*itr), e_id);
+            uint64_t eid_uint64 = Tool::value_t2uint64_t(*itr);
+            uint2eid_t(eid_uint64, e_id);
+            rct_insert_data.emplace_back(eid_uint64);
+
             bool is_src_v_local = false, is_dst_v_local = false;
 
             // outV
@@ -50,6 +53,9 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
 
     vector<Message> msg_vec;
     if (success) {
+        // Insert Updates Information into RCT Table if success
+        pmt_rct_table_->InsertRecentActionSet(Primitive_T::IE, qplan.trxid, rct_insert_data);
+
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {
         msg.CreateAbortMsg(qplan.actors, msg_vec);

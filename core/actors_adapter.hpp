@@ -65,14 +65,12 @@ class ActorAdapter {
             ResultCollector * rc,
             AbstractMailbox * mailbox,
             CoreAffinity * core_affinity,
-            IndexStore * index_store,
-            PrimitiveRCTTable * pmt_rct_table) :
+            IndexStore * index_store) :
         node_(node),
         rc_(rc),
         mailbox_(mailbox),
         core_affinity_(core_affinity),
-        index_store_(index_store),
-        pmt_rct_table_(pmt_rct_table) {
+        index_store_(index_store) {
         config_ = Config::GetInstance();
         num_thread_ = config_->global_num_threads;
         times_.resize(num_thread_, 0);
@@ -113,7 +111,7 @@ class ActorAdapter {
         actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::VALIDATION] = unique_ptr<AbstractActor>(new ValidationActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, pmt_rct_table_, &actors_, &msg_logic_table_));
+        actors_[ACTOR_T::VALIDATION] = unique_ptr<AbstractActor>(new ValidationActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, &actors_, &msg_logic_table_));
         actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::WHERE] = unique_ptr<AbstractActor>(new WhereActor(id ++, num_thread_, mailbox_, core_affinity_));
     }
@@ -254,7 +252,6 @@ class ActorAdapter {
     msg_id_alloc id_allocator_;
     Node node_;
     // Validation
-    PrimitiveRCTTable * pmt_rct_table_;
     TrxTableStub * trx_table_stub_;
 
     // Actors pool <actor_type, [actors]>

@@ -17,6 +17,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "core/id_mapper.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/pmt_rct_table.hpp"
 #include "utils/tool.hpp"
 
 class DropActor : public AbstractActor {
@@ -33,6 +34,7 @@ class DropActor : public AbstractActor {
         type_(ACTOR_T::DROP) {
         config_ = Config::GetInstance();
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
+        pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         id_mapper_ = SimpleIdMapper::GetInstance();
     }
 
@@ -57,7 +59,11 @@ class DropActor : public AbstractActor {
     // For check which side of edge stored in current machine
     SimpleIdMapper * id_mapper_;
 
-    bool processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type, bool isProperty);
+    // RCT Table
+    PrimitiveRCTTable * pmt_rct_table_;
+
+    bool processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
+            bool isProperty, vector<uint64_t> & rct_insert_data, Primitive_T & pmt_type);
 };
 
 #endif  // ACTOR_DROP_ACTOR_HPP_
