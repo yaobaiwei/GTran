@@ -170,11 +170,12 @@ void DataStorage::FillContainer() {
         out_edge_map_.find(out_e_accessor, edge.id.value());
 
         EdgeMVCCItem* edge_mvcc;
-        out_e_accessor->second.mvcc_list->GetVisibleVersion(0, 0, true, edge_mvcc);
-        auto edge_item = edge_mvcc->GetValue();
+
+        EdgeVersion edge_version;
+        out_e_accessor->second.mvcc_list->GetVisibleVersion(0, 0, true, edge_version);
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
-            edge_item.ep_row_list->InsertInitialCell(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
+            edge_version.ep_row_list->InsertInitialCell(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
         }
     }
 
@@ -205,15 +206,12 @@ READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, cons
         assert(false);
     }
 
-    EdgeMVCCItem* visible_version;
-    bool success = out_e_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+    pair<bool, bool> is_visible = out_e_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, item_ref);
 
-    if (!success)
+    if (!is_visible.first)
         return READ_STAT::ABORT;
-    if (visible_version == nullptr)
+    if (!is_visible.second)
         return READ_STAT::NOTFOUND;
-
-    item_ref = visible_version->GetValue();
 
     return READ_STAT::SUCCESS;
 }
@@ -221,13 +219,14 @@ READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, cons
 READ_STAT DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                              const uint64_t& begin_time, const bool& read_only) {
     VertexMVCCItem* visible_version;
-    bool success = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-    if (!success)
+    bool exists;
+    pair<bool, bool> is_visible = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
+    if (!is_visible.first)
         return READ_STAT::ABORT;
     // How to deal with "not found" is determined by the function calling it
-    if (visible_version == nullptr)
+    if (!is_visible.second)
         return READ_STAT::NOTFOUND;
-    if (!visible_version->GetValue())
+    if (!exists)
         return READ_STAT::NOTFOUND;
     return READ_STAT::SUCCESS;
 }
@@ -235,13 +234,14 @@ READ_STAT DataStorage::CheckVertexVisibility(VertexConstAccessor& v_accessor, co
 READ_STAT DataStorage::CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
                                              const uint64_t& begin_time, const bool& read_only) {
     VertexMVCCItem* visible_version;
-    bool success = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-    if (!success)
+    bool exists;
+    pair<bool, bool> is_visible = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
+    if (!is_visible.first)
         return READ_STAT::ABORT;
-    // how to deal with "not found" is determined by the function calling it
-    if (visible_version == nullptr)
+    // How to deal with "not found" is determined by the function calling it
+    if (!is_visible.second)
         return READ_STAT::NOTFOUND;
-    if (!visible_version->GetValue())
+    if (!exists)
         return READ_STAT::NOTFOUND;
     return READ_STAT::SUCCESS;
 }
@@ -374,15 +374,15 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
     eid_t eid = eid_t(pid.in_vid, pid.out_vid);
 
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    if (edge_item.Exist()) {
-        auto stat = edge_item.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+    if (edge_version.Exist()) {
+        auto stat = edge_version.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
 
         if (stat == READ_STAT::ABORT)
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -401,15 +401,15 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
 READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    if (edge_item.Exist()) {
-       auto stat = edge_item.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+    if (edge_version.Exist()) {
+       auto stat = edge_version.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
 
        if (stat == READ_STAT::ABORT)
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -425,15 +425,15 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    if (edge_item.Exist()) {
-        auto stat = edge_item.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+    if (edge_version.Exist()) {
+        auto stat = edge_version.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
 
         if (stat == READ_STAT::ABORT)
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -448,15 +448,15 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
 READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<epid_t>& ret) {
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    if (edge_item.Exist()) {
-        auto stat = edge_item.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+    if (edge_version.Exist()) {
+        auto stat = edge_version.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 
         if (stat == READ_STAT::ABORT)
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -471,15 +471,15 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
 READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    if (edge_item.Exist()) {
-        ret = edge_item.label;
+    if (edge_version.Exist()) {
+        ret = edge_version.label;
         return READ_STAT::SUCCESS;
     }
 
@@ -542,18 +542,18 @@ READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& be
     for (auto v_pair = vertex_map_.begin(); v_pair != vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
-        VertexMVCCItem* visible_version;
-        bool success = v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-        if (!success) {
+        bool exists;
+        pair<bool, bool> is_visible = v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
+        if (!is_visible.first) {
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return READ_STAT::ABORT;
         }
 
-        if (visible_version == nullptr)
+        if (!is_visible.second)
             continue;
 
         // if this vertice is visible
-        if (visible_version->GetValue())
+        if (exists)
             ret.emplace_back(vid_t(v_pair->first));
     }
 
@@ -565,16 +565,17 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
     // TODO(entityless): Simplify the code by editing eid_t::value()
     for (auto e_pair = out_edge_map_.begin(); e_pair != out_edge_map_.end(); e_pair++) {
         EdgeMVCCItem* visible_version;
-        bool success = e_pair->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
-        if (!success) {
+        EdgeVersion edge_version;
+        pair<bool, bool> is_visible = e_pair->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
+        if (!is_visible.first) {
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return READ_STAT::ABORT;
         }
 
-        if (visible_version == nullptr)
+        if (!is_visible.second)
             continue;
 
-        if (visible_version->GetValue().Exist()) {
+        if (edge_version.Exist()) {
             uint64_t eid_fetched = e_pair->first;
             eid_t* tmp_eid_p = reinterpret_cast<eid_t*>(&eid_fetched);
             ret.emplace_back(eid_t(tmp_eid_p->out_v, tmp_eid_p->in_v));
@@ -1134,21 +1135,21 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
 bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
                                   const uint64_t& trx_id, const uint64_t& begin_time) {
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
-    if (!edge_item.Exist()) {
+    if (!edge_version.Exist()) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
     // Modify the property in ep_row_list
-    auto ret = edge_item.ep_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
+    auto ret = edge_version.ep_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
 
     // ret.second: pointer of MVCCList<EP>
     if (ret.second == nullptr) {
@@ -1197,21 +1198,21 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
 
 bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time) {
     OutEdgeConstAccessor out_e_accessor;
-    EdgeVersion edge_item;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_item);
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
-    if (!edge_item.Exist()) {
+    if (!edge_version.Exist()) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }
 
     // ret: pointer of MVCCList<EP>
-    auto ret = edge_item.ep_row_list->ProcessDropProperty(pid, trx_id, begin_time);
+    auto ret = edge_version.ep_row_list->ProcessDropProperty(pid, trx_id, begin_time);
 
     if (ret == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);

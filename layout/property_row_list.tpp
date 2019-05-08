@@ -195,14 +195,14 @@ READ_STAT PropertyRowList<PropertyRow>::
         return read_only ? READ_STAT::NOTFOUND : READ_STAT::ABORT;
 
     MVCCItemType* visible_version;
-    bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+    ValueHeader storage_header;
+    pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, storage_header);
 
-    if (!success)
+    if (!is_visible.first)
         return READ_STAT::ABORT;
-    if (visible_version == nullptr)
+    if (!is_visible.second)
         return READ_STAT::NOTFOUND;
 
-    auto storage_header = visible_version->GetValue();
     if (!storage_header.IsEmpty()) {
         value_storage_->ReadValue(storage_header, ret);
         return READ_STAT::SUCCESS;
@@ -257,15 +257,14 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                         return READ_STAT::ABORT;
                 }
 
-                MVCCItemType* visible_version;
-                bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+                ValueHeader storage_header;
+                pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, storage_header);
 
-                if (!success)
+                if (!is_visible.first)
                     return READ_STAT::ABORT;
-                if (visible_version == nullptr)
+                if (!is_visible.second)
                     continue;
 
-                auto storage_header = visible_version->GetValue();
 
                 if (!storage_header.IsEmpty()) {
                     value_t v;
@@ -294,15 +293,13 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                         return READ_STAT::ABORT;
                 }
 
-                MVCCItemType* visible_version;
-                bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+                ValueHeader storage_header;
+                pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, storage_header);
 
-                if (!success)
+                if (!is_visible.first)
                     return READ_STAT::ABORT;
-                if (visible_version == nullptr)
+                if (!is_visible.second)
                     continue;
-
-                auto storage_header = visible_version->GetValue();
 
                 if (!storage_header.IsEmpty()) {
                     value_t v;
@@ -347,14 +344,13 @@ READ_STAT PropertyRowList<PropertyRow>::
         }
 
         MVCCItemType* visible_version;
-        bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+        ValueHeader storage_header;
+        pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, storage_header);
 
-        if (!success)
+        if (!is_visible.first)
             return READ_STAT::ABORT;
-        if (visible_version == nullptr)
+        if (!is_visible.second)
             continue;
-
-        auto storage_header = visible_version->GetValue();
 
         if (!storage_header.IsEmpty()) {
             value_t v;
@@ -394,14 +390,13 @@ READ_STAT PropertyRowList<PropertyRow>::
         }
 
         MVCCItemType* visible_version;
-        bool success = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+        ValueHeader storage_header;
+        pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, storage_header);
 
-        if (!success)
+        if (!is_visible.first)
             return READ_STAT::ABORT;
-        if (visible_version == nullptr)
+        if (!is_visible.second)
             continue;
-
-        auto storage_header = visible_version->GetValue();
 
         if (!storage_header.IsEmpty())
             ret.emplace_back(cell_ref.pid);

@@ -16,8 +16,8 @@ Item* MVCCList<Item>::GetHead() {
 
 // return false if abort
 template<class Item>
-bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
-                                       const bool& read_only, MVCCItem_PTR& ret) {
+pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                                       const bool& read_only, ValueType& ret) {
     // get a snapshot of 4 pointers of the MVCCList in critical region
     pthread_spin_lock(&lock_);
     Item* head_snapshot = head_;
@@ -26,16 +26,17 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
     Item* tmp_pre_tail_snapshot = tmp_pre_tail_;
     pthread_spin_unlock(&lock_);
 
+    Item* version;
+
     // the MVCCList is empty
     if (head_snapshot == nullptr) {
-        ret = nullptr;
-        return true;
+        return make_pair(true, false);
     }
 
     if (tail_snapshot->GetTransactionID() == trx_id) {
         // In the same trx, the uncommitted tail is visible.
-        ret = tail_snapshot;
-        return true;
+        ret = tail_snapshot->val;
+        return make_pair(true, true);
     }
 
     // tmp_pre_tail_ is not nullptr only when the tail_ is uncommitted.
@@ -45,26 +46,25 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
 
     // The whole MVCCList is not visible to the current trx
     if (begin_time < head_snapshot->GetBeginTime()) {
-        ret = nullptr;
-        return true;
+        return make_pair(true, false);
     }
 
     // Begin the iteration from the head of MVCCList
-    ret = head_snapshot;
+    version = head_snapshot;
 
     while (true) {
         // If visible, break
-        if (begin_time < ret->GetEndTime()) {
+        if (begin_time < version->GetEndTime()) {
             // Check whether there is next version
-            if (ret->next != nullptr) {
-                uint64_t next_ver_trx_id = (static_cast<Item*>(ret->next))->GetTransactionID();
+            if (version->next != nullptr) {
+                uint64_t next_ver_trx_id = (static_cast<Item*>(version->next))->GetTransactionID();
                 TrxTableStub * trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
                 if (next_ver_trx_id == 0) {  // Next version committed
                     if (!read_only) {
                         // Abort directly for non-read_only (read set has been modified)
-                        ret = nullptr;
-                        return false;
+                        version = nullptr;
+                        return make_pair(false, false);
                     }
                 } else {  // Next version NOT committed
                     /* Need to compare current_transaction_bt(BT) and next_version_tranasction_ct(NCT)
@@ -83,7 +83,7 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
                     if (cur_stat == TRX_STAT::VALIDATING) {
                         if (begin_time > next_trx_ct) {
                             // Optimistic read
-                            ret = static_cast<Item*>(ret->next);
+                            version = static_cast<Item*>(version->next);
                             {
                                 dep_trx_accessor accessor;
                                 dep_trx_map.insert(accessor, trx_id);
@@ -99,12 +99,12 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
                     } else if (cur_stat == TRX_STAT::COMMITTED) {
                         if (begin_time > next_trx_ct) {
                             // Read next version directly
-                            ret = static_cast<Item*>(ret->next);
+                            version = static_cast<Item*>(version->next);
                         } else {
                             if (!read_only) {
                                 // Abort
-                                ret = nullptr;
-                                return false;
+                                version = nullptr;
+                                return make_pair(false, false);
                             }
                         }
                     }
@@ -113,15 +113,16 @@ bool MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& b
             break;
         }
 
-        if (ret == tail_snapshot) {
+        if (version == tail_snapshot) {
             // If the last version is still not visible, system error occurs.
             assert("no visible version, system error" != "");
         }
 
-        ret = static_cast<Item*>(ret->next);
+        version = static_cast<Item*>(version->next);
     }
 
-    return true;
+    ret = version->val;
+    return make_pair(true, true);
 }
 
 template<class Item>

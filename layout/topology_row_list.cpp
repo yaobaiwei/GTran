@@ -61,19 +61,18 @@ READ_STAT TopologyRowList::ReadConnectedVertex(const Direction_T& direction, con
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         if (direction == BOTH || (cell_ref.is_out == (direction == OUT))) {
-            EdgeMVCCItem* visible_version;
-            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+            EdgeVersion edge_version;
+            pair<bool, bool> is_visible = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
 
-            if (!success)
+            if (!is_visible.first)
                 return READ_STAT::ABORT;
-            if (visible_version == nullptr)
+            if (!is_visible.second)
                 continue;
 
-            auto edge_item = visible_version->GetValue();
-            if (!edge_item.Exist())
+            if (!edge_version.Exist())
                 continue;
 
-            if (edge_label == 0 || edge_label == edge_item.label)
+            if (edge_label == 0 || edge_label == edge_version.label)
                 ret.emplace_back(cell_ref.conn_vtx_id);
         }
     }
@@ -96,19 +95,18 @@ READ_STAT TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         if (direction == BOTH || (cell_ref.is_out == (direction == OUT))) {
-            EdgeMVCCItem* visible_version;
-            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+            EdgeVersion edge_version;
+            pair<bool, bool> is_visible = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
 
-            if (!success)
+            if (!is_visible.first)
                 return READ_STAT::ABORT;
-            if (visible_version == nullptr)
+            if (!is_visible.second)
                 continue;
 
-            auto edge_item = visible_version->GetValue();
-            if (!edge_item.Exist())
+            if (!edge_version.Exist())
                 continue;
 
-            if (edge_label == 0 || edge_label == edge_item.label) {
+            if (edge_label == 0 || edge_label == edge_version.label) {
                 if (cell_ref.is_out)
                     ret.emplace_back(eid_t(cell_ref.conn_vtx_id.value(), my_vid_.value()));
                 else
