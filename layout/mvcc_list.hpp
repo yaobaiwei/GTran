@@ -35,6 +35,11 @@ class MVCCList {
     pair<bool, bool> GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
                            const bool& read_only, ValueType& ret);
 
+    // Called by GetVisibleVersion. Check if the tail_ (uncommited) is to be read.
+    // if ret.first == false, abort; 
+    // If pre-read is performed, dependency will be recorded in this function.
+    pair<bool, bool> TryPreReadUncommittedTail(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
+
     // If nullptr, then append failed.
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
     ValueType* AppendInitialVersion();

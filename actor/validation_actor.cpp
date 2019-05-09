@@ -159,7 +159,7 @@ void ValidationActor::prepare_primitive_list() {
 // False --> Abort; True --> Continue
 bool ValidationActor::valid_dependency_read(uint64_t trxID, vector<uint64_t> & homo_dep_read, vector<uint64_t> & hetero_dep_read) {
     vector<uint64_t>::iterator itr = homo_dep_read.begin();
-    for ( ; itr != homo_dep_read.end(); itr++) {
+    for ( ; itr != homo_dep_read.end(); ) {
         // Abort --> Abort
         TRX_STAT stat;
         trx_table_stub_->read_status(*itr, stat);
@@ -173,7 +173,7 @@ bool ValidationActor::valid_dependency_read(uint64_t trxID, vector<uint64_t> & h
     }
 
     itr = hetero_dep_read.begin();
-    for ( ; itr != hetero_dep_read.end(); itr++) {
+    for ( ; itr != hetero_dep_read.end(); ) {
         // Commit --> Abort
         TRX_STAT stat;
         trx_table_stub_->read_status(*itr, stat);

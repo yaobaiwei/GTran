@@ -14,109 +14,139 @@ Item* MVCCList<Item>::GetHead() {
     return head_;
 }
 
+template<class Item>
+pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_id, const uint64_t& begin_time,
+                                                           const bool& read_only) {
+    /* Need to compare current_transaction_bt(BT) and next_version_tranasction_ct(NCT)
+     *   case 1. Processing ---> Ignore (Will valid in normal validation for non-read_only)
+     *   case 2. Validation && BT > NCT ---> Optimistic read, read next_version ---> HomoDependency
+     *   case 3. Validation && BT < NCT ---> Read current_version,
+     *                                          For non-read_only, if next_version commit, me abort ---> HeteroDependency
+     *                                          For read_only, no dependency
+     *   case 4. Commit && BT > NCT ---> Read next version and no need to record
+     *   case 5. Commit && BT < NCT ---> For non-read_only, Abort Directly
+     *                                   For read_only, Read current_version
+     *   case 6. Abort ---> Ignore
+     */
+
+    uint64_t next_ver_trx_id = tail_->GetTransactionID();
+    assert(next_ver_trx_id != 0);
+
+    TrxTableStub * trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
+
+    TRX_STAT cur_stat;
+    uint64_t next_trx_ct;
+    trx_table_stub_->read_ct(next_ver_trx_id, cur_stat, next_trx_ct);
+    if (cur_stat == TRX_STAT::VALIDATING) {
+        if (begin_time > next_trx_ct) {
+            // Optimistic read
+            {
+                dep_trx_accessor accessor;
+                dep_trx_map.insert(accessor, trx_id);
+                accessor->second.homo_trx_list.emplace_back(next_ver_trx_id);
+            }   // record homo-dependency
+            return make_pair(true, true);
+        } else {
+            if (!read_only) {
+                dep_trx_accessor accessor;
+                dep_trx_map.insert(accessor, trx_id);
+                accessor->second.hetero_trx_list.emplace_back(next_ver_trx_id);
+            }   // record hetero-dependency
+        }
+    } else if (cur_stat == TRX_STAT::COMMITTED) {
+        if (begin_time > next_trx_ct) {
+            return make_pair(true, true);  // Read next version directly
+        } else {
+            if (!read_only) {
+                return make_pair(false, false);  // Abort
+            }
+        }
+    }
+
+    return make_pair(true, false);
+}
+
 // return false if abort
 template<class Item>
 pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, ValueType& ret) {
-    // get a snapshot of 4 pointers of the MVCCList in critical region
-    pthread_spin_lock(&lock_);
-    Item* head_snapshot = head_;
-    Item* tail_snapshot = tail_;
-    Item* pre_tail_snapshot = pre_tail_;
-    Item* tmp_pre_tail_snapshot = tmp_pre_tail_;
-    pthread_spin_unlock(&lock_);
+    Item *iterate_head, *iterate_tail;
 
-    Item* version;
+    {
+        SimpleSpinLockGuard lock_guard(&lock_);
 
-    // the MVCCList is empty
-    if (head_snapshot == nullptr) {
-        return make_pair(true, false);
-    }
+        // The MVCCList is empty
+        if (head_ == nullptr) {
+            return make_pair(true, false);
+        }
 
-    if (tail_snapshot->GetTransactionID() == trx_id) {
-        // In the same trx, the uncommitted tail is visible.
-        ret = tail_snapshot->val;
-        return make_pair(true, true);
-    }
+        // No uncommitted version in the MVCCList
+        if (tail_->GetTransactionID() == 0) {
+            // No visible version
+            if (head_->GetBeginTime() > begin_time) {
+                return make_pair(true, false);
+            } else {  // At least one visible between head_ and tail_
+                // For non-readonly transaction, if the visible version is not tail_, abort directly
+                if (!read_only) {
+                    if (tail_->GetBeginTime() > begin_time) {
+                        return make_pair(false, false);
+                    }
+                    ret = tail_->val;
+                    return make_pair(true, true);
+                }
+            }
+            iterate_tail = tail_;
+        } else {  // The tail is uncommited
+            // The tail_ is created by the same transaction
+            if (tail_->GetTransactionID() == trx_id) {
+                ret = tail_->val;
+                return make_pair(true, true);
+            } else if (head_ == tail_) {  // Only one version in the whole mvcc_list, and it is uncommited
+                fflush(stdout);
+                pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
+                if (!preread_visible.first)
+                    return make_pair(false, false);
 
-    // tmp_pre_tail_ is not nullptr only when the tail_ is uncommitted.
-    if (tmp_pre_tail_snapshot != nullptr) {
-        tail_snapshot = pre_tail_snapshot;
-    }
+                if (preread_visible.second)
+                    ret = tail_->val;
 
-    // The whole MVCCList is not visible to the current trx
-    if (begin_time < head_snapshot->GetBeginTime()) {
-        return make_pair(true, false);
+                // Early return, since no commited version in the MVCCList
+                return preread_visible;
+            } else {  // At least one committed version in MVCCList; pre_tail is committed, and tail_ is uncommitted.
+                // The whole mvcc_list is not visible
+                if (head_->GetBeginTime() > begin_time) {
+                    return make_pair(true, false);
+                } else if (pre_tail_->GetBeginTime() <= begin_time) {  // pre_tail_ is visible to me
+                    fflush(stdout);
+                    pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
+
+                    if (!preread_visible.first)
+                        return make_pair(false, false);
+
+                    if (preread_visible.second)
+                        ret = tail_->val;
+                    else
+                        ret = pre_tail_->val;
+                    return make_pair(true, true);
+                } else {  // There is a visible version in [head_, pre_tail_)
+                    if (!read_only)
+                        return make_pair(false, false);
+                }
+            }
+            iterate_tail = pre_tail_;
+        }
+        iterate_head = head_;
     }
 
     // Begin the iteration from the head of MVCCList
-    version = head_snapshot;
+    Item* version = iterate_head;
 
     while (true) {
         // If visible, break
-        if (begin_time < version->GetEndTime()) {
-            // Check whether there is next version
-            if (version->next != nullptr) {
-                uint64_t next_ver_trx_id = (static_cast<Item*>(version->next))->GetTransactionID();
-                TrxTableStub * trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
-
-                if (next_ver_trx_id == 0) {  // Next version committed
-                    if (!read_only) {
-                        // Abort directly for non-read_only (read set has been modified)
-                        version = nullptr;
-                        return make_pair(false, false);
-                    }
-                } else {  // Next version NOT committed
-                    /* Need to compare current_transaction_bt(BT) and next_version_tranasction_ct(NCT)
-                     *   case 1. Processing ---> Ignore (Will valid in normal validation for non-read_only)
-                     *   case 2. Validation && BT > NCT ---> Optimistic read, read next_version ---> HomoDependency
-                     *   case 3. Validation && BT < NCT ---> Read current_version,
-                     *                                          For non-read_only, if next_version commit, me abort ---> HeteroDependency
-                     *                                          For read_only, no dependency
-                     *   case 4. Commit && BT > NCT ---> Read next version and no need to record
-                     *   case 5. Commit && BT < NCT ---> For non-read_only, Abort Directly
-                     *                                   For read_only, Read current_version
-                     *   case 6. Abort ---> Ignore
-                     */
-                    TRX_STAT cur_stat; uint64_t next_trx_ct;
-                    trx_table_stub_->read_ct(next_ver_trx_id, cur_stat, next_trx_ct);
-                    if (cur_stat == TRX_STAT::VALIDATING) {
-                        if (begin_time > next_trx_ct) {
-                            // Optimistic read
-                            version = static_cast<Item*>(version->next);
-                            {
-                                dep_trx_accessor accessor;
-                                dep_trx_map.insert(accessor, trx_id);
-                                accessor->second.homo_trx_list.emplace_back(next_ver_trx_id);
-                            }   // record homo-dependency
-                        } else {
-                            if (!read_only) {
-                                dep_trx_accessor accessor;
-                                dep_trx_map.insert(accessor, trx_id);
-                                accessor->second.hetero_trx_list.emplace_back(next_ver_trx_id);
-                            }   // record hetero-dependency
-                        }
-                    } else if (cur_stat == TRX_STAT::COMMITTED) {
-                        if (begin_time > next_trx_ct) {
-                            // Read next version directly
-                            version = static_cast<Item*>(version->next);
-                        } else {
-                            if (!read_only) {
-                                // Abort
-                                version = nullptr;
-                                return make_pair(false, false);
-                            }
-                        }
-                    }
-                }
-            }
+        if (begin_time < version->GetEndTime())
             break;
-        }
 
-        if (version == tail_snapshot) {
-            // If the last version is still not visible, system error occurs.
-            assert("no visible version, system error" != "");
-        }
+        assert(version != iterate_tail);
 
         version = static_cast<Item*>(version->next);
     }
@@ -143,8 +173,8 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
         return &head_mvcc->val;
     }
 
+    // The tail is uncommitted
     if (tail_->GetBeginTime() > Item::MAX_TIME) {
-        // The tail is uncommitted
         if (tail_->GetTransactionID() == trx_id) {
             /* In the same transaction, the original value will be overwritten,
              * and the MVCCList will not be extended.
@@ -153,8 +183,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
                 tail_->ValueGC();
 
             return &tail_->val;
-        } else {
-            // write-write conflict occurs, abort
+        } else {  // write-write conflict occurs, abort
             return nullptr;
         }
     }
@@ -176,9 +205,9 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
     return &new_version->val;
 }
 
+// Loading data from HDFS, do not need to lock the list
 template<class Item>
 decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
-    // Loading data from HDFS, do not need to lock the list
     Item* initial_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     initial_mvcc->Init(Item::MIN_TIME, Item::MAX_TIME);
@@ -215,14 +244,13 @@ void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
 
     mem_pool_->Free(tail_, TidMapper::GetInstance()->GetTidUnique());
 
+    // More than one version in MVCCList
     if (tail_ != pre_tail_) {
-        // More than one version in MVCCList
         pre_tail_->next = nullptr;
 
         tail_ = pre_tail_;
         pre_tail_ = tmp_pre_tail_;
-    } else {
-        // Only one version in MVCCList
+    } else {  // Only one version in MVCCList
         tail_ = head_ = pre_tail_ = nullptr;
     }
 
