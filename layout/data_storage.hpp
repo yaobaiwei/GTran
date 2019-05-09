@@ -85,11 +85,13 @@ class DataStorage {
     /* the MVCCList<EdgeMVCCItem>* pointer will be the same in the EdgeHeader in
      * corresponding Vertex's ve_row_list
      */
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> out_edge_map_;
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> in_edge_map_;
+    tbb::concurrent_hash_map<uint64_t, OutEdge> out_edge_map_;
+    tbb::concurrent_hash_map<uint64_t, InEdge> in_edge_map_;
     // since edge properties are attached to out_e, the in_e instance does not record any properties
-    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::accessor EdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::const_accessor EdgeConstAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, OutEdge>::accessor OutEdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, OutEdge>::const_accessor OutEdgeConstAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, InEdge>::accessor InEdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, InEdge>::const_accessor InEdgeConstAccessor;
     // the vid of Vertex is unique
     tbb::concurrent_hash_map<uint32_t, Vertex> vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, Vertex>::accessor VertexAccessor;
@@ -146,8 +148,8 @@ class DataStorage {
     /* used before reading or editing edge properties
      * e_accessor and item_ref will be modified
      */
-    READ_STAT GetOutEdgeItem(EdgeConstAccessor& e_accessor, const eid_t& eid, const uint64_t& trx_id,
-                             const uint64_t& begin_time, const bool& read_only, Edge& item_ref);
+    READ_STAT GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid, const uint64_t& trx_id,
+                             const uint64_t& begin_time, const bool& read_only, EdgeVersion& item_ref);
 
     // v_accessor will not be modified
     READ_STAT CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
@@ -181,7 +183,7 @@ class DataStorage {
     READ_STAT GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                     const bool& read_only, label_t& ret);
 
-    /* do not need to implement GetInV and GetOutV of Edge since eid_t contains in_v and out_v
+    /* do not need to implement GetInV and GetOutV of EdgeVersion since eid_t contains in_v and out_v
      * if edge_label == 0, then do not filter by edge_label
      */
     READ_STAT GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,

@@ -39,7 +39,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::InsertInitialCell(const bool& is_out, c
                                                            const label_t& label,
                                                            PropertyRowList<EdgePropertyRow>* ep_row_list_ptr) {
     MVCCList<EdgeMVCCItem>* mvcc_list = new MVCCList<EdgeMVCCItem>;
-    mvcc_list->AppendInitialVersion()[0] = Edge(label, ep_row_list_ptr);
+    mvcc_list->AppendInitialVersion()[0] = EdgeVersion(label, ep_row_list_ptr);
 
     AllocateCell(is_out, conn_vtx_id, mvcc_list);
 
@@ -61,19 +61,18 @@ READ_STAT TopologyRowList::ReadConnectedVertex(const Direction_T& direction, con
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         if (direction == BOTH || (cell_ref.is_out == (direction == OUT))) {
-            EdgeMVCCItem* visible_version;
-            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+            EdgeVersion edge_version;
+            pair<bool, bool> is_visible = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
 
-            if (!success)
+            if (!is_visible.first)
                 return READ_STAT::ABORT;
-            if (visible_version == nullptr)
+            if (!is_visible.second)
                 continue;
 
-            auto edge_item = visible_version->GetValue();
-            if (!edge_item.Exist())
+            if (!edge_version.Exist())
                 continue;
 
-            if (edge_label == 0 || edge_label == edge_item.label)
+            if (edge_label == 0 || edge_label == edge_version.label)
                 ret.emplace_back(cell_ref.conn_vtx_id);
         }
     }
@@ -96,19 +95,18 @@ READ_STAT TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
         if (direction == BOTH || (cell_ref.is_out == (direction == OUT))) {
-            EdgeMVCCItem* visible_version;
-            bool success = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, visible_version);
+            EdgeVersion edge_version;
+            pair<bool, bool> is_visible = cell_ref.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
 
-            if (!success)
+            if (!is_visible.first)
                 return READ_STAT::ABORT;
-            if (visible_version == nullptr)
+            if (!is_visible.second)
                 continue;
 
-            auto edge_item = visible_version->GetValue();
-            if (!edge_item.Exist())
+            if (!edge_version.Exist())
                 continue;
 
-            if (edge_label == 0 || edge_label == edge_item.label) {
+            if (edge_label == 0 || edge_label == edge_version.label) {
                 if (cell_ref.is_out)
                     ret.emplace_back(eid_t(cell_ref.conn_vtx_id.value(), my_vid_.value()));
                 else
@@ -125,7 +123,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
                                                         PropertyRowList<EdgePropertyRow>* ep_row_list_ptr,
                                                         const uint64_t& trx_id, const uint64_t& begin_time) {
     MVCCList<EdgeMVCCItem>* mvcc_list = new MVCCList<EdgeMVCCItem>;
-    mvcc_list->AppendVersion(trx_id, begin_time)[0] = Edge(edge_label, ep_row_list_ptr);
+    mvcc_list->AppendVersion(trx_id, begin_time)[0] = EdgeVersion(edge_label, ep_row_list_ptr);
 
     // This won't fail, guaranteed by DataStorage::ProcessAddE
     AllocateCell(is_out, conn_vtx_id, mvcc_list);

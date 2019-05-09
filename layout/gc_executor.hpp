@@ -23,10 +23,12 @@ class GCExecutor {
     GCExecutor(const GCExecutor&);
     ~GCExecutor() {}
 
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> *out_edge_map_;
-    tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*> *in_edge_map_;
-    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::accessor EdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>::const_accessor EdgeConstAccessor;
+    tbb::concurrent_hash_map<uint64_t, OutEdge>* out_edge_map_;
+    tbb::concurrent_hash_map<uint64_t, InEdge>* in_edge_map_;
+    typedef tbb::concurrent_hash_map<uint64_t, OutEdge>::accessor OutEdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, OutEdge>::const_accessor OutEdgeConstAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, InEdge>::accessor InEdgeAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, InEdge>::const_accessor InEdgeConstAccessor;
     tbb::concurrent_hash_map<uint32_t, Vertex> *vertex_map_;
     typedef tbb::concurrent_hash_map<uint32_t, Vertex>::accessor VertexAccessor;
     typedef tbb::concurrent_hash_map<uint32_t, Vertex>::const_accessor VertexConstAccessor;
@@ -46,11 +48,11 @@ class GCExecutor {
     void VertexMVCCItemGC(VertexMVCCItem*);
     void EdgeMVCCItemGC(EdgeMVCCItem*);
     void VertexGC(Vertex*);
-    void EdgeGC(Edge*);
+    void EdgeGC(EdgeVersion*);
 
  public:
-    void Init(tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>*,
-              tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>*,
+    void Init(tbb::concurrent_hash_map<uint64_t, OutEdge>*,
+              tbb::concurrent_hash_map<uint64_t, InEdge>*,
               tbb::concurrent_hash_map<uint32_t, Vertex>*,
               MVCCValueStore*, MVCCValueStore*);
 

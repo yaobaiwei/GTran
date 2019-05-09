@@ -7,8 +7,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 using namespace std;
 
-void GCExecutor::Init(tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>* out_edge_map,
-                      tbb::concurrent_hash_map<uint64_t, MVCCList<EdgeMVCCItem>*>* in_edge_map,
+void GCExecutor::Init(tbb::concurrent_hash_map<uint64_t, OutEdge>* out_edge_map,
+                      tbb::concurrent_hash_map<uint64_t, InEdge>* in_edge_map,
                       tbb::concurrent_hash_map<uint32_t, Vertex>* vertex_map,
                       MVCCValueStore* vp_store, MVCCValueStore* ep_store) {
     out_edge_map_ = out_edge_map;
@@ -88,7 +88,7 @@ void GCExecutor::VertexGC(Vertex* vertex) {
     delete vertex->ve_row_list;
 }
 
-void GCExecutor::EdgeGC(Edge* edge) {
+void GCExecutor::EdgeGC(EdgeVersion* edge) {
     if (edge->ep_row_list == nullptr)
         return;
     edge->ep_row_list->SelfGarbageCollect();

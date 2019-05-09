@@ -29,8 +29,11 @@ class MVCCList {
     // Invoked only when data loading
     Item* GetInitVersion();
 
-    bool GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
-                           const bool& read_only, MVCCItem_PTR& ret);
+    // ReturnValue
+    //  first: false if abort
+    //  second: false if no version visible
+    pair<bool, bool> GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                           const bool& read_only, ValueType& ret);
 
     // If nullptr, then append failed.
     ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);

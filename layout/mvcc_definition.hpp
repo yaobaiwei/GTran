@@ -123,9 +123,9 @@ struct VertexMVCCItem : public AbstractMVCCItem {
 
 struct EdgeMVCCItem : public AbstractMVCCItem {
  private:
-    Edge val;
+    EdgeVersion val;
  public:
-    Edge GetValue() const {return val;}
+    EdgeVersion GetValue() const {return val;}
 
     bool NeedGC() const {return val.ep_row_list != nullptr;}
     void ValueGC();
