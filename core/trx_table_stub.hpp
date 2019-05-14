@@ -27,5 +27,7 @@ class TrxTableStub {
                        std::vector<uint64_t>* trx_ids = nullptr) = 0;
 
     virtual bool read_status(uint64_t trx_id, TRX_STAT& status) = 0;
+
+    // Read ct and trx status. ct = 0 when trx is processing or aborted
     virtual bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) = 0;
 };

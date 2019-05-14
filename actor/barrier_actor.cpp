@@ -456,6 +456,7 @@ void PostValidationActor::do_work(int tid, const QueryPlan & qplan, Message & ms
             trx_table_stub_->update_status(qplan.trxid, TRX_STAT::COMMITTED);
             uint64_t ct = 0;
             trx_table_stub_->read_ct(qplan.trxid, stat, ct);
+            assert(ct != 0);
             value_t v;
             Tool::uint64_t2value_t(ct, v);
             msg_data.emplace_back(history_t(), vector<value_t>{move(v)});
