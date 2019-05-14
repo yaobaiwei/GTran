@@ -11,6 +11,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "utils/tool.hpp"
 #include "tbb/atomic.h"
+#include "utils/write_prior_rwlock.hpp"
 
 // tmp datatype for HDFSDataLoader
 struct TMPVertex {
