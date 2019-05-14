@@ -89,8 +89,13 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
         for (int i = 0; i < ASSOCIATIVITY_; ++i) {
             if (i < ASSOCIATIVITY_ - 1) {
                 if (trx_status[i].trx_id == trx_id) {
-                    ct = trx_status[i].getCT();
                     status = trx_status[i].getState();
+                    // Only get CT when trx is commited or validating
+                    if (status == TRX_STAT::COMMITTED || status == TRX_STAT::VALIDATING) {
+                        ct = trx_status[i].getCT();
+                    } else {
+                        ct = 0;
+                    }
                     return true;
                 }
             }
