@@ -655,8 +655,8 @@ void DataStorage::GetNameFromIndex(const Index_T& type, const label_t& id, strin
     }
 }
 
-void DataStorage::GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxIDList,
-                                    vector<uint64_t> & heteroTrxIDList) {
+void DataStorage::GetDepReadTrxList(uint64_t trxID, set<uint64_t> & homoTrxIDList,
+                                    set<uint64_t> & heteroTrxIDList) {
     dep_trx_const_accessor c_accessor;
 
     if (dep_trx_map.find(c_accessor, trxID)) {

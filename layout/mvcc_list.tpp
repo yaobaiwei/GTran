@@ -43,14 +43,14 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
             {
                 dep_trx_accessor accessor;
                 dep_trx_map.insert(accessor, trx_id);
-                accessor->second.homo_trx_list.emplace_back(tail_trx_id);
+                accessor->second.homo_trx_list.emplace(tail_trx_id);
             }   // record homo-dependency
             return make_pair(true, true);
         } else {
             if (!read_only) {
                 dep_trx_accessor accessor;
                 dep_trx_map.insert(accessor, trx_id);
-                accessor->second.hetero_trx_list.emplace_back(tail_trx_id);
+                accessor->second.hetero_trx_list.emplace(tail_trx_id);
             }   // record hetero-dependency
         }
     } else if (cur_stat == TRX_STAT::COMMITTED) {

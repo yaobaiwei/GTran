@@ -46,8 +46,8 @@ constexpr int InferElementCount(int preferred_size, int taken_size) {
 
 // For dependency read, whether commit depends on others' status
 struct depend_trx_lists {
-    std::vector<uint64_t> homo_trx_list;  // commit -> commit
-    std::vector<uint64_t> hetero_trx_list;  // abort -> commit
+    std::set<uint64_t> homo_trx_list;  // commit -> commit
+    std::set<uint64_t> hetero_trx_list;  // abort -> commit
 };
 
 extern tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;

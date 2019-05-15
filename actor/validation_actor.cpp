@@ -43,8 +43,8 @@ bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
 
     bool isAbort = false;
     // ===================Step 0======================//
-    vector<uint64_t> homo_dep_read;
-    vector<uint64_t> hetero_dep_read;
+    set<uint64_t> homo_dep_read;
+    set<uint64_t> hetero_dep_read;
     data_storage_->GetDepReadTrxList(cur_trxID, homo_dep_read, hetero_dep_read);
     if (qplan.trx_type == TRX_READONLY) {
         valid_optimistic_read(homo_dep_read, isAbort);
@@ -157,8 +157,8 @@ void ValidationActor::prepare_primitive_list() {
 }
 
 // False --> Abort; True --> Continue
-bool ValidationActor::valid_dependency_read(uint64_t trxID, vector<uint64_t> & homo_dep_read, vector<uint64_t> & hetero_dep_read) {
-    vector<uint64_t>::iterator itr = homo_dep_read.begin();
+bool ValidationActor::valid_dependency_read(uint64_t trxID, set<uint64_t> & homo_dep_read, set<uint64_t> & hetero_dep_read) {
+    set<uint64_t>::iterator itr = homo_dep_read.begin();
     for ( ; itr != homo_dep_read.end(); ) {
         // Abort --> Abort
         TRX_STAT stat;
@@ -342,10 +342,10 @@ void ValidationActor::valid_optimistic_validation(vector<uint64_t> & optimistic_
     }
 }
 
-void ValidationActor::valid_optimistic_read(vector<uint64_t> & homo_dep_read, bool & isAbort) {
+void ValidationActor::valid_optimistic_read(set<uint64_t> & homo_dep_read, bool & isAbort) {
     int opt_read_counter = 0;
     while (true) {
-        vector<uint64_t>::iterator itr = homo_dep_read.begin();
+        set<uint64_t>::iterator itr = homo_dep_read.begin();
         while (itr != homo_dep_read.end()) {
             TRX_STAT cur_stat;
             trx_table_stub_->read_status(*itr, cur_stat);

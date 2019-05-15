@@ -235,7 +235,7 @@ class DataStorage {
     void Init();
 
     // Dependency Read
-    void GetDepReadTrxList(uint64_t trxID, vector<uint64_t> & homoTrxDList, vector<uint64_t> & heteroTrxIDList);
+    void GetDepReadTrxList(uint64_t trxID, set<uint64_t> & homoTrxDList, set<uint64_t> & heteroTrxIDList);
     void CleanDepReadTrxList(uint64_t trxID);
 
     // Debug function, called after FillContainer.
