@@ -7,7 +7,48 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     int tid = TidMapper::GetInstance()->GetTid();
 
-    bool isAbort = validate(qplan, msg);
+    // ===================Abstract====================//
+    /**
+     * 0. Valid dependency read;
+     * 1. Get RCTList from parameters;
+     * 2. Process Current Trx to get : a. set of steps; b. step to index map; c. step to parameters map;
+     * 3. Get RCT Content with TrxList (step1) in local;
+     * 4. Merge prepared Primitive2Step map and set of steps (step2) to get pmt2step_map for cur_trx;
+     * 5. Combine pmt2step_map (step4) and RCT Content (step3) into step2content map;
+     * 6. Iterate setp2content map to invoke valid() in each actor
+     * 7. Complete last validation for optimistic validation
+     * 8. Complete last validation for optimistic pre-read
+     */
+
+    bool isAbort = false;
+
+    // -------------------Step 0----------------------//
+    set<uint64_t> homo_dep_read;
+    set<uint64_t> hetero_dep_read;
+    data_storage_->GetDepReadTrxList(qplan.trxid, homo_dep_read, hetero_dep_read);
+    if (qplan.trx_type == TRX_READONLY) {
+        valid_optimistic_read(homo_dep_read, isAbort);
+        if (isAbort) {
+            // Abort
+            trx_table_stub_->update_status(qplan.trxid, TRX_STAT::ABORT);
+        }
+    } else {
+        if (!valid_dependency_read(qplan.trxid, homo_dep_read, hetero_dep_read)) {
+            // Abort
+            trx_table_stub_->update_status(qplan.trxid, TRX_STAT::ABORT);
+            isAbort = true;
+        }
+    }
+
+    // -----------------Step 1-7------------------------//
+    if (!isAbort) {
+        isAbort = validate(qplan, msg);
+    }
+
+    // -----------------Step 8--------------------------//
+    if (!isAbort && homo_dep_read.size() != 0) {
+        valid_optimistic_read(homo_dep_read, isAbort);
+    }
 
     // Create Message
     vector<Message> msg_vec;
@@ -27,39 +68,7 @@ bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
     uint64_t cur_qid = m.qid;
     // Get number of queries in this transcation (Except validation itself)
     uint64_t num_queries = cur_qid & _8LFLAG;
-
-    // ===================Abstract====================//
-    /**
-     * 0. Valid dependency read;
-     * 1. Get RCTList from parameters;
-     * 2. Process Current Trx to get : a. set of steps; b. step to index map; c. step to parameters map;
-     * 3. Get RCT Content with TrxList (step1) in local;
-     * 4. Merge prepared Primitive2Step map and set of steps (step2) to get pmt2step_map for cur_trx;
-     * 5. Combine pmt2step_map (step4) and RCT Content (step3) into step2content map;
-     * 6. Iterate setp2content map to invoke valid() in each actor
-     * 7. Complete last validation for optimistic validation
-     * 8. Complete last validation for optimistic pre-read
-     */
-
     bool isAbort = false;
-    // ===================Step 0======================//
-    set<uint64_t> homo_dep_read;
-    set<uint64_t> hetero_dep_read;
-    data_storage_->GetDepReadTrxList(cur_trxID, homo_dep_read, hetero_dep_read);
-    if (qplan.trx_type == TRX_READONLY) {
-        valid_optimistic_read(homo_dep_read, isAbort);
-        if (isAbort) {
-            // Abort
-            trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
-        }
-        return isAbort;
-    } else {
-        if (!valid_dependency_read(cur_trxID, homo_dep_read, hetero_dep_read)) {
-            // Abort
-            trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
-            return true;
-        }
-    }
 
     // ===================Step 1======================//
     vector<uint64_t> trxIDList;
@@ -76,7 +85,10 @@ bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
     // ===================Step 3======================//
     // map<Primitive -> map<TrxID -> vector<RCTValue>>>
     unordered_map<int, unordered_map<uint64_t, vector<rct_extract_data_t>>> rct_content_map;
-    get_recent_action_set(trxIDList, rct_content_map);
+    if (!get_recent_action_set(trxIDList, rct_content_map)) {
+        // There is not RCT data, no need to validate further, commit
+        return false;
+    }
 
     // ===================Step 4======================//
     unordered_map<int, vector<vstep_t>> curPrimitiveStepMap;
@@ -93,6 +105,8 @@ bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
     // ===================Step 5======================//
     step2TrxRct_map_t_ check_step_map;
     for (int i = 0; i < static_cast<int>(Primitive_T::COUNT); i++) {
+        if (rct_content_map.find(i) == rct_content_map.end()) { continue; }
+
         for (auto & vs : curPrimitiveStepMap.at(i)) {
             check_step_map.emplace(vs, rct_content_map.at(i));
         }
@@ -106,11 +120,6 @@ bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
     // Optimistic Validation
     if (!isAbort && optimistic_validation_trx.size() != 0) {
         valid_optimistic_validation(optimistic_validation_trx, isAbort);
-    }
-
-    // ===================Step 8===================//
-    if (!isAbort && homo_dep_read.size() != 0) {
-        valid_optimistic_read(homo_dep_read, isAbort);
     }
 
     return isAbort;
@@ -215,13 +224,19 @@ void ValidationActor::process_trx(int num_queries, uint64_t cur_qid, set<vstep_t
     }
 }
 
-void ValidationActor::get_recent_action_set(const vector<uint64_t> & trxIDList,
+// True -> Get something; False -> No data got
+bool ValidationActor::get_recent_action_set(const vector<uint64_t> & trxIDList,
         unordered_map<int, unordered_map<uint64_t, vector<rct_extract_data_t>>> & rct_map) {
+    bool dataGot = false;
     for (int p = 0; p < static_cast<int>(Primitive_T::COUNT); p++) {
         unordered_map<uint64_t, vector<rct_extract_data_t>> trx_rct_map;
         pmt_rct_table_->GetRecentActionSet((Primitive_T)p, trxIDList, trx_rct_map);
-        rct_map[p] = move(trx_rct_map);
+        if (trx_rct_map.size() != 0) {
+            dataGot = true;
+            rct_map.emplace(p, trx_rct_map);
+        }
     }
+    return dataGot;
 }
 
 void ValidationActor::get_vstep(Actor_Object * cur_actor_obj, int step_num,

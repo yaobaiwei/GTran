@@ -151,7 +151,7 @@ class ValidationActor : public AbstractActor {
 
     void process_trx(int num_queries, uint64_t cur_qid, set<vstep_t> & trx_step_sets, step2aobj_map_t_ & step_aobj_map);
 
-    void get_recent_action_set(const vector<uint64_t> & trxIDList, unordered_map<int, unordered_map<uint64_t, vector<rct_extract_data_t>>> & rct_map);
+    bool get_recent_action_set(const vector<uint64_t> & trxIDList, unordered_map<int, unordered_map<uint64_t, vector<rct_extract_data_t>>> & rct_map);
 
     void get_vstep(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
     void get_vstep_for_has(Actor_Object * cur_actor_obj, int step_num, set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map);
