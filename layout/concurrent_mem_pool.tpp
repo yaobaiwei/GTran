@@ -35,8 +35,8 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT ele
     thread_stat_ = reinterpret_cast<ThreadStat*>(_mm_malloc(sizeof(ThreadStat) * nthreads, 4096));
 
     for (int tid = 0; tid < nthreads; tid++) {
-        thread_stat_[tid].free_cell_count = 0;
         auto& local_stat = thread_stat_[tid];
+        local_stat.free_cell_count = 0;
         OffsetT tmp_head = head_;
         if (next_offset_[tmp_head] == tail_) {
             assert(false);
@@ -54,7 +54,6 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT ele
     pthread_spin_init(&lock_, 0);
 
     #ifdef OFFSET_MEMORY_POOL_DEBUG
-    nthreads_ = nthreads;
     element_count_ = element_count;
     get_counter_ = 0;
     free_counter_ = 0;

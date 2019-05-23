@@ -37,7 +37,7 @@ void PrimitiveRCTTable::GetRecentActionSet(Primitive_T p, const vector<uint64_t>
                     return;
                 }
             }
-            trx_rct_map.emplace(trxID, rct_content);
+            trx_rct_map.emplace(trxID, move(rct_content));
         }
     }
 }

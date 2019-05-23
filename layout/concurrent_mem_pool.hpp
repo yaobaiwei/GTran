@@ -40,12 +40,12 @@ class ConcurrentMemPool {
 
     #ifdef OFFSET_MEMORY_POOL_DEBUG
     OffsetT element_count_;
-    int nthreads_;
     std::atomic_int get_counter_, free_counter_;
     #endif  // OFFSET_MEMORY_POOL_DEBUG
 
-    // simple implemention with acceptable performance
+    // Next avaliable element index, modified in Get
     OffsetT head_ __attribute__((aligned(64)));
+    // Last avaliable element index, modified in Free
     OffsetT tail_ __attribute__((aligned(64)));
 
     pthread_spinlock_t lock_ __attribute__((aligned(64)));

@@ -13,7 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct AbstractMVCCItem {
  private:
-    /* In out system, a timestamp's highest bit is always 0,
+    /* In our system, a timestamp's highest bit is always 0,
      *      while a trx_id's highest bit is always 1.
      * If this MVCCItem is commited, it will be visible to a transaction with timestamp
      *      in range of [begin_time, end_time).
@@ -70,18 +70,18 @@ struct AbstractMVCCItem {
     friend class GCExecutor;
 };
 
-/* Each type of MVCC needs to provides memvers and interfaces below:
+/* Each type of MVCC must provide members and interfaces below:
  *   Members:
  *      ValueType val: the value of a specific version
  *   Interfaces (all public):
  *      ValueType GetValue(): get a copy of val
- *      bool NeedGC(): identify if recycling this MVCC needs to invokes GC for val
- *      void ValueGC(): called when the version is overwritten in the same transaction, and NeedGC()
+ *      bool NeedGC():  identify if recycling this MVCC needs to invokes GC for val
+ *      void ValueGC(): invokes GC for val
  */
 
 struct PropertyMVCCItem : public AbstractMVCCItem {
  protected:
-    // ValueHeader is the metadata of a inserted value in MVCCValueStore,
+    // ValueHeader is the metadata of a inserted value in MVCCValueStore
     ValueHeader val;
 
  public:

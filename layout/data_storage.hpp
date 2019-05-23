@@ -26,7 +26,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
 
-struct TransactionItem {
+struct TrxProcessHistory {
     enum ProcessType {
         PROCESS_ADD_V,
         PROCESS_ADD_E,
@@ -117,23 +117,19 @@ class DataStorage {
     int worker_rank_, worker_size_;
     vid_t AssignVID();
 
-    /* Transaction processing stage related
-     * transaction_process_map_ is used to record the "modify sequence" of transactions.
-     * The key of this map is trx_id. TransactionItem records the "modify sequence" of a transaction.
+    /* Records the process history of a transaction in Process phase, used in Abort or Commit
+     *     uint64_t          : trx_id
+     *     TrxProcessHistory : process history
      */
-    tbb::concurrent_hash_map<uint64_t, TransactionItem> transaction_process_map_;
-    typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::accessor TransactionAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, TransactionItem>::const_accessor TransactionConstAccessor;
-    /* For each Process function, a MVCCList instance will be modified. InsertTrxProcessMap will record the pointer
-     * of MVCCList in corresponding trx's TransactionItem, which will be necessary when calling Abort or Commit.
-     */
-    void InsertTrxProcessMapStd(const uint64_t& trx_id, const TransactionItem::ProcessType& type, void* mvcc_list);
-    /* However, if we want to abort AddV, the pointer of MVCCList is not enough, since we need to free vp_row_list
-     * and ve_row_list attached to the Vertex added. InsertTrxProcessMapAddV requires one more parameter (vid) than
-     * InsertTrxProcessMapStd, dedicated for ProcessAddV.
-     */
-    void InsertTrxProcessMapAddV(const uint64_t& trx_id, const TransactionItem::ProcessType& type,
-                                 void* mvcc_list, vid_t vid);
+    tbb::concurrent_hash_map<uint64_t, TrxProcessHistory> transaction_history_map_;
+    typedef tbb::concurrent_hash_map<uint64_t, TrxProcessHistory>::accessor TransactionAccessor;
+    typedef tbb::concurrent_hash_map<uint64_t, TrxProcessHistory>::const_accessor TransactionConstAccessor;
+
+    // Record process type and pointer of MVCCList.
+    // Should be called in each ProcessXXX function except ProcessAddV
+    void InsertTrxHistoryMap(const uint64_t& trx_id, const TrxProcessHistory::ProcessType& type, void* mvcc_list);
+    // Alternative of InsertTrxHistoryMap for ProcessAddV
+    void InsertTrxHistoryMapAddV(const uint64_t& trx_id, void* mvcc_list, vid_t vid);
 
     // aggregated data related
     unordered_map<agg_t, vector<value_t>> agg_data_table;
@@ -145,16 +141,11 @@ class DataStorage {
     // Garbage Collection
     GCExecutor* gc_executor_ = nullptr;
 
-    /* used before reading or editing edge properties
-     * e_accessor and item_ref will be modified
-     */
+    // e_accessor and item_ref will be modified
     READ_STAT GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeVersion& item_ref);
 
-    // v_accessor will not be modified
-    READ_STAT CheckVertexVisibility(VertexConstAccessor& v_accessor, const uint64_t& trx_id,
-                                    const uint64_t& begin_time, const bool& read_only);
-    READ_STAT CheckVertexVisibility(VertexAccessor& v_accessor, const uint64_t& trx_id,
+    READ_STAT CheckVertexVisibility(const VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);
 
  public:
@@ -217,7 +208,7 @@ class DataStorage {
     void Commit(const uint64_t& trx_id, const uint64_t& commit_time);
     void Abort(const uint64_t& trx_id);
 
-    //// Indexed data access
+    // Indexed data access
     // Dynamic label (V, E, VP, EP) creation is not enabled.
     void GetNameFromIndex(const Index_T& type, const label_t& id, string& str);
 

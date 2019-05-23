@@ -170,6 +170,5 @@ struct InEdge {
 };
 
 struct OutEdge {
-    uint32_t edge_version_count;
     MVCCList<EdgeMVCCItem>* mvcc_list;
 };

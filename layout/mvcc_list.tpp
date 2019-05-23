@@ -29,33 +29,33 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
      *   case 6. Abort ---> Ignore
      */
 
-    uint64_t next_ver_trx_id = tail_->GetTransactionID();
-    assert(next_ver_trx_id != 0);
+    uint64_t tail_trx_id = tail_->GetTransactionID();
+    assert(tail_trx_id != 0);
 
     TrxTableStub * trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
     TRX_STAT cur_stat;
-    uint64_t next_trx_ct;
-    trx_table_stub_->read_ct(next_ver_trx_id, cur_stat, next_trx_ct);
+    uint64_t tail_trx_ct;
+    trx_table_stub_->read_ct(tail_trx_id, cur_stat, tail_trx_ct);
     if (cur_stat == TRX_STAT::VALIDATING) {
-        if (begin_time > next_trx_ct) {
+        if (begin_time > tail_trx_ct) {
             // Optimistic read
             {
                 dep_trx_accessor accessor;
                 dep_trx_map.insert(accessor, trx_id);
-                accessor->second.homo_trx_list.emplace_back(next_ver_trx_id);
+                accessor->second.homo_trx_list.emplace_back(tail_trx_id);
             }   // record homo-dependency
             return make_pair(true, true);
         } else {
             if (!read_only) {
                 dep_trx_accessor accessor;
                 dep_trx_map.insert(accessor, trx_id);
-                accessor->second.hetero_trx_list.emplace_back(next_ver_trx_id);
+                accessor->second.hetero_trx_list.emplace_back(tail_trx_id);
             }   // record hetero-dependency
         }
     } else if (cur_stat == TRX_STAT::COMMITTED) {
-        if (begin_time > next_trx_ct) {
-            return make_pair(true, true);  // Read next version directly
+        if (begin_time > tail_trx_ct) {
+            return make_pair(true, true);  // Read uncommited version directly
         } else {
             if (!read_only) {
                 return make_pair(false, false);  // Abort
@@ -66,7 +66,9 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
     return make_pair(true, false);
 }
 
-// return false if abort
+// ReturnValue
+//  first: false if abort
+//  second: false if no version visible
 template<class Item>
 pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, ValueType& ret) {
@@ -80,7 +82,7 @@ pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const
             return make_pair(true, false);
         }
 
-        // No uncommitted version in the MVCCList
+        // The tail_ is commited
         if (tail_->GetTransactionID() == 0) {
             // No visible version
             if (head_->GetBeginTime() > begin_time) {
@@ -102,7 +104,6 @@ pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const
                 ret = tail_->val;
                 return make_pair(true, true);
             } else if (head_ == tail_) {  // Only one version in the whole mvcc_list, and it is uncommited
-                fflush(stdout);
                 pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
                 if (!preread_visible.first)
                     return make_pair(false, false);
@@ -117,7 +118,6 @@ pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const
                 if (head_->GetBeginTime() > begin_time) {
                     return make_pair(true, false);
                 } else if (pre_tail_->GetBeginTime() <= begin_time) {  // pre_tail_ is visible to me
-                    fflush(stdout);
                     pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
 
                     if (!preread_visible.first)

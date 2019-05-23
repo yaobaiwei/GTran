@@ -21,7 +21,6 @@ class MVCCList {
 
  public:
     typedef Item MVCCItemType;
-    typedef Item* MVCCItem_PTR;
 
     MVCCList();
 
