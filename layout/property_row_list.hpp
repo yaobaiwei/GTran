@@ -16,10 +16,10 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 template <class PropertyRow>
 class PropertyRowList {
  private:
-    typedef decltype(PropertyRow::cells_[0].pid) PidType;
-    typedef typename remove_pointer<decltype(PropertyRow::cells_[0].mvcc_list)>::type MVCCListType;
+    typedef typename remove_all_extents<decltype(PropertyRow::cells_)>::type CellType;
+    typedef decltype(CellType::pid) PidType;
+    typedef typename remove_pointer<decltype(CellType::mvcc_list)>::type MVCCListType;
     typedef typename MVCCListType::MVCCItemType MVCCItemType;
-    typedef typename remove_reference<decltype(PropertyRow::cells_[0])>::type CellType;
 
     static ConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
     static MVCCValueStore* value_storage_;
@@ -29,7 +29,6 @@ class PropertyRowList {
     pthread_spinlock_t lock_;
 
     CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
-    // 
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
 
     typedef tbb::concurrent_hash_map<label_t, CellType*> CellMap;
@@ -54,7 +53,9 @@ class PropertyRowList {
     READ_STAT ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, vector<PidType>& ret);
 
-    // the bool value will be true if "Modify", false if "Add"
+    // Return value:
+    //  bool:           True if "Modify", false if "Add"
+    //  MVCCListType* : Pointer to MVCC list, need to abort if is nullptr
     pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value,
                                                     const uint64_t& trx_id, const uint64_t& begin_time);
     MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);

@@ -11,6 +11,9 @@ void PropertyRowList<PropertyRow>::Init() {
     pthread_spin_init(&lock_, 0);
 }
 
+// Allocate cell for one property, each pid should occupies only one cell
+// property_count_ptr: snapshot of property_count_ from LocateCell
+// tail_ptr          : snapshot of tail_ptr from LocateCell
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         AllocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
@@ -29,37 +32,24 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     }
 
     // Called by ProcessModifyProperty, thread safety need to be guaranteed.
-
-    /* Why we need to check before allocating a cell to a pid:
-     *      1. In a PropertyRowList, a pid will only occupy one cell.
-     *      2. AllocateCell is called only when LocateCell fail to find the cell with pid.
-     *          However, after LocateCell (T1), other threads may have inserted cells into the
-     *          PropertyRowList before the current thread calls AllocateCell (T2).
-     */
-
     pthread_spin_lock(&lock_);
-
 
     int property_count_snapshot = property_count_;
     int recent_count = property_count_ptr[0];
     CellType* ret = nullptr;
     bool allocated_already = false;
 
-    // Check if new cell allocated between T1 and T2
+    // Check if new cell allocated by another thread
     if (recent_count != property_count_snapshot) {
-        /* So, we need to check if a cell with pid has been allocated between T1 and T2.
-         * At T1, the property_count_ of this PropertyRowList is recent_count,
-         * and the tail_ of this PropertyRowList is tail_ptr[0].
-         */
         PropertyRow* current_row = tail_ptr[0];
-
+        // Check pid of newly allocated cells
         for (int i = recent_count; i < property_count_snapshot; i++) {
             int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
             if (i > 0 && cell_id_in_row == 0) {
                 current_row = current_row->next_;
             }
             if (current_row->cells_[cell_id_in_row].pid == pid) {
-                // A cell with the same pid has already been allocated. Just abort.
+                // A cell with the same pid has already been allocated
                 allocated_already = true;
                 break;
             }
@@ -67,7 +57,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     }
 
     if (!allocated_already) {
-        // Do not need to abort, allocate a new cell;
+        // Allocate a new cell
         int cell_id = property_count_snapshot;
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
@@ -81,7 +71,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
 
         ret = &tail_->cells_[cell_id_in_row];
 
-        // Create map for fast traversal if needed
+        // Use map for fast traversal when #cells > threshold
         if (property_count_snapshot >= MAP_THRESHOLD) {
             if (cell_map_ == nullptr) {
                 cell_map_ = new CellMap;

@@ -143,7 +143,10 @@ OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
     get_counter_ += count;
     #endif  // MVCC_VALUE_STORE_DEBUG
 
-    if (count > BLOCK_SIZE && local_stat.free_cell_count < count + 3) {
+    // count + 2: make sure at least 2 free cells for each thread, reserved for head and tail
+
+    // Get cells from global space directly when count is too large
+    if (count > BLOCK_SIZE && local_stat.free_cell_count < count + 2) {
         pthread_spin_lock(&lock_);
         OffsetT ori_head = head_;
         for (OffsetT i = 0; i < count; i++) {
@@ -154,7 +157,7 @@ OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
         return ori_head;
     }
 
-    if (local_stat.free_cell_count < count + 3) {
+    if (local_stat.free_cell_count < count + 2) {
         // fetch a new block, append to the local block tail
         pthread_spin_lock(&lock_);
         OffsetT tmp_head = head_;
@@ -183,6 +186,7 @@ void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) 
     free_counter_ += count;
     #endif  // MVCC_VALUE_STORE_DEBUG
 
+    // Free cells to global space directly when count is too large
     if (count > 2 * BLOCK_SIZE) {
         OffsetT tmp_tail = offset;
         for (OffsetT i = 0; i < count - 1; i++) {
@@ -200,10 +204,9 @@ void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) 
     auto& local_stat = thread_stat_[tid];
 
     next_offset_[local_stat.block_tail] = offset;
-    local_stat.block_tail = offset;
     local_stat.free_cell_count += count;
 
-    for (OffsetT i = 0; i < count - 1; i++) {
+    for (OffsetT i = 0; i < count; i++) {
         local_stat.block_tail = next_offset_[local_stat.block_tail];
     }
     if (local_stat.free_cell_count >= 2 * BLOCK_SIZE) {

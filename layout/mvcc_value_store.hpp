@@ -29,11 +29,11 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #define MEM_ITEM_SIZE 8
 static_assert(MEM_ITEM_SIZE % 8 == 0, "mvcc_value_store.hpp, MEM_ITEM_SIZE % 8 != 0");
 
-// Empty string is not allowed, since "count == 0" means that the property has been dropped.
 struct ValueHeader {
     OffsetT head_offset;
     OffsetT count;
 
+    // True when the property has been dropped.
     bool IsEmpty() {return count == 0;}
     ValueHeader() {count = 0;}
     constexpr ValueHeader(OffsetT _head_offset, OffsetT _count) : head_offset(_head_offset), count(_count) {}
