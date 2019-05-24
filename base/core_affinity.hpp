@@ -204,27 +204,49 @@ class CoreAffinity {
         int cur_step = 0;
         int last_div = 0;  // last division core
 
-        int core_cnt = cpuinfo_->GetTotalCoreCount();
+        int physical_core_cnt = cpuinfo_->GetTotalCoreCount();
+        int socket_count = cpuinfo_->GetTotalSocketCount();  // #NUMA node
+        int core_per_socket = cpuinfo_->GetCorePerSocket();
 
-        for (int i = 0; i < core_cnt; i++) {
+        int mapped_core_id_in_socket = 0, numa_node_to_be_mapped = 0;
+        map<int, int> core_by_numa;
+
+        // TODO(entityless): Add meaningful comment for this code
+        for (int i = 0; i < physical_core_cnt; i++) {
+            // for a node with 2 * 8 core:
+            // map from {0, 1, ..., 7, 8, ..., 14, 15} to {0, 2, ..., 14, 1, ..., 13, 15}
+            core_by_numa[i] = mapped_core_id_in_socket * socket_count + numa_node_to_be_mapped;
+
+            mapped_core_id_in_socket++;
+
+            // Go to another numa node.
+            if (mapped_core_id_in_socket == core_per_socket) {
+                mapped_core_id_in_socket = 0;
+                numa_node_to_be_mapped++;
+            }
+        }
+
+        for (int i = 0; i < physical_core_cnt; i++) {
             core_counter_.Set(i, vector<int>());  // initial
         }
 
         // init potential pool via cpuinfo
         for (int i = 0; i < NUM_THREAD_DIVISION; i++) {
-            cur_step += division_numerator_[i] * core_cnt;
+            cur_step += division_numerator_[i] * physical_core_cnt;
 
             int cur_div = cur_step / division_denominator_;
             int cur_core_cnt = cur_div - last_div;
 
             // guarantee that at least one core will be given
             if (cur_core_cnt == 0) {
-                cur_step = (last_div + 1) * core_cnt;
-                cur_div = cur_step / core_cnt;
+                cur_step = (last_div + 1) * physical_core_cnt;
+                cur_div = cur_step / physical_core_cnt;
             }
 
-            for (int j = last_div; j < cur_div; j++)
-                potential_core_pool_[i].push_back(j);
+            for (int j = last_div; j < cur_div; j++) {
+                // potential_core_pool_[i].push_back(j);
+                potential_core_pool_[i].push_back(core_by_numa[j]);
+            }
 
             last_div = cur_div;
         }
