@@ -186,6 +186,7 @@ class CoreAffinity {
     // order eq priority
     int num_threads[NUM_THREAD_DIVISION];
     map<ACTOR_T, ActorDivisionType> actor_division;
+    std::mutex actor_division_mutex;
 
     map<int, vector<int>> core_pool_table;
     map<int, vector<int>::iterator> core_pool_table_itr;
@@ -333,6 +334,13 @@ class CoreAffinity {
         actor_division[ACTOR_T::SELECT] = ActorDivisionType::NORMAL_SEQ;
         actor_division[ACTOR_T::WHERE] = ActorDivisionType::NORMAL_SEQ;
         actor_division[ACTOR_T::IS] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::END] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::ADDV] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::ADDE] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::POSTVALIDATION] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::PROPERTY] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::VALIDATION] = ActorDivisionType::NORMAL_SEQ;
+        actor_division[ACTOR_T::COMMIT] = ActorDivisionType::NORMAL_SEQ;
     }
 
     void dump_node_topo(vector<vector<int>> topo) {
@@ -454,7 +462,16 @@ class CoreAffinity {
     }
 
     int get_core_id_by_actor(ACTOR_T type) {
-        ActorDivisionType att = actor_division[type];
+        ActorDivisionType att;
+        {
+            lock_guard<std::mutex> lock(actor_division_mutex);
+            if (actor_division.find(type) == actor_division.end()) {
+                // Assign actor to one division after adding a new actor
+                cout << "[Core Affinity] Assign Actor Type " << ActorType[(int)type] << " to NormalSeq." << endl;
+                actor_division[type] = ActorDivisionType::NORMAL_SEQ;
+            }
+            att = actor_division[type];
+        }
 
         pthread_spin_lock(&(lock_table[att]));
         int cur_tid = *core_pool_table_itr[att];
