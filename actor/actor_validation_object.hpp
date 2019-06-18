@@ -15,6 +15,10 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "utils/tool.hpp"
 
+/**
+ * ActorValidationObject is used to record the input set for each actor
+ * and the instances exist independently in corresponding actor (like cache).
+ */
 class ActorValidationObject {
  public :
     ActorValidationObject() {}
