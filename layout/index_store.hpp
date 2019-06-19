@@ -1,6 +1,7 @@
 /* Copyright 2019 Husky Data Lab, CUHK
 
 Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
+         Modified by Aaron LI (cjli@cse.cuhk.edu.hk)
 */
 
 #include <unordered_map>
@@ -19,6 +20,11 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #pragma once
 
 #define INDEX_THRESHOLD_RATIO 0.2
+
+/**
+ * IndexStore is used to store all index related data to accelerate processing,
+ * including 1.Topology Index (i.e. Init Message) 2.Property Index
+ */
 class IndexStore {
  public:
     IndexStore() {

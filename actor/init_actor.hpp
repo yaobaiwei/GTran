@@ -17,10 +17,10 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
-#include "core/index_store.hpp"
 #include "base/node.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
+#include "layout/index_store.hpp"
 #include "utils/tool.hpp"
 #include "utils/timer.hpp"
 

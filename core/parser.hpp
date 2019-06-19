@@ -12,8 +12,8 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #include "base/type.hpp"
 #include "core/exec_plan.hpp"
-#include "core/index_store.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/index_store.hpp"
 #include "utils/tool.hpp"
 #include "utils/hdfs_core.hpp"
 #include "utils/config.hpp"

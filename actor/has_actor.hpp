@@ -14,9 +14,9 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
-#include "core/index_store.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
+#include "layout/index_store.hpp"
 #include "utils/tool.hpp"
 
 class HasActor : public AbstractActor {
