@@ -3,6 +3,7 @@
 Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 */
+
 #include <utility>
 #include "core/rdma_mailbox.hpp"
 
@@ -269,7 +270,7 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
     }
 }
 
-void RdmaMailbox::Send_Notify(int dst_nid, ibinstream& in) {
+void RdmaMailbox::SendNotification(int dst_nid, ibinstream& in) {
     RDMA &rdma = RDMA::get_rdma();
     int failed = 0;
     while (rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.get_buf(), in.size()) != 0) {
@@ -280,7 +281,7 @@ void RdmaMailbox::Send_Notify(int dst_nid, ibinstream& in) {
     }
 }
 
-void RdmaMailbox::Recv_Notify(obinstream& out) {
+void RdmaMailbox::RecvNotification(obinstream& out) {
     RDMA &rdma = RDMA::get_rdma();
     int failed = 0;
     uint64_t received_sz = 0;

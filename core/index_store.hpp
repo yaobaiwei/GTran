@@ -66,7 +66,7 @@ class IndexStore {
     //    type:             VERTEX / EDGE
     //    property_key:     key
     //    index_map:        alreay constructed index map
-    //  no_key_vec:        vector of elements that have no provided key
+    //    no_key_vec:        vector of elements that have no provided key
     bool SetIndexMap(Element_T type, int pid, map<value_t, vector<value_t>>& index_map, vector<value_t>& no_key_vec) {
         if (config_->global_enable_indexing) {
             unordered_map<int, index_>* m;

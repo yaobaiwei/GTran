@@ -23,11 +23,11 @@ struct Trx {
 };
 
 /*
- * a table of transactions
- * columns:  trx_id, status, bt
+ * A table to record the status of transactions
+ * logic schema : trx_id, status, bt(Begin Time)
  * 
  * the actual memory region: buffer
- * This class is responsible for managering this region and provide public interfaces   * to access this memory region
+ * This class is responsible for managing this region and provide public interfaces   * to access this memory region
  */
 
 class TrxGlobalCoordinator{
@@ -49,7 +49,6 @@ class TrxGlobalCoordinator{
 
     char * buffer_;
     uint64_t buffer_sz_;
-    // arrays corresponding to buffer
     TidStatus * table_;
 
     const uint64_t ASSOCIATIVITY_ = 8;

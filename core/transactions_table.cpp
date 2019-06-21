@@ -236,12 +236,9 @@ uint64_t TrxGlobalCoordinator::next_trx_id() {
 }
 
 bool TrxGlobalCoordinator::allocate_trx_id(uint64_t& trx_id) {
-    // no need to check, since you need to write this trx_id variable in this function
-
     trx_id = next_trx_id();
     next_trx_id_++;
     printf("[Trx Table] allocated trx_id = %llx\n", (long long) trx_id);
-    // DLOG(INFO) << "[Trx Table] allocated trx_id = " << (int)trx_id << std::endl;
     return true;
 }
 
@@ -260,24 +257,22 @@ bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
-    // printf("[TRX] find_trx bucket_id %d, table_ = %llx\n, trx_id = %llx", bucket_id, table_, trx_id);
+
     while (true) {
         for (int i = 0; i < ASSOCIATIVITY_; ++i) {
             uint64_t slot_id = bucket_id * ASSOCIATIVITY_ + i;
 
             if (i < ASSOCIATIVITY_ - 1) {
-                // printf("[TRX Table] find_trx: trx_id=%llx; P=%d; V=%d; C=%d; A=%d; occupied=%d\n", (long long)(table_[slot_id].trx_id), table_[slot_id].P, table_[slot_id].V, table_[slot_id].C, table_[slot_id].A, table_[slot_id].occupied);
-
                 if (table_[slot_id].trx_id == trx_id) {  // found it
                     *p = table_ + slot_id;
                     return true;
                 }
             } else {
                 if (table_[slot_id].isEmpty()) {
-                    return false;  // operation failed because not found
+                    return false;  // not found
                 } else {
                     bucket_id = table_[slot_id].trx_id;
-                    break;  // break for loop
+                    break;
                 }
             }
         }

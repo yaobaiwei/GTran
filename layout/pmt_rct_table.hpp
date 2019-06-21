@@ -48,7 +48,7 @@ class PrimitiveRCTTable {
     // TrxID --> ObjectList
     //     Insert -> multi-thread
     //     Read -> single-thread
-    typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_vector<uint64_t>> rct_type;
+    typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_vector<uint64_t>> rct_type; //k->v: TrxID -> ObjList
     typedef rct_type::accessor rct_accessor;
     typedef rct_type::const_accessor rct_const_accessor;
 

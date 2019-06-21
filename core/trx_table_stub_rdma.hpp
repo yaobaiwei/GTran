@@ -47,9 +47,7 @@ class RDMATrxTableStub : public TrxTableStub{
         mem_sz_ = config_ -> trx_table_sz;
         base_offset_ = config_ -> trx_table_offset;
 
-        ASSOCIATIVITY_ = 8;
-
-        // ASSOCIATIVITY_ = config_ -> ASSOCIATIVITY;
+        ASSOCIATIVITY_ = config_ -> ASSOCIATIVITY;
     }
 
  public:

@@ -100,7 +100,7 @@ class Master {
     }
 
     int ProgScheduler() {
-        // find worker with least tasks remained
+        // find worker that remains least tasks
         uint32_t min = UINT_MAX;
         int min_index = -1;
         map<int, Progress>::iterator m_iter;
@@ -137,9 +137,6 @@ class Master {
             uint64_t trxid, st;
             trx_p -> insert_single_trx(trxid, st);
 
-            // DEBUG
-            cout << "##### Master recvs request from Client: " << client_id
-                    << " and reply " << target_engine_id << endl;
 
             ibinstream m;
             m << client_id;
@@ -153,14 +150,31 @@ class Master {
         }
     }
 
+    //receive a msg of tran status update
+    void ListenTrxTableWriteReqs() {
+        int n_id;
+        uint64_t trx_id;
+        int status_i;
+        bool is_read_only;
+
+        while (true) {
+            obinstream out;
+            mailbox -> RecvNotification(out);
+
+            TRX_STAT new_status;
+            out >> n_id >> trx_id >> status_i >> is_read_only;
+
+            UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
+            pending_trx_updates_.Push(req);
+        }
+    }
+
     // pop from queue and process requests of accessing the tables
     void ProcessTrxTableWriteReqs() {
         while (true) {
             // pop a req
             UpdateTrxStatusReq req;
             pending_trx_updates_.WaitAndPop(req);
-
-            DLOG(INFO) << "[Master] Processed a req: " << req.n_id << "\t" << req.trx_id << "\t" << (int)req.new_status << "\t" << std::endl;
 
             // check if P->V
             if (req.new_status == TRX_STAT::VALIDATING) {
@@ -171,16 +185,11 @@ class Master {
 
                 // update state and get a ct
                 trx_p -> modify_status(req.trx_id, req.new_status, ct, req.is_read_only);
-                trx_p -> print_single_item(req.trx_id);
+                //trx_p -> print_single_item(req.trx_id);
 
                 // query RCT
                 std::set<uint64_t> trx_ids;
                 rct -> query_trx(bt, ct, trx_ids);
-                // printf("[Master] trx_ids: ");
-                // for (uint64_t trx_id : trx_ids) {
-                //     printf("%llx\t", (long long)trx_id);
-                // }
-                // printf("\n");
 
                 // insert this transaction into RCT
                 rct -> insert_trx(ct, req.trx_id);
@@ -190,33 +199,12 @@ class Master {
                 ibinstream in;
                 in << trx_ids_vec;
                 // only when worker send P->V, it should wait for a reply
-                mailbox -> Send_Notify(req.n_id, in);
+                mailbox -> SendNotification(req.n_id, in);
             } else {
                 // update state
-                // worker shouldn't wait for reply since master willnot notify it
+                // worker shouldn't wait for reply since master will not notify it
                 trx_p -> modify_status(req.trx_id, req.new_status);
             }
-        }
-    }
-
-    // covers both trx updates and reads
-    void ListenTrxTableWriteReqs() {
-        int n_id;
-        uint64_t trx_id;
-        int status_i;
-        bool is_read_only;
-
-        while (true) {
-            obinstream out;
-            mailbox -> Recv_Notify(out);
-
-            TRX_STAT new_status;
-            out >> n_id >> trx_id >> status_i >> is_read_only;
-
-            // printf("Master recvs a update state req: %llx\t%llx\t%d\n", n_id, trx_id, status_i);
-
-            UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
-            pending_trx_updates_.Push(req);
         }
     }
 

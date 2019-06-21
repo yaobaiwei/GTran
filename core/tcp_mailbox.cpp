@@ -160,14 +160,14 @@ bool TCPMailbox::TryRecv(int tid, Message & msg) {
 }
 
 // if worker send to master: dst_id should be global_num_workers
-void TCPMailbox::Send_Notify(int dst_nid, ibinstream &in) {
+void TCPMailbox::SendNotification(int dst_nid, ibinstream &in) {
     if (my_node_.get_world_rank() == MASTER_RANK) {  // master sends to worker
-        CHECK(dst_nid != config_ -> global_num_workers) << "[TCPMailbox::Send_Notify] wrong worker dst_id";
+        CHECK(dst_nid != config_ -> global_num_workers) << "[TCPMailbox::SendNotification] wrong worker dst_id";
         zmq::message_t msg(in.size());
         memcpy(reinterpret_cast<void *>(msg.data()), in.get_buf(), in.size());
         trx_master_senders_[dst_nid]->send(msg);
     } else {  // worker sends to master
-        CHECK_EQ(dst_nid, config_ -> global_num_workers) << "[TCPMailbox::Send_Notify] wrong master dst_id";
+        CHECK_EQ(dst_nid, config_ -> global_num_workers) << "[TCPMailbox::SendNotification] wrong master dst_id";
         zmq::message_t msg(in.size());
         memcpy(reinterpret_cast<void *>(msg.data()), in.get_buf(), in.size());
         trx_worker_sender_->send(msg);
@@ -175,19 +175,19 @@ void TCPMailbox::Send_Notify(int dst_nid, ibinstream &in) {
     return;
 }
 
-void TCPMailbox::Recv_Notify(obinstream &out) {
+void TCPMailbox::RecvNotification(obinstream &out) {
     zmq::message_t zmq_msg;
     if (my_node_.get_world_rank() == MASTER_RANK) {  // master recvs from worker
 
         CHECK_GT(trx_master_receiver_->recv(&zmq_msg), 0)
-            << "[TCPMailbox::Recv_Notify] master recvs from worker failed";
+            << "[TCPMailbox::RecvNotification] master recvs from worker failed";
 
         char *buf = new char[zmq_msg.size()];
         memcpy(buf, zmq_msg.data(), zmq_msg.size());
         out.assign(buf, zmq_msg.size(), 0);
     } else {  // worker recvs from master
         CHECK_GT(trx_worker_receiver_->recv(&zmq_msg), 0)
-            << "[TCPMailbox::Recv_Notify] worker recvs from master failed";
+            << "[TCPMailbox::RecvNotification] worker recvs from master failed";
 
         char *buf = new char[zmq_msg.size()];
         memcpy(buf, zmq_msg.data(), zmq_msg.size());

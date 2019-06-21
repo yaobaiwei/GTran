@@ -77,6 +77,6 @@ class TCPMailbox : public AbstractMailbox {
     void Recv(int tid, Message & msg) override;
     bool TryRecv(int tid, Message & msg) override;
     void Sweep(int tid) override;
-    void Send_Notify(int dst_nid, ibinstream& in) override;
-    void Recv_Notify(obinstream& out) override;
+    void SendNotification(int dst_nid, ibinstream& in) override;
+    void RecvNotification(obinstream& out) override;
 };

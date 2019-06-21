@@ -47,9 +47,9 @@ class RdmaMailbox : public AbstractMailbox {
 
     void Sweep(int tid) override;
 
-    void Send_Notify(int dst_nid, ibinstream& in) override;
+    void SendNotification(int dst_nid, ibinstream& in) override;
 
-    void Recv_Notify(obinstream& out) override;
+    void RecvNotification(obinstream& out) override;
 
  private:
     struct rbf_rmeta_t {
