@@ -11,6 +11,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
 #include "utils/tid_mapper.hpp"
+#include "utils/write_prior_rwlock.hpp"
 #include "tbb/concurrent_hash_map.h"
 
 template <class PropertyRow>
@@ -26,7 +27,7 @@ class PropertyRowList {
 
     std::atomic_int property_count_;
     PropertyRow* head_, *tail_;
-    pthread_spinlock_t lock_;
+    WritePriorRWLock rwlock_;
 
     CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
