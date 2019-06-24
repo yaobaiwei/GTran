@@ -71,7 +71,7 @@ char* MVCCValueStore::GetItemPtr(const OffsetT& offset) {
 
 ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
     ValueHeader ret;
-    ret.count = value.content.size() + MEM_ITEM_SIZE;
+    ret.count = value.content.size() + 1;
 
     OffsetT item_count = ret.count / MEM_ITEM_SIZE;
     if (item_count * MEM_ITEM_SIZE != ret.count)
@@ -83,19 +83,25 @@ ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
     const char* value_content_ptr = &value.content[0];
     OffsetT value_len = value.content.size(), value_off = 0;
 
-    for (OffsetT i = 0; i < item_count - 1; i++) {
+    for (OffsetT i = 0; i < item_count; i++) {
         char* item_ptr = GetItemPtr(current_offset);
         if (i == 0) {
             // insert type; the first item only stores type.
             item_ptr[0] = static_cast<char>(value.type);
+            if (value_len < MEM_ITEM_SIZE - 1) {
+                memcpy(item_ptr + 1, value_content_ptr + value_off, value_len);
+            } else {
+                memcpy(item_ptr + 1, value_content_ptr + value_off, MEM_ITEM_SIZE - 1);
+                value_off += MEM_ITEM_SIZE - 1;
+            }
+        } else if (i == item_count - 1) {
+            memcpy(item_ptr, value_content_ptr + value_off, value_len - value_off);
         } else {
             memcpy(item_ptr, value_content_ptr + value_off, MEM_ITEM_SIZE);
             value_off += MEM_ITEM_SIZE;
         }
         current_offset = next_offset_[current_offset];
     }
-    char* item_ptr = GetItemPtr(current_offset);
-    memcpy(item_ptr, value_content_ptr + value_off, value_len - (item_count - 2) * MEM_ITEM_SIZE);
 
     return ret;
 }
@@ -104,7 +110,7 @@ void MVCCValueStore::ReadValue(const ValueHeader& header, value_t& value) {
     if (header.count == 0)
         return;
 
-    OffsetT value_len = header.count - MEM_ITEM_SIZE, value_off = 0;
+    OffsetT value_len = header.count - 1, value_off = 0;
     value.content.resize(value_len);
     OffsetT item_count = header.count / MEM_ITEM_SIZE;
     if (item_count * MEM_ITEM_SIZE != header.count)
@@ -113,18 +119,25 @@ void MVCCValueStore::ReadValue(const ValueHeader& header, value_t& value) {
 
     char* value_content_ptr = &value.content[0];
 
-    for (OffsetT i = 0; i < item_count - 1; i++) {
+    for (OffsetT i = 0; i < item_count; i++) {
         const char* item_ptr = GetItemPtr(current_offset);
         if (i == 0) {
             value.type = item_ptr[0];
+            if (value_len < MEM_ITEM_SIZE - 1) {
+                memcpy(value_content_ptr + value_off, item_ptr + 1, value_len);
+            } else {
+                memcpy(value_content_ptr + value_off, item_ptr + 1, MEM_ITEM_SIZE - 1);
+                value_off += MEM_ITEM_SIZE - 1;
+            }
+        } else if (i == item_count - 1) {
+            const char* item_ptr = GetItemPtr(current_offset);
+            memcpy(value_content_ptr + value_off, item_ptr, value_len - value_off);
         } else {
             memcpy(value_content_ptr + value_off, item_ptr, MEM_ITEM_SIZE);
             value_off += MEM_ITEM_SIZE;
         }
         current_offset = next_offset_[current_offset];
     }
-    const char* item_ptr = GetItemPtr(current_offset);
-    memcpy(value_content_ptr + value_off, item_ptr, value_len - (item_count - 2) * MEM_ITEM_SIZE);
 }
 
 void MVCCValueStore::FreeValue(const ValueHeader& header, int tid) {
@@ -182,6 +195,7 @@ OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
 
 // Called by FreeValue
 void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) {
+    // printf("MVCCValueStore::Free c = %d\n", count);
     #ifdef MVCC_VALUE_STORE_DEBUG
     free_counter_ += count;
     #endif  // MVCC_VALUE_STORE_DEBUG
