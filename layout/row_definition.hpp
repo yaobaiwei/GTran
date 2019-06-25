@@ -16,7 +16,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct VPHeader {
     vpid_t pid;
-    MVCCList<VPropertyMVCCItem>* mvcc_list;
+    std::atomic<MVCCList<VPropertyMVCCItem>*> mvcc_list;
     typedef VPropertyMVCCItem MVCCItemType;
 };
 
@@ -28,7 +28,7 @@ struct VPHeader {
 
 struct EPHeader {
     epid_t pid;
-    MVCCList<EPropertyMVCCItem>* mvcc_list;
+    std::atomic<MVCCList<EPropertyMVCCItem>*> mvcc_list;
     typedef EPropertyMVCCItem MVCCItemType;
 };
 
@@ -57,9 +57,6 @@ struct VertexPropertyRow {
 
  public:
     static constexpr int ROW_ITEM_COUNT = VP_ROW_ITEM_COUNT;
-
-    // Call this after MemPool::Get()
-    void Init() {next_ = nullptr;}
 }  __attribute__((aligned(64)));
 
 
@@ -72,9 +69,6 @@ struct EdgePropertyRow {
 
  public:
     static constexpr int ROW_ITEM_COUNT = EP_ROW_ITEM_COUNT;
-
-    // Call this after MemPool::Get()
-    void Init() {next_ = nullptr;}
 }  __attribute__((aligned(64)));
 
 
@@ -84,8 +78,4 @@ struct VertexEdgeRow {
     EdgeHeader cells_[VE_ROW_ITEM_COUNT];
 
     friend class TopologyRowList;
-
- public:
-    // Call this after MemPool::Get()
-    void Init() {next_ = nullptr;}
 }  __attribute__((aligned(64)));

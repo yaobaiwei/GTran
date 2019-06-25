@@ -5,11 +5,12 @@ add_subdirectory(iniparser)
 file(GLOB utils-src-files
     global.cpp
     hdfs_core.cpp
-	timer.cpp
+    timer.cpp
     console_util.cpp
     tid_mapper.cpp
     mpi_unique_namer.cpp
     mkl_util.cpp
+    write_prior_rwlock.cpp
     )
 
 add_library(utils-objs OBJECT ${utils-src-files})

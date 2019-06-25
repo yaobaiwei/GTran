@@ -11,6 +11,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
 #include "utils/tid_mapper.hpp"
+#include "utils/write_prior_rwlock.hpp"
 #include "tbb/concurrent_hash_map.h"
 
 template <class PropertyRow>
@@ -18,15 +19,15 @@ class PropertyRowList {
  private:
     typedef typename remove_all_extents<decltype(PropertyRow::cells_)>::type CellType;
     typedef decltype(CellType::pid) PidType;
-    typedef typename remove_pointer<decltype(CellType::mvcc_list)>::type MVCCListType;
-    typedef typename MVCCListType::MVCCItemType MVCCItemType;
+    typedef typename CellType::MVCCItemType MVCCItemType;
+    typedef MVCCList<MVCCItemType> MVCCListType;
 
     static ConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
     static MVCCValueStore* value_storage_;
 
     std::atomic_int property_count_;
     PropertyRow* head_, *tail_;
-    pthread_spinlock_t lock_;
+    WritePriorRWLock rwlock_;
 
     CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
