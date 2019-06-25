@@ -50,7 +50,5 @@ void PrimitiveRCTTable::InsertRecentActionSet(Primitive_T p, uint64_t trxID, con
     rct_accessor rcta;
     rct_map.at(p).insert(rcta, trxID);
 
-    for (auto & val : data) {
-        rcta->second.emplace_back(val);
-    }
+    rcta->second.insert(data.begin(), data.end());
 }

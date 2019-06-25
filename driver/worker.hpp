@@ -28,12 +28,12 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "core/actors_adapter.hpp"
-#include "core/index_store.hpp"
 #include "core/progress_monitor.hpp"
 #include "core/parser.hpp"
 #include "core/result_collector.hpp"
 
 #include "layout/pmt_rct_table.hpp"
+#include "layout/index_store.hpp"
 #include "layout/data_storage.hpp"
 #include "core/trx_table_stub_zmq.hpp"
 #include "core/trx_table_stub_rdma.hpp"

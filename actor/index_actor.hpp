@@ -15,10 +15,10 @@ Authors: Aaron Li (cjli@cse.cuhk.edu.hk)
 
 #include "actor/abstract_actor.hpp"
 #include "core/message.hpp"
-#include "core/index_store.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "base/type.hpp"
 #include "base/predicate.hpp"
+#include "layout/index_store.hpp"
 #include "utils/tool.hpp"
 
 class IndexActor : public AbstractActor {
@@ -34,7 +34,6 @@ class IndexActor : public AbstractActor {
         index_store_(index_store),
         type_(ACTOR_T::HAS) {}
 
-    // TODO(nick): Need to support dynamic index
     void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();
 

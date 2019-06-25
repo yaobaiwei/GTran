@@ -9,6 +9,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include <ext/hash_set>
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_vector.h>
+#include <tbb/concurrent_unordered_set.h>
 
 #include <set>
 #include <unordered_map>
@@ -48,7 +49,7 @@ class PrimitiveRCTTable {
     // TrxID --> ObjectList
     //     Insert -> multi-thread
     //     Read -> single-thread
-    typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_vector<uint64_t>> rct_type; //k->v: TrxID -> ObjList
+    typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_unordered_set<uint64_t>> rct_type;
     typedef rct_type::accessor rct_accessor;
     typedef rct_type::const_accessor rct_const_accessor;
 
