@@ -64,13 +64,11 @@ class ActorAdapter {
     ActorAdapter(Node & node,
             ResultCollector * rc,
             AbstractMailbox * mailbox,
-            CoreAffinity * core_affinity,
-            IndexStore * index_store) :
+            CoreAffinity * core_affinity) :
         node_(node),
         rc_(rc),
         mailbox_(mailbox),
-        core_affinity_(core_affinity),
-        index_store_(index_store) {
+        core_affinity_(core_affinity) {
         config_ = Config::GetInstance();
         num_thread_ = config_->global_num_threads;
         times_.resize(num_thread_, 0);
@@ -95,8 +93,8 @@ class ActorAdapter {
         actors_[ACTOR_T::GROUP] = unique_ptr<AbstractActor>(new GroupActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::HAS] = unique_ptr<AbstractActor>(new HasActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::HASLABEL] = unique_ptr<AbstractActor>(new HasLabelActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
-        actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, num_thread_, mailbox_, core_affinity_, index_store_, node_.get_local_size()));
-        actors_[ACTOR_T::INDEX] = unique_ptr<AbstractActor>(new IndexActor(id ++, num_thread_, mailbox_, core_affinity_, index_store_));
+        actors_[ACTOR_T::INIT] = unique_ptr<AbstractActor>(new InitActor(id ++, num_thread_, mailbox_, core_affinity_, node_.get_local_size()));
+        actors_[ACTOR_T::INDEX] = unique_ptr<AbstractActor>(new IndexActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::IS] = unique_ptr<AbstractActor>(new IsActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::KEY] = unique_ptr<AbstractActor>(new KeyActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::LABEL] = unique_ptr<AbstractActor>(new LabelActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
@@ -246,7 +244,6 @@ class ActorAdapter {
     AbstractMailbox * mailbox_;
     ResultCollector * rc_;
     DataStorage * data_storage_;
-    IndexStore * index_store_;
     Config * config_;
     CoreAffinity * core_affinity_;
     msg_id_alloc id_allocator_;

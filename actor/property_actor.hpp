@@ -17,6 +17,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "core/id_mapper.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/index_store.hpp"
 #include "layout/pmt_rct_table.hpp"
 #include "utils/tool.hpp"
 
@@ -33,6 +34,7 @@ class PropertyActor : public AbstractActor {
         config_ = Config::GetInstance();
         pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
+        index_store_ = IndexStore::GetInstance();
     }
 
     void process(const QueryPlan & qplan, Message & msg) {
@@ -41,8 +43,8 @@ class PropertyActor : public AbstractActor {
         Meta & m = msg.meta;
         Actor_Object actor_obj = qplan.actors[m.step];
 
-        // Prepare for RCT
-        vector<uint64_t> rct_insert_data;
+        // Prepare for Update Data (RCT and Index) 
+        vector<uint64_t> update_data;
         Primitive_T pmt_type;
 
         // Get Params
@@ -54,11 +56,11 @@ class PropertyActor : public AbstractActor {
         switch(elem_type) {
           case Element_T::VERTEX:
             pmt_type = Primitive_T::MVP;
-            success = processVertexProperty(qplan, msg.data, pid, new_val, rct_insert_data);
+            success = processVertexProperty(qplan, msg.data, pid, new_val, update_data);
             break;
           case Element_T::EDGE:
             pmt_type = Primitive_T::MEP;
-            success = processEdgeProperty(qplan, msg.data, pid, new_val, rct_insert_data);
+            success = processEdgeProperty(qplan, msg.data, pid, new_val, update_data);
             break;
           default:
             success = false;
@@ -69,7 +71,14 @@ class PropertyActor : public AbstractActor {
         vector<Message> msg_vec;
         if (success) {
             // Insert Updates Information into RCT Table if success
-            pmt_rct_table_->InsertRecentActionSet(pmt_type, qplan.trxid, rct_insert_data);
+            pmt_rct_table_->InsertRecentActionSet(pmt_type, qplan.trxid, update_data);
+
+            // Insert Update data to Index Buffer
+            if (elem_type == Element_T::VERTEX) {
+                index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::VID, true, TRX_STAT::PROCESSING);
+            } else if (elem_type == Element_T::EDGE) {
+                index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::EID, true, TRX_STAT::PROCESSING);
+            }
 
             msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
         } else {
@@ -100,12 +109,15 @@ class PropertyActor : public AbstractActor {
     // RCT Table
     PrimitiveRCTTable * pmt_rct_table_;
 
+    // Index Store
+    IndexStore * index_store_;
+
     bool processVertexProperty(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
-            int propertyId, value_t new_val, vector<uint64_t> & rct_insert_data) {
+            int propertyId, value_t new_val, vector<uint64_t> & update_data) {
         for (auto & pair : data) {
             for (auto & val : pair.second) {
                 vpid_t vpid(Tool::value_t2int(val), propertyId);
-                rct_insert_data.emplace_back(vpid_t2uint(vpid));
+                update_data.emplace_back(vpid_t2uint(vpid));
 
                 if (!data_storage_->ProcessModifyVP(vpid, new_val, qplan.trxid, qplan.st)) {
                     return false;
@@ -116,13 +128,13 @@ class PropertyActor : public AbstractActor {
     }
 
     bool processEdgeProperty(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
-            int propertyId, value_t new_val, vector<uint64_t> & rct_insert_data) {
+            int propertyId, value_t new_val, vector<uint64_t> & update_data) {
         for (auto & pair : data) {
             for (auto & val : pair.second) {
                 eid_t eid;
                 uint2eid_t(Tool::value_t2uint64_t(val), eid);
                 epid_t epid(eid, propertyId);
-                rct_insert_data.emplace_back(epid_t2uint(epid));
+                update_data.emplace_back(epid_t2uint(epid));
 
                 if (!data_storage_->ProcessModifyEP(epid, new_val, qplan.trxid, qplan.st)) {
                     return false;

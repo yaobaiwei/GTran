@@ -15,6 +15,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "core/message.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/index_store.hpp"
 #include "layout/pmt_rct_table.hpp"
 
 class AddVertexActor : public AbstractActor {
@@ -29,6 +30,7 @@ class AddVertexActor : public AbstractActor {
         type_(ACTOR_T::ADDV) {
         config_ = Config::GetInstance();
         pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
+        index_store_ = IndexStore::GetInstance();
     }
 
     void process(const QueryPlan & qplan, Message & msg) {
@@ -36,14 +38,17 @@ class AddVertexActor : public AbstractActor {
         // Get Actor_Object
         Meta & m = msg.meta;
         Actor_Object actor_obj = qplan.actors[m.step];
-        vector<uint64_t> rct_insert_data;
+        vector<uint64_t> update_data;
 
         // Get Params
         int lid = static_cast<int>(Tool::value_t2int(actor_obj.params.at(0)));
-        process_add_vertex(qplan, lid, msg.data, rct_insert_data);
+        process_add_vertex(qplan, lid, msg.data, update_data);
 
         // Insert Updates Information into RCT Table
-        pmt_rct_table_->InsertRecentActionSet(Primitive_T::IV, qplan.trxid, rct_insert_data);
+        pmt_rct_table_->InsertRecentActionSet(Primitive_T::IV, qplan.trxid, update_data);
+
+        // Insert update data to topo index
+        index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::VID, true, TRX_STAT::PROCESSING);
 
         vector<Message> msg_vec;
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
@@ -66,7 +71,10 @@ class AddVertexActor : public AbstractActor {
     // RCT Table
     PrimitiveRCTTable * pmt_rct_table_;
 
-    void process_add_vertex(const QueryPlan & qplan, int label_id, vector<pair<history_t, vector<value_t>>> & data, vector<uint64_t> & rct_insert_data) {
+    // Index Store
+    IndexStore * index_store_;
+
+    void process_add_vertex(const QueryPlan & qplan, int label_id, vector<pair<history_t, vector<value_t>>> & data, vector<uint64_t> & update_data) {
         for (auto & pair : data) {
             vector<value_t> newData;
             // The number of vertices to be added is the number of result from last step.
@@ -78,7 +86,7 @@ class AddVertexActor : public AbstractActor {
                 newData.emplace_back(new_val);
 
                 uint64_t rct_insert_val = static_cast<uint64_t>(vid_t2uint(new_v_id));
-                rct_insert_data.emplace_back(move(rct_insert_val));
+                update_data.emplace_back(move(rct_insert_val));
             }
             pair.second.swap(newData);
         }

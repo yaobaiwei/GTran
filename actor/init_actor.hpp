@@ -30,16 +30,15 @@ class InitActor : public AbstractActor {
             int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity* core_affinity,
-            IndexStore * index_store,
             int num_nodes) :
         AbstractActor(id, core_affinity),
-        index_store_(index_store),
         num_thread_(num_thread),
         mailbox_(mailbox),
         num_nodes_(num_nodes),
         type_(ACTOR_T::INIT),
         is_ready_(false) {
         config_ = Config::GetInstance();
+        index_store_ = IndexStore::GetInstance();
     }
 
     virtual ~InitActor() {}
@@ -91,6 +90,7 @@ class InitActor : public AbstractActor {
     // Pointer of index store
     IndexStore * index_store_;
 
+    /* =============OLAP Impl=============== */
     // Ensure only one thread ever runs the actor
     // std::mutex thread_mutex_;
 
@@ -101,6 +101,7 @@ class InitActor : public AbstractActor {
     // msg for count actor
     // vector<Message> vtx_count_msgs;
     // vector<Message> edge_count_msgs;
+    /* =============OLAP Impl=============== */
 
     void InitData(const QueryPlan& qplan, Element_T inType, vector<pair<history_t, vector<value_t>>> & init_data) {
         // convert id to msg
@@ -123,7 +124,11 @@ class InitActor : public AbstractActor {
 
     void InitVtxData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data) {
         vector<vid_t> vid_list;
-        data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
+        uint64_t start_time = timer::get_usec();
+        // data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
+        index_store_->ReadVtxTopoIndex(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
+        uint64_t end_time = timer::get_usec();
+        cout << "[Timer] " << (end_time - start_time) << " us for GetAllVertices()" << endl;
         uint64_t count = vid_list.size();
 
         // vector<pair<history_t, vector<value_t>>> data;
@@ -141,7 +146,11 @@ class InitActor : public AbstractActor {
 
     void InitEdgeData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>>& init_data) {
         vector<eid_t> eid_list;
-        data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
+        uint64_t start_time = timer::get_usec();
+        // data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
+        index_store_->ReadEdgeTopoIndex(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
+        uint64_t end_time = timer::get_usec();
+        cout << "[Timer] " << (end_time - start_time) << " us for GetAllEdges()" << endl;
         uint64_t count = eid_list.size();
 
         // vector<pair<history_t, vector<value_t>>> data;
@@ -211,6 +220,7 @@ class InitActor : public AbstractActor {
 
         // Get init element type
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
+
         // No need to lock since init is for each transaction rather than whole system.
         InitData(qplan, inType, init_data);
 

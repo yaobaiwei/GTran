@@ -1,0 +1,52 @@
+/* Copyright 2019 Husky Data Lab, CUHK
+
+Authors: Created by Aaron LI (cjli@cse.cuhk.edu.hk)
+*/
+
+template <class Iterator, class T>
+void build_range(map<value_t, T>& m, PredicateValue& pred, Iterator& low, Iterator& high) {
+    low = m.begin();
+    high = m.end();
+
+    // get lower bound
+    switch (pred.pred_type) {
+      case Predicate_T::GT:
+      case Predicate_T::GTE:
+      case Predicate_T::INSIDE:
+      case Predicate_T::BETWEEN:
+        low = m.lower_bound(pred.values[0]);
+    }
+
+    // remove "EQ"
+    switch (pred.pred_type) {
+      case Predicate_T::GT:
+      case Predicate_T::INSIDE:
+        if (low != m.end() && low->first == pred.values[0]) {
+            low++;
+        }
+    }
+
+    int param = 1;
+    // get upper_bound
+    switch (pred.pred_type) {
+      case Predicate_T::LT:
+      case Predicate_T::LTE:
+        param = 0;
+      case Predicate_T::INSIDE:
+      case Predicate_T::BETWEEN:
+        high = m.upper_bound(pred.values[param]);
+    }
+
+    // remove "EQ"
+    switch (pred.pred_type) {
+      case Predicate_T::LT:
+      case Predicate_T::INSIDE:
+        // exclude last one if match
+        if (high != low) {
+            high--;
+            if (high->first != pred.values[param]) {
+                high++;
+            }
+        }
+    }
+}

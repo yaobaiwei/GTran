@@ -26,13 +26,13 @@ class IndexActor : public AbstractActor {
     IndexActor(int id,
             int num_thread,
             AbstractMailbox * mailbox,
-            CoreAffinity* core_affinity,
-            IndexStore * index_store) :
+            CoreAffinity* core_affinity) :
         AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
-        index_store_(index_store),
-        type_(ACTOR_T::HAS) {}
+        type_(ACTOR_T::HAS) {
+        index_store_ = IndexStore::GetInstance(); 
+        }
 
     void process(const QueryPlan & qplan, Message & msg) {
         int tid = TidMapper::GetInstance()->GetTid();

@@ -17,6 +17,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "core/id_mapper.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/index_store.hpp"
 #include "layout/pmt_rct_table.hpp"
 #include "utils/tool.hpp"
 
@@ -36,6 +37,7 @@ class DropActor : public AbstractActor {
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
         pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         id_mapper_ = SimpleIdMapper::GetInstance();
+        index_store_ = IndexStore::GetInstance();
     }
 
     void process(const QueryPlan & qplan, Message & msg);
@@ -61,6 +63,9 @@ class DropActor : public AbstractActor {
 
     // RCT Table
     PrimitiveRCTTable * pmt_rct_table_;
+
+    // Index Store
+    IndexStore * index_store_;
 
     bool processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
             bool isProperty, vector<uint64_t> & rct_insert_data, Primitive_T & pmt_type);

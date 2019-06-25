@@ -15,6 +15,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "core/message.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/index_store.hpp"
 #include "layout/pmt_rct_table.hpp"
 
 class AddEdgeActor : public AbstractActor {
@@ -32,6 +33,7 @@ class AddEdgeActor : public AbstractActor {
         config_ = Config::GetInstance();
         pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         id_mapper_ = SimpleIdMapper::GetInstance();
+        index_store_ = IndexStore::GetInstance();
     }
 
     void process(const QueryPlan & qplan, Message & msg);
@@ -54,6 +56,9 @@ class AddEdgeActor : public AbstractActor {
 
     // RCT Table
     PrimitiveRCTTable * pmt_rct_table_;
+
+    // Index Store
+    IndexStore * index_store_;
 };
 
 #endif  // ACTOR_ADD_EDGE_ACTOR_HPP_

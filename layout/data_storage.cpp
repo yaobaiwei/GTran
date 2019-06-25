@@ -570,6 +570,43 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
     return READ_STAT::SUCCESS;
 }
 
+bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
+                                        const bool& read_only, vid_t& vid) {
+    // Check visibility of the vertex
+    VertexConstAccessor v_accessor;
+    bool found = vertex_map_.find(v_accessor, vid.value());
+
+    if (!found) {
+        printf("Impossible branch in DataStorage::CheckVertexVisibility\n");
+        assert(false);
+    }
+
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+        // Invisible
+        return false;
+    }
+    return true;
+}
+
+bool DataStorage::CheckEdgeVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
+                                      const bool& read_only, eid_t& eid) {
+    // Check visibility of the edge 
+    OutEdgeConstAccessor out_e_accessor;
+    EdgeVersion edge_version;
+    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    if (read_stat != READ_STAT::SUCCESS) {
+        // Invisible
+        return false;
+    }
+
+    if (!edge_version.Exist()) {
+        // Invisible
+        return false;
+    }
+
+    return true;
+}
+
 void DataStorage::InsertAggData(agg_t key, vector<value_t> & data) {
     lock_guard<mutex> lock(agg_mutex);
 

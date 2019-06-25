@@ -7,6 +7,9 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     int tid = TidMapper::GetInstance()->GetTid();
 
+    // Move Update Data of Transaction from IndexBuffer to IndexRegion
+    index_store_->MoveBufferToRegion(qplan.trxid);
+
     // ===================Abstract====================//
     /**
      * 0. Valid Dependency Read, including, (Details in layout/mvcc_list.tpp::TryPreReadUncommittedTail())
