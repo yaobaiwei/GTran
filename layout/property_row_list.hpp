@@ -19,8 +19,8 @@ class PropertyRowList {
  private:
     typedef typename remove_all_extents<decltype(PropertyRow::cells_)>::type CellType;
     typedef decltype(CellType::pid) PidType;
-    typedef typename remove_pointer<decltype(CellType::mvcc_list)>::type MVCCListType;
-    typedef typename MVCCListType::MVCCItemType MVCCItemType;
+    typedef typename CellType::MVCCItemType MVCCItemType;
+    typedef MVCCList<MVCCItemType> MVCCListType;
 
     static ConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
     static MVCCValueStore* value_storage_;

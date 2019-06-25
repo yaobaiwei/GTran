@@ -73,11 +73,13 @@ ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
     ValueHeader ret;
     ret.count = value.content.size() + 1;
 
+    // Calculate how many items will be used to store this value_t
     OffsetT item_count = ret.count / MEM_ITEM_SIZE;
     if (item_count * MEM_ITEM_SIZE != ret.count)
         item_count++;
+
+    // Allocate items
     ret.head_offset = Get(item_count, tid);
-    // allocate finished.
 
     OffsetT current_offset = ret.head_offset;
     const char* value_content_ptr = &value.content[0];
@@ -85,18 +87,22 @@ ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
 
     for (OffsetT i = 0; i < item_count; i++) {
         char* item_ptr = GetItemPtr(current_offset);
-        if (i == 0) {
-            // insert type; the first item only stores type.
+        if (i == 0) {  // The first item; we need to insert value_t::type
             item_ptr[0] = static_cast<char>(value.type);
+
+            // insert part of value_t::content to the remaining spaces in the first item
             if (value_len < MEM_ITEM_SIZE - 1) {
+                // value_t::content cannot fill the remaining spaces
                 memcpy(item_ptr + 1, value_content_ptr + value_off, value_len);
             } else {
                 memcpy(item_ptr + 1, value_content_ptr + value_off, MEM_ITEM_SIZE - 1);
                 value_off += MEM_ITEM_SIZE - 1;
             }
         } else if (i == item_count - 1) {
+            // The last item to insert, copy the remaining part of value_t::content
             memcpy(item_ptr, value_content_ptr + value_off, value_len - value_off);
         } else {
+            // neither the first item nor the last item
             memcpy(item_ptr, value_content_ptr + value_off, MEM_ITEM_SIZE);
             value_off += MEM_ITEM_SIZE;
         }
@@ -119,6 +125,7 @@ void MVCCValueStore::ReadValue(const ValueHeader& header, value_t& value) {
 
     char* value_content_ptr = &value.content[0];
 
+    // Please refer to InsertValue
     for (OffsetT i = 0; i < item_count; i++) {
         const char* item_ptr = GetItemPtr(current_offset);
         if (i == 0) {

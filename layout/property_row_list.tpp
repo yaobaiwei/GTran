@@ -173,11 +173,7 @@ READ_STAT PropertyRowList<PropertyRow>::
      * Similarly hereinafter.
      */
 
-    MVCCListType* mvcc_list;
-    {
-        ReaderLockGuard reader_lock_guard(rwlock_);
-        mvcc_list = cell->mvcc_list;
-    }
+    MVCCListType* mvcc_list = cell->mvcc_list;
     // Being edited by other transaction.
     if (mvcc_list == nullptr)  // if not read-only, my read set has been modified
         return read_only ? READ_STAT::NOTFOUND : READ_STAT::ABORT;
@@ -205,12 +201,13 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                                                                const uint64_t& begin_time, const bool& read_only,
                                                                vector<pair<label_t, value_t>>& ret) {
     PropertyRow* current_row = head_;
-    int property_count_snapshot = property_count_;
+    int property_count_snapshot;
     CellMap* map_snapshot;
 
     {
         ReaderLockGuard reader_lock_guard(rwlock_);
-        CellMap* map_snapshot = cell_map_;
+        map_snapshot = cell_map_;
+        property_count_snapshot = property_count_;
     }
     if (map_snapshot == nullptr) {
         // Traverse the whole PropertyRowList
@@ -235,12 +232,8 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
             if (pkey_set.count(cell_ref.pid.pid) > 0) {
                 pkey_set.erase(cell_ref.pid.pid);
 
-                MVCCListType* mvcc_list;
+                MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
-                {
-                    ReaderLockGuard reader_lock_guard(rwlock_);
-                    mvcc_list = cell_ref.mvcc_list;
-                }
                 // Being edited by other transaction.
                 if (mvcc_list == nullptr) {
                     if (read_only)
@@ -257,7 +250,6 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                 if (!is_visible.second)
                     continue;
 
-
                 if (!storage_header.IsEmpty()) {
                     value_t v;
                     label_t label = cell_ref.pid.pid;
@@ -273,12 +265,8 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
             if (map_snapshot->find(accessor, p_label)) {
                 auto& cell_ref = *(accessor->second);
 
-                MVCCListType* mvcc_list;
+                MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
-                {
-                    ReaderLockGuard reader_lock_guard(rwlock_);
-                    mvcc_list = cell_ref.mvcc_list;
-                }
                 // Being edited by other transaction
                 if (mvcc_list == nullptr) {
                     if (read_only)
@@ -326,11 +314,7 @@ READ_STAT PropertyRowList<PropertyRow>::
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
-        MVCCListType* mvcc_list;
-        {
-            ReaderLockGuard reader_lock_guard(rwlock_);
-            mvcc_list = cell_ref.mvcc_list;
-        }
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
         // Being edited by other transaction
         if (mvcc_list == nullptr) {
             if (read_only)
@@ -374,11 +358,8 @@ READ_STAT PropertyRowList<PropertyRow>::
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
 
-        MVCCListType* mvcc_list;
-        {
-            ReaderLockGuard reader_lock_guard(rwlock_);
-            mvcc_list = cell_ref.mvcc_list;
-        }
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
+
         // Being edited by other transaction
         if (mvcc_list == nullptr) {
             if (read_only)
@@ -423,7 +404,6 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
         // cell->mvcc_list = new MVCCListType;
         mvcc_list = new MVCCListType;
     } else {
-        ReaderLockGuard reader_lock_guard(rwlock_);
         mvcc_list = cell->mvcc_list;
     }
 
@@ -439,7 +419,6 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
 
     if (!modify_flag) {
         // For a newly added cell, assign the mvcc_list after it has been initialized.
-        WriterLockGuard reader_lock_guard(rwlock_);
         cell->mvcc_list = mvcc_list;
     }
 
@@ -453,11 +432,8 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
 
     // system error; since this function is called by .drop() step, two conditions below won't happens
     assert(cell != nullptr);
-    MVCCListType* mvcc_list;
-    {
-        ReaderLockGuard reader_lock_guard(rwlock_);
-        mvcc_list = cell->mvcc_list;
-    }
+    MVCCListType* mvcc_list = cell->mvcc_list;
+
     assert(mvcc_list != nullptr);
 
     auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
@@ -491,9 +467,10 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
         }
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
-        cell_ref.mvcc_list->SelfGarbageCollect();
-        delete cell_ref.mvcc_list;
+        mvcc_list->SelfGarbageCollect();
+        delete mvcc_list;
     }
 
     for (int i = row_count - 1; i >= 0; i--) {

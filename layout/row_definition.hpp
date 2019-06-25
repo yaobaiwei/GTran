@@ -16,7 +16,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 struct VPHeader {
     vpid_t pid;
-    MVCCList<VPropertyMVCCItem>* mvcc_list;
+    std::atomic<MVCCList<VPropertyMVCCItem>*> mvcc_list;
     typedef VPropertyMVCCItem MVCCItemType;
 };
 
@@ -28,7 +28,7 @@ struct VPHeader {
 
 struct EPHeader {
     epid_t pid;
-    MVCCList<EPropertyMVCCItem>* mvcc_list;
+    std::atomic<MVCCList<EPropertyMVCCItem>*> mvcc_list;
     typedef EPropertyMVCCItem MVCCItemType;
 };
 
