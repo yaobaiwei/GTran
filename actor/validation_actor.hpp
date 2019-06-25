@@ -49,6 +49,7 @@ class ValidationActor : public AbstractActor {
         config_ = Config::GetInstance();
         pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
+        index_store_ = IndexStore::GetInstance();
         prepare_primitive_list();
     }
 
@@ -67,6 +68,9 @@ class ValidationActor : public AbstractActor {
     Config * config_;
     // API for worker to communicate with master
     TrxTableStub * trx_table_stub_;
+
+    // Index Store
+    IndexStore * index_store_;
 
     // Qid-Actor-map and Trx-vector<Actor>-map
     map<ACTOR_T, unique_ptr<AbstractActor>>* actors_;

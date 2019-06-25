@@ -190,6 +190,10 @@ class DataStorage {
     READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
                           const bool& read_only, vector<eid_t>& ret);
 
+    // Check visibility for vertex/edge
+    bool CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vid_t& vid);
+    bool CheckEdgeVisibility(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, eid_t& eid);
+
     // Transaction processing stage related
     vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
     bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,

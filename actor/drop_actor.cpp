@@ -13,21 +13,35 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
     Meta & m = msg.meta;
     Actor_Object actor_obj = qplan.actors[m.step];
 
-    // Prepare for RCT
-    vector<uint64_t> rct_insert_data;
+    // Prepare for Update Data (RCT and Index)
+    vector<uint64_t> update_data;
     Primitive_T pmt_type;
 
     // Get Params
     Element_T elem_type = static_cast<Element_T>(Tool::value_t2int(actor_obj.params.at(0)));
     bool isProperty = static_cast<bool>(Tool::value_t2int(actor_obj.params.at(1)));
 
-    bool success = processDrop(qplan, msg.data, elem_type, isProperty, rct_insert_data, pmt_type);
+    bool success = processDrop(qplan, msg.data, elem_type, isProperty, update_data, pmt_type);
 
     // Create Message
     vector<Message> msg_vec;
     if (success) {
         // Insert Updates Information into RCT Table if success
-        pmt_rct_table_->InsertRecentActionSet(pmt_type, qplan.trxid, rct_insert_data);
+        pmt_rct_table_->InsertRecentActionSet(pmt_type, qplan.trxid, update_data);
+
+        // Insert Update data to topo index (Currently only topo)
+        if (!isProperty && elem_type == Element_T::VERTEX) {
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::VID, false, TRX_STAT::PROCESSING);
+        } else if (!isProperty && elem_type == Element_T::EDGE) {
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::EID, false, TRX_STAT::PROCESSING);
+        } else if (isProperty && elem_type == Element_T::VERTEX) {
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::VPID, false, TRX_STAT::PROCESSING);
+        } else if (isProperty && elem_type == Element_T::EDGE) {
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::EPID, false, TRX_STAT::PROCESSING);
+        } else {
+            cout << "[Drop Actor] Unexpected type combination" << endl;
+            assert(false);
+        }
 
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {
@@ -41,7 +55,7 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
 }
 
 bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
-        Element_T elem_type, bool isProperty, vector<uint64_t> & rct_insert_data, Primitive_T& pmt_type) {
+        Element_T elem_type, bool isProperty, vector<uint64_t> & update_data, Primitive_T& pmt_type) {
     vector<value_t> newData;  // For dropV, store connected edge
     for (auto & pair : data) {
         for (auto & val : pair.second) {
@@ -49,7 +63,7 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                 if (isProperty) {
                     CHECK(val.type == PropKeyValueType);
                     uint64_t vpid_uint64 = Tool::value_t2uint64_t(val);
-                    rct_insert_data.emplace_back(vpid_uint64);
+                    update_data.emplace_back(vpid_uint64);
                     pmt_type = Primitive_T::DVP;
 
                     vpid_t vpid;
@@ -59,7 +73,7 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                     }
                 } else {
                     int vid_int = Tool::value_t2int(val);
-                    rct_insert_data.emplace_back(static_cast<uint64_t>(vid_int));
+                    update_data.emplace_back(static_cast<uint64_t>(vid_int));
                     pmt_type = Primitive_T::DV;
 
                     vid_t v_id(vid_int);
@@ -89,7 +103,7 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                 if (isProperty) {
                     CHECK(val.type == PropKeyValueType);
                     uint64_t epid_uint64 = Tool::value_t2uint64_t(val);
-                    rct_insert_data.emplace_back(epid_uint64);
+                    update_data.emplace_back(epid_uint64);
                     pmt_type = Primitive_T::DEP;
 
                     epid_t epid;
@@ -99,7 +113,7 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                     }
                 } else {
                     uint64_t eid_uint64 = Tool::value_t2uint64_t(val);
-                    rct_insert_data.emplace_back(eid_uint64);
+                    update_data.emplace_back(eid_uint64);
                     pmt_type = Primitive_T::DE;
 
                     eid_t e_id;

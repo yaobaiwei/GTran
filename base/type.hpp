@@ -129,6 +129,10 @@ struct vid_t {
         return *this;
     }
 
+    bool operator<(const vid_t& other) const {
+        return (this->vid < other.vid);
+    }
+
     uint32_t value() const {
         return (uint32_t)vid;
     }
@@ -180,6 +184,10 @@ uint64_t out_v : VID_BITS;  // src_v
         if ((in_v == eid.in_v) && (out_v == eid.out_v))
             return true;
         return false;
+    }
+
+    bool operator<(const eid_t& other) const {
+        return (this->value() < other.value());
     }
 
     uint64_t value() const {
@@ -584,3 +592,18 @@ struct PrimitiveEnumClassHash {
 // For Modification (AddE)
 //  PlaceHolder, AsLabel, NotApplicable
 enum AddEdgeMethodType { PlaceHolder, StepLabel, NotApplicable };
+
+
+// For Index
+struct update_element {
+    uint64_t element_id;  // vid or eid
+    bool isAdd;  // 1 for ADD; 0 for DELETE
+    TRX_STAT stat;  // status of related trx
+
+    update_element(uint64_t element_id_, bool isAdd_, TRX_STAT stat_) :
+        element_id(element_id_), isAdd(isAdd_), stat(stat_) {}
+
+    void Print() {
+        cout << "[UpdateElement] " << element_id << ", " << (isAdd ? "ADD" : "DELETE") << endl;
+    }
+};

@@ -64,8 +64,6 @@ class Worker {
     }
 
     void Init() {
-        index_store_ = new IndexStore();
-        parser_ = new Parser(index_store_);
         receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
         thpt_monitor_ = new ThroughputMonitor();
         rc_ = new ResultCollector;
@@ -444,7 +442,12 @@ class Worker {
         data_storage_ = DataStorage::GetInstance();
         data_storage_->Init();
 
+        // =================IndexStorage=====================
+        index_store_ = IndexStore::GetInstance();
+        index_store_->Init();
+
         // =================ParserLoadMapping===============
+        parser_ = new Parser(index_store_);
         parser_->LoadMapping(data_storage_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Parser_->LoadMapping()" << endl;
 
@@ -462,7 +465,7 @@ class Worker {
         worker_barrier(my_node_);
 
         // =================ActorAdapter====================
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity, index_store_);
+        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity);
         actor_adapter->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 
