@@ -22,7 +22,6 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
-#include "utils/simple_thread_safe_map.hpp"
 #include "utils/timer.hpp"
 
 /*
@@ -89,8 +88,10 @@ class CoreAffinity {
         } else {
             int global_core = cpuinfo_->GetCoreInGlobalMappingVector(core);
 
-            vector<int> counter = core_counter_.GetAndLock(global_core);
-            int counter_sz = counter.size();
+            CoreCounterAccessor accessor;
+            core_usage_counter_.find(accessor, core);
+
+            int counter_sz = accessor->second.size();
 
             // if you are worry that "two thread on the same physical core" reduces the performance,
             // you can uncomment the code below
@@ -110,13 +111,8 @@ class CoreAffinity {
             //     }
             // }
 
-            counter.push_back(core);  // not global core
-
-            core_counter_.SetAndUnlock(global_core, counter);
+            accessor->second.push_back(core);
         }
-
-        // to insert into a map
-        // core_counter_
     }
 
     void GetStealList(int tid, vector<int> & list) {
@@ -195,7 +191,9 @@ class CoreAffinity {
     map<int, int> core_to_thread_map;
     map<int, int> thread_to_core_map;
 
-    SimpleThreadSafeMap<int, vector<int>> core_counter_;  // this is implemented in case of bad affinity implementation
+    // this is implemented in case of bad affinity implementation
+    tbb::concurrent_hash_map<int, vector<int>> core_usage_counter_;
+    typedef tbb::concurrent_hash_map<int, vector<int>>::accessor CoreCounterAccessor;
 
     // to do:
     //    to consider NUMA when assigning cores
@@ -228,7 +226,8 @@ class CoreAffinity {
         }
 
         for (int i = 0; i < physical_core_cnt; i++) {
-            core_counter_.Set(i, vector<int>());  // initial
+            CoreCounterAccessor accessor;
+            core_usage_counter_.insert(accessor, i);
         }
 
         // init potential pool via cpuinfo

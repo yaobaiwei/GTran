@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/serialization.hpp"
 #include "base/type.hpp"
 #include "utils/tool.hpp"
+#include "tbb/atomic.h"
 
 // tmp datatype for HDFSDataLoader
 struct TMPVertex {
@@ -144,7 +145,9 @@ struct Vertex {
      *  the first version is "true", means "visible";
      *  the second version is "false", means "deleted";
      */
-    MVCCList<VertexMVCCItem>* mvcc_list = nullptr;
+    tbb::atomic<MVCCList<VertexMVCCItem>*> mvcc_list;
+
+    Vertex() : mvcc_list(nullptr) {}
 };
 
 /* Since eid consists of src_vid and dst_vid, there will be multiple EdgeVersion
@@ -166,9 +169,11 @@ struct EdgeVersion {
 };
 
 struct InEdge {
-    MVCCList<EdgeMVCCItem>* mvcc_list;
+    tbb::atomic<MVCCList<EdgeMVCCItem>*> mvcc_list;
+    InEdge() : mvcc_list(nullptr) {}
 };
 
 struct OutEdge {
-    MVCCList<EdgeMVCCItem>* mvcc_list;
+    tbb::atomic<MVCCList<EdgeMVCCItem>*> mvcc_list;
+    OutEdge() : mvcc_list(nullptr) {}
 };
