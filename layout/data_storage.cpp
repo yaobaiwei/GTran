@@ -528,7 +528,13 @@ READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& be
         auto& v_item = v_pair->second;
 
         bool exists;
-        pair<bool, bool> is_visible = v_item.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
+        MVCCList<VertexMVCCItem>* mvcc_list = v_item.mvcc_list;
+
+        // just inserted
+        if (mvcc_list == nullptr)
+            continue;
+
+        pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
         if (!is_visible.first) {
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return READ_STAT::ABORT;
@@ -551,7 +557,14 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
     for (auto e_pair = out_edge_map_.begin(); e_pair != out_edge_map_.end(); e_pair++) {
         EdgeMVCCItem* visible_version;
         EdgeVersion edge_version;
-        pair<bool, bool> is_visible = e_pair->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
+
+        MVCCList<EdgeMVCCItem>* mvcc_list = e_pair->second.mvcc_list;
+
+        // just inserted
+        if (mvcc_list == nullptr)
+            continue;
+
+        pair<bool, bool> is_visible = mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, edge_version);
         if (!is_visible.first) {
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
             return READ_STAT::ABORT;
