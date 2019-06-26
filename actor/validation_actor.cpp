@@ -114,8 +114,20 @@ bool ValidationActor::validate(const QueryPlan & qplan, Message & msg) {
     for (int i = 0; i < static_cast<int>(Primitive_T::COUNT); i++) {
         if (rct_content_map.find(i) == rct_content_map.end()) { continue; }
 
-        for (auto & vs : curPrimitiveStepMap.at(i)) {
-            check_step_map.emplace(vs, rct_content_map.at(i));
+        for (auto & vstep : curPrimitiveStepMap.at(i)) {
+            // Check step existence in check_step_map
+            if (check_step_map.find(vstep) == check_step_map.end()) {
+                check_step_map.emplace(vstep, rct_content_map.at(i));
+            } else {
+                for (auto & pair : rct_content_map.at(i)) {
+                    unordered_map<uint64_t, vector<rct_extract_data_t>>::iterator itr = check_step_map.at(vstep).find(pair.first);
+                    if (itr != check_step_map.at(vstep).end()) {
+                        check_step_map.at(vstep).at(pair.first).insert(check_step_map.at(vstep).at(pair.first).end(), pair.second.begin(), pair.second.end());
+                    } else {
+                        check_step_map.at(vstep).emplace(pair.first, pair.second);
+                    }
+                }
+            }
         }
     }
 
@@ -141,6 +153,7 @@ void ValidationActor::prepare_primitive_list() {
     needValidateActorSet_.emplace(ACTOR_T::HASLABEL);
     needValidateActorSet_.emplace(ACTOR_T::HAS);
     needValidateActorSet_.emplace(ACTOR_T::PROJECT);
+    needValidateActorSet_.emplace(ACTOR_T::INIT);  // For g.V().count(), etc.
 
     // Prepare Validation PrimitiveToStep map
     // IV & DV & IE & DE
@@ -148,6 +161,7 @@ void ValidationActor::prepare_primitive_list() {
     step_set.emplace(ACTOR_T::HASLABEL, Step_T::HASLABEL, 1);  // First step
     step_set.emplace(ACTOR_T::HAS, Step_T::HASNOT, 1);  // First step
     step_set.emplace(ACTOR_T::PROJECT, 1);  // First step
+    step_set.emplace(ACTOR_T::INIT);
     primitiveStepMap_[static_cast<int>(Primitive_T::IV)] = step_set;
     primitiveStepMap_[static_cast<int>(Primitive_T::DV)] = step_set;
     primitiveStepMap_[static_cast<int>(Primitive_T::IE)] = step_set;
