@@ -18,7 +18,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <list>
 
 #include "tid_mapper.hpp"
-#include "simple_thread_safe_map.hpp"
 
 namespace std {
 // one instance for one tid
@@ -32,17 +31,18 @@ class MKLUtil {
     }
     explicit MKLUtil(int tid);
 
+    static tbb::concurrent_hash_map<int, MKLUtil*> instance_map_;
+    typedef tbb::concurrent_hash_map<int, MKLUtil*>::accessor InstanceMapAccessor;
 
     // get instance from the map with key tid
     static MKLUtil* GetInstanceActual(int tid) {
-        static SimpleThreadSafeMap<int, MKLUtil*> instance_map;
-
-        if (instance_map.Count(tid) == 0) {
-            MKLUtil* p = new MKLUtil(tid);
-            instance_map.Set(tid, p);
+        InstanceMapAccessor accessor;
+        bool is_new = instance_map_.insert(accessor, tid);
+        if (is_new) {
+            accessor->second = new MKLUtil(tid);
         }
 
-        return instance_map.Get(tid);
+        return accessor->second;
     }
 
     int tid_;
