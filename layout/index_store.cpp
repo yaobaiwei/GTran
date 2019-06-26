@@ -205,6 +205,7 @@ void IndexStore::MoveBufferToRegion(const uint64_t & trx_id) {
         for (auto & up_elem : cac->second) {
             vtx_update_list.emplace_back(up_elem);
         }
+        vtx_update_buffers.erase(cac);
     }
 
     // E
@@ -212,6 +213,7 @@ void IndexStore::MoveBufferToRegion(const uint64_t & trx_id) {
         for (auto & up_elem : cac->second) {
             edge_update_list.emplace_back(up_elem);
         }
+        edge_update_buffers.erase(cac);
     }
 
     // VP
