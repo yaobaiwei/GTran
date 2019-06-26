@@ -73,6 +73,31 @@ class InitActor : public AbstractActor {
         // }
     }
 
+    bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
+        // For InitActor, input set also need to be validated.
+        // However, it's unnecessary to record input set since there are only 2 situations:
+        // 1) g.V() --> All;
+        // 2) g.V(A) --> No Need to Validate;
+        for (auto & actor_obj : actor_list) {
+            assert(actor_obj->actor_type == ACTOR_T::INIT);
+            vector<uint64_t> local_check_set;
+
+            // Analysis params
+            assert(actor_obj->params.size() >= 2);
+            Element_T inType = (Element_T)Tool::value_t2int(actor_obj->params.at(0));
+            bool with_input = Tool::value_t2int(actor_obj->params[1]);
+
+            if (!with_input) {
+                for (auto & val : check_set) {
+                    if (get<2>(val) == inType) {
+                        return false;  // Once find one --> Abort
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
  private:
     // Number of threads
     int num_thread_;

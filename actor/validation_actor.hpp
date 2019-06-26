@@ -110,16 +110,32 @@ class ValidationActor : public AbstractActor {
             assert((actor_type == static_cast<int>(actor_type_)) && (step_type == static_cast<int>(step_type_)) && (only_first == only_first_));
         }
 
-        bool operator == (const vstep_t & vk1) const {
-            return (vk1.actor_type == actor_type && vk1.step_type == step_type && vk1.only_first == only_first);
+        bool operator == (const vstep_t & right) const {
+            return (right.actor_type == actor_type && right.step_type == step_type && right.only_first == only_first);
         }
 
-        bool operator < (const vstep_t & vk1) const {
-            return step_type < vk1.step_type;
+        bool operator < (const vstep_t & right) const {
+            if (actor_type < right.actor_type) {
+                return true;
+            } else if (actor_type > right.actor_type) {
+                return false;
+            } else {
+                if (step_type < right.step_type) {
+                    return true;
+                } else if (step_type > right.step_type) {
+                    return false;
+                } else {
+                    if (only_first < right.only_first) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            }
         }
 
         void DebugPrint() {
-            cout << "Actor : {" << actor_type << "}; Step : {" << step_type << "}; IsOnlyFirstStep : {" << only_first << "}"<< endl;
+            cout << "Actor : {" << ActorType[actor_type] << "}; Step : {" << step_type << "}; IsOnlyFirstStep : {" << only_first << "}"<< endl;
         }
     };
 
