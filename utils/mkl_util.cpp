@@ -8,6 +8,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 // #include "intrin.h"
 using std::MKLUtil;
 
+tbb::concurrent_hash_map<int, MKLUtil*> MKLUtil::instance_map_;
+
 static __inline__ unsigned long long GetCycleCount() {
     unsigned hi, lo;
     __asm__ volatile("rdtsc":"=a"(lo), "=d"(hi));
