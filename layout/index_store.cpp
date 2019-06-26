@@ -266,6 +266,16 @@ void IndexStore::ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begi
         data.erase(remove_if(data.begin(), data.end(), checkFunc), data.end());
     }
     data.insert(data.end(), addV_vec.begin(), addV_vec.end());
+
+    // Check Update Buffer to Read self-updated data
+    up_buf_const_accessor cac;
+    if(vtx_update_buffers.find(cac, trx_id)) {
+        for (auto & up_elem : cac->second) {
+            vid_t vid;
+            uint2vid_t(up_elem.element_id, vid);
+            data.emplace_back(vid);
+        }
+    }
 }
 
 void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time,
@@ -307,6 +317,16 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
         data.erase(remove_if(data.begin(), data.end(), checkFunc), data.end());
     }
     data.insert(data.end(), addE_set.begin(), addE_set.end());
+
+    // Check Update Buffer to Read self-updated data
+    up_buf_const_accessor cac;
+    if(edge_update_buffers.find(cac, trx_id)) {
+        for (auto & up_elem : cac->second) {
+            eid_t eid;
+            uint2eid_t(up_elem.element_id, eid);
+            data.emplace_back(eid);
+        }
+    }
 }
 
 void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
