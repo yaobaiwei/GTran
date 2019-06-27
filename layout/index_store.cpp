@@ -13,9 +13,9 @@ bool IndexStore::IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = 
     if (config_->global_enable_indexing) {
         unordered_map<int, index_>* m;
         if (type == Element_T::VERTEX) {
-            m = &vtx_index;
+            m = &vtx_prop_index;
         } else {
-            m = &edge_index;
+            m = &edge_prop_index;
         }
 
         thread_mutex_.lock();
@@ -55,9 +55,9 @@ bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<value_
     if (config_->global_enable_indexing) {
         unordered_map<int, index_>* m;
         if (type == Element_T::VERTEX) {
-            m = &vtx_index;
+            m = &vtx_prop_index;
         } else {
-            m = &edge_index;
+            m = &edge_prop_index;
         }
 
         index_ &idx = (*m)[pid];
@@ -86,9 +86,9 @@ bool IndexStore::SetIndexMapEnable(Element_T type, int pid, bool inverse = false
     if (config_->global_enable_indexing) {
         unordered_map<int, index_>* m;
         if (type == Element_T::VERTEX) {
-            m = &vtx_index;
+            m = &vtx_prop_index;
         } else {
-            m = &edge_index;
+            m = &edge_prop_index;
         }
 
         index_ &idx = (*m)[pid];
@@ -131,9 +131,9 @@ void IndexStore::GetElements(Element_T type, vector<pair<int, PredicateValue>>& 
 bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str) {
     unordered_map<int, index_>* m;
     if (type == Element_T::VERTEX) {
-        m = &vtx_index;
+        m = &vtx_prop_index;
     } else {
-        m = &edge_index;
+        m = &edge_prop_index;
     }
 
     auto itr = m->find(pid);
@@ -180,21 +180,7 @@ void IndexStore::InsertToUpdateBuffer(const uint64_t& trx_id, vector<uint64_t>& 
 void IndexStore::InsertToUpdateRegion(vector<uint64_t>& val_list, ID_T type, bool isAdd, TRX_STAT stat) {
     for (auto & val : val_list) {
         update_element up_elem(val, isAdd, stat);
-        InsertToUpdateRegion(up_elem, type);
-    }
-}
-
-void IndexStore::InsertToUpdateRegion(update_element & up_elem, ID_T type) {
-    if (type == ID_T::VID) {
-        vtx_update_list.emplace_back(up_elem); 
-    } else if (type == ID_T::EID) {
-        edge_update_list.emplace_back(up_elem); 
-    } else if (type == ID_T::VPID) {
-        // TODO
-    } else if (type == ID_T::EPID) {
-        // TODO
-    } else {
-        cout << "[Index Store] Unexpected element type in InsertUpdatedData()" << endl;
+        insert_to_update_region(up_elem, type);
     }
 }
 
@@ -329,12 +315,26 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
     }
 }
 
+void IndexStore::insert_to_update_region(update_element & up_elem, ID_T type) {
+    if (type == ID_T::VID) {
+        vtx_update_list.emplace_back(up_elem); 
+    } else if (type == ID_T::EID) {
+        edge_update_list.emplace_back(up_elem); 
+    } else if (type == ID_T::VPID) {
+        // TODO
+    } else if (type == ID_T::EPID) {
+        // TODO
+    } else {
+        cout << "[Index Store] Unexpected element type in InsertUpdatedData()" << endl;
+    }
+}
+
 void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
     unordered_map<int, index_>* m;
     if (type == Element_T::VERTEX) {
-        m = &vtx_index;
+        m = &vtx_prop_index;
     } else {
-        m = &edge_index;
+        m = &edge_prop_index;
     }
 
     index_ &idx = (*m)[pid];
@@ -408,9 +408,9 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateVal
 uint64_t IndexStore::get_count_by_predicate(Element_T type, int pid, PredicateValue& pred) {
     unordered_map<int, index_>* m;
     if (type == Element_T::VERTEX) {
-        m = &vtx_index;
+        m = &vtx_prop_index;
     } else {
-        m = &edge_index;
+        m = &edge_prop_index;
     }
 
     index_ &idx = (*m)[pid];

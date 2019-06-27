@@ -44,51 +44,61 @@ class IndexStore {
 
     void Init();
 
+    // Write Update Data
+    void InsertToUpdateBuffer(const uint64_t & trx_id, vector<uint64_t>& val, ID_T type, bool isAdd, TRX_STAT stat);
+    void InsertToUpdateRegion(vector<uint64_t>& val, ID_T type, bool isAdd, TRX_STAT stat);
+    void MoveBufferToRegion(const uint64_t & trx_id);
+
+    // Set Prop Index
     bool IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL);
     bool SetIndexMap(Element_T type, int pid, map<value_t, vector<value_t>>& index_map, vector<value_t>& no_key_vec);
     bool SetIndexMapEnable(Element_T type, int pid, bool inverse = false);
-    void GetElements(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data);
-    bool GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str);
 
-    /* ----------Topology Index------------- */
-    void InsertToUpdateBuffer(const uint64_t & trx_id, vector<uint64_t>& val, ID_T type, bool isAdd, TRX_STAT stat);
-    void InsertToUpdateRegion(vector<uint64_t>& val, ID_T type, bool isAdd, TRX_STAT stat);
-    void InsertToUpdateRegion(update_element & elem, ID_T type);
-    void MoveBufferToRegion(const uint64_t & trx_id);
-
+    // Read Index
     void ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time, const bool & read_only, vector<vid_t> & data);
     void ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time, const bool & read_only, vector<eid_t> & data);
-    /* ----------Topology Index------------- */
+    void GetElements(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data);  // For Prop
+    bool GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str);
 
  private:
     Config * config_;
     DataStorage * data_storage_;
 
     mutex thread_mutex_;
-    struct index_{
+    struct index_{  // One Index for One PropertyKey (e.g. age)
         bool isEnabled;
-        uint64_t total;
-        map<value_t, set<value_t>> index_map;
-        set<value_t> no_key;
-        map<value_t, uint64_t> count_map;
-        vector<const value_t *> values;
+        uint64_t total;  // Number of 'age's in total {g.V().has("age").count()}
+        map<value_t, set<value_t>> index_map;  // Map for (value, set<element>) (e.g. (13 -> [v1, v2]) {g.V().has("aga", 13)}
+        set<value_t> no_key; // Set for all elements (e.g. [v1, v2, v3, ...]); {g.V().has("age")}
+        map<value_t, uint64_t> count_map; // Number of each 'age' values (e.g. (13 -> 2)) {g.V().has("age", 13).count()}
+        vector<const value_t *> values;  // Used when creating random values; Not for normal index
     };
 
-    unordered_map<int, index_> vtx_index;
-    unordered_map<int, index_> edge_index;
+    struct update_element {  // For Update Region
+        uint64_t element_id;  // vid or eid
+        bool isAdd;  // 1 for ADD; 0 for DELETE
+        TRX_STAT stat;  // status of related trx
 
-    void get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec);
-    uint64_t get_count_by_predicate(Element_T type, int pid, PredicateValue& pred);
-    void build_range_count(map<value_t, uint64_t>& m, PredicateValue& pred, uint64_t& count);
-    void build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred, vector<value_t>& vec, int& num_set);
+        update_element(uint64_t element_id_, bool isAdd_, TRX_STAT stat_) :
+            element_id(element_id_), isAdd(isAdd_), stat(stat_) {}
 
-    /* ----------Topology Index (init data)------------- */
+        void Print() {
+            cout << "[UpdateElement] " << element_id << ", " << (isAdd ? "ADD" : "DELETE") << endl;
+        }
+    };
+
     // Original init data
+    //  Read Only except during GC
     vector<vid_t> topo_vtx_data;
     vector<eid_t> topo_edge_data;
+    unordered_map<int, index_> vtx_prop_index;  // key: PropertyKey
+    unordered_map<int, index_> edge_prop_index;  // key: PropertyKey
+
     // Updata region
     tbb::concurrent_vector<update_element> vtx_update_list;
     tbb::concurrent_vector<update_element> edge_update_list;
+    tbb::concurrent_vector<update_element> vp_update_list;
+    tbb::concurrent_vector<update_element> ep_update_list;
 
     // Buffer for storing update info during processing
     // and will be inserted into update region when validation begins
@@ -101,7 +111,11 @@ class IndexStore {
     typedef tbb::concurrent_hash_map<uint64_t, vector<update_element>>::const_accessor up_buf_const_accessor;
 
     void build_topo_data();
-    /* ----------Topology Index (init data)------------- */
+    void insert_to_update_region(update_element & elem, ID_T type);
+    void get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec);
+    uint64_t get_count_by_predicate(Element_T type, int pid, PredicateValue& pred);
+    void build_range_count(map<value_t, uint64_t>& m, PredicateValue& pred, uint64_t& count);
+    void build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred, vector<value_t>& vec, int& num_set);
 };
 
 #include "index_store.tpp"
