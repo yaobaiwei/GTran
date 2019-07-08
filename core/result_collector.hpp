@@ -36,19 +36,16 @@ class ResultCollector {
         qid_list_.insert(qid);
     }
 
-    void NotifyAbort(uint64_t qid) {
-        {
-            // check if qid is valid
-            lock_guard<mutex> lck(m_mutex_);
-            auto it = qid_list_.find(qid);
-
-            if (it == qid_list_.end()) {
-                // Multiple abort message, simply ignore
-                return;
-            }
-            qid_list_.erase(it);
+    void Deregister(uint64_t qid) {
+        lock_guard<mutex> lck(m_mutex_);
+        auto it = qid_list_.find(qid);
+        if (it == qid_list_.end()) {
+            CHECK(false) << "ERROR: Impossible branch in ResultCollector::Deregister!\n";
         }
+        qid_list_.erase(it);
+    }
 
+    void NotifyAbort(uint64_t qid) {
         reply re;
         re.qid = qid;
         re.isAbort = true;
@@ -56,18 +53,6 @@ class ResultCollector {
     }
 
     void InsertResult(uint64_t qid, vector<value_t> & data) {
-        {
-            // check if qid is valid
-            lock_guard<mutex> lck(m_mutex_);
-            auto it = qid_list_.find(qid);
-
-            if (it == qid_list_.end()) {
-                cout << "ERROR: Impossible branch in Result_Collector!\n";
-                exit(-1);
-            }
-            qid_list_.erase(it);
-        }
-
         reply re;
         re.results = move(data);
         re.qid = qid;
