@@ -40,7 +40,7 @@ class MVCCList {
     pair<bool, bool> TryPreReadUncommittedTail(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only);
 
     // If nullptr, then append failed.
-    ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time);
+    ValueType* AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time, ValueType* old_val_header = nullptr, bool* old_val_exists = nullptr);
     ValueType* AppendInitialVersion();
     void CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time);
     void AbortVersion(const uint64_t& trx_id);

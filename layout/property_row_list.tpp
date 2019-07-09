@@ -386,7 +386,7 @@ READ_STAT PropertyRowList<PropertyRow>::
 
 template <class PropertyRow>
 pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList<PropertyRow>::
-        ProcessModifyProperty(const PidType& pid, const value_t& value,
+        ProcessModifyProperty(const PidType& pid, const value_t& value, value_t& old_val,
                               const uint64_t& trx_id, const uint64_t& begin_time) {
     int tmp_count;
     PropertyRow* tmp_tail;
@@ -411,7 +411,14 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     if (mvcc_list == nullptr)
         return make_pair(true, nullptr);
 
-    auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
+    bool old_val_exists = true;
+    ValueHeader old_val_header;
+    auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time, &old_val_header, &old_val_exists);
+    if (old_val_exists) {
+        // Get Old Values
+        value_storage_->ReadValue(old_val_header, old_val);
+    }
+
     if (version_val_ptr == nullptr)  // modify failed
         return make_pair(true, nullptr);
 
@@ -427,7 +434,7 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
 
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow>::
-        ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time) {
+        ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_val) {
     auto* cell = LocateCell(pid);
 
     // system error; since this function is called by .drop() step, two conditions below won't happens
@@ -436,7 +443,14 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
 
     assert(mvcc_list != nullptr);
 
-    auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time);
+    bool old_val_exists = true;
+    ValueHeader old_val_header;
+    auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time, &old_val_header, &old_val_exists);
+    if (old_val_exists) {
+        // Get Old Values
+        value_storage_->ReadValue(old_val_header, old_val);
+    }
+
     if (version_val_ptr == nullptr)  // Modify failed, abort
         return nullptr;
 

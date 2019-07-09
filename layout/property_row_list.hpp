@@ -57,9 +57,9 @@ class PropertyRowList {
     // Return value:
     //  bool:           True if "Modify", false if "Add"
     //  MVCCListType* : Pointer to MVCC list, need to abort if is nullptr
-    pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value,
+    pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value, value_t& old_value,
                                                     const uint64_t& trx_id, const uint64_t& begin_time);
-    MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time);
+    MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& old_value);
 
     static void SetGlobalMemoryPool(ConcurrentMemPool<PropertyRow>* mem_pool) {
         mem_pool_ = mem_pool;

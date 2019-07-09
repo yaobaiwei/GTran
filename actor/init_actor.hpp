@@ -54,8 +54,10 @@ class InitActor : public AbstractActor {
         vector<pair<history_t, vector<value_t>>> init_data;
         if (with_input) {
             InitWithInput(tid, qplan.actors, init_data, msg);
-        } else {
+        } else if (actor_obj.params.size() == 2) {
             InitWithoutIndex(tid, qplan, init_data, msg);
+        } else {
+            InitWithIndex(tid, qplan.actors, msg);
         }
 
         vector<Message> msg_vec;
@@ -63,14 +65,6 @@ class InitActor : public AbstractActor {
         for (auto & msg_ : msg_vec) {
             mailbox_->Send(tid, msg_);
         }
-
-        // if (with_input) {
-        //     InitWithInput(tid, qplan.actors, msg);
-        // } else if (actor_obj.params.size() == 2) {
-        //     InitWithoutIndex(tid, qplan.actors, msg);
-        // } else {
-        //     InitWithIndex(tid, qplan.actors, msg);
-        // }
     }
 
     bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
@@ -203,40 +197,40 @@ class InitActor : public AbstractActor {
     }
 
     void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
-        // Meta m = msg.meta;
-        // const Actor_Object& actor_obj = actor_objs[m.step];
+        Meta m = msg.meta;
+        const Actor_Object& actor_obj = actor_objs[m.step];
 
-        // // store all predicate
-        // vector<pair<int, PredicateValue>> pred_chain;
+        // store all predicate
+        vector<pair<int, PredicateValue>> pred_chain;
 
-        // // Get Params
-        // assert((actor_obj.params.size() - 2) % 3 == 0);  // make sure input format
-        // Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
-        // int numParamsGroup = (actor_obj.params.size() - 2) / 3;  // number of groups of params
+        // Get Params
+        assert((actor_obj.params.size() - 2) % 3 == 0);  // make sure input format
+        Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
+        int numParamsGroup = (actor_obj.params.size() - 2) / 3;  // number of groups of params
 
-        // // Create predicate chain for this query
-        // for (int i = 0; i < numParamsGroup; i++) {
-        //     int pos = i * 3 + 2;
-        //     // Get predicate params
-        //     int pid = Tool::value_t2int(actor_obj.params.at(pos));
-        //     Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 1));
-        //     vector<value_t> pred_params;
-        //     Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
-        //     pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
-        // }
+        // Create predicate chain for this query
+        for (int i = 0; i < numParamsGroup; i++) {
+            int pos = i * 3 + 2;
+            // Get predicate params
+            int pid = Tool::value_t2int(actor_obj.params.at(pos));
+            Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor_obj.params.at(pos + 1));
+            vector<value_t> pred_params;
+            Tool::value_t2vec(actor_obj.params.at(pos + 2), pred_params);
+            pred_chain.emplace_back(pid, PredicateValue(pred_type, pred_params));
+        }
 
-        // msg.max_data_size = config_->max_data_size;
-        // msg.data.clear();
-        // msg.data.emplace_back(history_t(), vector<value_t>());
-        // index_store_->GetElements(inType, pred_chain, msg.data[0].second);
+        msg.max_data_size = config_->max_data_size;
+        msg.data.clear();
+        msg.data.emplace_back(history_t(), vector<value_t>());
+        index_store_->ReadPropIndex(inType, pred_chain, msg.data[0].second);
 
-        // vector<Message> vec;
-        // msg.CreateNextMsg(actor_objs, msg.data, num_thread_, core_affinity_, vec);
+        vector<Message> vec;
+        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, core_affinity_, vec);
 
-        // // Send Message
-        // for (auto& msg_ : vec) {
-        //     mailbox_->Send(tid, msg_);
-        // }
+        // Send Message
+        for (auto& msg_ : vec) {
+            mailbox_->Send(tid, msg_);
+        }
     }
 
     void InitWithoutIndex(int tid, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data, Message & msg) {

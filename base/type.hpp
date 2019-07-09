@@ -348,6 +348,15 @@ struct value_t {
     uint8_t type;
     vector<char> content;
     string DebugString() const;
+    bool empty = false;
+
+    value_t() {
+        empty = true;
+    }
+
+    bool isEmpty() {
+        return empty;
+    }
 };
 
 static uint8_t IntValueType = 1;
@@ -592,18 +601,3 @@ struct PrimitiveEnumClassHash {
 // For Modification (AddE)
 //  PlaceHolder, AsLabel, NotApplicable
 enum AddEdgeMethodType { PlaceHolder, StepLabel, NotApplicable };
-
-
-// For Index
-struct update_element {
-    uint64_t element_id;  // vid or eid
-    bool isAdd;  // 1 for ADD; 0 for DELETE
-    TRX_STAT stat;  // status of related trx
-
-    update_element(uint64_t element_id_, bool isAdd_, TRX_STAT stat_) :
-        element_id(element_id_), isAdd(isAdd_), stat(stat_) {}
-
-    void Print() {
-        cout << "[UpdateElement] " << element_id << ", " << (isAdd ? "ADD" : "DELETE") << endl;
-    }
-};

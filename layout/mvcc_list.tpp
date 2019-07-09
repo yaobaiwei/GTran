@@ -156,7 +156,8 @@ pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const
 }
 
 template<class Item>
-decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time) {
+decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                                                   decltype(Item::val)* old_val_header, bool* old_val_exists) {
     SimpleSpinLockGuard lock_guard(&lock_);
 
     if (head_ == nullptr) {
@@ -169,6 +170,10 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
         tail_ = head_mvcc;
         pre_tail_ = head_mvcc;
         tmp_pre_tail_ = head_mvcc;
+
+        if (old_val_exists != nullptr) {
+            *old_val_exists = false;
+        }
 
         return &head_mvcc->val;
     }
@@ -197,6 +202,11 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
     tail_->next = new_version;
     // Stores the original pre_tail, will be used in AbortVersion.
     tmp_pre_tail_ = pre_tail_;
+
+    // Get Old Value for Index Update
+    if (old_val_header != nullptr) {
+        old_val_header[0] = pre_tail_->val;
+    }
 
     // extend the MVCCList
     pre_tail_ = tail_;
