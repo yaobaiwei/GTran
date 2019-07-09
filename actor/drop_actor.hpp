@@ -68,7 +68,7 @@ class DropActor : public AbstractActor {
     IndexStore * index_store_;
 
     bool processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
-            bool isProperty, vector<uint64_t> & rct_insert_data, Primitive_T & pmt_type);
+            bool isProperty, vector<uint64_t> & update_ids, vector<value_t> & update_vals, Primitive_T & pmt_type);
 };
 
 #endif  // ACTOR_DROP_ACTOR_HPP_

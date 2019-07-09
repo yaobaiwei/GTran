@@ -348,6 +348,15 @@ struct value_t {
     uint8_t type;
     vector<char> content;
     string DebugString() const;
+    bool empty = false;
+
+    value_t() {
+        empty = true;
+    }
+
+    bool isEmpty() {
+        return empty;
+    }
 };
 
 static uint8_t IntValueType = 1;

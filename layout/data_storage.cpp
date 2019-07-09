@@ -1130,7 +1130,7 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     return true;
 }
 
-bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
+bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value,
                                   const uint64_t& trx_id, const uint64_t& begin_time) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
@@ -1146,7 +1146,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
     }
 
     // Modify the property in vp_row_list
-    auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
+    auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, old_value, trx_id, begin_time);
 
     // ret.second: pointer of MVCCList<VP>
     if (ret.second == nullptr) {
@@ -1166,7 +1166,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value,
     return true;
 }
 
-bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
+bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value,
                                   const uint64_t& trx_id, const uint64_t& begin_time) {
     OutEdgeConstAccessor out_e_accessor;
     EdgeVersion edge_version;
@@ -1183,7 +1183,7 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     }
 
     // Modify the property in ep_row_list
-    auto ret = edge_version.ep_row_list->ProcessModifyProperty(pid, value, trx_id, begin_time);
+    auto ret = edge_version.ep_row_list->ProcessModifyProperty(pid, value, old_value, trx_id, begin_time);
 
     // ret.second: pointer of MVCCList<EP>
     if (ret.second == nullptr) {
@@ -1203,7 +1203,7 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value,
     return true;
 }
 
-bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time) {
+bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
@@ -1218,7 +1218,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
     }
 
     // ret: pointer of MVCCList<VP>
-    auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time);
+    auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time, old_value);
 
     if (ret == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -1230,7 +1230,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
     return true;
 }
 
-bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time) {
+bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     OutEdgeConstAccessor out_e_accessor;
     EdgeVersion edge_version;
     auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
@@ -1246,7 +1246,7 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
     }
 
     // ret: pointer of MVCCList<EP>
-    auto ret = edge_version.ep_row_list->ProcessDropProperty(pid, trx_id, begin_time);
+    auto ret = edge_version.ep_row_list->ProcessDropProperty(pid, trx_id, begin_time, old_value);
 
     if (ret == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);

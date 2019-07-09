@@ -45,6 +45,7 @@ class CommitActor : public AbstractActor {
         msg_logic_table_(msg_logic_table),
         type_(ACTOR_T::COMMIT) {
         config_ = Config::GetInstance();
+        index_store_ = IndexStore::GetInstance();
         prepare_clean_actor_set();
     }
 
@@ -60,6 +61,9 @@ class CommitActor : public AbstractActor {
     // Pointer of mailbox
     AbstractMailbox * mailbox_;
     Config * config_;
+
+    // Index Store
+    IndexStore * index_store_;
 
     // Actor Set
     set<ACTOR_T> need_clean_actor_set_;

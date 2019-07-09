@@ -105,7 +105,7 @@ bool IndexStore::SetIndexMapEnable(Element_T type, int pid, bool inverse = false
     return false;
 }
 
-void IndexStore::GetElements(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data) {
+void IndexStore::ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data) {
     bool is_first = true;
     bool need_sort = pred_chain.size() != 1;
     for (auto& pred_pair : pred_chain) {
@@ -153,38 +153,56 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& 
     return true;
 }
 
-void IndexStore::InsertToUpdateBuffer(const uint64_t& trx_id, vector<uint64_t>& val_list, ID_T type, bool isAdd, TRX_STAT stat) {
+void IndexStore::InsertToUpdateBuffer(const uint64_t& trx_id, vector<uint64_t>& ids, ID_T type, bool isAdd,
+                                    TRX_STAT stat, value_t* new_val = NULL, vector<value_t>* old_vals = NULL) {
     vector<update_element> up_list;
-    for (auto & val : val_list) {
-        up_list.emplace_back(val, isAdd, stat);
+    if (old_vals != NULL) {
+        assert(ids.size() == old_vals->size());
+    }
+
+    for (int i = 0; i < ids.size(); i++) {
+        update_element up_elem(ids.at(i), isAdd, stat);
+        if (new_val != NULL && old_vals != NULL) {  // ModifyToNew V/EP
+            up_elem.set_modify_value(*new_val, PropertyUpdateT::MODIFY);
+            up_list.emplace_back(up_elem);
+
+            if (!old_vals->at(i).isEmpty()) {  // ModifyFromOld V/EP
+                up_elem.set_modify_value(old_vals->at(i), PropertyUpdateT::MODIFY);
+                up_list.emplace_back(up_elem);
+            } else {  // Add V/EP
+                up_elem.set_modify_value(old_vals->at(i), PropertyUpdateT::ADD);
+                up_list.emplace_back(up_elem);
+            }
+        } else if (new_val != NULL && old_vals == NULL) {  // Add V/EP
+            up_elem.set_modify_value(*new_val, PropertyUpdateT::ADD);
+            up_list.emplace_back(up_elem);
+        } else if (new_val == NULL && old_vals != NULL) {  // Drop V/EP
+            up_elem.set_modify_value(old_vals->at(i), PropertyUpdateT::DROP);
+            up_list.emplace_back(up_elem);
+        } else {  // V/E update
+            up_list.emplace_back(up_elem);
+        }
     }
 
     up_buf_accessor ac;
     bool found = false;
     if (type == ID_T::VID) {
-        if(!vtx_update_buffers.find(ac, trx_id)) { vtx_update_buffers.insert(ac, trx_id); }
+        vtx_update_buffers.insert(ac, trx_id);
     } else if (type == ID_T::EID) {
-        if(!edge_update_buffers.find(ac, trx_id)) { edge_update_buffers.insert(ac, trx_id); }
+        edge_update_buffers.insert(ac, trx_id);
     } else if (type == ID_T::VPID) {
-        if(!vp_update_buffers.find(ac, trx_id)) { vp_update_buffers.insert(ac, trx_id); }
+        vp_update_buffers.insert(ac, trx_id);
     } else if (type == ID_T::EPID) {
-        if(!ep_update_buffers.find(ac, trx_id)) { ep_update_buffers.insert(ac, trx_id); }
+        ep_update_buffers.insert(ac, trx_id);
     } else {
-        cout << "[Index Store] Unexpected element type in InsertToBuffer()" << endl;
+        cout << "[Index Store] Unexpected element type in InsertToUpdateBuffer()" << endl;
     }
 
     // Append new data
     ac->second.insert(ac->second.end(), up_list.begin(), up_list.end());
 }
 
-void IndexStore::InsertToUpdateRegion(vector<uint64_t>& val_list, ID_T type, bool isAdd, TRX_STAT stat) {
-    for (auto & val : val_list) {
-        update_element up_elem(val, isAdd, stat);
-        insert_to_update_region(up_elem, type);
-    }
-}
-
-void IndexStore::MoveBufferToRegion(const uint64_t & trx_id) {
+void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id) {
     up_buf_const_accessor cac;
     // V
     if(vtx_update_buffers.find(cac, trx_id)) {
@@ -201,19 +219,44 @@ void IndexStore::MoveBufferToRegion(const uint64_t & trx_id) {
         }
         edge_update_buffers.erase(cac);
     }
+}
 
+void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id) {
+    up_buf_const_accessor cac;
     // VP
-    if(vtx_update_buffers.find(cac, trx_id)) {
+    if(vp_update_buffers.find(cac, trx_id)) {
+        prop_up_map_accessor pac;
         for (auto & up_elem : cac->second) {
-            // TODO
+            uint64_t vid = up_elem.element_id >> PID_BITS;
+            uint64_t pid = up_elem.element_id - (vid << PID_BITS); 
+
+            vp_update_map.insert(pac, pid);
+
+            if(pac->second.find(up_elem.value) != pac->second.end()) {
+                pac->second.at(up_elem.value).emplace_back(up_elem);
+            } else {
+                pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
+            }
         }
+        vp_update_buffers.erase(cac);
     }
 
     // EP
-    if(vtx_update_buffers.find(cac, trx_id)) {
+    if(ep_update_buffers.find(cac, trx_id)) {
+        prop_up_map_accessor pac;
         for (auto & up_elem : cac->second) {
-            // TODO
+            uint64_t eid = up_elem.element_id >> PID_BITS;
+            uint64_t pid = up_elem.element_id - (eid << PID_BITS); 
+
+            ep_update_map.insert(pac, pid);
+
+            if(pac->second.find(up_elem.value) != pac->second.end()) {
+                pac->second.at(up_elem.value).emplace_back(up_elem);
+            } else {
+                pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
+            }
         }
+        ep_update_buffers.erase(cac);
     }
 }
 
@@ -315,26 +358,15 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
     }
 }
 
-void IndexStore::insert_to_update_region(update_element & up_elem, ID_T type) {
-    if (type == ID_T::VID) {
-        vtx_update_list.emplace_back(up_elem); 
-    } else if (type == ID_T::EID) {
-        edge_update_list.emplace_back(up_elem); 
-    } else if (type == ID_T::VPID) {
-        // TODO
-    } else if (type == ID_T::EPID) {
-        // TODO
-    } else {
-        cout << "[Index Store] Unexpected element type in InsertUpdatedData()" << endl;
-    }
-}
-
 void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
     unordered_map<int, index_>* m;
+    tbb::concurrent_hash_map<int, map<value_t, vector<update_element>>>* up_region;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
+        up_region = &vp_update_map;
     } else {
         m = &edge_prop_index;
+        up_region = &ep_update_map;
     }
 
     index_ &idx = (*m)[pid];
@@ -343,12 +375,24 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateVal
     map<value_t, set<value_t>>::iterator itr;
     int num_set = 0;
 
+    // Updated Region
+    prop_up_map_const_accessor pcac;
+    bool isUpdated = up_region->find(pcac, pid);
+
     switch (pred.pred_type) {
       case Predicate_T::ANY:
-        // Search though whole index map
+        // Get All Values
         for (auto& item : index_map) {
             vec.insert(vec.end(), item.second.begin(), item.second.end());
             num_set++;
+        }
+
+        if (isUpdated) {
+            for (auto & pair : pcac->second) {
+                for (auto & up_elem : pair.second) {
+                    read_prop_update_data(up_elem, vec);
+                }
+            }
         }
         break;
       case Predicate_T::NEQ:
@@ -360,6 +404,16 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateVal
                 num_set++;
             }
         }
+
+        if (isUpdated) {
+            for (auto & pair : pcac->second) {
+                if (Evaluate(pred, &pair.first)) {
+                    for (auto & up_elem : pair.second) {
+                        read_prop_update_data(up_elem, vec);
+                    }
+                }
+            }
+        }
         break;
       case Predicate_T::EQ:
         // Get elements with single value
@@ -367,6 +421,14 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateVal
         if (itr != index_map.end()) {
             vec.assign(itr->second.begin(), itr->second.end());
             num_set++;
+        }
+
+        if (isUpdated) {
+            if (pcac->second.find(pred.values[0]) != pcac->second.end()) {
+                for (auto& up_elem : pcac->second.at(pred.values[0])) {
+                    read_prop_update_data(up_elem, vec);
+                }
+            }
         }
         break;
       case Predicate_T::WITHIN:
@@ -378,10 +440,37 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateVal
                 num_set++;
             }
         }
+
+        if (isUpdated) {
+            for (auto & given_val : pred.values) {
+                if (pcac->second.find(given_val) != pcac->second.end()) {
+                    for (auto& up_elem : pcac->second.at(given_val)) {
+                        read_prop_update_data(up_elem, vec);
+                    }
+                }
+            }
+        }
         break;
       case Predicate_T::NONE:
         // Get elements from no_key_store
         vec.assign(idx.no_key.begin(), idx.no_key.end());
+
+        if (isUpdated) {
+            for (auto & pair : pcac->second) {
+                for (auto & up_elem : pair.second) {
+                    value_t id_value_t;
+                    Tool::uint64_t2value_t(up_elem.element_id, id_value_t);
+                    if (up_elem.update_type == PropertyUpdateT::DROP) {
+                        vec.emplace_back(id_value_t);
+                    } else if (up_elem.update_type == PropertyUpdateT::ADD) {
+                        vector<value_t>::iterator itr = find(vec.begin(), vec.end(), id_value_t);
+                        if (itr != vec.end()) {
+                            vec.erase(itr);
+                        }
+                    }
+                }
+            }
+        }
         num_set++;
         break;
 
@@ -400,8 +489,24 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateVal
         break;
     }
 
+    // TODO: OLTP Situation always needs sort
     if (need_sort && num_set > 1) {
         sort(vec.begin(), vec.end());
+    }
+}
+
+void IndexStore::read_prop_update_data(const update_element & up_elem, vector<value_t> & vec) {
+    value_t id_value_t;
+    Tool::uint64_t2value_t(up_elem.element_id, id_value_t);
+    vector<value_t>::iterator itr = find(vec.begin(), vec.end(), id_value_t);
+    if(up_elem.isAdd) {
+        if(itr == vec.end()) {
+            vec.emplace_back(id_value_t); 
+        }
+    } else {
+        if(itr != vec.end()) {
+            vec.erase(itr);
+        }
     }
 }
 
