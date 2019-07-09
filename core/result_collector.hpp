@@ -23,10 +23,12 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 using __gnu_cxx::hash_map;
 
+enum class ReplyType {NOTIFY_ABORT, RESULT_NORMAL, RESULT_ABORT};
+
 struct reply {
     uint64_t qid;
     vector<value_t> results;
-    bool isAbort;
+    ReplyType reply_type;
 };
 
 class ResultCollector {
@@ -48,7 +50,7 @@ class ResultCollector {
     void NotifyAbort(uint64_t qid) {
         reply re;
         re.qid = qid;
-        re.isAbort = true;
+        re.reply_type = ReplyType::NOTIFY_ABORT;
         reply_queue_.Push(move(re));
     }
 
@@ -56,7 +58,14 @@ class ResultCollector {
         reply re;
         re.results = move(data);
         re.qid = qid;
-        re.isAbort = false;
+        re.reply_type = ReplyType::RESULT_NORMAL;
+        reply_queue_.Push(move(re));
+    }
+
+    void InsertAbortResult(uint64_t qid) {
+        reply re;
+        re.qid = qid;
+        re.reply_type = ReplyType::RESULT_ABORT;
         reply_queue_.Push(move(re));
     }
 

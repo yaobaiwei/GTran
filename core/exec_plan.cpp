@@ -41,6 +41,20 @@ void TrxPlan::RegDependency(uint8_t src_index, uint8_t dst_index) {
     }
 }
 
+void TrxPlan::NotifyQueryFinished(int query_index) {
+    if (remaining_qids_.count(query_index) == 0)
+        return;
+
+    remaining_qids_.erase(query_index);
+
+    // All running queries has finished. Release the query of abort statement.
+    if (remaining_qids_.size() == 0) {
+        int index = query_plans_.size() - 1;
+        deps_count_.clear();
+        deps_count_[index] = 0;
+    }
+}
+
 void TrxPlan::Abort() {
     if (is_abort_) {
         // Abort statement already sent
@@ -55,9 +69,17 @@ void TrxPlan::Abort() {
     QueryPlan& plan = query_plans_[index];
     plan.actors.erase(plan.actors.begin(), plan.actors.begin() + 2);
 
-    // set abort statement to next execution batch
-    deps_count_.clear();
-    deps_count_[index] = 0;
+    // find all query with dep_count == 0 (already submitted)
+    for (uint8_t i = 0; i < index; i++) {
+        if (deps_count_[i] == 0) {
+            // not finished
+            if (results_.count(i) == 0) {
+                // Record them in a set.
+                // Query of abort statement will not be send until those queries in remaining_qids_ finished.
+                remaining_qids_.emplace(i);
+            }
+        }
+    }
 }
 
 bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
@@ -79,6 +101,7 @@ bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
                 result = vec[0];
             } else {
                 Abort();
+                NotifyQueryFinished(query_index);
                 return false;
             }
             actor.params[pos.param] = result;
@@ -103,6 +126,10 @@ bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
         }
         Tool::str2str(header, v);
         results_[query_index].push_back(v);
+    }
+
+    if (is_abort_) {
+        NotifyQueryFinished(query_index);
     }
 
     results_[query_index].insert(results_[query_index].end(),

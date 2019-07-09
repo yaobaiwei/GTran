@@ -28,6 +28,8 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
     if (isReady) {
         if (!ac->second.is_abort) {
             rc_->InsertResult(msg.meta.qid, data);
+        } else {
+            rc_->InsertAbortResult(msg.meta.qid);
         }
         rc_->Deregister(msg.meta.qid);
     }
