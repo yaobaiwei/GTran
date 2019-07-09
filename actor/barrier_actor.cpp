@@ -18,11 +18,20 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
     }
 
     if (msg.meta.msg_type == MSG_T::ABORT) {
-        rc_->NotifyAbort(msg.meta.qid);
-    } else if (isReady) {
-        // all msg are collected
-        // insert data to result collector
-        rc_->InsertResult(msg.meta.qid, data);
+        if (!ac->second.is_abort) {
+            // only NotifyAbort once
+            ac->second.is_abort = true;
+            rc_->NotifyAbort(msg.meta.qid);
+        }
+    }
+
+    if (isReady) {
+        if (!ac->second.is_abort) {
+            rc_->InsertResult(msg.meta.qid, data);
+        } else {
+            rc_->InsertAbortResult(msg.meta.qid);
+        }
+        rc_->Deregister(msg.meta.qid);
     }
 }
 

@@ -5,6 +5,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #pragma once
 #include <string>
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 #include "actor/actor_object.hpp"
@@ -61,6 +62,7 @@ class TrxPlan {
     bool FillResult(int query_index, vector<value_t>& vec);
 
     void Abort();
+    void NotifyQueryFinished(int query_index);
 
     // Get result of queries after transaction finished
     void GetResult(vector<value_t>& vec);
@@ -105,6 +107,9 @@ class TrxPlan {
 
     // Query index to query result
     map<int, vector<value_t>> results_;
+
+    // Ids of queries to wait before releasing the query of abort statement
+    unordered_set<uint8_t> remaining_qids_;
 
     friend Parser;
 };

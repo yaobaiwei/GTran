@@ -87,6 +87,7 @@ class BarrierActorBase :  public AbstractActor {
 namespace BarrierData {
 struct end_data : barrier_data_base{
     vector<value_t> result;
+    bool is_abort = false;
 };
 }  // namespace BarrierData
 
