@@ -590,8 +590,9 @@ bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& 
     bool found = vertex_map_.find(v_accessor, vid.value());
 
     if (!found) {
-        printf("Impossible branch in DataStorage::CheckVertexVisibility\n");
-        assert(false);
+        printf("Impossible branch in DataStorage::CheckVertexVisibility, vid = %d => %d, on worker %d\n",
+                vid.value(), id_mapper_->GetMachineIdForVertex(vid), worker_rank_);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -1212,7 +1213,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
         assert(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) == READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return false;
     }

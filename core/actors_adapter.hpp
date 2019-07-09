@@ -162,6 +162,11 @@ class ActorAdapter {
             TRX_STAT status;
             trx_table_stub_->read_status(m.qid & _56HFLAG, status);
             if (status == TRX_STAT::ABORT) {
+                vector<Message> msg_vec;
+                msg.CreateAbortMsg(ac->second.actors, msg_vec);
+                for (auto& msg : msg_vec) {
+                    mailbox_->Send(tid, msg);
+                }
                 return;
             }
 
@@ -178,6 +183,11 @@ class ActorAdapter {
             TRX_STAT status;
             trx_table_stub_->read_status(ac->second.trxid, status);
             if (status == TRX_STAT::ABORT) {
+                vector<Message> msg_vec;
+                msg.CreateAbortMsg(ac->second.actors, msg_vec);
+                for (auto& msg : msg_vec) {
+                    mailbox_->Send(tid, msg);
+                }
                 return;
             }
         }
@@ -187,7 +197,7 @@ class ActorAdapter {
             current_step = msg.meta.step;
             ACTOR_T next_actor = ac->second.actors[current_step].actor_type;
             actors_[next_actor]->process(ac->second, msg);
-        }while(current_step != msg.meta.step);  // process next actor directly if step is modified
+        } while (current_step != msg.meta.step);  // process next actor directly if step is modified
 
         // Commit actor cannot erase its own qid in process
         if (ac->second.actors[current_step].actor_type == ACTOR_T::COMMIT) {
