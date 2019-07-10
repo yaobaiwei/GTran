@@ -16,6 +16,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
 #include "layout/gc_executor.hpp"
+#include "layout/gc_scanner.hpp"
+#include "layout/gc_task.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
