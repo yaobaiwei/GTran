@@ -10,20 +10,32 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
             BarrierDataTable::accessor& ac, bool isReady) {
     auto& data = ac->second.result;
 
-    // move msg data to data table
-    for (auto& pair : msg.data) {
-        data.insert(data.end(),
-                    std::make_move_iterator(pair.second.begin()),
-                    std::make_move_iterator(pair.second.end()));
-    }
-
     if (msg.meta.msg_type == MSG_T::ABORT) {
         if (!ac->second.is_abort) {
             // only NotifyAbort once
             ac->second.is_abort = true;
             rc_->NotifyAbort(msg.meta.qid);
+
+            // clear collected result
+            data.clear();
+        }
+
+        // with abort_info in CreateAbortMsg
+        if (msg.data.size() > 0) {
+            data.emplace_back(msg.data[0].second[0]);
+            printf("with abort_info: %s\n", Tool::DebugString(msg.data[0].second[0]).c_str());
         }
     }
+
+    // move msg data to data table
+    if (!ac->second.is_abort) {
+        for (auto& pair : msg.data) {
+            data.insert(data.end(),
+                        std::make_move_iterator(pair.second.begin()),
+                        std::make_move_iterator(pair.second.end()));
+        }
+    }
+
 
     if (isReady) {
         if (!ac->second.is_abort) {

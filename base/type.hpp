@@ -38,6 +38,36 @@ static uint64_t _8LFLAG  = 0xFF;
 
 enum class TRX_STAT {PROCESSING, VALIDATING, ABORT, COMMITTED};
 enum class READ_STAT {ABORT, NOTFOUND, SUCCESS};
+enum class PROCESS_STAT {
+    SUCCESS,
+    ABORT,
+    ABORT_DROP_V_GET_CONN_E,
+    ABORT_DROP_V_APPEND,
+    ABORT_ADD_E_INVISIBLE_V,
+    ABORT_ADD_E_APPEND,
+    ABORT_DROP_E_APPEND,
+    ABORT_MODIFY_VP_INVISIBLE_V,
+    ABORT_MODIFY_VP_APPEND,
+    ABORT_MODIFY_EP_EITEM,
+    ABORT_MODIFY_EP_DELETED_E,
+    ABORT_MODIFY_EP_MODIFY,  // To be refined
+    ABORT_DROP_VP_INVISIBLE_V,
+    ABORT_DROP_VP_DROP,  // To be refined
+    ABORT_DROP_EP_EITEM,
+    ABORT_DROP_EP_DELETED_E,
+    ABORT_DROP_EP_DROP,  // To be refined
+};
+
+struct ProcessStatHash {
+    size_t operator() (const PROCESS_STAT& stat) const{
+        return hash<int>()((int)(stat));
+    }
+    bool operator() (const PROCESS_STAT& a, const PROCESS_STAT& b) const{
+        return a == b;
+    }
+};
+
+extern const unordered_map<PROCESS_STAT, string, ProcessStatHash> abort_reason_map;
 
 struct ptr_t {
     uint64_t size: NBITS_SIZE;

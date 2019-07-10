@@ -941,8 +941,8 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
     return vid;
 }
 
-bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                               vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
+PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                                       vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid.value());
 
@@ -956,7 +956,7 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
 
     if (read_stat == READ_STAT::ABORT) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_V_GET_CONN_E;
     }
 
     bool* mvcc_value_ptr = v_accessor->second.mvcc_list->AppendVersion(trx_id, begin_time);
@@ -966,7 +966,7 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
      */
     if (mvcc_value_ptr == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_V_APPEND;
     }
 
     // false means invisible
@@ -985,7 +985,7 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
         }
     }
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
 
@@ -995,8 +995,8 @@ bool DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const u
  * on worker2:
  *      ProcessAddE(e1, label, false, trx_id, begin_time);
  */
-bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
-                              const uint64_t& trx_id, const uint64_t& begin_time) {
+PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
+                                      const uint64_t& trx_id, const uint64_t& begin_time) {
     InEdgeAccessor in_e_accessor;
     OutEdgeAccessor out_e_accessor;
     bool is_new;
@@ -1025,7 +1025,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_ADD_E_INVISIBLE_V;
     }
 
     if (is_out) {
@@ -1064,7 +1064,7 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
         if (e_item == nullptr) {
             trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-            return false;
+            return PROCESS_STAT::ABORT_ADD_E_APPEND;
         }
 
         PropertyRowList<EdgePropertyRow>* ep_row_list;
@@ -1081,11 +1081,11 @@ bool DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool
 
     InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_ADD_E, mvcc_list);
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
-bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
-                               const uint64_t& trx_id, const uint64_t& begin_time) {
+PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
+                                       const uint64_t& trx_id, const uint64_t& begin_time) {
     InEdgeConstAccessor in_e_accessor;
     OutEdgeConstAccessor out_e_accessor;
     bool found;
@@ -1105,7 +1105,7 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 
     // do nothing
     if (!found)
-        return true;
+        return PROCESS_STAT::SUCCESS;
 
     MVCCList<EdgeMVCCItem>* mvcc_list;
 
@@ -1118,7 +1118,7 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 
     if (e_item == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_E_APPEND;
     }
 
     // label == 0 represents that the edge does not exists
@@ -1128,11 +1128,11 @@ bool DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 
     InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_E, mvcc_list);
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
-bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value,
-                                  const uint64_t& trx_id, const uint64_t& begin_time) {
+PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value,
+                                          const uint64_t& trx_id, const uint64_t& begin_time) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
@@ -1143,7 +1143,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_MODIFY_VP_INVISIBLE_V;
     }
 
     // Modify the property in vp_row_list
@@ -1152,7 +1152,7 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value
     // ret.second: pointer of MVCCList<VP>
     if (ret.second == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_MODIFY_VP_APPEND;
     }
 
     TrxProcessHistory::ProcessType process_type;
@@ -1164,23 +1164,23 @@ bool DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value
 
     InsertTrxHistoryMap(trx_id, process_type, ret.second);
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
-bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value,
-                                  const uint64_t& trx_id, const uint64_t& begin_time) {
+PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value,
+                                          const uint64_t& trx_id, const uint64_t& begin_time) {
     OutEdgeConstAccessor out_e_accessor;
     EdgeVersion edge_version;
     auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_MODIFY_EP_EITEM;
     }
 
     if (!edge_version.Exist()) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_MODIFY_EP_DELETED_E;
     }
 
     // Modify the property in ep_row_list
@@ -1189,7 +1189,7 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value
     // ret.second: pointer of MVCCList<EP>
     if (ret.second == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_MODIFY_EP_MODIFY;
     }
 
     TrxProcessHistory::ProcessType process_type;
@@ -1201,10 +1201,10 @@ bool DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value
 
     InsertTrxHistoryMap(trx_id, process_type, ret.second);
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
-bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
+PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
 
@@ -1215,7 +1215,7 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_VP_INVISIBLE_V;
     }
 
     // ret: pointer of MVCCList<VP>
@@ -1223,27 +1223,27 @@ bool DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const
 
     if (ret == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_VP_DROP;
     }
 
     InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_VP, ret);
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
-bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
+PROCESS_STAT DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     OutEdgeConstAccessor out_e_accessor;
     EdgeVersion edge_version;
     auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_EP_EITEM;
     }
 
     if (!edge_version.Exist()) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_EP_DELETED_E;
     }
 
     // ret: pointer of MVCCList<EP>
@@ -1251,12 +1251,12 @@ bool DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const
 
     if (ret == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return false;
+        return PROCESS_STAT::ABORT_DROP_EP_DROP;
     }
 
     InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_EP, ret);
 
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }
 
 /* Commit the transaction on this worker.

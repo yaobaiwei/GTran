@@ -109,7 +109,7 @@ class Message {
 
     // Processing stage abort
     // Send to end actor directly
-    void CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec);
+    void CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec, string abort_info = "");
 
     // actors:  actors chain for current message
     // data:    new data processed by actor_type

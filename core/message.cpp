@@ -361,7 +361,7 @@ void Message::CreateBroadcastMsg(MSG_T msg_type, int nodes_num, vector<Message>&
     }
 }
 
-void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec) {
+void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec, string abort_info) {
     // To EndActor directly
     Message msg;
     msg.meta = this->meta;
@@ -369,6 +369,11 @@ void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message>
     msg.meta.msg_type = MSG_T::ABORT;
     msg.meta.recver_nid = meta.parent_nid;
     msg.meta.recver_tid = meta.parent_tid;
+    if (!abort_info.empty()) {
+        value_t v;
+        Tool::str2str(abort_info, v);
+        msg.data.emplace_back(history_t(), vector<value_t>(1, v));
+    }
     vec.emplace_back(move(msg));
 }
 

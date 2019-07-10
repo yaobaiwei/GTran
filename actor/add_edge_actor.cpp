@@ -16,6 +16,9 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
     // Get Params
     int lid = static_cast<int>(Tool::value_t2int(actor_obj.params.at(0)));
     bool success = true;
+    PROCESS_STAT process_stat;
+
+    string abort_info;
     for (auto & pair : msg.data) {
         vector<value_t>::iterator itr = pair.second.begin();
         do {
@@ -29,16 +32,24 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
             if (id_mapper_->GetMachineIdForVertex(e_id.out_v) == machine_id_) {
                 update_data.emplace_back(eid_uint64);
                 is_src_v_local = true;
-                if (!data_storage_->ProcessAddE(e_id, lid, true, qplan.trxid, qplan.st)) {
+                process_stat = data_storage_->ProcessAddE(e_id, lid, true, qplan.trxid, qplan.st);
+                if (process_stat != PROCESS_STAT::SUCCESS) {
                     success = false;
+                    abort_info = "Abort with [Processing][DataStorage::ProcessAddE<OutE>(" +
+                                         to_string(e_id.out_v) + "->" + to_string(e_id.in_v) + ")]" +
+                                         abort_reason_map[process_stat];
                 }
             }
 
             // inV
             if (id_mapper_->GetMachineIdForVertex(e_id.in_v) == machine_id_) {
                 is_dst_v_local = true;
-                if (!data_storage_->ProcessAddE(e_id, lid, false, qplan.trxid, qplan.st)) {
+                process_stat = data_storage_->ProcessAddE(e_id, lid, false, qplan.trxid, qplan.st);
+                if (process_stat != PROCESS_STAT::SUCCESS) {
                     success = false;
+                    abort_info = "Abort with [Processing][DataStorage::ProcessAddE<InE>(" +
+                                         to_string(e_id.out_v) + "->" + to_string(e_id.in_v) + ")]" +
+                                         abort_reason_map[process_stat];
                 }
             }
 
@@ -61,7 +72,7 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
 
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {
-        msg.CreateAbortMsg(qplan.actors, msg_vec);
+        msg.CreateAbortMsg(qplan.actors, msg_vec, abort_info);
     }
     for (auto& msg : msg_vec) {
         mailbox_->Send(tid, msg);

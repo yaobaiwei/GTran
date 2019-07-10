@@ -77,7 +77,8 @@ class HasLabelActor : public AbstractActor {
         if (read_success) {
             msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
         } else {
-            msg.CreateAbortMsg(qplan.actors, msg_vec);
+            string abort_info = "Abort with [Processing][HasLabelActor::process]";
+            msg.CreateAbortMsg(qplan.actors, msg_vec, abort_info);
         }
 
         // Send Message
