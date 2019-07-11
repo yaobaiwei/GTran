@@ -82,7 +82,8 @@ class ProjectActor : public AbstractActor {
         if (read_success) {
             msg.CreateNextMsg(qplan.actors, newData, num_thread_, core_affinity_, msg_vec);
         } else {
-            msg.CreateAbortMsg(qplan.actors, msg_vec);
+            string abort_info = "Abort with [Processing][ProjectActor::process]";
+            msg.CreateAbortMsg(qplan.actors, msg_vec, abort_info);
         }
 
         // Send Message

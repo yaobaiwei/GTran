@@ -22,11 +22,11 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
     Element_T elem_type = static_cast<Element_T>(Tool::value_t2int(actor_obj.params.at(0)));
     bool isProperty = static_cast<bool>(Tool::value_t2int(actor_obj.params.at(1)));
 
-    bool success = processDrop(qplan, msg.data, elem_type, isProperty, update_ids, update_vals, pmt_type);
+    PROCESS_STAT process_stat = processDrop(qplan, msg.data, elem_type, isProperty, update_ids, update_vals, pmt_type);
 
     // Create Message
     vector<Message> msg_vec;
-    if (success) {
+    if (process_stat == PROCESS_STAT::SUCCESS) {
         // Insert Updates Information into RCT Table if success
         pmt_rct_table_->InsertRecentActionSet(pmt_type, qplan.trxid, update_ids);
 
@@ -46,7 +46,8 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
 
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {
-        msg.CreateAbortMsg(qplan.actors, msg_vec);
+        string abort_info = "Abort with [Processing][DropActor::process]" + abort_reason_map[process_stat];
+        msg.CreateAbortMsg(qplan.actors, msg_vec, abort_info);
     }
 
     // Send Message
@@ -55,9 +56,10 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
     }
 }
 
-bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
+PROCESS_STAT DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
         bool isProperty, vector<uint64_t> & update_ids, vector<value_t> & update_vals, Primitive_T& pmt_type) {
     vector<value_t> newData;  // For dropV, store connected edge
+    PROCESS_STAT process_stat;
     for (auto & pair : data) {
         for (auto & val : pair.second) {
             if (elem_type == Element_T::VERTEX) {
@@ -70,8 +72,9 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                     vpid_t vpid;
                     uint2vpid_t(vpid_uint64, vpid);
                     value_t old_val;
-                    if (!data_storage_->ProcessDropVP(vpid, qplan.trxid, qplan.st, old_val)) {
-                        return false;
+                    process_stat = data_storage_->ProcessDropVP(vpid, qplan.trxid, qplan.st, old_val);
+                    if (process_stat != PROCESS_STAT::SUCCESS) {
+                        return process_stat;
                     }
                     update_vals.emplace_back(old_val);
                 } else {
@@ -82,8 +85,9 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                     vid_t v_id(vid_int);
                     vector<eid_t> in_eids; vector<eid_t> out_eids;
                     // Drop V
-                    if (!data_storage_->ProcessDropV(v_id, qplan.trxid, qplan.st, in_eids, out_eids)) {
-                        return false; 
+                    process_stat = data_storage_->ProcessDropV(v_id, qplan.trxid, qplan.st, in_eids, out_eids);
+                    if (process_stat != PROCESS_STAT::SUCCESS) {
+                        return process_stat; 
                     }
 
                     if (in_eids.size() == 0 && out_eids.size() == 0) {
@@ -112,8 +116,9 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                     epid_t epid;
                     uint2epid_t(epid_uint64, epid);
                     value_t old_val;
-                    if (!data_storage_->ProcessDropEP(epid, qplan.trxid, qplan.st, old_val)) {
-                        return false;
+                    process_stat = data_storage_->ProcessDropEP(epid, qplan.trxid, qplan.st, old_val);
+                    if (process_stat != PROCESS_STAT::SUCCESS) {
+                        return process_stat;
                     }
                     update_vals.emplace_back(old_val);
                 } else {
@@ -125,25 +130,27 @@ bool DropActor::processDrop(const QueryPlan & qplan, vector<pair<history_t, vect
                     uint2eid_t(eid_uint64, e_id);
                     // outE
                     if (id_mapper_->GetMachineIdForVertex(e_id.out_v) == machine_id_) {
-                        if (!data_storage_->ProcessDropE(e_id, true, qplan.trxid, qplan.st)) {
-                            return false; 
+                        process_stat = data_storage_->ProcessDropE(e_id, true, qplan.trxid, qplan.st);
+                        if (process_stat != PROCESS_STAT::SUCCESS) {
+                            return process_stat; 
                         }
                     }
 
                     // inE
                     if (id_mapper_->GetMachineIdForVertex(e_id.in_v) == machine_id_) {
-                        if (!data_storage_->ProcessDropE(e_id, false, qplan.trxid, qplan.st)) {
-                            return false; 
+                        process_stat = data_storage_->ProcessDropE(e_id, false, qplan.trxid, qplan.st);
+                        if (process_stat != PROCESS_STAT::SUCCESS) {
+                            return process_stat; 
                         }
                     }
                 }
             } else {
                 cout << "[Error] Unexpected element type in DropActor" << endl;
-                return false;
+                CHECK(false);
             }
         }
     }
     data.clear();
     data.emplace_back(history_t(), newData);
-    return true;
+    return PROCESS_STAT::SUCCESS;
 }

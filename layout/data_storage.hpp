@@ -198,15 +198,15 @@ class DataStorage {
 
     // Transaction processing stage related
     vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
-                      vector<eid_t>& in_eids, vector<eid_t>& out_eids);
-    bool ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
-                     const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropE(const eid_t& eid, const bool& is_out, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value, const uint64_t& trx_id, const uint64_t& begin_time);
-    bool ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& old_value);
-    bool ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& old_value);
+    PROCESS_STAT ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
+                              vector<eid_t>& in_eids, vector<eid_t>& out_eids);
+    PROCESS_STAT ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
+                             const uint64_t& trx_id, const uint64_t& begin_time);
+    PROCESS_STAT ProcessDropE(const eid_t& eid, const bool& is_out, const uint64_t& trx_id, const uint64_t& begin_time);
+    PROCESS_STAT ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value, const uint64_t& trx_id, const uint64_t& begin_time);
+    PROCESS_STAT ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value, const uint64_t& trx_id, const uint64_t& begin_time);
+    PROCESS_STAT ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& old_value);
+    PROCESS_STAT ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& old_value);
 
     /* Transaction abort or commit
      * For each transaction, on each worker, Commit or Abort will need to be called only once.

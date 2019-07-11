@@ -489,7 +489,7 @@ class Worker {
                 plan.Abort();
                 continue;
             } else if (re.reply_type == ReplyType::RESULT_ABORT) {
-                plan.NotifyQueryFinished(qid.id);
+                plan.FillResult(qid.id, re.results);
             } else if (re.reply_type == ReplyType::RESULT_NORMAL) {
                 if (!plan.FillResult(qid.id, re.results)) {
                     trx_table_stub_->update_status(plan.trxid, TRX_STAT::ABORT);

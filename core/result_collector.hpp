@@ -62,8 +62,9 @@ class ResultCollector {
         reply_queue_.Push(move(re));
     }
 
-    void InsertAbortResult(uint64_t qid) {
+    void InsertAbortResult(uint64_t qid, vector<value_t> & data) {
         reply re;
+        re.results = move(data);
         re.qid = qid;
         re.reply_type = ReplyType::RESULT_ABORT;
         reply_queue_.Push(move(re));

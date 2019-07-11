@@ -121,8 +121,12 @@ bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
         string header;
         if (query_index == query_plans_.size() - 1) {
             header = "Status: ";
+            header += Tool::DebugString(vec[0]);
         } else {
             header = "Query " + to_string(query_index + 1) + ": ";
+            if (vec.size() == 0) {
+                header += "Empty";
+            }
         }
         Tool::str2str(header, v);
         results_[query_index].push_back(v);
@@ -132,9 +136,13 @@ bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
         NotifyQueryFinished(query_index);
     }
 
-    results_[query_index].insert(results_[query_index].end(),
-                                make_move_iterator(vec.begin()),
-                                make_move_iterator(vec.end()));
+    if (query_index != -1 && query_index != query_plans_.size() - 1) {
+        if (vec.size() > 0) {
+            results_[query_index].insert(results_[query_index].end(),
+                                        make_move_iterator(vec.begin()),
+                                        make_move_iterator(vec.end()));
+        }
+    }
 
     // check if commit statement or parser error
     if (query_index == query_plans_.size() - 1 || query_index == -1) {

@@ -18,7 +18,9 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
         data_storage_->Abort(qplan.trxid);
         // TODO : Erase Barrier TmpData
 
-        Tool::str2str("Transaction aborted", result);
+        string abort_phase_info = m.msg_type == MSG_T::INIT ? "processing" : "validation";
+
+        Tool::str2str("Transaction aborted during " + abort_phase_info, result);
     } else if (m.msg_type == MSG_T::COMMIT) {
         CHECK(msg.data.size() == 1);
         CHECK(msg.data.at(0).second.size() == 1);

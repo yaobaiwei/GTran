@@ -54,24 +54,24 @@ class PropertyActor : public AbstractActor {
 
         bool index_updatable = index_store_->IsIndexEnabled(elem_type, pid);
 
-        bool success = true;
+        PROCESS_STAT process_stat = PROCESS_STAT::SUCCESS;
         switch(elem_type) {
           case Element_T::VERTEX:
             pmt_type = Primitive_T::MVP;
-            success = processVertexProperty(qplan, msg.data, pid, new_val, update_data);
+            process_stat = processVertexProperty(qplan, msg.data, pid, new_val, update_data);
             break;
           case Element_T::EDGE:
             pmt_type = Primitive_T::MEP;
-            success = processEdgeProperty(qplan, msg.data, pid, new_val, update_data);
+            process_stat = processEdgeProperty(qplan, msg.data, pid, new_val, update_data);
             break;
           default:
-            success = false;
+            process_stat = PROCESS_STAT::ABORT;
             cout << "[Error] Unexpected Element Type in PropertyActor" << endl;
         }
 
         // Create Message
         vector<Message> msg_vec;
-        if (success) {
+        if (process_stat == PROCESS_STAT::SUCCESS) {
             // Insert Updates Information into RCT Table if success
             vector<uint64_t> ids;
             vector<value_t> values;
@@ -95,7 +95,8 @@ class PropertyActor : public AbstractActor {
 
             msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
         } else {
-            msg.CreateAbortMsg(qplan.actors, msg_vec);
+            string abort_info = "Abort with [Processing][DropActor::process]" + abort_reason_map[process_stat];
+            msg.CreateAbortMsg(qplan.actors, msg_vec, abort_info);
         }
 
         // Send Message
@@ -125,24 +126,27 @@ class PropertyActor : public AbstractActor {
     // Index Store
     IndexStore * index_store_;
 
-    bool processVertexProperty(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
+    PROCESS_STAT processVertexProperty(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
             int propertyId, value_t new_val, vector<pair<uint64_t, value_t>> & update_data) {
+        PROCESS_STAT process_stat;
         for (auto & pair : data) {
             for (auto & val : pair.second) {
                 vpid_t vpid(Tool::value_t2int(val), propertyId);
                 value_t old_val = value_t();
 
-                if (!data_storage_->ProcessModifyVP(vpid, new_val, old_val, qplan.trxid, qplan.st)) {
-                    return false;
+                process_stat = data_storage_->ProcessModifyVP(vpid, new_val, old_val, qplan.trxid, qplan.st);
+                if (process_stat != PROCESS_STAT::SUCCESS) {
+                    return process_stat;
                 }
                 update_data.emplace_back(vpid_t2uint(vpid), old_val);
             }
         }
-        return true;
+        return PROCESS_STAT::SUCCESS;
     }
 
-    bool processEdgeProperty(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
+    PROCESS_STAT processEdgeProperty(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data,
             int propertyId, value_t new_val, vector<pair<uint64_t, value_t>> & update_data) {
+        PROCESS_STAT process_stat;
         for (auto & pair : data) {
             for (auto & val : pair.second) {
                 eid_t eid;
@@ -150,13 +154,14 @@ class PropertyActor : public AbstractActor {
                 epid_t epid(eid, propertyId);
                 value_t old_val = value_t();
 
-                if (!data_storage_->ProcessModifyEP(epid, new_val, old_val, qplan.trxid, qplan.st)) {
-                    return false;
+                process_stat = data_storage_->ProcessModifyEP(epid, new_val, old_val, qplan.trxid, qplan.st);
+                if (process_stat != PROCESS_STAT::SUCCESS) {
+                    return process_stat;
                 }
                 update_data.emplace_back(epid_t2uint(epid), old_val);
             }
         }
-        return true;
+        return PROCESS_STAT::SUCCESS;
     }
 };
 

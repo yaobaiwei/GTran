@@ -163,7 +163,8 @@ class ActorAdapter {
             trx_table_stub_->read_status(m.qid & _56HFLAG, status);
             if (status == TRX_STAT::ABORT) {
                 vector<Message> msg_vec;
-                msg.CreateAbortMsg(ac->second.actors, msg_vec);
+                string abort_info = "Abort with [ActorAdapter::execute][msg_logic_table_.find(ac, m.qid)][TRX_STAT::ABORT]";
+                msg.CreateAbortMsg(ac->second.actors, msg_vec, abort_info);
                 for (auto& msg : msg_vec) {
                     mailbox_->Send(tid, msg);
                 }
@@ -184,7 +185,8 @@ class ActorAdapter {
             trx_table_stub_->read_status(ac->second.trxid, status);
             if (status == TRX_STAT::ABORT) {
                 vector<Message> msg_vec;
-                msg.CreateAbortMsg(ac->second.actors, msg_vec);
+                string abort_info = "Abort with [ActorAdapter::execute][ac->second.is_process][TRX_STAT::ABORT]";
+                msg.CreateAbortMsg(ac->second.actors, msg_vec, abort_info);
                 for (auto& msg : msg_vec) {
                     mailbox_->Send(tid, msg);
                 }

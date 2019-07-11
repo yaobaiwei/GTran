@@ -43,7 +43,7 @@ class DropActor : public AbstractActor {
     void process(const QueryPlan & qplan, Message & msg);
 
  private:
-    // Node Info 
+    // Node Info
     int num_thread_;
     int machine_id_;
 
@@ -67,7 +67,7 @@ class DropActor : public AbstractActor {
     // Index Store
     IndexStore * index_store_;
 
-    bool processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
+    PROCESS_STAT processDrop(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data, Element_T elem_type,
             bool isProperty, vector<uint64_t> & update_ids, vector<value_t> & update_vals, Primitive_T & pmt_type);
 };
 
