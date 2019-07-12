@@ -58,6 +58,11 @@ enum class PROCESS_STAT {
     ABORT_DROP_EP_DROP,
 };
 
+enum class NOTIFICATION_TYPE {
+    UPDATE_STATUS,
+    OBTAIN_BT,
+};
+
 struct ProcessStatHash {
     size_t operator() (const PROCESS_STAT& stat) const{
         return hash<int>()((int)(stat));

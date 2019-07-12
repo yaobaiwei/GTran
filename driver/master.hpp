@@ -156,16 +156,22 @@ class Master {
         uint64_t trx_id;
         int status_i;
         bool is_read_only;
+        int notification_type;
 
         while (true) {
             obinstream out;
             mailbox -> RecvNotification(out);
+            out >> n_id >> notification_type;
 
-            TRX_STAT new_status;
-            out >> n_id >> trx_id >> status_i >> is_read_only;
+            if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
+                TRX_STAT new_status;
+                out >> trx_id >> status_i >> is_read_only;
 
-            UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
-            pending_trx_updates_.Push(req);
+                UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
+                pending_trx_updates_.Push(req);
+            } else {
+                CHECK(false);
+            }
         }
     }
 
