@@ -103,4 +103,5 @@ class RdmaMailbox : public AbstractMailbox {
     rbf_lmeta_t *lmetas = NULL;
     pthread_spinlock_t *recv_locks = NULL;
     scheduler_t *schedulers;
+    pthread_spinlock_t send_notification_lock_;
 };

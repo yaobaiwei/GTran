@@ -69,6 +69,8 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     // 1 more thread for worker to send init msg
     pending_msgs.resize(config_->global_num_threads + 1);
     rr_size = 3;
+
+    pthread_spin_init(&send_notification_lock_, 0);
 }
 
 bool RdmaMailbox::IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz) {
@@ -271,6 +273,7 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 }
 
 void RdmaMailbox::SendNotification(int dst_nid, ibinstream& in) {
+    pthread_spin_lock(&send_notification_lock_);
     RDMA &rdma = RDMA::get_rdma();
     int failed = 0;
     while (rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.get_buf(), in.size()) != 0) {
@@ -279,6 +282,7 @@ void RdmaMailbox::SendNotification(int dst_nid, ibinstream& in) {
             << dst_nid << ", retry " << failed << " times"<< endl;
         CHECK_LT(failed, 10) << "Node " << node_.get_world_rank() << " fail sending msg 10 times!";
     }
+    pthread_spin_unlock(&send_notification_lock_);
 }
 
 void RdmaMailbox::RecvNotification(obinstream& out) {

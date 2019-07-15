@@ -332,21 +332,20 @@ class Worker {
                 qid_t qid(plan.trxid, qplan.query_index);
                 rc_->Register(qid.value());
 
-                if (qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
-                    vector<uint64_t> trxIDList;
-                    trx_table_stub_->update_status(plan.trxid, TRX_STAT::VALIDATING, qplan.trx_type == TRX_READONLY, &trxIDList);
-                    for (auto & trxID : trxIDList) {
-                        value_t v;
-                        Tool::uint64_t2value_t(trxID, v);
-                        qplan.actors[0].params.emplace_back(v);
-                    }
-                }
-
-                // Push query plan to SendQueryMsg queue
                 Pack pkg;
                 pkg.id = qid;
                 pkg.qplan = move(qplan);
-                queue_.Push(pkg);
+
+                if (pkg.qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
+                    trx_table_stub_->update_status(pkg.qplan.trxid, TRX_STAT::VALIDATING, pkg.qplan.trx_type == TRX_READONLY);
+
+                    PackAccessor accessor;
+                    validaton_pkgs_.insert(accessor, pkg.qplan.trxid);
+                    accessor->second = move(pkg);
+                } else {
+                    // Push query plan to SendQueryMsg queue
+                    queue_.Push(pkg);
+                }
             }
             return true;
         }
@@ -377,6 +376,39 @@ class Worker {
                 << " sends the results to Client " << plan.client_host << endl;
         sender.send(msg);
         monitor_->IncreaseCounter(1);
+    }
+
+    void RecvNotification() {
+        while (1) {
+            obinstream out;
+            mailbox_->RecvNotification(out);
+
+            int notification_type;
+            out >> notification_type;
+
+            if (notification_type == (int)(NOTIFICATION_TYPE::RCT_TIDS)) {
+                vector<uint64_t> trxIDList;
+                uint64_t trxid;
+                out >> trxid >> trxIDList;
+
+                // find the trx in the map
+                PackAccessor accessor;
+                validaton_pkgs_.find(accessor, trxid);
+
+                Pack& pkg = accessor->second;
+
+                // fill param
+                for (auto & trxID : trxIDList) {
+                    value_t v;
+                    Tool::uint64_t2value_t(trxID, v);
+                    pkg.qplan.actors[0].params.emplace_back(v);
+                }
+
+                queue_.Push(pkg);
+
+                validaton_pkgs_.erase(accessor);
+            }
+        }
     }
 
     void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
@@ -420,21 +452,20 @@ class Worker {
                 << buf->GetBufSize() << endl;
 
         // =================MailBox=========================
-        AbstractMailbox * mailbox;
         if (config_->global_use_rdma) {
-            mailbox = new RdmaMailbox(my_node_, master_, buf);
+            mailbox_ = new RdmaMailbox(my_node_, master_, buf);
         } else {
-            mailbox = new TCPMailbox(my_node_, master_);
+            mailbox_ = new TCPMailbox(my_node_, master_);
         }
-        mailbox->Init(workers_);
+        mailbox_->Init(workers_);
         cout << "[Worker" << my_node_.get_local_rank()
              << "]: DONE -> Mailbox->Init()" << endl;
 
         // =================TransactionTableStub============
         if (config_->global_use_rdma) {
-            trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox);
+            trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox_);
         } else {
-            trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox);
+            trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox_);
         }
         trx_table_stub_->Init();
         cout << "[Worker" << my_node_.get_local_rank()
@@ -460,14 +491,15 @@ class Worker {
 
         // =================Recv&SendThread=================
         thread recvreq(&Worker::RecvRequest, this);
-        thread sendmsg(&Worker::SendQueryMsg, this, mailbox, core_affinity);
+        thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
+        thread recvnotification(&Worker::RecvNotification, this);
 
         worker_barrier(my_node_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
         worker_barrier(my_node_);
 
         // =================ActorAdapter====================
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox, core_affinity);
+        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox_, core_affinity);
         actor_adapter->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 
@@ -514,6 +546,7 @@ class Worker {
 
         recvreq.join();
         sendmsg.join();
+        recvnotification.join();
     }
 
  private:
@@ -527,6 +560,7 @@ class Worker {
     ThreadSafeQueue<Pack> queue_;
     ResultCollector * rc_;
     Monitor * monitor_;
+    AbstractMailbox* mailbox_;
 
     bool is_emu_mode_;
     ThroughputMonitor * thpt_monitor_;
@@ -534,9 +568,10 @@ class Worker {
     zmq::context_t context_;
     zmq::socket_t * receiver_;
 
-    // map<uint64_t, TrxPlan> plans_;
     tbb::concurrent_hash_map<uint64_t, TrxPlan> plans_;
     typedef tbb::concurrent_hash_map<uint64_t, TrxPlan>::accessor TrxPlanAccessor;
+    tbb::concurrent_hash_map<uint64_t, Pack> validaton_pkgs_;
+    typedef tbb::concurrent_hash_map<uint64_t, Pack>::accessor PackAccessor;
 
     vector<zmq::socket_t *> senders_;
 

@@ -86,8 +86,7 @@ class TcpTrxTableStub : public TrxTableStub {
         }
     }
 
-    bool update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only = false,
-                       std::vector<uint64_t> *trx_ids = nullptr) override;
+    bool update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only = false) override;
 
     bool read_status(uint64_t trx_id, TRX_STAT &status) override;
     bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) override;

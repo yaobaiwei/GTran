@@ -203,6 +203,8 @@ class Master {
                 std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
 
                 ibinstream in;
+                int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
+                in << notification_type << req.trx_id;
                 in << trx_ids_vec;
                 // only when worker send P->V, it should wait for a reply
                 mailbox -> SendNotification(req.n_id, in);

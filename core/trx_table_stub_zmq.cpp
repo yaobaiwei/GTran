@@ -7,9 +7,7 @@
 
 TcpTrxTableStub * TcpTrxTableStub::instance_ = nullptr;
 
-bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only, std::vector<uint64_t> * trx_ids = nullptr) {
-    CHECK((new_status == TRX_STAT::VALIDATING && trx_ids != nullptr) || (new_status != TRX_STAT::VALIDATING && trx_ids == nullptr)) << "[TrxTableStub] update_status: new_status should correspond to trx_ids";
-
+bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only) {
     ibinstream in;
     int status_i = int(new_status);
     in << node_.get_local_rank() << (int)(NOTIFICATION_TYPE::UPDATE_STATUS) << trx_id << status_i << is_read_only;
@@ -17,12 +15,6 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool i
     unique_lock<mutex> lk(update_mutex_);
     mailbox_ ->SendNotification(config_->global_num_workers, in);
 
-    if (new_status == TRX_STAT::VALIDATING) {
-        obinstream out;
-        mailbox_ -> RecvNotification(out);
-        lk.unlock();
-        out >> *trx_ids;
-    }
     return true;
 }
 
