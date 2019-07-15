@@ -7,9 +7,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 using namespace std;
 
-void GCExecutor::Init(tbb::concurrent_hash_map<uint64_t, OutEdge>* out_edge_map,
-                      tbb::concurrent_hash_map<uint64_t, InEdge>* in_edge_map,
-                      tbb::concurrent_hash_map<uint32_t, Vertex>* vertex_map,
+void GCExecutor::Init(ConcurrentUnorderedMap<uint64_t, OutEdge>* out_edge_map,
+                      ConcurrentUnorderedMap<uint64_t, InEdge>* in_edge_map,
+                      ConcurrentUnorderedMap<uint32_t, Vertex>* vertex_map,
                       MVCCValueStore* vp_store, MVCCValueStore* ep_store) {
     out_edge_map_ = out_edge_map;
     in_edge_map_ = in_edge_map;

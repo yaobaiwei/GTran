@@ -104,7 +104,7 @@ void DataStorage::FillContainer() {
 
     for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
         VertexAccessor v_accessor;
-        vertex_map_.insert(v_accessor, vtx.id.value());
+        vertex_map_.Insert(v_accessor, vtx.id.value());
 
         if (max_vid < vtx.id.value())
             max_vid = vtx.id.value();
@@ -126,7 +126,7 @@ void DataStorage::FillContainer() {
             eid_t eid = eid_t(vtx.id.vid, in_nb.vid);
 
             InEdgeAccessor in_e_accessor;
-            in_edge_map_.insert(in_e_accessor, eid.value());
+            in_edge_map_.Insert(in_e_accessor, eid.value());
 
             // "false" means that is_out = false, as this edge is an inE to the Vertex
             auto* mvcc_list = v_accessor->second.ve_row_list
@@ -141,7 +141,7 @@ void DataStorage::FillContainer() {
             eid_t eid = eid_t(out_nb.vid, vtx.id.vid);
 
             OutEdgeAccessor out_e_accessor;
-            out_edge_map_.insert(out_e_accessor, eid.value());
+            out_edge_map_.Insert(out_e_accessor, eid.value());
             auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
             ep_row_list->Init();
 
@@ -167,7 +167,7 @@ void DataStorage::FillContainer() {
     // Insert edge properties
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
         OutEdgeConstAccessor out_e_accessor;
-        out_edge_map_.find(out_e_accessor, edge.id.value());
+        out_edge_map_.Find(out_e_accessor, edge.id.value());
 
         EdgeMVCCItem* edge_mvcc;
 
@@ -199,7 +199,7 @@ void DataStorage::FillContainer() {
 READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid,
                                       const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, EdgeVersion& item_ref) {
-    bool found = out_edge_map_.find(out_e_accessor, eid.value());
+    bool found = out_edge_map_.Find(out_e_accessor, eid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetOutEdgeItem\n");
@@ -236,7 +236,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
     vid_t vid = pid.vid;
 
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVPByPKey\n");
@@ -267,7 +267,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetAllVP\n");
@@ -291,7 +291,7 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVPByPKeyList\n");
@@ -314,7 +314,7 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
 READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<vpid_t>& ret) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVPidList\n");
@@ -337,7 +337,7 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
 READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVL\n");
@@ -476,7 +476,7 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
                                               const uint64_t& trx_id, const uint64_t& begin_time,
                                               const bool& read_only, vector<vid_t>& ret) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetConnectedVertexList\n");
@@ -501,7 +501,7 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
                                             const uint64_t& trx_id, const uint64_t& begin_time,
                                             const bool& read_only, vector<eid_t>& ret) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetConnectedEdgeList\n");
@@ -587,7 +587,7 @@ bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& 
                                         const bool& read_only, vid_t& vid) {
     // Check visibility of the vertex
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::CheckVertexVisibility, vid = %d => %d, on worker %d\n",
@@ -917,7 +917,7 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
     vid_t vid = AssignVID();
 
     VertexAccessor v_accessor;
-    vertex_map_.insert(v_accessor, vid.value());
+    vertex_map_.Insert(v_accessor, vid.value());
 
     v_accessor->second.label = label;
     v_accessor->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
@@ -944,7 +944,7 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                        vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid.value());
+    bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessDropV\n");
@@ -1016,7 +1016,7 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
 
     // anyway, need to check if the vertex exists or not
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, local_vid.value());
+    bool found = vertex_map_.Find(v_accessor, local_vid.value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessAddE\n");
@@ -1029,9 +1029,9 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     }
 
     if (is_out) {
-        is_new = out_edge_map_.insert(out_e_accessor, eid.value());
+        is_new = out_edge_map_.Insert(out_e_accessor, eid.value());
     } else {
-        is_new = in_edge_map_.insert(in_e_accessor, eid.value());
+        is_new = in_edge_map_.Insert(in_e_accessor, eid.value());
     }
 
     MVCCList<EdgeMVCCItem>* mvcc_list;
@@ -1096,10 +1096,10 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
      *      else, this function will add an inE, which means that dst_vid is on this node.
      */
     if (is_out) {
-        found = out_edge_map_.find(out_e_accessor, eid.value());
+        found = out_edge_map_.Find(out_e_accessor, eid.value());
         conn_vid = dst_vid;
     } else {
-        found = in_edge_map_.find(in_e_accessor, eid.value());
+        found = in_edge_map_.Find(in_e_accessor, eid.value());
         conn_vid = src_vid;
     }
 
@@ -1134,7 +1134,7 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value,
                                           const uint64_t& trx_id, const uint64_t& begin_time) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
+    bool found = vertex_map_.Find(v_accessor, vid_t(pid.vid).value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessModifyVP\n");
@@ -1206,7 +1206,7 @@ PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& valu
 
 PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     VertexConstAccessor v_accessor;
-    bool found = vertex_map_.find(v_accessor, vid_t(pid.vid).value());
+    bool found = vertex_map_.Find(v_accessor, vid_t(pid.vid).value());
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessDropVP\n");
@@ -1358,7 +1358,7 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             if (process_item.type == TrxProcessHistory::PROCESS_ADD_V) {
                 // access the item in the v_map
                 VertexAccessor v_accessor;
-                vertex_map_.find(v_accessor, vid_map_ref[v_mvcc_list]);
+                vertex_map_.Find(v_accessor, vid_map_ref[v_mvcc_list]);
                 v_accessor->second.ve_row_list->SelfGarbageCollect();
                 delete v_accessor->second.ve_row_list;
                 v_accessor->second.ve_row_list = nullptr;
