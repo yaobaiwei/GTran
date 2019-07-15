@@ -24,6 +24,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/property_row_list.hpp"
 #include "layout/row_definition.hpp"
 #include "layout/topology_row_list.hpp"
+#include "utils/concurrent_unordered_map.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
@@ -87,17 +88,17 @@ class DataStorage {
     /* the MVCCList<EdgeMVCCItem>* pointer will be the same in the EdgeHeader in
      * corresponding Vertex's ve_row_list
      */
-    tbb::concurrent_hash_map<uint64_t, OutEdge> out_edge_map_;
-    tbb::concurrent_hash_map<uint64_t, InEdge> in_edge_map_;
+    ConcurrentUnorderedMap<uint64_t, OutEdge> out_edge_map_;
+    ConcurrentUnorderedMap<uint64_t, InEdge> in_edge_map_;
     // since edge properties are attached to out_e, the in_e instance does not record any properties
-    typedef tbb::concurrent_hash_map<uint64_t, OutEdge>::accessor OutEdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, OutEdge>::const_accessor OutEdgeConstAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, InEdge>::accessor InEdgeAccessor;
-    typedef tbb::concurrent_hash_map<uint64_t, InEdge>::const_accessor InEdgeConstAccessor;
+    typedef ConcurrentUnorderedMap<uint64_t, OutEdge>::accessor OutEdgeAccessor;
+    typedef ConcurrentUnorderedMap<uint64_t, OutEdge>::const_accessor OutEdgeConstAccessor;
+    typedef ConcurrentUnorderedMap<uint64_t, InEdge>::accessor InEdgeAccessor;
+    typedef ConcurrentUnorderedMap<uint64_t, InEdge>::const_accessor InEdgeConstAccessor;
     // the vid of Vertex is unique
-    tbb::concurrent_hash_map<uint32_t, Vertex> vertex_map_;
-    typedef tbb::concurrent_hash_map<uint32_t, Vertex>::accessor VertexAccessor;
-    typedef tbb::concurrent_hash_map<uint32_t, Vertex>::const_accessor VertexConstAccessor;
+    ConcurrentUnorderedMap<uint32_t, Vertex> vertex_map_;
+    typedef ConcurrentUnorderedMap<uint32_t, Vertex>::accessor VertexAccessor;
+    typedef ConcurrentUnorderedMap<uint32_t, Vertex>::const_accessor VertexConstAccessor;
     MVCCValueStore* vp_store_ = nullptr;
     MVCCValueStore* ep_store_ = nullptr;
 
