@@ -265,7 +265,9 @@ class Worker {
             if (RegisterQuery(plan)) {
                 // Only take lower 56 bits of trxid
                 // Since qid = (trxid : 56, query_index : 8)
-                plans_[trxid] = move(plan);
+                TrxPlanAccessor accessor;
+                plans_.insert(accessor, trxid);
+                accessor->second = move(plan);
             } else {
                 error_msg = "Error: Empty transaction";
                 goto ERROR;
@@ -483,7 +485,9 @@ class Worker {
             qid_t qid;
             uint2qid_t(re.qid, qid);
 
-            TrxPlan& plan = plans_[qid.trxid];
+            TrxPlanAccessor accessor;
+            plans_.find(accessor, qid.trxid);
+            TrxPlan& plan = accessor->second;
 
             if (re.reply_type == ReplyType::NOTIFY_ABORT) {
                 plan.Abort();
@@ -501,6 +505,7 @@ class Worker {
             if (!RegisterQuery(plan) && !is_emu_mode_) {
                 // Reply to client when transaction is finished
                 ReplyClient(plan);
+                plans_.erase(accessor);
             }
         }
 
@@ -529,7 +534,10 @@ class Worker {
     zmq::context_t context_;
     zmq::socket_t * receiver_;
 
-    map<uint64_t, TrxPlan> plans_;
+    // map<uint64_t, TrxPlan> plans_;
+    tbb::concurrent_hash_map<uint64_t, TrxPlan> plans_;
+    typedef tbb::concurrent_hash_map<uint64_t, TrxPlan>::accessor TrxPlanAccessor;
+
     vector<zmq::socket_t *> senders_;
 
     DataStorage* data_storage_ = nullptr;
