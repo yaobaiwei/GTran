@@ -77,6 +77,9 @@ class TrxPlan {
     // physical time
     uint64_t start_time;
 
+    // Interfaces to read private members
+    uint64_t GetStartTime() const {return st_;}
+
  private:
     // Locate the position of place holder
     struct position_t {

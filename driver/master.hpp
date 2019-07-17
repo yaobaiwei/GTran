@@ -151,24 +151,27 @@ class Master {
     }
 
     //receive a msg of tran status update
-    void ListenTrxTableWriteReqs() {
-        int n_id;
-        uint64_t trx_id;
-        int status_i;
-        bool is_read_only;
+    void RecvNotification() {
         int notification_type;
 
         while (true) {
             obinstream out;
             mailbox -> RecvNotification(out);
-            out >> n_id >> notification_type;
+            out >> notification_type;
 
             if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
-                TRX_STAT new_status;
-                out >> trx_id >> status_i >> is_read_only;
+                int n_id;
+                uint64_t trx_id;
+                int status_i;
+                bool is_read_only;
+                out >> n_id >> trx_id >> status_i >> is_read_only;
 
                 UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
                 pending_trx_updates_.Push(req);
+            } else if (notification_type == (int)(NOTIFICATION_TYPE::TRX_FINISHED)) {
+                uint64_t bt;
+                out >> bt;
+                printf("trx with bt %lu is finished\n", bt);
             } else {
                 CHECK(false);
             }
@@ -285,7 +288,7 @@ class Master {
         thread listen(&Master::ProgListener, this);
         thread process(&Master::ProcessREQ, this);
 
-        thread trx_table_write_listener(&Master::ListenTrxTableWriteReqs, this);
+        thread notification_listener(&Master::RecvNotification, this);
         thread trx_table_write_executor(&Master::ProcessTrxTableWriteReqs, this);
 
         thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor;
@@ -304,7 +307,7 @@ class Master {
 
         listen.join();
         process.join();
-        trx_table_write_listener.join();
+        notification_listener.join();
         trx_table_write_executor.join();
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener->join();

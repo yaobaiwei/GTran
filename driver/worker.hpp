@@ -262,6 +262,7 @@ class Worker {
         bool success = parser_->Parse(query, plan, error_msg);
 
         if (success) {
+            // send a notification to obtain the bt
             if (RegisterQuery(plan)) {
                 // Only take lower 56 bits of trxid
                 // Since qid = (trxid : 56, query_index : 8)
@@ -279,6 +280,7 @@ class Worker {
             vector<value_t> vec = {v};
             plan.FillResult(-1, vec);
             ReplyClient(plan);
+            NotifyTrxFinished(plan.GetStartTime());
         }
     }
 
@@ -411,6 +413,14 @@ class Worker {
         }
     }
 
+    void NotifyTrxFinished(uint64_t bt) {
+        // send msg to master
+        ibinstream in;
+        in << (int)(NOTIFICATION_TYPE::TRX_FINISHED) << bt;
+
+        mailbox_ ->SendNotification(config_->global_num_workers, in);
+    }
+
     void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
         while (1) {
             Pack pkg;
@@ -537,6 +547,7 @@ class Worker {
             if (!RegisterQuery(plan) && !is_emu_mode_) {
                 // Reply to client when transaction is finished
                 ReplyClient(plan);
+                NotifyTrxFinished(plan.GetStartTime());
                 plans_.erase(accessor);
             }
         }
