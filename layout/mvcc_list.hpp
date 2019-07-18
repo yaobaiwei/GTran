@@ -16,6 +16,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/simple_spinlock_guard.hpp"
 #include "utils/tid_mapper.hpp"
 
+class GCProducer;
+
 template<class Item>
 class MVCCList {
     static_assert(std::is_base_of<AbstractMVCCItem, Item>::value, "Item must derive from AbstractMVCCItem");
@@ -66,6 +68,8 @@ class MVCCList {
     Item* tmp_pre_tail_ = nullptr;
     // tmp_pre_tail_ is not nullptr only when the tail_ is uncommitted
     pthread_spinlock_t lock_;
+
+    friend class GCProducer;
 };
 
 #include "mvcc_list.tpp"

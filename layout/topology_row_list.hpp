@@ -12,6 +12,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/row_definition.hpp"
 #include "utils/tid_mapper.hpp"
 
+class GCProducer;
+
 class TopologyRowList {
  private:
     static ConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
@@ -54,4 +56,6 @@ class TopologyRowList {
     }
 
     void SelfGarbageCollect();
+
+    friend class GCProducer;
 };

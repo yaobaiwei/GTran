@@ -14,6 +14,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/write_prior_rwlock.hpp"
 #include "tbb/concurrent_hash_map.h"
 
+class GCProducer;
+
 template <class PropertyRow>
 class PropertyRowList {
  private:
@@ -69,6 +71,8 @@ class PropertyRowList {
     }
 
     void SelfGarbageCollect();
+
+    friend class GCProducer;
 };
 
 #include "property_row_list.tpp"

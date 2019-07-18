@@ -53,9 +53,6 @@ void DataStorage::Init() {
 
     trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
-    gc_executor_ = GCExecutor::GetInstance();
-    gc_executor_->Init(&out_edge_map_, &in_edge_map_, &vertex_map_, vp_store_, ep_store_);
-
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::Init() all finished\n");
 }
 

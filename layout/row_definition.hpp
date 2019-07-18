@@ -14,6 +14,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/layout_type.hpp"
 #include "layout/property_row_list.hpp"
 
+class GCProducer;
+
 struct VPHeader {
     vpid_t pid;
     std::atomic<MVCCList<VPropertyMVCCItem>*> mvcc_list;
@@ -54,6 +56,7 @@ struct VertexPropertyRow {
     VPHeader cells_[VP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
+    friend class GCProducer;
 
  public:
     static constexpr int ROW_ITEM_COUNT = VP_ROW_ITEM_COUNT;
@@ -66,6 +69,7 @@ struct EdgePropertyRow {
     EPHeader cells_[EP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
+    friend class GCProducer;
 
  public:
     static constexpr int ROW_ITEM_COUNT = EP_ROW_ITEM_COUNT;
@@ -78,4 +82,5 @@ struct VertexEdgeRow {
     EdgeHeader cells_[VE_ROW_ITEM_COUNT];
 
     friend class TopologyRowList;
+    friend class GCProducer;
 }  __attribute__((aligned(64)));

@@ -11,6 +11,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/layout_type.hpp"
 #include "utils/tid_mapper.hpp"
 
+class GCProducer;
+
 struct AbstractMVCCItem {
  private:
     /* In our system, a timestamp's highest bit is always 0,
@@ -67,7 +69,7 @@ struct AbstractMVCCItem {
  public:
     AbstractMVCCItem* GetNext() const {return next;}
 
-    friend class GCExecutor;
+    friend class GCProducer;
 };
 
 /* Each type of MVCC must provide members and interfaces below:
@@ -111,7 +113,7 @@ struct EPropertyMVCCItem : public PropertyMVCCItem {
 
 struct VertexMVCCItem : public AbstractMVCCItem {
  private:
-    bool val;  // whether the edge exists or not
+    bool val;
  public:
     bool GetValue() const {return val;}
 

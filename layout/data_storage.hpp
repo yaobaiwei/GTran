@@ -15,9 +15,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
-#include "layout/gc_executor.hpp"
-#include "layout/gc_scanner.hpp"
-#include "layout/gc_task.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
@@ -69,6 +66,9 @@ struct TrxProcessHistory {
      */
     std::unordered_map<void*, uint32_t> addv_map;
 };
+
+class GCProducer;
+class GCConsumer;
 
 class DataStorage {
  private:
@@ -141,15 +141,15 @@ class DataStorage {
     // TrxTableStub
     TrxTableStub * trx_table_stub_ = nullptr;
 
-    // Garbage Collection
-    GCExecutor* gc_executor_ = nullptr;
-
     // e_accessor and item_ref will be modified
     READ_STAT GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeVersion& item_ref);
 
     READ_STAT CheckVertexVisibility(const VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);
+
+    friend class GCProducer;
+    friend class GCConsumer;
 
  public:
     // data access of vertices
