@@ -19,7 +19,9 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/node.hpp"
 #include "base/communication.hpp"
 #include "core/buffer.hpp"
+#include "core/common.hpp"
 #include "core/rdma_mailbox.hpp"
+#include "core/running_trx_list.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
@@ -29,7 +31,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/RCT.hpp"
 #include "core/transactions_table.hpp"
 #include "glog/logging.h"
-#include "core/common.hpp"
 
 struct Progress {
     uint32_t assign_tasks;
@@ -44,6 +45,7 @@ class Master {
  public:
     Master(Node & node, vector<Node> & workers): node_(node), workers_(workers) {
         config_ = Config::GetInstance();
+        running_trx_list_ = RunningTrxList::GetInstance();
         is_end_ = false;
         client_num = 0;
     }
@@ -136,7 +138,7 @@ class Master {
 
             uint64_t trxid, st;
             trx_p -> insert_single_trx(trxid, st);
-
+            running_trx_list_->InsertTrx(st);
 
             ibinstream m;
             m << client_id;
@@ -172,6 +174,7 @@ class Master {
                 uint64_t bt;
                 out >> bt;
                 printf("trx with bt %lu is finished\n", bt);
+                running_trx_list_->EraseTrx(bt);
             } else {
                 CHECK(false);
             }
@@ -325,6 +328,7 @@ class Master {
     ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
     TrxGlobalCoordinator * trx_p;
     RCTable * rct;
+    RunningTrxList* running_trx_list_;
     AbstractMailbox * mailbox;
 
     bool is_end_;
