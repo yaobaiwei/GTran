@@ -136,6 +136,10 @@ class Buffer {
         return config_->remote_head_buffer_offset + GetIndex(tid, node_.get_local_rank(), nid) * sizeof(uint64_t);
     }
 
+    inline char* GetMinBTBuf() {
+        return buffer_ + config_->min_bt_buffer_offset;
+    }
+
  private:
     // layout: (kv-store) | send_buffer | recv_buffer | local_head_buffer | remote_head_buffer
     char* buffer_;

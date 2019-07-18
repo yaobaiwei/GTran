@@ -78,3 +78,8 @@ bool TcpTrxTableStub::recv_rep(int t_id, obinstream& out) {
     out.assign(buf, zmq_reply_msg.size(), 0);
     return true;
 }
+
+uint64_t TcpTrxTableStub::read_min_bt() {
+    send_data(node_, node_.get_world_rank(), 0, true, MINBT_CHANNEL);
+    return recv_data<uint64_t>(node_, MPI_ANY_SOURCE, true, MINBT_CHANNEL);
+}

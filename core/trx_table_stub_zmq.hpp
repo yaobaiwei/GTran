@@ -6,6 +6,7 @@
 #pragma once
 
 #include <iostream>
+#include "base/communication.hpp"
 #include "base/node.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/buffer.hpp"
@@ -90,4 +91,6 @@ class TcpTrxTableStub : public TrxTableStub {
 
     bool read_status(uint64_t trx_id, TRX_STAT &status) override;
     bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) override;
+
+    uint64_t read_min_bt() override;
 };

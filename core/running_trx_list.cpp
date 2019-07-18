@@ -5,8 +5,29 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "running_trx_list.hpp"
 
+void MinBTCLine::SetBT(uint64_t bt) {
+    uint64_t tmp_data[8] __attribute__((aligned(64)));
+    tmp_data[0] = tmp_data[6] = bt;
+    tmp_data[1] = tmp_data[7] = bt + 1;
+    memcpy(data, tmp_data, 64);
+}
+
+bool MinBTCLine::GetMinBT(uint64_t& bt) {
+    if (data[0] == data[6] && data[1] == data[7] && data[0] + 1 == data[1]) {
+        bt = data[0];
+        return true;
+    }
+
+    return false;
+}
+
 RunningTrxList::RunningTrxList() {
     pthread_spin_init(&lock_, 0);
+}
+
+void RunningTrxList::AttachRDMAMem(char* mem) {
+     mem_ = (MinBTCLine*)mem;
+     mem_->SetBT(min_bt_);
 }
 
 void RunningTrxList::InsertTrx(uint64_t bt) {
@@ -24,7 +45,6 @@ void RunningTrxList::InsertTrx(uint64_t bt) {
 
     list_node_map_[bt] = node;
     max_bt_ = bt;
-    printf("[RunningTrxList] After InsertTrx %lu: %s\n", bt, PrintList().c_str());
     pthread_spin_unlock(&lock_);
 }
 
@@ -40,21 +60,23 @@ void RunningTrxList::EraseTrx(uint64_t bt) {
         head_ = tail_ = nullptr;
         UpdateMinBT(max_bt_);
     } else if (node->left == nullptr) {
+        head_ = node->right;
+        node->right->left = nullptr;
         UpdateMinBT(node->right->bt);
     } else if (node->right == nullptr) {
-        node->left->right = node->right;
+        tail_ = tail_->left;
+        node->left->right = nullptr;
     } else {
         node->left->right = node->right;
         node->right->left = node->left;
     }
     list_node_map_.erase(it);
-    printf("[RunningTrxList] After EraseTrx %lu: %s\n", bt, PrintList().c_str());
     pthread_spin_unlock(&lock_);
 
     delete node;
 }
 
-// not thread safe
+// not thread-safe
 // call this in locked region
 std::string RunningTrxList::PrintList() const {
     if (head_ == nullptr)
@@ -71,7 +93,7 @@ std::string RunningTrxList::PrintList() const {
     return ret;
 }
 
-// not thread safe
+// not thread-safe
 // call this in locked region
 void RunningTrxList::UpdateMinBT(uint64_t bt) {
     if (min_bt_ == bt)
@@ -79,8 +101,9 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
 
     assert(min_bt_ < bt);
 
-    printf("[UPDATE MIN_BT] %lu -> %lu\n", min_bt_, bt);
     min_bt_ = bt;
-    // TODO(entityless): update min bt in RDMA mem,
-    //                   and provide a interface to read it in TrxTableStub
+
+    if (mem_ != nullptr) {
+        mem_->SetBT(min_bt_);
+    }
 }

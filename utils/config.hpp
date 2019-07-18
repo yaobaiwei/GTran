@@ -112,13 +112,18 @@ class Config{
 
     // local_head_buffer_sz = (num_machines - 1) * num_threads *sizeof(uint64_t)
     uint64_t local_head_buffer_sz;
-    // local_head_buffer_offset = recv_buffer_sz * recv_buffer_offset
+    // local_head_buffer_offset = recv_buffer_sz + recv_buffer_offset
     uint64_t local_head_buffer_offset;
 
     // remote_head_buffer_sz = (num_machines - 1) * num_threads *sizeof(uint64_t)
     uint64_t remote_head_buffer_sz;
-    // remote_head_buffer_offset = local_head_buffer_sz * local_head_buffer_offset
+    // remote_head_buffer_offset = local_head_buffer_sz + local_head_buffer_offset
     uint64_t remote_head_buffer_offset;
+
+    // Always be 64.
+    uint64_t min_bt_buffer_sz;
+    // min_bt_buffer_offset = remote_head_buffer_sz + remote_head_buffer_offset
+    uint64_t min_bt_buffer_offset;
 
     // transaction status table on master
     uint64_t trx_table_sz;
@@ -454,6 +459,7 @@ class Config{
         iniparser_freedict(ini);
 
         trx_table_sz = MiB2B(trx_table_sz_mb);  // this should be shared by master and workers,workers need to this to compute trx_num_total_buckets...
+        min_bt_buffer_sz = 64;
         if (node.get_world_rank() != MASTER_RANK) {
             // Workers
             kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
@@ -472,28 +478,31 @@ class Config{
             remote_head_buffer_sz = (global_num_workers - 1) * global_num_threads * sizeof(uint64_t);
             remote_head_buffer_offset = local_head_buffer_sz + local_head_buffer_offset;
 
+            // only one thread (GC) will read MIN_BT from master
+            min_bt_buffer_offset = remote_head_buffer_sz + remote_head_buffer_offset;
+
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
-            dgram_send_buffer_offset = remote_head_buffer_offset + remote_head_buffer_sz;
+            dgram_send_buffer_offset = min_bt_buffer_offset + min_bt_buffer_sz;
 
             dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
             dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
 
-            conn_buf_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz;
+            conn_buf_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz + min_bt_buffer_sz;
             dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
-
         } else {
             // Master:
             kvstore_sz = send_buffer_sz = recv_buffer_sz = local_head_buffer_sz = remote_head_buffer_sz = 0;
             kvstore_offset = send_buffer_offset = recv_buffer_offset = local_head_buffer_offset = remote_head_buffer_offset = 0;
             // RC rdma
             trx_table_offset = kvstore_offset + kvstore_sz;  // 0
+            min_bt_buffer_offset = trx_table_offset + trx_table_sz;
             // UD rdma
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
-            dgram_send_buffer_offset = trx_table_sz + trx_table_offset;
+            dgram_send_buffer_offset = min_bt_buffer_offset + min_bt_buffer_sz;
             dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
             dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
 
-            conn_buf_sz =  trx_table_sz;
+            conn_buf_sz =  trx_table_sz + min_bt_buffer_sz;
             dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
         }
 

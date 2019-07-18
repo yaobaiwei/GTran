@@ -34,7 +34,7 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     if (node_.get_world_rank() == MASTER_RANK) {
         nid = config_->global_num_workers;
     }
-    RDMA_init(config_->global_num_workers, config_->global_num_threads + 1, nid, mem_info, nodes, master_);
+    RDMA_init(config_->global_num_workers, config_->global_num_threads + 2, nid, mem_info, nodes, master_);
 
     int nrbfs = (config_->global_num_workers - 1) * config_->global_num_threads;
 

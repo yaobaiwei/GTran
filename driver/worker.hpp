@@ -380,6 +380,14 @@ class Worker {
         monitor_->IncreaseCounter(1);
     }
 
+    void NotifyTrxFinished(uint64_t bt) {
+        // send msg to master
+        ibinstream in;
+        in << (int)(NOTIFICATION_TYPE::TRX_FINISHED) << bt;
+
+        mailbox_ ->SendNotification(config_->global_num_workers, in);
+    }
+
     void RecvNotification() {
         while (1) {
             obinstream out;
@@ -413,12 +421,12 @@ class Worker {
         }
     }
 
-    void NotifyTrxFinished(uint64_t bt) {
-        // send msg to master
-        ibinstream in;
-        in << (int)(NOTIFICATION_TYPE::TRX_FINISHED) << bt;
-
-        mailbox_ ->SendNotification(config_->global_num_workers, in);
+    void Debug() {
+        while (1) {
+            sleep(1);
+            uint64_t min_bt = trx_table_stub_->read_min_bt();
+            printf("[DEBUG] get min_bt: %lu\n", min_bt);
+        }
     }
 
     void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
@@ -503,6 +511,7 @@ class Worker {
         thread recvreq(&Worker::RecvRequest, this);
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
         thread recvnotification(&Worker::RecvNotification, this);
+        // thread debug(&Worker::Debug, this);
 
         worker_barrier(my_node_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
@@ -558,6 +567,7 @@ class Worker {
         recvreq.join();
         sendmsg.join();
         recvnotification.join();
+        // debug.join();
     }
 
  private:

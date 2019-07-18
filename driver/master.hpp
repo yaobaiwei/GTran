@@ -173,7 +173,6 @@ class Master {
             } else if (notification_type == (int)(NOTIFICATION_TYPE::TRX_FINISHED)) {
                 uint64_t bt;
                 out >> bt;
-                printf("trx with bt %lu is finished\n", bt);
                 running_trx_list_->EraseTrx(bt);
             } else {
                 CHECK(false);
@@ -274,6 +273,14 @@ class Master {
         }
     }
 
+    void ProcessRetMinBT() {
+        while (1) {
+            int n_id = recv_data<int>(node_, MPI_ANY_SOURCE, true, MINBT_CHANNEL);
+            uint64_t min_bt = running_trx_list_->GetMinBT();
+            send_data(node_, min_bt, n_id, true, MINBT_CHANNEL);
+        }
+    }
+
     void Start() {
         cout << "[Master] Start()" <<endl;
         // Register RDMA
@@ -285,6 +292,9 @@ class Master {
             mailbox = new TCPMailbox(node_, node_);
         mailbox->Init(workers_);
 
+        if (config_->global_use_rdma)
+            running_trx_list_->AttachRDMAMem(buf->GetMinBTBuf());
+
         trx_p = TrxGlobalCoordinator::GetInstance();
         rct = RCTable::GetInstance();
 
@@ -294,10 +304,11 @@ class Master {
         thread notification_listener(&Master::RecvNotification, this);
         thread trx_table_write_executor(&Master::ProcessTrxTableWriteReqs, this);
 
-        thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor;
+        thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor, *running_trx_min_bt_listener;
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener = new thread(&Master::ListenTCPTrxReads, this);
             trx_table_tcp_read_executor = new thread(&Master::ProcessTCPTrxReads, this);
+            running_trx_min_bt_listener = new thread(&Master::ProcessRetMinBT, this);
         }
 
         int end_tag = 0;
@@ -315,6 +326,7 @@ class Master {
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener->join();
             trx_table_tcp_read_executor->join();
+            running_trx_min_bt_listener->join();
         }
     }
 

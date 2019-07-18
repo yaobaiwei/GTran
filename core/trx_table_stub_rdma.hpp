@@ -11,6 +11,7 @@
 #include "core/buffer.hpp"
 #include "core/common.hpp"
 #include "core/rdma_mailbox.hpp"
+#include "core/running_trx_list.hpp"
 #include "core/trx_table_stub.hpp"
 #include "glog/logging.h"
 #include "utils/config.hpp"
@@ -51,7 +52,6 @@ class RDMATrxTableStub : public TrxTableStub{
     }
 
  public:
-
     static RDMATrxTableStub* GetInstance(AbstractMailbox * mailbox = nullptr){
         if(instance_ == nullptr && mailbox != nullptr){
             instance_ = new RDMATrxTableStub(mailbox);
@@ -65,4 +65,6 @@ class RDMATrxTableStub : public TrxTableStub{
 
     bool read_status(uint64_t trx_id, TRX_STAT& status) override;
     bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) override;
+
+    uint64_t read_min_bt() override;
 };
