@@ -22,6 +22,7 @@
 #include "base/thread_safe_queue.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/message.hpp"
+#include "utils/simple_spinlock_guard.hpp"
 #include "utils/zmq.hpp"
 
 #define CLINE 64
@@ -48,6 +49,7 @@ class TCPMailbox : public AbstractMailbox {
         uint64_t rr_cnt;  // choosing local or remote
     } __attribute__((aligned(CLINE)));
     scheduler_t *schedulers;
+    pthread_spinlock_t *recv_locks_ = nullptr;
 
     ThreadSafeQueue<Message>** local_msgs;
 
