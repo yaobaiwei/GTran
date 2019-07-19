@@ -98,6 +98,11 @@ void TCPMailbox::Init(vector<Node> &nodes) {
         DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << "bind " << string(addr);
     }
 
+    recv_locks_ = (pthread_spinlock_t *)malloc(sizeof(pthread_spinlock_t) * config_->global_num_threads);
+    for (int i = 0; i < config_->global_num_threads; i++) {
+        pthread_spin_init(&recv_locks_[i], 0);
+    }
+
     schedulers = (scheduler_t *)malloc(sizeof(scheduler_t) * config_->global_num_threads);
     memset(schedulers, 0, sizeof(scheduler_t) * config_->global_num_threads);
 
@@ -132,6 +137,7 @@ int TCPMailbox::Send(int tid, const Message & msg) {
 }
 
 bool TCPMailbox::TryRecv(int tid, Message & msg) {
+    SimpleSpinLockGuard lock_guard(recv_locks_ + tid);
     int type = (schedulers[tid].rr_cnt++) % rr_size;
 
     // Try local message queue in higher priority
@@ -147,8 +153,15 @@ bool TCPMailbox::TryRecv(int tid, Message & msg) {
     zmq::message_t zmq_msg;
     obinstream um;
 
-    if (receivers_[tid]->recv(&zmq_msg) < 0) {
-        cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
+    int recv_ret = receivers_[tid]->recv(&zmq_msg, ZMQ_DONTWAIT);
+
+    if (recv_ret <= 0) {
+        if (errno == EAGAIN) {
+            // Do nothing.
+            // Non-blocking mode was requested and no messages are available at the moment.
+        } else {
+            cout << "Node " << my_node_.get_local_rank() << " recvs with error " << strerror(errno) << std::endl;
+        }
     } else {
         char* buf = new char[zmq_msg.size()];
         memcpy(buf, zmq_msg.data(), zmq_msg.size());

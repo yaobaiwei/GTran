@@ -13,6 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_definition.hpp"
 #include "layout/layout_type.hpp"
+#include "utils/simple_spinlock_guard.hpp"
 #include "utils/tid_mapper.hpp"
 
 template<class Item>
@@ -53,18 +54,6 @@ class MVCCList {
 
     // Clear the MVCCList
     void SelfGarbageCollect();
-
-    // Constructed when entering function AppendVersion, CommitVersion, AbortVersion and SelfGarbageCollect
-    struct SimpleSpinLockGuard {
-        pthread_spinlock_t* lock_ptr;
-        explicit SimpleSpinLockGuard(pthread_spinlock_t* _lock_ptr) {
-            lock_ptr = _lock_ptr;
-            pthread_spin_lock(lock_ptr);
-        }
-        ~SimpleSpinLockGuard() {
-            pthread_spin_unlock(lock_ptr);
-        }
-    };
 
  private:
     static ConcurrentMemPool<Item>* mem_pool_;  // Initialized in data_storage.cpp
