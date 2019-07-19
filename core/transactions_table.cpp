@@ -80,10 +80,10 @@ bool TrxGlobalCoordinator::query_single_item(uint64_t trx_id, Trx & trx) {
     }
 }
 
-bool TrxGlobalCoordinator::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
-    // trx_id is inner representation now
-    if (!allocate_trx_id(trx_id))
-        return false;
+bool TrxGlobalCoordinator::insert_single_trx(uint64_t trx_id, uint64_t& bt) {
+    // // trx_id is inner representation now
+    // if (!allocate_trx_id(trx_id))
+    //     return false;
 
     if (!allocate_bt(bt))
         return false;

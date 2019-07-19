@@ -21,6 +21,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/global.hpp"
 #include "utils/config.hpp"
 
+#include "core/coordinator.hpp"
 #include "core/exec_plan.hpp"
 #include "core/message.hpp"
 #include "core/id_mapper.hpp"
@@ -256,23 +257,23 @@ class Worker {
     /**
      * Parse the query string into TrxPlan
      */
-    void ParseTransaction(string query, uint64_t trxid, uint64_t st, string client_host) {
-        TrxPlan plan(trxid, st, client_host);
+    void ParseTransaction(string query, string client_host) {
+        uint64_t trxid;
+        coordinator_->RegisterTrx(trxid);
+
+        TrxPlan plan(trxid, 0, client_host);
         string error_msg;
         bool success = parser_->Parse(query, plan, error_msg);
 
         if (success) {
+            TrxPlanAccessor accessor;
+            plans_.insert(accessor, trxid);
+            accessor->second = move(plan);
+
             // send a notification to obtain the bt
-            if (RegisterQuery(plan)) {
-                // Only take lower 56 bits of trxid
-                // Since qid = (trxid : 56, query_index : 8)
-                TrxPlanAccessor accessor;
-                plans_.insert(accessor, trxid);
-                accessor->second = move(plan);
-            } else {
-                error_msg = "Error: Empty transaction";
-                goto ERROR;
-            }
+            ibinstream in;
+            in << (int)(NOTIFICATION_TYPE::OBTAIN_BT) << my_node_.get_local_rank() << trxid;
+            mailbox_ ->SendNotification(config_->global_num_workers, in);
         } else {
   ERROR:
             value_t v;
@@ -280,7 +281,6 @@ class Worker {
             vector<value_t> vec = {v};
             plan.FillResult(-1, vec);
             ReplyClient(plan);
-            NotifyTrxFinished(plan.GetStartTime());
         }
     }
 
@@ -299,13 +299,9 @@ class Worker {
 
             string client_host;
             string query;
-            uint64_t trxid;
-            uint64_t st;
 
             um >> client_host;
             um >> query;
-            um >> trxid;
-            um >> st;
             cout << "worker_node" << my_node_.get_local_rank()
                     << " gets one QUERY: \"" << query << "\" from host "
                     << client_host << endl;
@@ -317,7 +313,7 @@ class Worker {
                 ParseAndSendQuery(query, client_host);
             }*/
             // parse and insert into plans_
-            ParseTransaction(query, trxid, st, client_host);
+            ParseTransaction(query, client_host);
         }
     }
 
@@ -417,6 +413,27 @@ class Worker {
                 queue_.Push(pkg);
 
                 validaton_pkgs_.erase(accessor);
+            } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_BT)) {
+                uint64_t trx_id, bt;
+                out >> trx_id >> bt;
+                TrxPlanAccessor accessor;
+                plans_.find(accessor, trx_id);
+
+                TrxPlan& plan = accessor->second;
+                plan.SetST(bt);
+
+                if (!RegisterQuery(plan)) {
+                    string error_msg = "Error: Empty transaction";
+                    value_t v;
+                    Tool::str2str(error_msg, v);
+                    vector<value_t> vec = {v};
+                    plan.FillResult(-1, vec);
+                    ReplyClient(plan);
+                    NotifyTrxFinished(plan.GetStartTime());
+                    plans_.erase(accessor);
+                }
+            } else {
+                CHECK(false);
             }
         }
     }
@@ -506,6 +523,11 @@ class Worker {
         monitor_ = new Monitor(my_node_);
         monitor_->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> monitor_->Start()" << endl;
+
+        // =================Coordinator=========================
+        coordinator_ = Coordinator::GetInstance();
+        coordinator_->Init(&my_node_);
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
 
         // =================Recv&SendThread=================
         thread recvreq(&Worker::RecvRequest, this);
@@ -598,5 +620,7 @@ class Worker {
 
     DataStorage* data_storage_ = nullptr;
     TrxTableStub * trx_table_stub_;
+
+    Coordinator* coordinator_;
 };
 #endif /* WORKER_HPP_ */

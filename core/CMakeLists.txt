@@ -1,6 +1,7 @@
 include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
 
 file(GLOB core-src-files
+    coordinator.cpp
     exec_plan.cpp
     message.cpp
     rdma_mailbox.cpp

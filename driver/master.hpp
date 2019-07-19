@@ -136,15 +136,9 @@ class Master {
             int target_engine_id = ProgScheduler();
             progress_map_[target_engine_id].assign_tasks++;
 
-            uint64_t trxid, st;
-            trx_p -> insert_single_trx(trxid, st);
-            running_trx_list_->InsertTrx(st);
-
             ibinstream m;
             m << client_id;
             m << target_engine_id;
-            m << trxid;
-            m << st;
 
             zmq::message_t msg(m.size());
             memcpy(reinterpret_cast<void*>(msg.data()), m.get_buf(), m.size());
@@ -174,6 +168,19 @@ class Master {
                 uint64_t bt;
                 out >> bt;
                 running_trx_list_->EraseTrx(bt);
+            } else if (notification_type == (int)(NOTIFICATION_TYPE::OBTAIN_BT)) {
+                int n_id;
+                uint64_t trxid;
+                out >> n_id >> trxid;
+
+                uint64_t st;
+                trx_p -> insert_single_trx(trxid, st);
+                running_trx_list_->InsertTrx(st);
+
+                ibinstream in;
+                int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_BT);
+                in << notification_type << trxid << st;
+                mailbox -> SendNotification(n_id, in);
             } else {
                 CHECK(false);
             }

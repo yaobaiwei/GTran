@@ -85,7 +85,7 @@ class TrxGlobalCoordinator{
  public:
     static TrxGlobalCoordinator* GetInstance();
 
-    bool insert_single_trx(uint64_t& trx_id, uint64_t& bt);
+    bool insert_single_trx(uint64_t trx_id, uint64_t& bt);
 
     bool delete_single_item(uint64_t trx_id);
 

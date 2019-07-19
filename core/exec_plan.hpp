@@ -51,6 +51,9 @@ class TrxPlan {
         is_end_ = false;
     }
 
+    // TODO(entityless): Remove this in the future
+    void SetST(uint64_t st);
+
     // Register place holder, dst_index depends on src_index
     void RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int actor_index, int param_index);
 
