@@ -64,6 +64,8 @@ enum class NOTIFICATION_TYPE {
     TRX_FINISHED,
     OBTAIN_BT,
     ALLOCATED_BT,
+    ALLOCATED_CT,
+    QUERY_RCT,
 };
 
 struct ProcessStatHash {

@@ -13,6 +13,7 @@ RCTable::RCTable() {
     bpt_config_.entries = 10;
 
     tree_ = bplus_tree_init(bpt_config_.order, bpt_config_.entries);
+    pthread_spin_init(&lock_, 0);
 
     if (tree_ == nullptr) {
         std::cerr << "RCT Error: Init Failure!" << std::endl;
@@ -39,6 +40,7 @@ bool RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
     
     DLOG(INFO) << "[RCT] insert_trx: " << ct << " trx_id " << inner_trx_id << " inserted" << endl;
 
+    SimpleSpinLockGuard lock_guard(&lock_);
     bplus_tree_put(tree_, ct, inner_trx_id);
     return true;
 }
@@ -47,7 +49,9 @@ bool RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) {
     CHECK_EQ(trx_ids.size(), 0) << "[RCTable] trx_ids should be empty";
     
     std::set<long long> values;
+    pthread_spin_lock(&lock_);
     bplus_tree_get_range(tree_, bt, ct, values);
+    pthread_spin_unlock(&lock_);
     for(auto it = values.begin(); it!=values.end(); ++ it){
         trx_ids.insert(llint2trxid(*it));
     }

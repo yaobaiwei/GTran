@@ -432,6 +432,21 @@ class Worker {
                     NotifyTrxFinished(plan.GetStartTime());
                     plans_.erase(accessor);
                 }
+            } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_CT)) {
+                uint64_t trx_id, ct;
+                out >> trx_id >> ct;
+
+                TrxPlanAccessor accessor;
+                plans_.find(accessor, trx_id);
+
+                TrxPlan& plan = accessor->second;
+                uint64_t bt = plan.GetStartTime();
+
+                int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
+                ibinstream in;
+                in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
+                mailbox_ ->SendNotification(config_->global_num_workers, in);
+                // query rct
             } else {
                 CHECK(false);
             }

@@ -12,6 +12,7 @@
 #include "bplustreelib/bplustree.hpp"
 #include "core/common.hpp"
 #include "glog/logging.h"
+#include "utils/simple_spinlock_guard.hpp"
 
 struct bplus_tree_config {
         int order;
@@ -28,6 +29,7 @@ class RCTable {  // RecentCommittedTrxTable
     struct bplus_tree_config bpt_config_;
 
     static RCTable * rct_;
+    pthread_spinlock_t lock_;
 
     long long trxid2llint(uint64_t trx_id);
     uint64_t llint2trxid(long long trx_id);
