@@ -4,7 +4,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 */
 
 template <class PropertyRow>
-void GCProducer::scan_prop_row_list(PropertyRowList<PropertyRow> * prop_row_list) {
+void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<PropertyRow> * prop_row_list) {
     PropertyRow* row_ptr = prop_row_list->head_;
     int property_count_snapshot = prop_row_list->property_count_;
 
@@ -17,22 +17,21 @@ void GCProducer::scan_prop_row_list(PropertyRowList<PropertyRow> * prop_row_list
         }
 
         cur_mvcc_list_ptr = row_ptr->cells_[cell_id_in_row].mvcc_list;
-        if(scan_mvcc_list(cur_mvcc_list_ptr)) {
+        if(scan_mvcc_list(element_id, cur_mvcc_list_ptr)) {
             gcable_cell_counter++;
         }
     }
 
-    /*
-    if (gcable_cell_counter > THRESHOLD) {
-        spawn_vp_row_defrag_gctask(vp_row_list, gcable_cell_counter);
-    }*/
+    if (gcable_cell_counter >= property_count_snapshot % prop_row_list->MAP_THRESHOLD) {
+        spawn_prop_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
+    }
 }
 
 template <class MVCCItem>
-bool GCProducer::scan_mvcc_list(MVCCList<MVCCItem>* mvcc_list) {
-    static_assert(is_base_of<AbstractMVCCItem, MVCCItem>::value, "scan_prop_mvcc_list must take property_mvcc_list");
+bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* mvcc_list) {
+    static_assert(is_base_of<AbstractMVCCItem, MVCCItem>::value, "scan_mvcc_list must take MVCCList");
 
-    typename MVCCList<MVCCItem>::SimpleSpinLockGuard lock_guard(&(mvcc_list->lock_));
+    SimpleSpinLockGuard lock_guard(&(mvcc_list->lock_));
 
     MVCCItem *cur_ptr = mvcc_list->head_;
     MVCCItem *iterate_tail = mvcc_list->tail_;
@@ -47,14 +46,17 @@ bool GCProducer::scan_mvcc_list(MVCCList<MVCCItem>* mvcc_list) {
     }
 
     MVCCItem *gc_checkpoint = nullptr;
+    int gc_version_count = 0;
     while (true) {
         if (cur_ptr->GetEndTime() < MINIMUM_ACTIVE_TRANSACTION_BT) {
             // This version GCable
             gc_checkpoint = cur_ptr;
+            gc_version_count++;
         } else {
             if (cur_ptr == iterate_tail) {
                 if (cur_ptr->GetValue().IsEmpty()) {
                     gc_checkpoint = cur_ptr;
+                    gc_version_count++;
                     break;
                 }
             }
@@ -62,7 +64,8 @@ bool GCProducer::scan_mvcc_list(MVCCList<MVCCItem>* mvcc_list) {
             if (is_base_of<PropertyMVCCItem, MVCCItem>::value) {
                 break;
             } else {
-                scan_ep_row_list((EdgeMVCCItem*)cur_ptr); 
+                // scan_ep_row_list((EdgeMVCCItem*)cur_ptr);
+                scan_prop_row_list(element_id, ((EdgeMVCCItem*)cur_ptr)->GetValue().ep_row_list);
             }
         }
 
@@ -71,7 +74,7 @@ bool GCProducer::scan_mvcc_list(MVCCList<MVCCItem>* mvcc_list) {
     }
 
     if (gc_checkpoint != nullptr) {
-        // spawn_mvcc_list_gctask(mvcc_list->head_);
+        spawn_mvcc_list_gctask(mvcc_list->head_, element_id, gc_version_count);
         mvcc_list->head_ = gc_checkpoint->next;  // Could be nullptr or a uncommitted version
         if (gc_checkpoint == iterate_tail) {  // There is at most one left
             mvcc_list->pre_tail_ = nullptr;
@@ -92,3 +95,66 @@ bool GCProducer::scan_mvcc_list(MVCCList<MVCCItem>* mvcc_list) {
 
     return false;
 }
+
+/* For spawn_prop_row_defrag_gctask and spawn_mvcc_list_gctask, 
+ *  We directly Cast pointer to specific class type
+ *  which is dangerous but the most easy way to distinguish different types
+ *  If our gcc could be updated to 7.x version
+ *  we can use 'if constexpr' (c++17 feature but need 7.x gcc to support)
+ *  to solve it with code commented in each function
+ */
+template<class PropertyRow>
+void GCProducer::spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow> * prop_row_list, const uint64_t& element_id, const int& gcable_cell_counter) {
+    if (is_same<PropertyRow, VertexPropertyRow>::value) {
+        spawn_vp_row_defrag_gctask((PropertyRowList<VertexPropertyRow>*)prop_row_list, element_id, gcable_cell_counter);
+    } else if (is_same<PropertyRow, EdgePropertyRow>::value) {
+        spawn_ep_row_defrag_gctask((PropertyRowList<EdgePropertyRow>*)prop_row_list, element_id, gcable_cell_counter);
+    } else {
+        cout << "[GCProducer] Unexpected error in spawn_prop_row_defrag_gctask" << endl;
+        CHECK(false);
+    }
+
+    /*
+    if constexpr (is_same<PropertyRow, VertexPropertyRow>::value) {
+        spawn_vp_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
+    } else if constexpr (is_same<PropertyRow, EdgePropertyRow>::value) {
+        spawn_ep_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
+    } else constexpr {
+        cout << "[GCProducer] Unexpected error in spawn_prop_row_defrag_gctask" << endl;
+        CHECK(false);
+    }
+    */
+}
+
+
+template<class MVCCItem>
+void GCProducer::spawn_mvcc_list_gctask(MVCCItem* gc_header, const uint64_t& element_id, const int& gc_version_count) {
+    static_assert(is_base_of<AbstractMVCCItem, MVCCItem>::value, "spawn_mvcc_list_gc_task must take MVCCItem");
+
+    if (is_same<MVCCItem, VPropertyMVCCItem>::value) {
+        spawn_vp_mvcc_list_gctask((VPropertyMVCCItem*)gc_header, gc_version_count);
+    } else if (is_same<MVCCItem, EPropertyMVCCItem>::value) {
+        spawn_ep_mvcc_list_gctask((EPropertyMVCCItem*)gc_header, gc_version_count);
+    } else if (is_same<MVCCItem, EdgeMVCCItem>::value) {
+        spawn_edge_mvcc_list_gctask((EdgeMVCCItem*)gc_header, element_id, gc_version_count);
+    } else {
+        cout << "[GCProducer] VertexMVCCListGCTask should not be created in spawn_mvcc_list_gctask or there is a unexpected error" << endl;
+        CHECK(false);
+    }
+
+    /*
+    if constexpr (is_same<MVCCItem, VPropertyMVCCItem>::value) {
+        spawn_vp_mvcc_list_gctask(gc_header, gc_version_count);
+    } else if constexpr (is_same<MVCCItem, EPropertyMVCCItem>::value) {
+        spawn_ep_mvcc_list_gctask(gc_header, gc_version_count);
+    } else if constexpr (is_same<MVCCItem, EdgeMVCCItem>::value) {
+        spawn_edge_mvcc_list_gctask(gc_header, element_id, gc_version_count);
+    } else constexpr {
+        cout << "[GCProducer] VertexMVCCListGCTask should not be created in spawn_mvcc_list_gctask or there is a unexpected error" << endl;
+        CHECK(false);
+    }
+    */
+}
+
+template<class GCTaskT>
+void GCProducer::push_job(GCJob<GCTaskT> job) {}
