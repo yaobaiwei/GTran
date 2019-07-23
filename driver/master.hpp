@@ -28,7 +28,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/zmq.hpp"
 #include "base/abstract_thread_safe_queue.hpp"
 #include "base/thread_safe_queue.hpp"
-#include "core/RCT.hpp"
 #include "core/transactions_table.hpp"
 #include "glog/logging.h"
 
@@ -181,21 +180,6 @@ class Master {
                 int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_BT);
                 in << notification_type << trxid << st;
                 mailbox -> SendNotification(n_id, in);
-            } else if (notification_type == (int)(NOTIFICATION_TYPE::QUERY_RCT)) {
-                // query RCT
-                int n_id;
-                uint64_t bt, ct, trx_id;
-                out >> n_id >> trx_id >> bt >> ct;
-                std::set<uint64_t> trx_ids;
-                rct -> query_trx(bt, ct - 1, trx_ids);
-
-                std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
-
-                ibinstream in;
-                int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
-                in << notification_type << trx_id;
-                in << trx_ids_vec;
-                mailbox -> SendNotification(n_id, in);
             } else {
                 CHECK(false);
             }
@@ -219,9 +203,6 @@ class Master {
                 // update state and get a ct
                 trx_p -> modify_status(req.trx_id, req.new_status, ct, req.is_read_only);
                 //trx_p -> print_single_item(req.trx_id);
-
-                // insert this transaction into RCT
-                rct -> insert_trx(ct, req.trx_id);
 
                 // reply with ct
                 ibinstream in;
@@ -311,7 +292,6 @@ class Master {
             running_trx_list_->AttachRDMAMem(buf->GetMinBTBuf());
 
         trx_p = TrxGlobalCoordinator::GetInstance();
-        rct = RCTable::GetInstance();
 
         thread listen(&Master::ProgListener, this);
         thread process(&Master::ProcessREQ, this);
@@ -354,7 +334,6 @@ class Master {
     ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
     ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
     TrxGlobalCoordinator * trx_p;
-    RCTable * rct;
     RunningTrxList* running_trx_list_;
     AbstractMailbox * mailbox;
 

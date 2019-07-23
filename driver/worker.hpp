@@ -26,6 +26,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/message.hpp"
 #include "core/id_mapper.hpp"
 #include "core/buffer.hpp"
+#include "core/RCT.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "core/actors_adapter.hpp"
@@ -43,6 +44,13 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 struct Pack {
     qid_t id;
     QueryPlan qplan;
+};
+
+
+struct ValidationPack {
+    vector<uint64_t> trx_id_list;
+    int collected_count = 0;
+    Pack pack;
 };
 
 class Worker {
@@ -337,9 +345,13 @@ class Worker {
                 if (pkg.qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
                     trx_table_stub_->update_status(pkg.qplan.trxid, TRX_STAT::VALIDATING, pkg.qplan.trx_type == TRX_READONLY);
 
-                    PackAccessor accessor;
+                    VPackAccessor accessor;
                     validaton_pkgs_.insert(accessor, pkg.qplan.trxid);
-                    accessor->second = move(pkg);
+
+                    ValidationPack v_pkg;
+                    v_pkg.pack = move(pkg);
+
+                    accessor->second = move(v_pkg);
                 } else {
                     // Push query plan to SendQueryMsg queue
                     queue_.Push(pkg);
@@ -397,22 +409,25 @@ class Worker {
                 uint64_t trxid;
                 out >> trxid >> trxIDList;
 
-                // find the trx in the map
-                PackAccessor accessor;
+                VPackAccessor accessor;
                 validaton_pkgs_.find(accessor, trxid);
 
-                Pack& pkg = accessor->second;
+                ValidationPack& v_pkg = accessor->second;
 
-                // fill param
-                for (auto & trxID : trxIDList) {
-                    value_t v;
-                    Tool::uint64_t2value_t(trxID, v);
-                    pkg.qplan.actors[0].params.emplace_back(v);
+                v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), trxIDList.begin(), trxIDList.end());
+                v_pkg.collected_count++;
+
+                if (v_pkg.collected_count == config_->global_num_workers - 1) {
+                    for (auto & trxID : v_pkg.trx_id_list) {
+                        value_t v;
+                        Tool::uint64_t2value_t(trxID, v);
+                        v_pkg.pack.qplan.actors[0].params.emplace_back(v);
+                    }
+
+                    queue_.Push(v_pkg.pack);
+
+                    validaton_pkgs_.erase(accessor);
                 }
-
-                queue_.Push(pkg);
-
-                validaton_pkgs_.erase(accessor);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_BT)) {
                 uint64_t trx_id, bt;
                 out >> trx_id >> bt;
@@ -436,17 +451,46 @@ class Worker {
                 uint64_t trx_id, ct;
                 out >> trx_id >> ct;
 
+                rct_->insert_trx(ct, trx_id);
+
                 TrxPlanAccessor accessor;
                 plans_.find(accessor, trx_id);
 
                 TrxPlan& plan = accessor->second;
                 uint64_t bt = plan.GetStartTime();
 
+                // first, query in the local RCT
+                VPackAccessor v_pack_accessor;
+                validaton_pkgs_.find(v_pack_accessor, trx_id);
+
+                ValidationPack& v_pkg = v_pack_accessor->second;
+                std::set<uint64_t> trx_ids;
+                rct_ -> query_trx(bt, ct - 1, trx_ids);
+                std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
+                v_pkg.trx_id_list.swap(trx_ids_vec);
+
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
                 in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
-                mailbox_ ->SendNotification(config_->global_num_workers, in);
-                // query rct
+
+                for (int i = 0; i < config_->global_num_workers; i++)
+                    if (i != my_node_.get_local_rank()) {
+                        mailbox_ ->SendNotification(i, in);
+                    }
+            } else if (notification_type == (int)(NOTIFICATION_TYPE::QUERY_RCT)) {
+                int n_id;
+                uint64_t bt, ct, trx_id;
+                out >> n_id >> trx_id >> bt >> ct;
+                std::set<uint64_t> trx_ids;
+                rct_ -> query_trx(bt, ct - 1, trx_ids);
+
+                std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
+
+                ibinstream in;
+                int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
+                in << notification_type << trx_id;
+                in << trx_ids_vec;
+                mailbox_->SendNotification(n_id, in);
             } else {
                 CHECK(false);
             }
@@ -539,6 +583,9 @@ class Worker {
         monitor_->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> monitor_->Start()" << endl;
 
+        // =================RCT=========================
+        rct_ = RCTable::GetInstance();
+
         // =================Coordinator=========================
         coordinator_ = Coordinator::GetInstance();
         coordinator_->Init(&my_node_);
@@ -628,13 +675,15 @@ class Worker {
 
     tbb::concurrent_hash_map<uint64_t, TrxPlan> plans_;
     typedef tbb::concurrent_hash_map<uint64_t, TrxPlan>::accessor TrxPlanAccessor;
-    tbb::concurrent_hash_map<uint64_t, Pack> validaton_pkgs_;
-    typedef tbb::concurrent_hash_map<uint64_t, Pack>::accessor PackAccessor;
+    tbb::concurrent_hash_map<uint64_t, ValidationPack> validaton_pkgs_;
+    typedef tbb::concurrent_hash_map<uint64_t, ValidationPack>::accessor VPackAccessor;
 
     vector<zmq::socket_t *> senders_;
 
     DataStorage* data_storage_ = nullptr;
     TrxTableStub * trx_table_stub_;
+
+    RCTable* rct_;
 
     Coordinator* coordinator_;
 };

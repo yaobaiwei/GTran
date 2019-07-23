@@ -59,13 +59,9 @@ class TCPMailbox : public AbstractMailbox {
 
     inline int port_code (int nid, int tid) { return nid * config_->global_num_threads + tid; }
 
-    // between worker & master: support tcp_trx_table_stub part
-    // master part
-    socket_vector trx_master_senders_;  // send replies to workers
-    zmq::socket_t * trx_master_receiver_;  // receive requests from workers
-    // worker part
-    zmq::socket_t * trx_worker_sender_;  //
-    zmq::socket_t * trx_worker_receiver_;  //
+    // between workers & master, and among workers: support tcp_trx_table_stub part
+    socket_vector notification_senders_;
+    zmq::socket_t* notificaton_receiver_;
 
  public:
     TCPMailbox(Node & my_node, Node & master) : my_node_(my_node), master_(master), context(1) {
