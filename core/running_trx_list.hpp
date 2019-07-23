@@ -37,8 +37,8 @@ class RunningTrxList {
     std::string PrintList() const;
 
     static RunningTrxList* GetInstance() {
-        static RunningTrxList console_single_instance;
-        return &console_single_instance;
+        static RunningTrxList instance;
+        return &instance;
     }
 
  private:

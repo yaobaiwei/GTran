@@ -166,6 +166,8 @@ class Master {
             } else if (notification_type == (int)(NOTIFICATION_TYPE::TRX_FINISHED)) {
                 uint64_t bt;
                 out >> bt;
+                printf("[Master] EraseTrx(%lu)\n", bt);
+                fflush(stdout);
                 running_trx_list_->EraseTrx(bt);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::OBTAIN_BT)) {
                 int n_id;
@@ -174,6 +176,9 @@ class Master {
 
                 uint64_t st;
                 trx_p -> insert_single_trx(trxid, st);
+
+                printf("[Master] InsertTrx(%lu)\n", st);
+                fflush(stdout);
                 running_trx_list_->InsertTrx(st);
 
                 ibinstream in;

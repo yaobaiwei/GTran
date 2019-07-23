@@ -11,6 +11,7 @@
 #include "core/abstract_mailbox.hpp"
 #include "core/buffer.hpp"
 #include "core/common.hpp"
+#include "core/coordinator.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "core/trx_table_stub.hpp"
@@ -29,10 +30,13 @@ class TcpTrxTableStub : public TrxTableStub {
 
     mutex update_mutex_;
 
+    Coordinator* coordinator_;
+
     TcpTrxTableStub(AbstractMailbox *mailbox, Node &master) : master_(master) {
         mailbox_ = mailbox;
         config_ = Config::GetInstance();
         node_ = Node::StaticInstance();
+        coordinator_ = Coordinator::GetInstance();
     }
 
     void send_req(int t_id, ibinstream &in);

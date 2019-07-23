@@ -29,6 +29,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/RCT.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
+#include "core/transactions_table.hpp"
 #include "core/actors_adapter.hpp"
 #include "core/progress_monitor.hpp"
 #include "core/parser.hpp"
@@ -392,6 +393,8 @@ class Worker {
         // send msg to master
         ibinstream in;
         in << (int)(NOTIFICATION_TYPE::TRX_FINISHED) << bt;
+        printf("[Worker] NotifyTrxFinished(%lu)\n", bt);
+        fflush(stdout);
 
         mailbox_ ->SendNotification(config_->global_num_workers, in);
     }
@@ -431,6 +434,9 @@ class Worker {
             } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_BT)) {
                 uint64_t trx_id, bt;
                 out >> trx_id >> bt;
+
+                trx_table_->insert_single_trx(trx_id, bt);
+
                 TrxPlanAccessor accessor;
                 plans_.find(accessor, trx_id);
 
@@ -453,6 +459,9 @@ class Worker {
 
                 rct_->insert_trx(ct, trx_id);
 
+                UpdateTrxStatusReq req{-1, trx_id, TRX_STAT::VALIDATING, true, ct};
+                pending_trx_updates_.Push(req);
+
                 TrxPlanAccessor accessor;
                 plans_.find(accessor, trx_id);
 
@@ -474,9 +483,20 @@ class Worker {
                 in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
 
                 for (int i = 0; i < config_->global_num_workers; i++)
-                    if (i != my_node_.get_local_rank()) {
+                    if (i != my_node_.get_local_rank())
                         mailbox_ ->SendNotification(i, in);
-                    }
+            } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
+                // P->V will not go here
+                int n_id;
+                uint64_t trx_id;
+                int status_i;
+                bool is_read_only;
+                out >> n_id >> trx_id >> status_i >> is_read_only;
+
+                if (status_i != (int)(TRX_STAT::VALIDATING)) {
+                    UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
+                    pending_trx_updates_.Push(req);
+                }
             } else if (notification_type == (int)(NOTIFICATION_TYPE::QUERY_RCT)) {
                 int n_id;
                 uint64_t bt, ct, trx_id;
@@ -523,6 +543,86 @@ class Worker {
             }
             mailbox->Sweep(config_->global_num_threads);
         }
+    }
+
+    void ProcessTrxTableWriteReqs() {
+        while (true) {
+            // pop a req
+            UpdateTrxStatusReq req;
+            pending_trx_updates_.WaitAndPop(req);
+            printf("[ProcessTrxTableWriteReqs on Worker%d]%s , %lu\n",
+                    my_node_.get_local_rank(), trx_stat_str_map[req.new_status].c_str(), req.trx_id);
+            fflush(stdout);
+
+            // check if P->V
+            if (req.new_status == TRX_STAT::VALIDATING) {
+                uint64_t bt, ct;
+
+                // query bt. can be optimized.
+                trx_table_ -> query_bt(req.trx_id, bt);
+
+                // update state and get a ct
+                trx_table_ -> modify_status(req.trx_id, req.new_status, req.ct, req.is_read_only);
+                // ibinstream in;
+                // int notification_type = (int)NOTIFICATION_TYPE::QUERY_RCT;
+                // in << notification_type << my_node_.get_local_rank() << bt << ct;
+            } else {
+                // update state
+                trx_table_ -> modify_status(req.trx_id, req.new_status);
+            }
+        }
+    }
+
+    // cover only TCP read
+    void ListenTCPTrxReads(){
+        // while(true){
+        //     ReadTrxStatusReq req;
+        //     obinstream out;
+        //     zmq::message_t zmq_req_msg;
+        //     if (trx_read_recv_socket -> recv(&zmq_req_msg, 0) < 0) {
+        //         CHECK(false) << "[Master::ListenTCPTrxReads] Master failed to recv TCP read";
+        //     }
+        //     // DLOG(INFO) << "[Master::ListenTCPTrxReads] recvs a read status req";
+        //     char* buf = new char[zmq_req_msg.size()];
+        //     memcpy(buf, zmq_req_msg.data(), zmq_req_msg.size());
+        //     out.assign(buf, zmq_req_msg.size(), 0);
+
+        //     out >> req.n_id >> req.t_id >> req.trx_id >> req.read_ct;
+        //     pending_trx_reads_.Push(req);
+        // }
+    }
+
+    void ProcessTCPTrxReads() {
+        // while (true) {
+        //     // pop a req
+        //     ReadTrxStatusReq req;
+        //     pending_trx_reads_.WaitAndPop(req);
+
+        //     // DLOG(INFO) << "[Master] Processed a TCP read req: " << req.DebugString();
+
+        //     ibinstream in;
+        //     if (req.read_ct) {
+        //         uint64_t ct_;
+        //         TRX_STAT status;
+        //         trx_p -> query_ct(req.trx_id, ct_);
+        //         trx_p -> query_status(req.trx_id, status);
+        //         int status_i = (int) status;
+        //         in << ct_;
+        //         in << status_i; 
+        //         // DLOG(INFO) << "[Master::query_status] ct of " << req.trx_id << " is " << ct_;
+        //     } else {
+        //         TRX_STAT status;
+        //         trx_p -> query_status(req.trx_id, status);
+        //         int status_i = (int) status;
+        //         in << status_i;
+        //         // DLOG(INFO) << "[Master::query_status] status of " << req.trx_id << " is " << status_i;
+        //     }
+
+        //     zmq::message_t zmq_send_msg(in.size());
+        //     memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
+        //            in.size());
+        //     trx_read_rep_sockets[socket_code(req.n_id, req.t_id)] -> send(zmq_send_msg);
+        // }
     }
 
     void Start() {
@@ -586,6 +686,9 @@ class Worker {
         // =================RCT=========================
         rct_ = RCTable::GetInstance();
 
+        // =================TrxTable=========================
+        trx_table_ = TransactionTable::GetInstance();
+
         // =================Coordinator=========================
         coordinator_ = Coordinator::GetInstance();
         coordinator_->Init(&my_node_);
@@ -595,6 +698,13 @@ class Worker {
         thread recvreq(&Worker::RecvRequest, this);
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
         thread recvnotification(&Worker::RecvNotification, this);
+        thread trx_table_write_executor(&Worker::ProcessTrxTableWriteReqs, this);
+
+        thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor;
+        if (!config_->global_use_rdma) {
+            trx_table_tcp_read_listener = new thread(&Worker::ListenTCPTrxReads, this);
+            trx_table_tcp_read_executor = new thread(&Worker::ProcessTCPTrxReads, this);
+        }
         // thread debug(&Worker::Debug, this);
 
         worker_barrier(my_node_);
@@ -651,6 +761,11 @@ class Worker {
         recvreq.join();
         sendmsg.join();
         recvnotification.join();
+        trx_table_write_executor.join();
+        if (!config_->global_use_rdma) {
+            trx_table_tcp_read_listener->join();
+            trx_table_tcp_read_executor->join();
+        }
         // debug.join();
     }
 
@@ -684,6 +799,9 @@ class Worker {
     TrxTableStub * trx_table_stub_;
 
     RCTable* rct_;
+    TransactionTable* trx_table_;
+    ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
+    ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
 
     Coordinator* coordinator_;
 };

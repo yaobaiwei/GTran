@@ -481,13 +481,15 @@ class Config{
             // only one thread (GC) will read MIN_BT from master
             min_bt_buffer_offset = remote_head_buffer_sz + remote_head_buffer_offset;
 
+            trx_table_offset = min_bt_buffer_offset + min_bt_buffer_sz;
+
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
-            dgram_send_buffer_offset = min_bt_buffer_offset + min_bt_buffer_sz;
+            dgram_send_buffer_offset = trx_table_offset + trx_table_sz;
 
             dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
             dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
 
-            conn_buf_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz + min_bt_buffer_sz;
+            conn_buf_sz = kvstore_sz + send_buffer_sz + recv_buffer_sz + local_head_buffer_sz + remote_head_buffer_sz + min_bt_buffer_sz + trx_table_sz;
             dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
         } else {
             // Master:

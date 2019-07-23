@@ -219,14 +219,11 @@ class RDMA {
                 while (1) {
                     int connected = 0;
                     for (uint i = 0; i <= num_workers; ++i) {
-                        if (i == nid) {
-                            continue;
-                        }
                         if (ud_qp->get_ud_connect_info_specific(i, 0, 0)) {
                             connected += 1;
                         }
                     }
-                    if (connected == num_workers)
+                    if (connected == num_workers + 1)
                         break;
                     else
                         sleep(1);

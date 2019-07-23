@@ -10,6 +10,7 @@
 #include "core/abstract_mailbox.hpp"
 #include "core/buffer.hpp"
 #include "core/common.hpp"
+#include "core/coordinator.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/running_trx_list.hpp"
 #include "core/trx_table_stub.hpp"
@@ -34,6 +35,8 @@ class RDMATrxTableStub : public TrxTableStub{
 
     mutex update_mutex_;
 
+    Coordinator* coordinator_;
+
     RDMATrxTableStub(AbstractMailbox * mailbox){
         config_ = Config::GetInstance();
         mailbox_ = mailbox;
@@ -49,6 +52,8 @@ class RDMATrxTableStub : public TrxTableStub{
         base_offset_ = config_ -> trx_table_offset;
 
         ASSOCIATIVITY_ = config_ -> ASSOCIATIVITY;
+
+        coordinator_ = Coordinator::GetInstance();
     }
 
  public:

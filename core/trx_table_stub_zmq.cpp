@@ -15,6 +15,10 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool i
     unique_lock<mutex> lk(update_mutex_);
     mailbox_ ->SendNotification(config_->global_num_workers, in);
 
+    // TMP: also send to worker
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+    mailbox_ ->SendNotification(worker_id, in);
+
     return true;
 }
 

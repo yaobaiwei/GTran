@@ -15,6 +15,11 @@ bool RDMATrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool 
     unique_lock<mutex> lk(update_mutex_);
     mailbox_ ->SendNotification(config_->global_num_workers, in);
 
+    // // TMP: also send to worker
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+    // should accept notification of self
+    mailbox_ ->SendNotification(worker_id, in);
+
     return true;
 }
 
@@ -35,6 +40,11 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
         int master_id = config_->global_num_workers;
 
         rdma.dev->RdmaRead(t_id, master_id, send_buffer, sz, off);
+
+        // int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+        // off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
+        // printf("[Before Dying] RdmaRead(%d %d)\n", t_id, worker_id);
+        // rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
 
         TidStatus *trx_status = (TidStatus *)(send_buffer);
 

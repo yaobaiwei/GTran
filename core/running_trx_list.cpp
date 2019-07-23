@@ -51,6 +51,7 @@ void RunningTrxList::InsertTrx(uint64_t bt) {
 void RunningTrxList::EraseTrx(uint64_t bt) {
     pthread_spin_lock(&lock_);
     auto it = list_node_map_.find(bt);
+    // server: /home/cghuan/data/sublime_oltp/oltp/core/running_trx_list.cpp:54: void RunningTrxList::EraseTrx(uint64_t): Assertion `it != list_node_map_.end()' failed.
     assert(it != list_node_map_.end());
 
     Node* node = it->second;

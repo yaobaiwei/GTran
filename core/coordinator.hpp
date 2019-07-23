@@ -19,6 +19,8 @@ class Coordinator {
 
     void Init(Node* node);
 
+    int GetWorkerFromTrxID(const uint64_t& trx_id);
+
  private:
     uint64_t next_trx_id_;
     Node* node_;

@@ -19,3 +19,8 @@ void Coordinator::RegisterTrx(uint64_t& trx_id) {
     trx_id = 0x8000000000000000 | (((next_trx_id_) * comm_sz_ + my_rank_) << 8);
     next_trx_id_++;
 }
+
+int Coordinator::GetWorkerFromTrxID(const uint64_t& trx_id) {
+    return ((trx_id ^ 0x8000000000000000) >> 8) % comm_sz_;
+}
+
