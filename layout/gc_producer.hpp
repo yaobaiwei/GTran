@@ -8,62 +8,16 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include <thread>
 
-#include "layout/gc_consumer.hpp"
 #include "layout/gc_task.hpp"
 
 #include "utils/simple_spinlock_guard.hpp"
-
-/*
-The Scanning procedure:
-  Notes: A single line means "one to one";
-         Double lines means "one to many";
-
-    vertex_map
-        ||
-        ||
-        ||
-      Vertex----------------------------MVCCList<V>
-         |               |
-         |               |
-         |               |
-    VPRowList       TopoRowList
-        ||               ||
-        ||               ||
-        ||               ||
-     VPHeader        EdgeHeader
-         |               |
-         |               |
-         |               |
-    MVCCList<VP>    MVCCList<E>
-                         ||
-                         ||
-                         ||
-                    EdgeMVCCItem
-                         |
-                         |
-                         |
-                        Edge
-                         |
-                         |
-                         |
-                     EPRowList
-                         ||
-                         ||
-                         ||
-                      EPHeader
-                         |
-                         |
-                         |
-                    MVCCList<EP>
-
-*/
 
 /* GCProducer encapsulates methods to scan the whole data layout and generate garbage collection tasks to
  * free memory allocated for those objects that are invisible to all transactions in the system.
  *
  * In GCProducer, a single thread will regularly scan the whole data layout and generates GC tasks.
  * If the sum of costs of a specific type of GC task has reach the given threshold, all tasks of this
- * type will be packed as a Job and push to GCExecutor.
+ * type will be packed as a Job and push to GCConsumer.
  *
  * GCProducer maintains containers of tasks without dependency. For tasks with dependency, their containers
  * are in GCTaskDAG.
@@ -71,6 +25,52 @@ The Scanning procedure:
 
 // Fake one;
 static constexpr int MINIMUM_ACTIVE_TRANSACTION_BT = 0;
+
+// The container of dependent tasks
+class GCTaskDAG {
+ private:
+    GCTaskDAG();
+    GCTaskDAG(const GCTaskDAG&);
+    ~GCTaskDAG() {}
+
+    GCProducer* gc_producer_;
+
+ public:
+    static GCTaskDAG* GetInstance() {
+        static GCTaskDAG task_dag;
+        return &task_dag;
+    }
+
+    /*
+     * Task dependency DAG 1:
+     *  VPRowListGCTask ----> VPRowListDefragTask
+     **/
+    unordered_map<vid_t, VPRowListGCTask*, VidHash> vp_row_list_gc_tasks_map;
+    unordered_map<vid_t, VPRowListDefragTask*, VidHash> vp_row_list_defrag_tasks_map;
+
+    bool InsertVPRowListGCTask(VPRowListGCTask*);
+    bool InsertVPRowListDefragTask(VPRowListDefragTask*);
+
+    /*
+     * Task dependency DAG 2:
+     *  TopoRowListGCTask ----> TopoRowListDefragTask
+     *                \
+     *                 \
+     *                  ---->
+     *  EPRowListGCTask ----> EPRowListDefragTask
+     **/
+    unordered_map<vid_t, TopoRowListGCTask*, VidHash> topo_row_list_gc_tasks_map;
+    unordered_map<vid_t, TopoRowListDefragTask*, VidHash> topo_row_list_defrag_tasks_map;
+    unordered_map<CompoundEPRowListID, EPRowListGCTask*, CompoundEPRowListIDHash> ep_row_list_gc_tasks_map;
+    unordered_map<CompoundEPRowListID, EPRowListDefragTask*, CompoundEPRowListIDHash> ep_row_list_defrag_tasks_map;
+
+    bool InsertTopoRowListGCTask(TopoRowListGCTask*);
+    bool InsertTopoRowListDefragTask(TopoRowListDefragTask*);
+    bool InsertEPRowListGCTask(EPRowListGCTask*);
+    bool InsertEPRowListDefragTask(EPRowListDefragTask*);
+};
+
+class GarbageCollector;
 
 class GCProducer {
  public:
@@ -85,70 +85,32 @@ class GCProducer {
     // The function that the GCProducer thread loops
     void Scan();
 
+    friend class GCTaskDAG;
+
  private:
     GCProducer() {}
     GCProducer(const GCProducer&);
     ~GCProducer() {}
 
-    // The container of dependent tasks
-    class GCTaskDAG {
-     private:
-        GCTaskDAG() {}
-        GCTaskDAG(const GCTaskDAG&);
-        ~GCTaskDAG() {}
+    // -------GC Job For Each Tyep---------
+    EraseVJob erase_v_job;
+    VMVCCGCJob v_mvcc_gc_job;
+    VPMVCCGCJob vp_mvcc_gc_job;
+    EPMVCCGCJob ep_mvcc_gc_job;
+    EMVCCGCJob edge_mvcc_gc_job;
 
-     public:
-        static GCTaskDAG* GetInstance() {
-            static GCTaskDAG task_dag;
-            return &task_dag;
-        }
+    TopoRowListGCJob topo_row_list_gc_job;
+    TopoRowListDefragJob topo_row_list_defrag_job;
 
-        /*
-         * Task dependency DAG 1:
-         *  VPRowListGCTask ----> VPRowListDefragTask
-         **/
-        unordered_map<vid_t, VPRowListGCTask*, VidHash> vp_row_list_gc_tasks_map;
-        unordered_map<vid_t, VPRowListDefragTask*, VidHash> vp_row_list_defrag_tasks_map;
+    VPRowListGCJob vp_row_list_gc_job;
+    VPRowListDefragJob vp_row_list_defrag_job;
 
-        bool InsertVPRowListGCTask(VPRowListGCTask*);
-        bool InsertVPRowListDefragTask(VPRowListDefragTask*);
-
-        /*
-         * Task dependency DAG 2:
-         *  TopoRowListGCTask ----> TopoRowListDefragTask
-         *                \
-         *                 \
-         *                  ---->
-         *  EPRowListGCTask ----> EPRowListDefragTask
-         **/
-        unordered_map<vid_t, TopoRowListGCTask*, VidHash> topo_row_list_gc_tasks_map;
-        unordered_map<vid_t, TopoRowListDefragTask*, VidHash> topo_row_list_defrag_tasks_map;
-        unordered_map<CompoundEPRowListID, EPRowListGCTask*, CompoundEPRowListIDHash> ep_row_list_gc_tasks_map;
-        unordered_map<CompoundEPRowListID, EPRowListDefragTask*, CompoundEPRowListIDHash> ep_row_list_defrag_tasks_map;
-
-        bool InsertTopoRowListGCTask(TopoRowListGCTask*);
-        bool InsertTopoRowListDefragTask(TopoRowListDefragTask*);
-        bool InsertEPRowListGCTask(EPRowListGCTask*);
-        bool InsertEPRowListDefragTask(EPRowListDefragTask*);
-    };
+    EPRowListGCJob ep_row_list_gc_job;
+    EPRowListDefragJob ep_row_list_defrag_job;
 
     GCTaskDAG * gc_task_dag_;
     DataStorage * data_storage_;
-
-    static GCJob<EraseVTask> erase_v_job;
-    static GCJob<VMVCCGCTask> v_mvcc_gc_job;
-    static GCJob<VPMVCCGCTask> vp_mvcc_gc_job;
-    static GCJob<EPMVCCGCTask> ep_mvcc_gc_job;
-    static GCJob<EMVCCGCTask> edge_mvcc_gc_job;
-
-    static GCJob<TopoRowListGCTask> topo_row_list_gc_job;
-    static GCJob<TopoRowListDefragTask> topo_row_list_defrag_job;
-
-    static GCJob<VPRowListGCTask> vp_row_list_gc_job;
-    static GCJob<VPRowListDefragTask> vp_row_list_defrag_job;
-
-    static GCJob<EPRowListGCTask> ep_row_list_gc_job;
-    static GCJob<EPRowListDefragTask> ep_row_list_defrag_job;
+    GarbageCollector * garbage_collector_;
 
     // Thread to scan data store
     thread scanner_;
@@ -187,9 +149,6 @@ class GCProducer {
 
     // -------Other help functions--------
     void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&); 
-
-    template <class GCTaskT>
-    void push_job(GCJob<GCTaskT>);
 };
 
 #include "layout/gc_producer.tpp"

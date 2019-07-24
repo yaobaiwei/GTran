@@ -5,6 +5,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 
 template <class PropertyRow>
 void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<PropertyRow> * prop_row_list) {
+    if (prop_row_list == nullptr) { return; }
     PropertyRow* row_ptr = prop_row_list->head_;
     int property_count_snapshot = prop_row_list->property_count_;
 
@@ -30,6 +31,7 @@ void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<
 template <class MVCCItem>
 bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* mvcc_list) {
     static_assert(is_base_of<AbstractMVCCItem, MVCCItem>::value, "scan_mvcc_list must take MVCCList");
+    if (mvcc_list == nullptr) { return true; }
 
     SimpleSpinLockGuard lock_guard(&(mvcc_list->lock_));
 
@@ -155,6 +157,3 @@ void GCProducer::spawn_mvcc_list_gctask(MVCCItem* gc_header, const uint64_t& ele
     }
     */
 }
-
-template<class GCTaskT>
-void GCProducer::push_job(GCJob<GCTaskT> job) {}

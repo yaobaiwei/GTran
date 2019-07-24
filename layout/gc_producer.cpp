@@ -4,10 +4,17 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 */
 
 #include "layout/gc_producer.hpp"
+#include "layout/garbage_collector.hpp"
+
+GCTaskDAG::GCTaskDAG() {
+    gc_producer_->GetInstance();
+}
 
 void GCProducer::Init() {
     scanner_ = thread(&GCProducer::Scan, this);
     data_storage_ = DataStorage::GetInstance();
+    gc_task_dag_ = GCTaskDAG::GetInstance();
+    garbage_collector_ = GarbageCollector::GetInstance();
 }
 
 void GCProducer::Stop() {
@@ -18,10 +25,11 @@ void GCProducer::Scan() {
     while (true) {
         // Do Scan with DFS
         scan_vertex_map();
+        usleep(1000000);
     }
 }
 
-bool GCProducer::GCTaskDAG::InsertVPRowListGCTask(VPRowListGCTask* task) {
+bool GCTaskDAG::InsertVPRowListGCTask(VPRowListGCTask* task) {
     if (vp_row_list_gc_tasks_map.find(task->id) != vp_row_list_gc_tasks_map.end()) {
         // Already Exists
         return false;
@@ -30,7 +38,7 @@ bool GCProducer::GCTaskDAG::InsertVPRowListGCTask(VPRowListGCTask* task) {
     if (vp_row_list_defrag_tasks_map.find(task->id) != vp_row_list_defrag_tasks_map.end()) {
         VPRowListDefragTask * depender_task = vp_row_list_defrag_tasks_map.at(task->id);
         // Try to set depender_task to invalid, if failed, depender_task already pushed out
-        if (!vp_row_list_defrag_job.SetTaskInvalid(depender_task)) {
+        if (!gc_producer_->vp_row_list_defrag_job.SetTaskInvalid(depender_task)) {
             // Task already pushed, set blocked_conunt to current task
             task->blocked_count_ += 1;
             vp_row_list_gc_tasks_map.emplace(task->id, task);  // Insert to dependency map
@@ -42,7 +50,7 @@ bool GCProducer::GCTaskDAG::InsertVPRowListGCTask(VPRowListGCTask* task) {
     return true;
 }
 
-bool GCProducer::GCTaskDAG::InsertVPRowListDefragTask(VPRowListDefragTask* task) {
+bool GCTaskDAG::InsertVPRowListDefragTask(VPRowListDefragTask* task) {
     if (vp_row_list_defrag_tasks_map.find(task->id) != vp_row_list_defrag_tasks_map.end()) {
         // Already Exists
         return false;
@@ -58,7 +66,7 @@ bool GCProducer::GCTaskDAG::InsertVPRowListDefragTask(VPRowListDefragTask* task)
     return true;
 }
 
-bool GCProducer::GCTaskDAG::InsertTopoRowListGCTask(TopoRowListGCTask * task) {
+bool GCTaskDAG::InsertTopoRowListGCTask(TopoRowListGCTask * task) {
     if (topo_row_list_gc_tasks_map.find(task->id) != topo_row_list_gc_tasks_map.end()) {
         // Already exists
         TopoRowListGCTask* self = topo_row_list_gc_tasks_map.at(task->id);
@@ -69,12 +77,12 @@ bool GCProducer::GCTaskDAG::InsertTopoRowListGCTask(TopoRowListGCTask * task) {
         // Delete all downstream task
         for (auto task_ptr : self->downstream_tasks_) {
             if (typeid(*task_ptr) == typeid(TopoRowListDefragTask)) {
-                if (!topo_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
+                if (!gc_producer_->topo_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
                     task->blocked_count_ += 1;
                     task->task_status = TaskStatus::BLOCKED;
                 }
             } else if (typeid(*task_ptr) == typeid(EPRowListDefragTask)) {
-                if (!ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
+                if (!gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
                     task->blocked_count_ += 1;
                     task->task_status = TaskStatus::BLOCKED;
                 }
@@ -93,7 +101,7 @@ bool GCProducer::GCTaskDAG::InsertTopoRowListGCTask(TopoRowListGCTask * task) {
     return true;
 }
 
-bool GCProducer::GCTaskDAG::InsertTopoRowListDefragTask(TopoRowListDefragTask * task) {
+bool GCTaskDAG::InsertTopoRowListDefragTask(TopoRowListDefragTask * task) {
     if (topo_row_list_defrag_tasks_map.find(task->id) != topo_row_list_defrag_tasks_map.end()) {
         return false;
     }
@@ -125,7 +133,7 @@ bool GCProducer::GCTaskDAG::InsertTopoRowListDefragTask(TopoRowListDefragTask * 
     return true;
 }
 
-bool GCProducer::GCTaskDAG::InsertEPRowListGCTask(EPRowListGCTask* task) {
+bool GCTaskDAG::InsertEPRowListGCTask(EPRowListGCTask* task) {
     if (ep_row_list_gc_tasks_map.find(task->id) != ep_row_list_gc_tasks_map.end()) {
         EPRowListGCTask* self = ep_row_list_gc_tasks_map.at(task->id); 
         if (self->task_status != TaskStatus::EMPTY) {
@@ -135,7 +143,7 @@ bool GCProducer::GCTaskDAG::InsertEPRowListGCTask(EPRowListGCTask* task) {
         // Delete all downstream task
         for (auto task_ptr : self->downstream_tasks_) {
             CHECK(typeid(*task_ptr) == typeid(EPRowListDefragTask));
-            if (!ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
+            if (!gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
                 task->blocked_count_ += 1;
                 task->task_status = TaskStatus::BLOCKED;
             }
@@ -150,7 +158,7 @@ bool GCProducer::GCTaskDAG::InsertEPRowListGCTask(EPRowListGCTask* task) {
     return true;
 }
 
-bool GCProducer::GCTaskDAG::InsertEPRowListDefragTask(EPRowListDefragTask* task) {
+bool GCTaskDAG::InsertEPRowListDefragTask(EPRowListDefragTask* task) {
     if (ep_row_list_defrag_tasks_map.find(task->id) != ep_row_list_defrag_tasks_map.end()) {
         return false;
     }
@@ -278,38 +286,51 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
 }
 
 void GCProducer::spawn_vertex_map_gctask(vid_t & vid) {
-    EraseVTask task(vid);
+    EraseVTask* task = new EraseVTask(vid);
     erase_v_job.AddTask(task);
+
     // Check whether job is ready to be consumed
     if (erase_v_job.isReady()) {
-        push_job(erase_v_job);
+        EraseVJob* new_job = new EraseVJob();
+        new_job[0] = erase_v_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        erase_v_job.Clear();
     }
 }
 
 void GCProducer::spawn_v_mvcc_gctask(VertexMVCCItem* mvcc_item) {
-    VMVCCGCTask task(mvcc_item, 2);  // There must be only two version to be gc
+    VMVCCGCTask* task = new VMVCCGCTask(mvcc_item, 2);  // There must be only two version to be gc
     v_mvcc_gc_job.AddTask(task);
 
     if (v_mvcc_gc_job.isReady()) {
-        push_job(v_mvcc_gc_job);
+        VMVCCGCJob* new_job = new VMVCCGCJob();
+        new_job[0] = v_mvcc_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        v_mvcc_gc_job.Clear();
     }
 }
 
 void GCProducer::spawn_vp_mvcc_list_gctask(VPropertyMVCCItem* gc_header, const int& gc_version_count) {
-    VPMVCCGCTask task(gc_header, gc_version_count);
+    VPMVCCGCTask* task = new VPMVCCGCTask(gc_header, gc_version_count);
     vp_mvcc_gc_job.AddTask(task); 
 
     if (vp_mvcc_gc_job.isReady()) {
-        push_job(vp_mvcc_gc_job);
+        VPMVCCGCJob* new_job = new VPMVCCGCJob();
+        new_job[0] = vp_mvcc_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        vp_mvcc_gc_job.Clear();
     }
 }
 
 void GCProducer::spawn_ep_mvcc_list_gctask(EPropertyMVCCItem* gc_header, const int& gc_version_count) {
-    EPMVCCGCTask task(gc_header, gc_version_count);
+    EPMVCCGCTask* task = new EPMVCCGCTask(gc_header, gc_version_count);
     ep_mvcc_gc_job.AddTask(task); 
 
     if (ep_mvcc_gc_job.isReady()) {
-        push_job(ep_mvcc_gc_job);
+        EPMVCCGCJob* new_job = new EPMVCCGCJob();
+        new_job[0] = ep_mvcc_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        ep_mvcc_gc_job.Clear();
     }
 }
 
@@ -317,7 +338,7 @@ void GCProducer::spawn_edge_mvcc_list_gctask(EdgeMVCCItem* gc_header, const uint
     eid_t eid;
     uint2eid_t(eid_value, eid);
 
-    EMVCCGCTask task(eid, gc_header, gc_version_count);
+    EMVCCGCTask* task = new EMVCCGCTask(eid, gc_header, gc_version_count);
     edge_mvcc_gc_job.AddTask(task);
 
     EdgeMVCCItem* itr = gc_header;
@@ -332,94 +353,115 @@ void GCProducer::spawn_edge_mvcc_list_gctask(EdgeMVCCItem* gc_header, const uint
     }
 
     if (edge_mvcc_gc_job.isReady()) {
-        push_job(edge_mvcc_gc_job);
+        EMVCCGCJob* new_job = new EMVCCGCJob();
+        new_job[0] = edge_mvcc_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        edge_mvcc_gc_job.Clear();
     }
 }
 
 void GCProducer::spawn_topo_row_list_gctask(TopologyRowList* topo_row_list, vid_t & vid) {
-    TopoRowListGCTask task(topo_row_list, vid);
-    if (gc_task_dag_->InsertTopoRowListGCTask(&task)) {
+    TopoRowListGCTask* task = new TopoRowListGCTask(topo_row_list, vid);
+    if (gc_task_dag_->InsertTopoRowListGCTask(task)) {
         topo_row_list_gc_job.AddTask(task);
     } else {
         return;
     }
  
     if (topo_row_list_gc_job.isReady()) {
-        push_job(topo_row_list_gc_job);
+        TopoRowListGCJob* new_job = new TopoRowListGCJob();
+        new_job[0] = topo_row_list_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        topo_row_list_gc_job.Clear();
     }
 }
 
 void GCProducer::spawn_topo_row_list_defrag_gctask(TopologyRowList* row_list, const vid_t& vid, const int& gcable_cell_counter) {
-    TopoRowListDefragTask task(row_list, vid, gcable_cell_counter);
+    TopoRowListDefragTask* task = new TopoRowListDefragTask(row_list, vid, gcable_cell_counter);
 
-    if (gc_task_dag_->InsertTopoRowListDefragTask(&task)) {
+    if (gc_task_dag_->InsertTopoRowListDefragTask(task)) {
         topo_row_list_defrag_job.AddTask(task); 
     } else {
         return;
     }
 
     if (topo_row_list_defrag_job.isReady()) {
-        push_job(topo_row_list_defrag_job);
+        TopoRowListDefragJob* new_job = new TopoRowListDefragJob();
+        new_job[0] = topo_row_list_defrag_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        topo_row_list_defrag_job.Clear();
     }
 }
 
 void GCProducer::spawn_vp_row_list_gctask(PropertyRowList<VertexPropertyRow>* prop_row_list, vid_t & vid) {
-    VPRowListGCTask task(prop_row_list, vid);
+    VPRowListGCTask* task = new VPRowListGCTask(prop_row_list, vid);
 
-    if (gc_task_dag_->InsertVPRowListGCTask(&task)) {
+    if (gc_task_dag_->InsertVPRowListGCTask(task)) {
         vp_row_list_gc_job.AddTask(task);
     } else {
         return;
     }
 
     if (vp_row_list_gc_job.isReady()) {
-        push_job(vp_row_list_gc_job);
+        VPRowListGCJob* new_job = new VPRowListGCJob();
+        new_job[0] = vp_row_list_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        vp_row_list_gc_job.Clear();
     }
 }
 
 void GCProducer::spawn_vp_row_defrag_gctask(PropertyRowList<VertexPropertyRow>* row_list, const uint64_t& element_id, const int& gcable_cell_counter) {
     vid_t vid;
     uint2vid_t(element_id, vid);
-    VPRowListDefragTask task(vid, row_list, gcable_cell_counter);
+    VPRowListDefragTask* task = new VPRowListDefragTask(vid, row_list, gcable_cell_counter);
 
-    if (gc_task_dag_->InsertVPRowListDefragTask(&task)) {
+    if (gc_task_dag_->InsertVPRowListDefragTask(task)) {
         vp_row_list_defrag_job.AddTask(task);
     } else {
         return;
     }
 
     if (vp_row_list_defrag_job.isReady()) {
-        push_job(vp_row_list_defrag_job);
+        VPRowListDefragJob* new_job = new VPRowListDefragJob();
+        new_job[0] = vp_row_list_defrag_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        vp_row_list_defrag_job.Clear();
     }
 }
 
 void GCProducer::spawn_ep_row_list_gctask(PropertyRowList<EdgePropertyRow>* row_list, eid_t& eid) {
-    EPRowListGCTask task(eid, row_list);  
+    EPRowListGCTask* task = new EPRowListGCTask(eid, row_list);  
 
-    if (gc_task_dag_->InsertEPRowListGCTask(&task)) {
+    if (gc_task_dag_->InsertEPRowListGCTask(task)) {
         ep_row_list_gc_job.AddTask(task);
     } else {
         return;
     }
 
     if (ep_row_list_gc_job.isReady()) {
-        push_job(ep_row_list_gc_job);
+        EPRowListGCJob* new_job = new EPRowListGCJob();
+        new_job[0] = ep_row_list_gc_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        ep_row_list_gc_job.Clear();
     }
 }
 
 void GCProducer::spawn_ep_row_defrag_gctask(PropertyRowList<EdgePropertyRow>* row_list, const uint64_t& element_id, const int& gcable_cell_counter) {
     eid_t eid;
     uint2eid_t(element_id, eid);
-    EPRowListDefragTask task(eid, row_list, gcable_cell_counter);
+    EPRowListDefragTask* task = new EPRowListDefragTask(eid, row_list, gcable_cell_counter);
 
-    if (gc_task_dag_->InsertEPRowListDefragTask(&task)) {
+    if (gc_task_dag_->InsertEPRowListDefragTask(task)) {
         ep_row_list_defrag_job.AddTask(task);
     } else {
         return;
     }
 
     if (ep_row_list_defrag_job.isReady()) {
-        push_job(ep_row_list_defrag_job);
+        EPRowListDefragJob* new_job = new EPRowListDefragJob();
+        new_job[0] = ep_row_list_defrag_job;
+        garbage_collector_->PushTaskToPendingQueue(new_job);
+        ep_row_list_defrag_job.Clear();
     }
 }
 
