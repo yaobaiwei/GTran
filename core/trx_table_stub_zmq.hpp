@@ -77,12 +77,10 @@ class TcpTrxTableStub : public TrxTableStub {
         char addr[64] = "";
 
         receivers_.resize(config_->global_num_threads);
-        senders_.resize(config_->global_num_threads * (config_->global_num_workers + 1));
+        senders_.resize(config_->global_num_threads * config_->global_num_workers);
 
         for (int i = 0; i < config_->global_num_threads; ++i) {
             receivers_[i] = new zmq::socket_t(context, ZMQ_PULL);
-            // snprintf(addr, sizeof(addr), "tcp://*:%d",
-            //         node_.tcp_port + i + 3 + config_->global_num_threads);
             snprintf(addr, sizeof(addr), "tcp://*:%d",
                     node_.tcp_port + i + 3 + config_->global_num_threads);
             receivers_[i]->bind(addr);
@@ -98,15 +96,6 @@ class TcpTrxTableStub : public TrxTableStub {
                     addr);  // connect to the same port with update_status reqs
                 DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
             }
-        }
-
-        for (int i = 0; i < config_->global_num_threads; ++i) {
-            senders_[socket_code(config_->global_num_workers, i)] = new zmq::socket_t(context, ZMQ_PUSH);
-            snprintf(addr, sizeof(addr), "tcp://%s:%d", master_ibname.c_str(),
-                    master_.tcp_port + 3);
-            senders_[socket_code(config_->global_num_workers, i)]->connect(
-                addr);  // connect to the same port with update_status reqs
-            DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
         }
     }
 

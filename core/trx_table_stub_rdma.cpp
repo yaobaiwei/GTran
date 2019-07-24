@@ -37,10 +37,6 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
 
         RDMA &rdma = RDMA::get_rdma();
 
-        int master_id = config_->global_num_workers;
-
-        // rdma.dev->RdmaRead(t_id, master_id, send_buffer, sz, off);
-
         int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
         off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
         rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
@@ -81,9 +77,9 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
 
         RDMA &rdma = RDMA::get_rdma();
 
-        int master_id = config_->global_num_workers;
-
-        rdma.dev->RdmaRead(t_id, master_id, send_buffer, sz, off);
+        int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+        off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
+        rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
 
         TidStatus *trx_status = (TidStatus *)(send_buffer);
 

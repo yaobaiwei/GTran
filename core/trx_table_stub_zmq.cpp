@@ -71,7 +71,6 @@ void TcpTrxTableStub::send_req(int n_id, int t_id, ibinstream& in) {
     zmq::message_t zmq_send_msg(in.size());
     memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
            in.size());
-    // senders_[socket_code(config_->global_num_workers, t_id)]->send(zmq_send_msg);
     senders_[socket_code(n_id, t_id)]->send(zmq_send_msg);
     return;
 }

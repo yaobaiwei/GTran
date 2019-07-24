@@ -175,7 +175,7 @@ class Master {
                 out >> n_id >> trxid;
 
                 uint64_t st;
-                trx_p -> insert_single_trx(trxid, st);
+                trx_p -> allocate_bt(st);
 
                 printf("[Master] InsertTrx(%lu)\n", st);
                 fflush(stdout);
@@ -200,15 +200,9 @@ class Master {
 
             // check if P->V
             if (req.new_status == TRX_STAT::VALIDATING) {
-                uint64_t bt, ct;
+                uint64_t ct;
 
-                // query bt
-                trx_p -> query_bt(req.trx_id, bt);
-
-                // update state and get a ct
-                trx_p -> modify_status(req.trx_id, req.new_status, ct, req.is_read_only);
-                //trx_p -> print_single_item(req.trx_id);
-
+                trx_p->allocate_ct(ct);
                 // reply with ct
                 ibinstream in;
                 int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_CT);
@@ -217,64 +211,12 @@ class Master {
             } else {
                 // update state
                 // worker shouldn't wait for reply since master will not notify it
-                trx_p -> modify_status(req.trx_id, req.new_status);
+                // trx_p -> modify_status(req.trx_id, req.new_status);
             }
         }
     }
 
-    // cover only TCP read
-    void ListenTCPTrxReads(){
-        while(true){
-            ReadTrxStatusReq req;
-            obinstream out;
-            zmq::message_t zmq_req_msg;
-            if (trx_read_recv_socket -> recv(&zmq_req_msg, 0) < 0) {
-                CHECK(false) << "[Master::ListenTCPTrxReads] Master failed to recv TCP read";
-            }
-            // DLOG(INFO) << "[Master::ListenTCPTrxReads] recvs a read status req";
-            char* buf = new char[zmq_req_msg.size()];
-            memcpy(buf, zmq_req_msg.data(), zmq_req_msg.size());
-            out.assign(buf, zmq_req_msg.size(), 0);
-
-            out >> req.n_id >> req.t_id >> req.trx_id >> req.read_ct;
-            pending_trx_reads_.Push(req);
-        }
-    }
-
-    void ProcessTCPTrxReads() {
-        while (true) {
-            // pop a req
-            ReadTrxStatusReq req;
-            pending_trx_reads_.WaitAndPop(req);
-
-            // DLOG(INFO) << "[Master] Processed a TCP read req: " << req.DebugString();
-
-            ibinstream in;
-            if (req.read_ct) {
-                uint64_t ct_;
-                TRX_STAT status;
-                trx_p -> query_ct(req.trx_id, ct_);
-                trx_p -> query_status(req.trx_id, status);
-                int status_i = (int) status;
-                in << ct_;
-                in << status_i; 
-                // DLOG(INFO) << "[Master::query_status] ct of " << req.trx_id << " is " << ct_;
-            } else {
-                TRX_STAT status;
-                trx_p -> query_status(req.trx_id, status);
-                int status_i = (int) status;
-                in << status_i;
-                // DLOG(INFO) << "[Master::query_status] status of " << req.trx_id << " is " << status_i;
-            }
-
-            zmq::message_t zmq_send_msg(in.size());
-            memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
-                   in.size());
-            trx_read_rep_sockets[socket_code(req.n_id, req.t_id)] -> send(zmq_send_msg);
-        }
-    }
-
-    void ProcessRetMinBT() {
+    void ProcessReadMinBT() {
         while (1) {
             int n_id = recv_data<int>(node_, MPI_ANY_SOURCE, true, MINBT_CHANNEL);
             uint64_t min_bt = running_trx_list_->GetMinBT();
@@ -306,9 +248,7 @@ class Master {
 
         thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor, *running_trx_min_bt_listener;
         if (!config_->global_use_rdma) {
-            trx_table_tcp_read_listener = new thread(&Master::ListenTCPTrxReads, this);
-            trx_table_tcp_read_executor = new thread(&Master::ProcessTCPTrxReads, this);
-            running_trx_min_bt_listener = new thread(&Master::ProcessRetMinBT, this);
+            running_trx_min_bt_listener = new thread(&Master::ProcessReadMinBT, this);
         }
 
         int end_tag = 0;
@@ -324,8 +264,6 @@ class Master {
         notification_listener.join();
         trx_table_write_executor.join();
         if (!config_->global_use_rdma) {
-            trx_table_tcp_read_listener->join();
-            trx_table_tcp_read_executor->join();
             running_trx_min_bt_listener->join();
         }
     }
