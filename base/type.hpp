@@ -61,7 +61,6 @@ enum class PROCESS_STAT {
 enum class NOTIFICATION_TYPE {
     UPDATE_STATUS,
     RCT_TIDS,
-    TRX_FINISHED,
     OBTAIN_BT,
     OBTAIN_CT,
     ALLOCATED_BT,

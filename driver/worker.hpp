@@ -71,6 +71,19 @@ struct AllocatedTimestamp {
     uint64_t timestamp;
 };
 
+struct QueryRCTRequest {
+    QueryRCTRequest() : trx_id(0) {};
+    QueryRCTRequest(int _n_id, uint64_t _trx_id, uint64_t _bt, uint64_t _ct) :
+                    n_id(_n_id), trx_id(_trx_id), bt(_bt), ct(_ct) {}
+    int n_id;
+    uint64_t trx_id, bt, ct;
+};
+
+struct QueryRCTResult {
+    uint64_t trx_id;
+    vector<uint64_t> trx_id_list;
+};
+
 class Worker {
  public:
     Worker(Node & my_node, vector<Node> & workers, Node & master) :
@@ -433,17 +446,15 @@ class Worker {
     }
 
     void NotifyTrxFinished(uint64_t trx_id, uint64_t bt) {
-        // send msg to master
-        ibinstream in;
-        in << (int)(NOTIFICATION_TYPE::TRX_FINISHED) << bt;
-        printf("[Worker] NotifyTrxFinished(%lu)\n", bt);
+        // // actually, worker_id == my_node_.get_local_rank.
+        // // so this is local send
+        // int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+
+        // mailbox_ ->SendNotification(worker_id, in);
+
+        printf("[Worker%d] EraseTrx(%lu)\n", my_node_.get_local_rank(), bt);
         fflush(stdout);
-
-        // actually, worker_id == my_node_.get_local_rank.
-        // so this is local send
-        int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
-
-        mailbox_ ->SendNotification(worker_id, in);
+        running_trx_list_->EraseTrx(bt);
     }
 
     void RecvNotification() {
@@ -459,25 +470,11 @@ class Worker {
                 uint64_t trxid;
                 out >> trxid >> trxIDList;
 
-                VPackAccessor accessor;
-                validaton_pkgs_.find(accessor, trxid);
+                QueryRCTResult query_result;
+                query_result.trx_id = trxid;
+                query_result.trx_id_list.swap(trxIDList);
 
-                ValidationPack& v_pkg = accessor->second;
-
-                v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), trxIDList.begin(), trxIDList.end());
-                v_pkg.collected_count++;
-
-                if (v_pkg.collected_count == config_->global_num_workers - 1) {
-                    for (auto & trxID : v_pkg.trx_id_list) {
-                        value_t v;
-                        Tool::uint64_t2value_t(trxID, v);
-                        v_pkg.pack.qplan.actors[0].params.emplace_back(v);
-                    }
-
-                    queue_.Push(v_pkg.pack);
-
-                    validaton_pkgs_.erase(accessor);
-                }
+                pending_rct_query_result_.Push(query_result);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_BT)) {
                 uint64_t trx_id, bt;
                 out >> trx_id >> bt;
@@ -491,7 +488,7 @@ class Worker {
                 AllocatedTimestamp allocated_ts(trx_id, true, ct);
                 pending_allocated_timestamp_.Push(allocated_ts);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
-                // P->V will not go here
+                // P->V will not go here.
                 int n_id;
                 uint64_t trx_id;
                 int status_i;
@@ -506,22 +503,9 @@ class Worker {
                 int n_id;
                 uint64_t bt, ct, trx_id;
                 out >> n_id >> trx_id >> bt >> ct;
-                std::set<uint64_t> trx_ids;
-                rct_ -> query_trx(bt, ct - 1, trx_ids);
 
-                std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
-
-                ibinstream in;
-                int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
-                in << notification_type << trx_id;
-                in << trx_ids_vec;
-                mailbox_->SendNotification(n_id, in);
-            } else if (notification_type == (int)(NOTIFICATION_TYPE::TRX_FINISHED)) {
-                uint64_t bt;
-                out >> bt;
-                printf("[Worker%d] EraseTrx(%lu)\n", my_node_.get_local_rank(), bt);
-                fflush(stdout);
-                running_trx_list_->EraseTrx(bt);
+                QueryRCTRequest request(n_id, trx_id, bt, ct);
+                pending_rct_query_request_.Push(request);
             } else {
                 CHECK(false);
             }
@@ -718,6 +702,51 @@ class Worker {
         }
     }
 
+    void ProcessQueryRCTResult() {
+        while (true) {
+            QueryRCTResult rct_query_result;
+            pending_rct_query_result_.WaitAndPop(rct_query_result);
+
+            VPackAccessor accessor;
+            validaton_pkgs_.find(accessor, rct_query_result.trx_id);
+
+            ValidationPack& v_pkg = accessor->second;
+
+            v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), rct_query_result.trx_id_list.begin(), rct_query_result.trx_id_list.end());
+            v_pkg.collected_count++;
+
+            if (v_pkg.collected_count == config_->global_num_workers - 1) {
+                for (auto & trxID : v_pkg.trx_id_list) {
+                    value_t v;
+                    Tool::uint64_t2value_t(trxID, v);
+                    v_pkg.pack.qplan.actors[0].params.emplace_back(v);
+                }
+
+                queue_.Push(v_pkg.pack);
+
+                validaton_pkgs_.erase(accessor);
+            }
+        }
+    }
+
+    void ProcessQueryRCTRequest() {
+        while (true) {
+            QueryRCTRequest request;
+            pending_rct_query_request_.WaitAndPop(request);
+
+            std::set<uint64_t> trx_ids;
+            rct_ -> query_trx(request.bt, request.ct - 1, trx_ids);
+
+            std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
+
+            ibinstream in;
+            int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
+            in << notification_type << request.trx_id;
+            in << trx_ids_vec;
+            mailbox_->SendNotification(request.n_id, in);
+        }
+    }
+
     void Start() {
         // =================IdMapper========================
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
@@ -799,6 +828,8 @@ class Worker {
         thread running_trx_min_bt_listener(&RunningTrxList::ProcessReadMinBTRequest, running_trx_list_);
         thread timestamp_obtainer(&Worker::ProcessObtainingTimestamp, this);
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
+        thread process_rct_query_request(&Worker::ProcessQueryRCTRequest, this);
+        thread process_rct_query_result(&Worker::ProcessQueryRCTResult, this);
 
         thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor;
         if (!config_->global_use_rdma) {
@@ -865,6 +896,8 @@ class Worker {
         running_trx_min_bt_listener.join();
         timestamp_obtainer.join();
         timestamp_consumer.join();
+        process_rct_query_request.join();
+        process_rct_query_result.join();
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener->join();
             trx_table_tcp_read_executor->join();
@@ -908,6 +941,9 @@ class Worker {
 
     ThreadSafeQueue<TimestampRequest> pending_timestamp_request_;
     ThreadSafeQueue<AllocatedTimestamp> pending_allocated_timestamp_;
+
+    ThreadSafeQueue<QueryRCTRequest> pending_rct_query_request_;
+    ThreadSafeQueue<QueryRCTResult> pending_rct_query_result_;
 
     zmq::socket_t * trx_read_recv_socket;
     vector<zmq::socket_t *> trx_read_rep_sockets;
