@@ -14,7 +14,20 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/communication.hpp"
 #include "base/node.hpp"
+#include "base/rdma.hpp"
+#include "core/buffer.hpp"
 #include "tbb/atomic.h"
+#include "utils/config.hpp"
+
+// A cache line (64B)
+struct MinBTCLine {
+    volatile uint64_t data[8] __attribute__((aligned(64)));
+
+    // called by Master
+    void SetValue(uint64_t bt);
+    // called by Worker
+    bool GetValue(uint64_t& bt);
+} __attribute__((aligned(64)));
 
 // Containing a list of running transactions, from which we can get the minimum BT of them.
 class RunningTrxList {
@@ -46,6 +59,7 @@ class RunningTrxList {
     };
 
     Node node_;
+    Config* config_;
 
     tbb::atomic<uint64_t> min_bt_ = 0;
     uint64_t max_bt_ = 0;
@@ -56,6 +70,8 @@ class RunningTrxList {
     ListNode* tail_ = nullptr;
 
     mutable pthread_spinlock_t lock_;
+
+    char* rdma_mem_ = nullptr;
 
     RunningTrxList();
     RunningTrxList(const RunningTrxList&);  // not to def

@@ -825,16 +825,16 @@ class Worker {
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
         thread recvnotification(&Worker::RecvNotification, this);
         thread trx_table_write_executor(&Worker::ProcessTrxTableWriteReqs, this);
-        thread running_trx_min_bt_listener(&RunningTrxList::ProcessReadMinBTRequest, running_trx_list_);
         thread timestamp_obtainer(&Worker::ProcessObtainingTimestamp, this);
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
         thread process_rct_query_request(&Worker::ProcessQueryRCTRequest, this);
         thread process_rct_query_result(&Worker::ProcessQueryRCTResult, this);
 
-        thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor;
+        thread *trx_table_tcp_read_listener, *trx_table_tcp_read_executor, *running_trx_min_bt_listener;
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener = new thread(&Worker::ListenTCPTrxReads, this);
             trx_table_tcp_read_executor = new thread(&Worker::ProcessTCPTrxReads, this);
+            running_trx_min_bt_listener = new thread(&RunningTrxList::ProcessReadMinBTRequest, running_trx_list_);
         }
         thread debug(&Worker::Debug, this);
 
@@ -893,7 +893,6 @@ class Worker {
         sendmsg.join();
         recvnotification.join();
         trx_table_write_executor.join();
-        running_trx_min_bt_listener.join();
         timestamp_obtainer.join();
         timestamp_consumer.join();
         process_rct_query_request.join();
@@ -901,6 +900,7 @@ class Worker {
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener->join();
             trx_table_tcp_read_executor->join();
+            running_trx_min_bt_listener->join();
         }
         debug.join();
     }

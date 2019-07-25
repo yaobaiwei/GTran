@@ -459,7 +459,7 @@ class Config{
         iniparser_freedict(ini);
 
         trx_table_sz = MiB2B(trx_table_sz_mb);  // this should be shared by master and workers,workers need to this to compute trx_num_total_buckets...
-        min_bt_buffer_sz = 64;
+        min_bt_buffer_sz = 64 * global_num_workers;
         if (node.get_world_rank() != MASTER_RANK) {
             // Workers
             kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
