@@ -513,10 +513,15 @@ class Worker {
     }
 
     void Debug() {
+        MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
+        WaitForMPITimestamperInit();
         while (1) {
-            sleep(1);
+            sleep(5);
             uint64_t min_bt = running_trx_list_->GetGlobalMinBT();
-            printf("[DEBUG] get min_bt: %lu\n", min_bt);
+            // seems to be ok
+            timestamper_->GlobalCalibrateMeasure(100, 0.05);
+            timestamper_->GlobalCalibrateMeasure(100, 0.05, true);
+            // printf("[DEBUG] get min_bt: %lu\n", min_bt);
         }
     }
 
@@ -545,9 +550,9 @@ class Worker {
             // pop a req
             UpdateTrxStatusReq req;
             pending_trx_updates_.WaitAndPop(req);
-            printf("[ProcessTrxTableWriteReqs on Worker%d]%s , %lu\n",
-                    my_node_.get_local_rank(), trx_stat_str_map[req.new_status].c_str(), req.trx_id);
-            fflush(stdout);
+            // printf("[ProcessTrxTableWriteReqs on Worker%d]%s , %lu\n",
+            //         my_node_.get_local_rank(), trx_stat_str_map[req.new_status].c_str(), req.trx_id);
+            // fflush(stdout);
 
             // check if P->V
             if (req.new_status == TRX_STAT::VALIDATING) {
@@ -621,19 +626,33 @@ class Worker {
     }
 
     void ProcessObtainingTimestamp() {
+        // bind to the last core
+        MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
+
+        // timestamper_->Init(MPI_COMM_WORLD);
+        timestamper_->Init(my_node_.local_comm, 3, 1000);
+        // calculate the system error of clock
+        timestamper_->GlobalSystemErrorCalculate(1000, 5, 0.2);
+
+        mpi_timestamper_initialized_ = true;
+
         while (true) {
             TimestampRequest req;
             pending_timestamp_request_.WaitAndPop(req);
 
-            if (req.is_ct) {
-                ibinstream in;
-                in << (int)(NOTIFICATION_TYPE::OBTAIN_CT) << my_node_.get_local_rank() << req.trx_id;
-                mailbox_ ->SendNotification(config_->global_num_workers, in);
-            } else {
-                ibinstream in;
-                in << (int)(NOTIFICATION_TYPE::OBTAIN_BT) << my_node_.get_local_rank() << req.trx_id;
-                mailbox_ ->SendNotification(config_->global_num_workers, in);
-            }
+            AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.is_ct, timestamper_->GetTimestamp());
+            pending_allocated_timestamp_.Push(allocated_ts);
+
+            // call this to obtain timestamp from Master
+            // if (req.is_ct) {
+            //     ibinstream in;
+            //     in << (int)(NOTIFICATION_TYPE::OBTAIN_CT) << my_node_.get_local_rank() << req.trx_id;
+            //     mailbox_ ->SendNotification(config_->global_num_workers, in);
+            // } else {
+            //     ibinstream in;
+            //     in << (int)(NOTIFICATION_TYPE::OBTAIN_BT) << my_node_.get_local_rank() << req.trx_id;
+            //     mailbox_ ->SendNotification(config_->global_num_workers, in);
+            // }
         }
     }
 
@@ -645,6 +664,7 @@ class Worker {
 
             if (allocated_ts.is_ct) {
                 uint64_t ct = allocated_ts.timestamp;
+                printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
                 rct_->insert_trx(ct, trx_id);
 
@@ -676,7 +696,7 @@ class Worker {
                         mailbox_ ->SendNotification(i, in);
             } else {
                 uint64_t bt = allocated_ts.timestamp;
-                printf("[Worker%d] InsertTrx(%lu)\n", my_node_.get_local_rank(), bt);
+                printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
                 fflush(stdout);
                 running_trx_list_->InsertTrx(bt);
 
@@ -756,6 +776,12 @@ class Worker {
         core_affinity->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init Core Affinity" << endl;
 
+        // =================MPITimestamper========================
+        timestamper_ = MPITimestamper::GetInstance();
+        // Use this thread to initialize MPITimestamper
+        mpi_timestamper_initialized_ = false;  // set true in ProcessObtainingTimestamp
+        thread timestamp_obtainer(&Worker::ProcessObtainingTimestamp, this);
+
         // =================PrimitiveRCTTable===============
         PrimitiveRCTTable * pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         pmt_rct_table_->Init();
@@ -825,7 +851,6 @@ class Worker {
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
         thread recvnotification(&Worker::RecvNotification, this);
         thread trx_table_write_executor(&Worker::ProcessTrxTableWriteReqs, this);
-        thread timestamp_obtainer(&Worker::ProcessObtainingTimestamp, this);
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
         thread process_rct_query_request(&Worker::ProcessQueryRCTRequest, this);
         thread process_rct_query_result(&Worker::ProcessQueryRCTResult, this);
@@ -837,6 +862,9 @@ class Worker {
             running_trx_min_bt_listener = new thread(&RunningTrxList::ProcessReadMinBTRequest, running_trx_list_);
         }
         thread debug(&Worker::Debug, this);
+
+        cout << "[Worker" << my_node_.get_local_rank() << "]: " << "Waiting for init of timestamp generator" << endl;
+        WaitForMPITimestamperInit();
 
         worker_barrier(my_node_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
@@ -917,6 +945,8 @@ class Worker {
     ResultCollector * rc_;
     Monitor * monitor_;
     AbstractMailbox* mailbox_;
+    MPITimestamper* timestamper_;
+    atomic<bool> mpi_timestamper_initialized_;
 
     bool is_emu_mode_;
     ThroughputMonitor * thpt_monitor_;
@@ -953,6 +983,15 @@ class Worker {
 
     inline int socket_code(int n_id, int t_id) {
         return config_ -> global_num_threads * n_id + t_id;
+    }
+
+    inline void WaitForMPITimestamperInit() {
+        while (true) {
+            usleep(1000);
+            bool initialized = mpi_timestamper_initialized_;
+            if (initialized)
+                return;
+        }
     }
 };
 #endif /* WORKER_HPP_ */

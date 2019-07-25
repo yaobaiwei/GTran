@@ -7,10 +7,12 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/node.hpp"
 #include "base/type.hpp"
+#include "utils/mpi_timestamper.hpp"
 
 class Coordinator {
  public:
     void RegisterTrx(uint64_t& trx_id);
+    void AllocateTimestamp();
 
     static Coordinator* GetInstance() {
         static Coordinator single_instance;
@@ -25,6 +27,7 @@ class Coordinator {
     uint64_t next_trx_id_;
     Node* node_;
     int comm_sz_, my_rank_;  // in node_->local_comm
+    MPITimestamper* timestamper_;
 
     Coordinator();
     Coordinator(const Coordinator&);  // not to def
