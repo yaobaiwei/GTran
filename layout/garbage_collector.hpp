@@ -10,6 +10,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "layout/gc_task.hpp"
 
 class GCProducer;
+class GCConsumer;
 
 class GarbageCollector {
  public:
@@ -21,17 +22,27 @@ class GarbageCollector {
     void Init();
     void Stop();
 
-    void PushTaskToPendingQueue(AbstractGCJob*);
-    void PushTaskToFinishedQueue(AbstractGCJob*);
-    bool PopTaskFromPendingQueue(AbstractGCJob*);
-    bool PopTaskFromFinishedQueue(AbstractGCJob*);
+    void PushJobToPendingQueue(AbstractGCJob*);
+    void PushJobToFinishedQueue(AbstractGCJob*);
+    bool PopJobFromPendingQueue(AbstractGCJob*&);
+    bool PopJobFromFinishedQueue(AbstractGCJob*&);
+
+    void PushGCAbleEidToQueue(vector<pair<eid_t, bool>>*);
+    bool PopGCAbleEidFromQueue(vector<pair<eid_t, bool>>*&);
 
  private:
     GCProducer * gc_producer_;
+    GCConsumer * gc_consumer_;
     GarbageCollector();
 
     tbb::concurrent_queue<AbstractGCJob*> pending_job_queue;
     tbb::concurrent_queue<AbstractGCJob*> finished_job_queue;
 
+    // For TopoRowListGCTask and TopoRowListDefragTask, both of them
+    // must executed before erase_e_map. Therefore, consumer need to
+    // return gcable eid to produce to create erase_e_map task
+    tbb::concurrent_queue<vector<pair<eid_t, bool>>*> gcable_eid_queue;
+
     friend class GCProducer;
+    friend class GCConsumer;
 };

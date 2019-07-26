@@ -707,6 +707,7 @@ class Worker {
         // =================GarbageCollector================
         garbage_collector_ = GarbageCollector::GetInstance();
         garbage_collector_->Init();
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> garbage_collector->Start()" << endl;
 
 
         worker_barrier(my_node_);

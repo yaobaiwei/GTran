@@ -19,7 +19,7 @@ void DataStorage::Init() {
     snapshot_manager_ = MPISnapshotManager::GetInstance();
     worker_rank_ = node_.get_local_rank();
     worker_size_ = node_.get_local_size();
-    nthreads_ = config_->global_num_threads + 1;  // allow the main thread to use memory pool
+    nthreads_ = config_->global_num_threads + 1 + config_->num_gc_consumer;  // allow the main thread to use memory pool
     TidMapper::GetInstance()->Register(config_->global_num_threads);  // register the main thread in TidMapper
 
     node_.Rank0PrintfWithWorkerBarrier(
@@ -100,6 +100,7 @@ void DataStorage::FillContainer() {
     int max_vid = worker_rank_;
 
     for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
+        ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
         VertexAccessor v_accessor;
         vertex_map_.Insert(v_accessor, vtx.id.value());
 
@@ -120,6 +121,7 @@ void DataStorage::FillContainer() {
 
         // Insert in edges
         for (auto in_nb : vtx.in_nbs) {
+            ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
             eid_t eid = eid_t(vtx.id.vid, in_nb.vid);
 
             InEdgeAccessor in_e_accessor;
@@ -135,6 +137,7 @@ void DataStorage::FillContainer() {
 
         // Insert out edges
         for (auto out_nb : vtx.out_nbs) {
+            ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
             eid_t eid = eid_t(out_nb.vid, vtx.id.vid);
 
             OutEdgeAccessor out_e_accessor;
@@ -163,6 +166,7 @@ void DataStorage::FillContainer() {
 
     // Insert edge properties
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
+        ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
         OutEdgeConstAccessor out_e_accessor;
         out_edge_map_.Find(out_e_accessor, edge.id.value());
 
@@ -196,6 +200,7 @@ void DataStorage::FillContainer() {
 READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid,
                                       const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, EdgeVersion& item_ref) {
+    ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
     bool found = out_edge_map_.Find(out_e_accessor, eid.value());
 
     if (!found) {
@@ -230,6 +235,7 @@ READ_STAT DataStorage::CheckVertexVisibility(const VertexConstAccessor& v_access
 
 READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, value_t& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     vid_t vid = pid.vid;
 
     VertexConstAccessor v_accessor;
@@ -245,7 +251,6 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
      * Similarly hereinafter.
      */
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
-
         /* Update the global status of this transaction to ABORT.
          * Similarly hereinafter.
          */
@@ -263,6 +268,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 
 READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -287,6 +293,7 @@ READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const 
 READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& p_key,
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -310,6 +317,7 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
 
 READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<vpid_t>& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -333,6 +341,7 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
 
 READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -472,6 +481,7 @@ READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
 READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                               const uint64_t& trx_id, const uint64_t& begin_time,
                                               const bool& read_only, vector<vid_t>& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -497,6 +507,7 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
 READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                             const uint64_t& trx_id, const uint64_t& begin_time,
                                             const bool& read_only, vector<eid_t>& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -521,6 +532,7 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
 
 READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, vector<vid_t>& ret) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     for (auto v_pair = vertex_map_.begin(); v_pair != vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
@@ -551,6 +563,7 @@ READ_STAT DataStorage::GetAllVertices(const uint64_t& trx_id, const uint64_t& be
 READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<eid_t>& ret) {
     // TODO(entityless): Simplify the code by editing eid_t::value()
+    ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
     for (auto e_pair = out_edge_map_.begin(); e_pair != out_edge_map_.end(); e_pair++) {
         EdgeMVCCItem* visible_version;
         EdgeVersion edge_version;
@@ -583,13 +596,12 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
 bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
                                         const bool& read_only, vid_t& vid) {
     // Check visibility of the vertex
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
     if (!found) {
-        printf("Impossible branch in DataStorage::CheckVertexVisibility, vid = %d => %d, on worker %d\n",
-                vid.value(), id_mapper_->GetMachineIdForVertex(vid), worker_rank_);
-        CHECK(false);
+        return false;
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -911,6 +923,7 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
     /* Guaranteed that the vid is identical in the whole system.
      * Thus, it's impossible to insert two vertex with the same vid
      */
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     vid_t vid = AssignVID();
 
     VertexAccessor v_accessor;
@@ -940,6 +953,7 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 
 PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                        vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid.value());
 
@@ -994,6 +1008,9 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
  */
 PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
                                       const uint64_t& trx_id, const uint64_t& begin_time) {
+    ReaderLockGuard out_edge_rlock_guard(out_edge_erase_rwlock_);
+    ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     InEdgeAccessor in_e_accessor;
     OutEdgeAccessor out_e_accessor;
     bool is_new;
@@ -1004,9 +1021,11 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
      *      else, this function will add an inE, which means that dst_vid is on this node.
      */
     if (is_out) {
+        in_edge_rlock_guard.Unlock();
         local_vid = src_vid;
         conn_vid = dst_vid;
     } else {
+        out_edge_rlock_guard.Unlock();
         local_vid = dst_vid;
         conn_vid = src_vid;
     }
@@ -1083,6 +1102,8 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
 
 PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
                                        const uint64_t& trx_id, const uint64_t& begin_time) {
+    ReaderLockGuard out_edge_rlock_guard(out_edge_erase_rwlock_);
+    ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
     InEdgeConstAccessor in_e_accessor;
     OutEdgeConstAccessor out_e_accessor;
     bool found;
@@ -1093,9 +1114,11 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
      *      else, this function will add an inE, which means that dst_vid is on this node.
      */
     if (is_out) {
+        in_edge_rlock_guard.Unlock();
         found = out_edge_map_.Find(out_e_accessor, eid.value());
         conn_vid = dst_vid;
     } else {
+        out_edge_rlock_guard.Unlock();
         found = in_edge_map_.Find(in_e_accessor, eid.value());
         conn_vid = src_vid;
     }
@@ -1130,6 +1153,7 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 
 PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value,
                                           const uint64_t& trx_id, const uint64_t& begin_time) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid_t(pid.vid).value());
 
@@ -1202,6 +1226,7 @@ PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& valu
 }
 
 PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
+    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     VertexConstAccessor v_accessor;
     bool found = vertex_map_.Find(v_accessor, vid_t(pid.vid).value());
 
@@ -1354,6 +1379,7 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             v_mvcc_list->AbortVersion(trx_id);
             if (process_item.type == TrxProcessHistory::PROCESS_ADD_V) {
                 // access the item in the v_map
+                ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
                 VertexAccessor v_accessor;
                 vertex_map_.Find(v_accessor, vid_map_ref[v_mvcc_list]);
                 v_accessor->second.ve_row_list->SelfGarbageCollect();

@@ -16,6 +16,7 @@ void PropertyRowList<PropertyRow>::Init() {
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         AllocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     if (property_count_ptr == nullptr) {
         // Called by InsertInitialCell
         int cell_id = property_count_++;
@@ -105,6 +106,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         LocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
     int property_count_snapshot;
     CellMap* map_snapshot;
@@ -162,6 +164,7 @@ template <class PropertyRow>
 READ_STAT PropertyRowList<PropertyRow>::
         ReadProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                      const bool& read_only, value_t& ret) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     auto* cell = LocateCell(pid);
     if (cell == nullptr)
         return READ_STAT::NOTFOUND;
@@ -200,6 +203,7 @@ template <class PropertyRow>
 READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<label_t>& p_key, const uint64_t& trx_id,
                                                                const uint64_t& begin_time, const bool& read_only,
                                                                vector<pair<label_t, value_t>>& ret) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
     int property_count_snapshot;
     CellMap* map_snapshot;
@@ -303,6 +307,7 @@ template <class PropertyRow>
 READ_STAT PropertyRowList<PropertyRow>::
         ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
                         const bool& read_only, vector<pair<label_t, value_t>>& ret) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
     int property_count_snapshot = property_count_;
 
@@ -347,6 +352,7 @@ template <class PropertyRow>
 READ_STAT PropertyRowList<PropertyRow>::
         ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
                     const bool& read_only, vector<PidType>& ret) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
     int property_count_snapshot = property_count_;
 
@@ -388,6 +394,7 @@ template <class PropertyRow>
 pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList<PropertyRow>::
         ProcessModifyProperty(const PidType& pid, const value_t& value, value_t& old_val,
                               const uint64_t& trx_id, const uint64_t& begin_time) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     int tmp_count;
     PropertyRow* tmp_tail;
     auto* cell = LocateCell(pid, &tmp_count, &tmp_tail);
@@ -435,6 +442,7 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow>::
         ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_val) {
+    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     auto* cell = LocateCell(pid);
 
     // system error; since this function is called by .drop() step, two conditions below won't happens
@@ -462,6 +470,7 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
 template <class PropertyRow>
 void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     // Free all cells
+    WriterLockGuard writer_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
     int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
     if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)
@@ -494,4 +503,87 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     delete[] row_ptrs;
     if (cell_map_ != nullptr)
         delete cell_map_;
+}
+
+template <class PropertyRow>
+void PropertyRowList<PropertyRow>::SelfDefragment() {
+    // Scan and collect cell
+    WriterLockGuard writer_lock_guard(gc_rwlock_);
+    PropertyRow* current_row = head_;
+    int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
+    if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)
+        row_count++;
+    if (row_count == 0)
+        row_count = 1;
+
+    PropertyRow** row_ptrs = new PropertyRow*[row_count];
+    row_ptrs[0] = head_;
+    int row_ptr_count = 1;
+
+    queue<pair<int, int>> empty_cell_queue;
+    // Collect empty cell info
+    for (int i = 0; i < property_count_; i++) {
+        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+        if (i > 0 && cell_id_in_row == 0) {
+            current_row = current_row->next_;
+            row_ptrs[row_ptr_count++] = current_row;
+        }
+
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
+
+        if (mvcc_list->GetHead() == nullptr) {
+            // gc cell, record to empty cell
+            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_ITEM_COUNT), cell_id_in_row);
+            mvcc_list->SelfGarbageCollect();
+            delete mvcc_list;
+        }
+    }
+
+    // move cell from tail to empty cell
+    int inverse_cell_index = property_count_ - 1;
+    int cur_property_count = property_count_ - empty_cell_queue.size();
+    int num_movable_cell = cur_property_count;
+    int inverse_row_index = row_count - 1;
+
+    // Calculate removable row
+    int cur_row_count = cur_property_count / PropertyRow::ROW_ITEM_COUNT + 1;
+    if (cur_property_count % PropertyRow::ROW_ITEM_COUNT == 0) {
+        cur_row_count--;
+    }
+    int num_gcable_rows = row_count - cur_row_count;
+
+    bool first_iteration = true;
+    while (true) {
+        int cell_id_in_row = inverse_cell_index % PropertyRow::ROW_ITEM_COUNT;
+        if (cell_id_in_row == PropertyRow::ROW_ITEM_COUNT - 1 &&
+            inverse_cell_index != property_count_ - 1) {
+            inverse_row_index--;
+            CHECK(inverse_row_index >= 0);
+        }
+
+        auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
+        MVCCListType* mvcc_list = cell_ref.mvcc_list;
+
+        if (mvcc_list->GetHead() != nullptr) {
+            num_movable_cell--;
+            pair<int, int> empty_cell = empty_cell_queue.front(); 
+            empty_cell_queue.pop();
+            row_ptrs[empty_cell.first]->cells_[empty_cell.second] = cell_ref;
+        }
+
+        if (empty_cell_queue.size() == 0 || num_movable_cell == 0) { break; }
+
+        inverse_cell_index--;
+        if (inverse_cell_index < 0) { break; }
+    }
+
+    // Recycle removable row
+    for (int i = row_count - 1; i > cur_row_count - 1; i--) {
+        if (i-1 >= 0) { row_ptrs[i-1]->next_ = nullptr; }
+        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+    }
+
+    // new property count
+    property_count_ = cur_property_count;
 }

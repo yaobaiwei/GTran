@@ -25,6 +25,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
+#include "utils/write_prior_rwlock.hpp"
 
 struct TrxProcessHistory {
     enum ProcessType {
@@ -99,6 +100,15 @@ class DataStorage {
     ConcurrentUnorderedMap<uint32_t, Vertex> vertex_map_;
     typedef ConcurrentUnorderedMap<uint32_t, Vertex>::accessor VertexAccessor;
     typedef ConcurrentUnorderedMap<uint32_t, Vertex>::const_accessor VertexConstAccessor;
+    // These three locks are only used for avoid conflict between
+    // erase operator (always batch erase) and others (insert, find);
+    // write_lock -> erase
+    // read_lock -> others
+    // concurrency for others is guaranteed by ConcurrentUnorderedMap
+    WritePriorRWLock vertex_map_erase_rwlock_;
+    WritePriorRWLock out_edge_erase_rwlock_;
+    WritePriorRWLock in_edge_erase_rwlock_;
+
     MVCCValueStore* vp_store_ = nullptr;
     MVCCValueStore* ep_store_ = nullptr;
 

@@ -12,6 +12,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "tbb/concurrent_queue.h"
 
+#include "base/type.hpp"
 #include "layout/data_storage.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
@@ -36,9 +37,8 @@ class AbstractGCTask {
     // Cost for completing the task
     // different cost model for different task
     int cost_ = 1;
-    int COST_THRESHOLD;
 
-    AbstractGCTask(){}
+    AbstractGCTask() {}
     AbstractGCTask(int cost) : cost_(cost) {}
 };
 
@@ -46,7 +46,7 @@ class AbstractGCTask {
  */
 class IndependentGCTask : public AbstractGCTask {
  public:
-    IndependentGCTask(){}
+    IndependentGCTask() {}
     IndependentGCTask(int cost) : AbstractGCTask(cost) {}
 
     // Task Status in IndependentGCTask will
@@ -121,7 +121,7 @@ class TopoRowListGCTask : public DependentGCTask {
     TopologyRowList* target;  // Task context
     vid_t id;  // Task id
 
-    TopoRowListGCTask(){}
+    TopoRowListGCTask() {}
     TopoRowListGCTask(TopologyRowList* target_, vid_t id_) : target(target_), id(id_) {}
 };
 
@@ -143,23 +143,28 @@ class VPMVCCGCTask : public IndependentGCTask {
 };
 
 // Erase a specific eid on out_e_map_
-// TODO : Merge into EdgeMVCCListGC
 class EraseOutETask : public IndependentGCTask {
  public:
     eid_t target;
+
+    EraseOutETask() {}
+    EraseOutETask(eid_t& eid) : target(eid) {}
 };
 
 // Erase a specific eid on in_e_map_
 class EraseInETask : public IndependentGCTask {
  public:
     eid_t target;
+
+    EraseInETask() {}
+    EraseInETask(eid_t& eid) : target(eid) {}
 };
 
 struct CompoundEPRowListID {
     eid_t eid;
     PropertyRowList<EdgePropertyRow>* ptr;
 
-    CompoundEPRowListID(){}
+    CompoundEPRowListID() {}
     CompoundEPRowListID(eid_t eid_, PropertyRowList<EdgePropertyRow>* ptr_) : eid(eid_), ptr(ptr_) {}
 
     vid_t GetAttachedVid() {
@@ -203,7 +208,7 @@ class EPRowListGCTask : public DependentGCTask {
     PropertyRowList<EdgePropertyRow>* target;  // Task context
     CompoundEPRowListID id;  // Task id
 
-    EPRowListGCTask(){}
+    EPRowListGCTask() {}
     EPRowListGCTask(eid_t& eid, PropertyRowList<EdgePropertyRow>* target_) : target(target_) {
         id = CompoundEPRowListID(eid, target_);
     }
@@ -233,24 +238,28 @@ class AbstractGCJob {
     // sum of cost of all tasks
     int sum_of_cost_;
     // sum of blocked tasks
-    int blocked_conut;
+    int blocked_count;
+    // Threshold for job to push out
+    int COST_THRESHOLD;
+
+    JobType job_t;
 
     AbstractGCJob() {
         sum_of_cost_ = 0;
-        blocked_conut = 0;
+        blocked_count = 0;
+        COST_THRESHOLD = 0;
+    }
+
+    AbstractGCJob(JobType job_t_, int thres) : job_t(job_t_), COST_THRESHOLD(thres) {
+        sum_of_cost_ = 0;
+        blocked_count = 0;
     }
 
     // Add Task into Job
     // virtual void AddTask(AbstractGCTask task) = 0;
 
     // Check whether a Job is ready to be consumed
-    virtual bool isReady() {
-        if (blocked_conut == 0) {
-            return true;
-        }
-        return false;
-    }
-
+    virtual bool isReady() = 0;
     virtual void Clear() = 0;
 };
 
@@ -258,7 +267,8 @@ class IndependentGCJob : public AbstractGCJob {
  public:
     vector<IndependentGCTask*> tasks_;
 
-    IndependentGCJob(){}
+    IndependentGCJob() {}
+    IndependentGCJob(JobType job_t_, int thres) : AbstractGCJob(job_t_, thres) {}
 
     void AddTask(IndependentGCTask* task) {
         tasks_.emplace_back(task);
@@ -267,8 +277,20 @@ class IndependentGCJob : public AbstractGCJob {
 
     void Clear() override {
         sum_of_cost_ = 0;
-        blocked_conut = 0;
+        blocked_count = 0;
         tasks_.clear();
+    }
+
+    bool isReady() override {
+        return sum_of_cost_ >= COST_THRESHOLD;
+    }
+
+    string DebugString() {
+        string ret = "#Tasks: " + to_string(tasks_.size());
+        ret += " Sum_Of_Cost: " + to_string(sum_of_cost_);
+        ret += " Blocked_Count: " + to_string(blocked_count);
+        ret += " CostThres: " + to_string(COST_THRESHOLD);
+        return ret;
     }
 };
 
@@ -276,12 +298,17 @@ class DependentGCJob : public AbstractGCJob {
  public:
     vector<DependentGCTask*> tasks_;
 
-    DependentGCJob(){}
+    DependentGCJob() {}
+    DependentGCJob(JobType job_t_, int thres) : AbstractGCJob(job_t_, thres) {}
 
     void Clear() override {
         sum_of_cost_ = 0;
-        blocked_conut = 0;
+        blocked_count = 0;
         tasks_.clear();
+    }
+
+    bool isReady() override {
+        return ((sum_of_cost_ >= COST_THRESHOLD) && (blocked_count == 0));
     }
 
     void AddTask(DependentGCTask* task) {
@@ -289,19 +316,39 @@ class DependentGCJob : public AbstractGCJob {
         if (task->task_status == TaskStatus::ACTIVE) {
             sum_of_cost_ += task->cost_;
         } else if (task->task_status == TaskStatus::BLOCKED) {
-            blocked_conut += 1;
+            blocked_count += 1;
         }
     }
 
     bool SetTaskInvalid(DependentGCTask* target_task) {
-        if (find(tasks_.begin(), tasks_.end(), target_task) == tasks_.end()) {
+        vector<DependentGCTask*>::iterator itr = find(tasks_.begin(), tasks_.end(), target_task);
+        if (itr == tasks_.end()) {
             // No such task
             return false;
         }
 
         target_task->task_status = TaskStatus::INVALID;
         sum_of_cost_ -= target_task->cost_;
-        CHECK(sum_of_cost_ >= 0);
+        CHECK_GE(sum_of_cost_, 0);
+        return true;
+    }
+
+    bool ReduceTaskBlockCount(DependentGCTask* target_task) {
+        if (find(tasks_.begin(), tasks_.end(), target_task) == tasks_.end()) {
+            // No such task
+            return false;
+        }
+
+        if (target_task->blocked_count_ > 0) {
+            target_task->blocked_count_--;
+        } else {
+            return false;
+        }
+
+        if (target_task->blocked_count_ == 0) {
+            blocked_count--;
+            CHECK_GE(blocked_count, 0);
+        }
         return true;
     }
 
@@ -311,70 +358,80 @@ class DependentGCJob : public AbstractGCJob {
         }
         return false;
     }
+
+    string DebugString() {
+        string ret = "#Tasks: " + to_string(tasks_.size());
+        ret += " Sum_Of_Cost: " + to_string(sum_of_cost_);
+        ret += " Blocked_Count: " + to_string(blocked_count);
+        ret += " CostThres: " + to_string(COST_THRESHOLD);
+        return ret;
+    }
 };
 
 class EraseVJob : public IndependentGCJob {
  public:
-    EraseVJob(){}
-    bool isReady() override { return false; }
+    // Currently, threshold for job to be pushed
+    // out is hard-coded and maybe put them into
+    // config or to be calculated
+    EraseVJob() : IndependentGCJob(JobType::EraseV, Config::GetInstance()->Erase_V_Task_THRESHOLD) {}
+};
+
+class EraseOutEJob : public IndependentGCJob {
+ public:
+    EraseOutEJob() : IndependentGCJob(JobType::EraseOutE, Config::GetInstance()->Erase_OUTE_Task_THRESHOLD) {}
+};
+
+class EraseInEJob : public IndependentGCJob {
+ public:
+    EraseInEJob() : IndependentGCJob(JobType::EraseInE, Config::GetInstance()->Erase_INE_Task_THRESHOLD) {}
 };
 
 class VMVCCGCJob : public IndependentGCJob {
  public:
-    VMVCCGCJob(){}
-    bool isReady() override { return false; }
+    VMVCCGCJob() : IndependentGCJob(VMVCCGC, Config::GetInstance()->VMVCC_GC_Task_THRESHOLD) {}
 };
 
 class VPMVCCGCJob : public IndependentGCJob {
  public:
-    VPMVCCGCJob(){}
-    bool isReady() override { return false; }
+    VPMVCCGCJob() : IndependentGCJob(JobType::VPMVCCGC, Config::GetInstance()->VPMVCC_GC_Task_THRESHOLD) {}
 };
 
 class EPMVCCGCJob : public IndependentGCJob {
  public:
-    EPMVCCGCJob(){}
-    bool isReady() override { return false; }
+    EPMVCCGCJob() : IndependentGCJob(JobType::EPMVCCGC, Config::GetInstance()->EPMVCC_GC_Task_THRESHOLD) {}
 };
 
 class EMVCCGCJob : public IndependentGCJob {
  public:
-    EMVCCGCJob(){}
-    bool isReady() override { return false; }
+    EMVCCGCJob() : IndependentGCJob(JobType::EMVCCGC, Config::GetInstance()->EMVCC_GC_Task_THRESHOLD) {}
 };
 
 class TopoRowListGCJob : public DependentGCJob {
  public:
-    TopoRowListGCJob(){}
-    bool isReady() override { return false; }
+    TopoRowListGCJob() : DependentGCJob(JobType::TopoRowGC, Config::GetInstance()->Topo_Row_GC_Task_THRESHOLD) {}
 };
 
 class TopoRowListDefragJob : public DependentGCJob {
  public:
-    TopoRowListDefragJob(){}
-    bool isReady() override { return false; }
+    TopoRowListDefragJob() : DependentGCJob(JobType::TopoRowDefrag, Config::GetInstance()->Topo_Row_Defrag_Task_THRESHOLD) {}
 };
 
 class VPRowListGCJob : public DependentGCJob {
  public:
-    VPRowListGCJob(){}
-    bool isReady() override { return false; }
+    VPRowListGCJob() : DependentGCJob(JobType::VPRowGC, Config::GetInstance()->VP_Row_GC_Task_THRESHOLD) {}
 };
 
 class VPRowListDefragJob : public DependentGCJob {
  public:
-    VPRowListDefragJob(){}
-    bool isReady() override { return false; }
+    VPRowListDefragJob() : DependentGCJob(JobType::VPRowDefrag, Config::GetInstance()->VP_Row_Defrag_Task_THRESHOLD) {}
 };
 
 class EPRowListGCJob : public DependentGCJob {
  public:
-    EPRowListGCJob(){}
-    bool isReady() override { return false; }
+    EPRowListGCJob() : DependentGCJob(JobType::EPRowGC, Config::GetInstance()->EP_Row_GC_Task_THRESHOLD) {}
 };
 
 class EPRowListDefragJob : public DependentGCJob {
  public:
-    EPRowListDefragJob(){}
-    bool isReady() override { return false; }
+    EPRowListDefragJob() : DependentGCJob(EPRowDefrag, Config::GetInstance()->EP_Row_Defrag_Task_THRESHOLD) {}
 };

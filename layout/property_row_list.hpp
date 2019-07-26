@@ -15,6 +15,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "tbb/concurrent_hash_map.h"
 
 class GCProducer;
+class GCConsumer;
 
 template <class PropertyRow>
 class PropertyRowList {
@@ -30,6 +31,11 @@ class PropertyRowList {
     std::atomic_int property_count_;
     PropertyRow* head_, *tail_;
     WritePriorRWLock rwlock_;
+    // This lock is only used to avoid conflict between
+    // gc operator (including delete all and defrag) and all others;
+    // write_lock -> gc opr; read_lock -> others
+    // concurrency for others is guaranteed by rwlock_ above
+    WritePriorRWLock gc_rwlock_;
 
     CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
@@ -71,8 +77,10 @@ class PropertyRowList {
     }
 
     void SelfGarbageCollect();
+    void SelfDefragment();
 
     friend class GCProducer;
+    friend class GCConsumer;
 };
 
 #include "property_row_list.tpp"

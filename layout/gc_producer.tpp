@@ -12,18 +12,21 @@ void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<
     int gcable_cell_counter = 0;
     typename PropertyRowList<PropertyRow>::MVCCListType* cur_mvcc_list_ptr;
     for (int i = 0; i < property_count_snapshot; i++) {
-        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT; 
+        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
         if (i != 0 && cell_id_in_row == 0) {
             row_ptr = row_ptr->next_;
         }
 
         cur_mvcc_list_ptr = row_ptr->cells_[cell_id_in_row].mvcc_list;
-        if(scan_mvcc_list(element_id, cur_mvcc_list_ptr)) {
+        if (scan_mvcc_list(element_id, cur_mvcc_list_ptr)) {
             gcable_cell_counter++;
         }
     }
 
-    if (gcable_cell_counter >= property_count_snapshot % prop_row_list->MAP_THRESHOLD) {
+    // gcable_cell_counter must NOT be zero since if the number of cells MOD row
+    // capacity is exactly zero (mostly happened after one defragment), a defrag
+    // task will be generated since 0 == 0;
+    if (gcable_cell_counter >= property_count_snapshot % prop_row_list->MAP_THRESHOLD && gcable_cell_counter != 0) {
         spawn_prop_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
     }
 }
@@ -88,7 +91,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
         } else if (gc_checkpoint->next == iterate_tail) {  // At most two, at least one version left
             mvcc_list->tmp_pre_tail_ = nullptr;
             if (!uncommitted_version_exists) {  // One version left
-                mvcc_list->pre_tail_ = nullptr; 
+                mvcc_list->pre_tail_ = nullptr;
             }
         }
 

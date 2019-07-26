@@ -39,8 +39,15 @@ ReaderLockGuard::ReaderLockGuard(WritePriorRWLock& lock) {
 }
 
 ReaderLockGuard::~ReaderLockGuard() {
-    if (lock_)
-        lock_->ReleaseReadLock();
+    Unlock();
+}
+
+void ReaderLockGuard::Unlock() {
+    if (!is_unlock) {
+        is_unlock = true;
+        if (lock_)
+            lock_->ReleaseReadLock();
+    }
 }
 
 WriterLockGuard::WriterLockGuard(WritePriorRWLock& lock) {
@@ -50,6 +57,13 @@ WriterLockGuard::WriterLockGuard(WritePriorRWLock& lock) {
 }
 
 WriterLockGuard::~WriterLockGuard() {
-    if (lock_)
-        lock_->ReleaseWriteLock();
+    Unlock();
+}
+
+void WriterLockGuard::Unlock() {
+    if (!is_unlock) {
+        is_unlock = true;
+        if (lock_)
+            lock_->ReleaseWriteLock();
+    }
 }

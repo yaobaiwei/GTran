@@ -7,9 +7,11 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #pragma once
 
 #include <thread>
+#include <unordered_map>
+#include <unistd.h>
 
+#include "base/node.hpp"
 #include "layout/gc_task.hpp"
-
 #include "utils/simple_spinlock_guard.hpp"
 
 /* GCProducer encapsulates methods to scan the whole data layout and generate garbage collection tasks to
@@ -24,7 +26,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
  */
 
 // Fake one;
-static constexpr int MINIMUM_ACTIVE_TRANSACTION_BT = 0;
+static constexpr int MINIMUM_ACTIVE_TRANSACTION_BT = 3;
+
+class GarbageCollector;
 
 // The container of dependent tasks
 class GCTaskDAG {
@@ -34,6 +38,7 @@ class GCTaskDAG {
     ~GCTaskDAG() {}
 
     GCProducer* gc_producer_;
+    GarbageCollector* garbage_collector_;
 
  public:
     static GCTaskDAG* GetInstance() {
@@ -50,6 +55,8 @@ class GCTaskDAG {
 
     bool InsertVPRowListGCTask(VPRowListGCTask*);
     bool InsertVPRowListDefragTask(VPRowListDefragTask*);
+    void DeleteVPRowListGCTask(vid_t&);
+    void DeleteVPRowListDefragTask(vid_t&);
 
     /*
      * Task dependency DAG 2:
@@ -68,9 +75,12 @@ class GCTaskDAG {
     bool InsertTopoRowListDefragTask(TopoRowListDefragTask*);
     bool InsertEPRowListGCTask(EPRowListGCTask*);
     bool InsertEPRowListDefragTask(EPRowListDefragTask*);
-};
 
-class GarbageCollector;
+    void DeleteTopoRowListGCTask(vid_t&);
+    void DeleteTopoRowListDefragTask(vid_t&);
+    void DeleteEPRowListGCTask(CompoundEPRowListID&);
+    void DeleteEPRowListDefragTask(CompoundEPRowListID&);
+};
 
 class GCProducer {
  public:
@@ -83,7 +93,7 @@ class GCProducer {
     void Stop();
 
     // The function that the GCProducer thread loops
-    void Scan();
+    void Execute();
 
     friend class GCTaskDAG;
 
@@ -94,6 +104,9 @@ class GCProducer {
 
     // -------GC Job For Each Tyep---------
     EraseVJob erase_v_job;
+    EraseOutEJob erase_out_e_job;
+    EraseInEJob erase_in_e_job;
+
     VMVCCGCJob v_mvcc_gc_job;
     VPMVCCGCJob vp_mvcc_gc_job;
     EPMVCCGCJob ep_mvcc_gc_job;
@@ -108,14 +121,20 @@ class GCProducer {
     EPRowListGCJob ep_row_list_gc_job;
     EPRowListDefragJob ep_row_list_defrag_job;
 
+    // -------Sys Components------------
     GCTaskDAG * gc_task_dag_;
     DataStorage * data_storage_;
     GarbageCollector * garbage_collector_;
+    Node node_;
 
     // Thread to scan data store
     thread scanner_;
 
-    // -------Scanning Function--------- 
+    // Scan Period (unit:sec)
+    // For every SCAN_PERIOD, producer scan once;
+    const int SCAN_PERIOD = 5;
+
+    // -------Scanning Function---------
     void scan_vertex_map();
     void scan_topo_row_list(const vid_t&, TopologyRowList*);
     // Scan RowList && MVCCList
@@ -126,6 +145,9 @@ class GCProducer {
 
     // -------Task spawning function-------
     void spawn_vertex_map_gctask(vid_t&);
+    void spawn_erase_out_edge_gctask(eid_t&);
+    void spawn_erase_in_edge_gctask(eid_t&);
+
     void spawn_v_mvcc_gctask(VertexMVCCItem*);
     void spawn_vp_mvcc_list_gctask(VPropertyMVCCItem*, const int&);
     void spawn_ep_mvcc_list_gctask(EPropertyMVCCItem*, const int&);
@@ -140,15 +162,19 @@ class GCProducer {
     void spawn_ep_row_list_gctask(PropertyRowList<EdgePropertyRow>*, eid_t&);
     void spawn_ep_row_defrag_gctask(PropertyRowList<EdgePropertyRow>*, const uint64_t&, const int&);
 
-    void spawn_edge_erase_gctask(eid_t eid);  // ???
-
     template <class MVCCItem>
     void spawn_mvcc_list_gctask(MVCCItem*, const uint64_t&, const int&);
     template <class PropertyRow>
     void spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow>*, const uint64_t&, const int&);
 
     // -------Other help functions--------
-    void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&); 
+    void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&);
+    void check_finished_job();
+    void check_returned_edge();
+
+    void DebugPrint();
+
+    // Other GCable Component
 };
 
 #include "layout/gc_producer.tpp"

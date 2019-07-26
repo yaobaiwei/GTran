@@ -17,6 +17,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/tid_mapper.hpp"
 
 class GCProducer;
+class GCConsumer;
 
 template<class Item>
 class MVCCList {
@@ -70,6 +71,7 @@ class MVCCList {
     pthread_spinlock_t lock_;
 
     friend class GCProducer;
+    friend class GCConsumer;
 };
 
 #include "mvcc_list.tpp"

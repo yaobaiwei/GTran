@@ -13,6 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/tid_mapper.hpp"
 
 class GCProducer;
+class GCConsumer;
 
 class TopologyRowList {
  private:
@@ -22,6 +23,11 @@ class TopologyRowList {
     VertexEdgeRow* head_, *tail_;
     vid_t my_vid_;
     pthread_spinlock_t lock_;
+    // This lock is only used to avoid conflict between
+    // gc operator (including delete all and defrag) and all others;
+    // write_lock -> gc opr; read_lock -> others
+    // concurrency for others is guaranteed by spin lock above
+    WritePriorRWLock gc_rwlock_;
 
 
     void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
@@ -55,7 +61,11 @@ class TopologyRowList {
         mem_pool_ = mem_pool;
     }
 
-    void SelfGarbageCollect();
+    static vector<eid_t> DEFAULT_VECTOR;
+
+    void SelfGarbageCollect(const vid_t& vid = NULL, vector<pair<eid_t, bool>>* vec = nullptr);
+    void SelfDefragment(const vid_t&, vector<pair<eid_t, bool>>*);
 
     friend class GCProducer;
+    friend class GCConsumer;
 };

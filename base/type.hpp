@@ -643,3 +643,7 @@ struct PrimitiveEnumClassHash {
 // For Modification (AddE)
 //  PlaceHolder, AsLabel, NotApplicable
 enum AddEdgeMethodType { PlaceHolder, StepLabel, NotApplicable };
+
+
+// For GCTask
+enum JobType { EraseV, EraseOutE, EraseInE, VMVCCGC, VPMVCCGC, EPMVCCGC, EMVCCGC, TopoRowGC, TopoRowDefrag, VPRowGC, VPRowDefrag, EPRowGC, EPRowDefrag };

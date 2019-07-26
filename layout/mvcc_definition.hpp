@@ -12,6 +12,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/tid_mapper.hpp"
 
 class GCProducer;
+class GCConsumer;
 
 struct AbstractMVCCItem {
  private:
@@ -70,6 +71,7 @@ struct AbstractMVCCItem {
     AbstractMVCCItem* GetNext() const {return next;}
 
     friend class GCProducer;
+    friend class GCConsumer;
 };
 
 /* Each type of MVCC must provide members and interfaces below:
