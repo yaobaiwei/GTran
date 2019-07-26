@@ -116,14 +116,14 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
             if (min_ns_offset < ns_offsets[partner])
                 min_ns_offset = ns_offsets[partner];
 
-        if (!with_sys_error_fix)
-            printf("%lu sec, without sys fix: \t", (GetLocalPhysicalNS() - init_ns_) / 1000000000);
-        else
-            printf("%lu sec,    with sys fix: \t", (GetLocalPhysicalNS() - init_ns_) / 1000000000);
+        // if (!with_sys_error_fix)
+        //     printf("%lu sec, without sys fix: \t", (GetLocalPhysicalNS() - init_ns_) / 1000000000);
+        // else
+        //     printf("%lu sec,    with sys fix: \t", (GetLocalPhysicalNS() - init_ns_) / 1000000000);
 
-        for (int partner = 1; partner < comm_sz_; partner++)
-            printf("%ld\t\t", ns_offsets[partner]);
-        printf("\n");
+        // for (int partner = 1; partner < comm_sz_; partner++)
+        //     printf("%ld\t\t", ns_offsets[partner]);
+        // printf("\n");
 
         for (int i = 0; i < comm_sz_; i++) {
             ns_offsets[i] -= min_ns_offset;
@@ -156,7 +156,7 @@ void MPITimestamper::GlobalCalibrateApply() {
 
     // get the global min physical timestamp
     MPI_Allreduce(&global_calibrate_applied_ns_, &global_min_ns_, 1, MPI_UINT64_T, MPI_MIN, comm_);
-    printf("[Worker%d] MPITimestamper::GlobalCalibrateApply, off = %ld, %ld, global_min_ns_ = %lu\n", my_rank_, global_ns_offset_, measured_global_ns_offset_, global_min_ns_);
+    // printf("[Worker%d] MPITimestamper::GlobalCalibrateApply, off = %ld, %ld, global_min_ns_ = %lu\n", my_rank_, global_ns_offset_, measured_global_ns_offset_, global_min_ns_);
     MPI_Barrier(comm_);
 }
 

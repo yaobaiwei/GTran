@@ -130,8 +130,8 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
         for (int i = 0; i < node_.get_local_size(); i++) {
             if (i != node_.get_local_rank()) {
                 rdma.dev->RdmaWrite(t_id, i, my_buff_addr, sizeof(MinBTCLine), off);
-                printf("[UpdateMinBT], worker %d, dst_tid = %d, dst_nid = %d, off = %lu\n",
-                        node_.get_local_rank(), t_id, i, off);
+                // printf("[UpdateMinBT], worker %d, dst_tid = %d, dst_nid = %d, off = %lu\n",
+                //         node_.get_local_rank(), t_id, i, off);
             }
         }
     }

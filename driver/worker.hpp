@@ -47,28 +47,10 @@ struct Pack {
     QueryPlan qplan;
 };
 
-
 struct ValidationPack {
     vector<uint64_t> trx_id_list;
     int collected_count = 0;
     Pack pack;
-};
-
-struct TimestampRequest {
-    TimestampRequest() : trx_id(0) {}
-    TimestampRequest(uint64_t _trx_id, bool _is_ct) :
-                     trx_id(_trx_id), is_ct(_is_ct) {}
-    uint64_t trx_id;
-    bool is_ct;
-};
-
-struct AllocatedTimestamp {
-    AllocatedTimestamp() : trx_id(0) {}
-    AllocatedTimestamp(uint64_t _trx_id, bool _is_ct, uint64_t _timestamp) :
-                       trx_id(_trx_id), is_ct(_is_ct), timestamp(_timestamp) {}
-    uint64_t trx_id;
-    bool is_ct;
-    uint64_t timestamp;
 };
 
 struct QueryRCTRequest {
@@ -397,18 +379,23 @@ class Worker {
                 pkg.qplan = move(qplan);
 
                 if (pkg.qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
-                    VPackAccessor accessor;
-                    validaton_pkgs_.insert(accessor, pkg.qplan.trxid);
+                    if (pkg.qplan.trx_type != TRX_READONLY) {
+                        VPackAccessor accessor;
+                        validaton_pkgs_.insert(accessor, pkg.qplan.trxid);
 
-                    ValidationPack v_pkg;
-                    v_pkg.pack = move(pkg);
+                        ValidationPack v_pkg;
+                        v_pkg.pack = move(pkg);
 
-                    accessor->second = move(v_pkg);
+                        accessor->second = move(v_pkg);
 
-                    trx_table_stub_->update_status(pkg.qplan.trxid, TRX_STAT::VALIDATING, pkg.qplan.trx_type == TRX_READONLY);
-
-                    TimestampRequest req(pkg.qplan.trxid, true);
-                    pending_timestamp_request_.Push(req);
+                        TimestampRequest req(pkg.qplan.trxid, true);
+                        pending_timestamp_request_.Push(req);
+                    } else {
+                        // do not need to query rct
+                        UpdateTrxStatusReq req{-1, plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
+                        pending_trx_updates_.Push(req);
+                        queue_.Push(pkg);
+                    }
                 } else {
                     // Push query plan to SendQueryMsg queue
                     queue_.Push(pkg);
@@ -446,14 +433,8 @@ class Worker {
     }
 
     void NotifyTrxFinished(uint64_t trx_id, uint64_t bt) {
-        // // actually, worker_id == my_node_.get_local_rank.
-        // // so this is local send
-        // int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
-
-        // mailbox_ ->SendNotification(worker_id, in);
-
-        printf("[Worker%d] EraseTrx(%lu)\n", my_node_.get_local_rank(), bt);
-        fflush(stdout);
+        // printf("[Worker%d] EraseTrx(%lu)\n", my_node_.get_local_rank(), bt);
+        // fflush(stdout);
         running_trx_list_->EraseTrx(bt);
     }
 
@@ -475,18 +456,6 @@ class Worker {
                 query_result.trx_id_list.swap(trxIDList);
 
                 pending_rct_query_result_.Push(query_result);
-            } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_BT)) {
-                uint64_t trx_id, bt;
-                out >> trx_id >> bt;
-
-                AllocatedTimestamp allocated_ts(trx_id, false, bt);
-                pending_allocated_timestamp_.Push(allocated_ts);
-            } else if (notification_type == (int)(NOTIFICATION_TYPE::ALLOCATED_CT)) {
-                uint64_t trx_id, ct;
-                out >> trx_id >> ct;
-
-                AllocatedTimestamp allocated_ts(trx_id, true, ct);
-                pending_allocated_timestamp_.Push(allocated_ts);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
                 // P->V will not go here.
                 int n_id;
@@ -514,14 +483,10 @@ class Worker {
 
     void Debug() {
         MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
-        WaitForMPITimestamperInit();
+        coordinator_->WaitForMPITimestamperInit();
         while (1) {
             sleep(5);
             uint64_t min_bt = running_trx_list_->GetGlobalMinBT();
-            // seems to be ok
-            timestamper_->GlobalCalibrateMeasure(100, 0.05);
-            timestamper_->GlobalCalibrateMeasure(100, 0.05, true);
-            // printf("[DEBUG] get min_bt: %lu\n", min_bt);
         }
     }
 
@@ -550,24 +515,11 @@ class Worker {
             // pop a req
             UpdateTrxStatusReq req;
             pending_trx_updates_.WaitAndPop(req);
-            // printf("[ProcessTrxTableWriteReqs on Worker%d]%s , %lu\n",
-            //         my_node_.get_local_rank(), trx_stat_str_map[req.new_status].c_str(), req.trx_id);
-            // fflush(stdout);
 
             // check if P->V
             if (req.new_status == TRX_STAT::VALIDATING) {
-                uint64_t bt, ct;
-
-                // query bt. can be optimized.
-                trx_table_ -> query_bt(req.trx_id, bt);
-
-                // update state and get a ct
-                trx_table_ -> modify_status(req.trx_id, req.new_status, req.ct, req.is_read_only);
-                // ibinstream in;
-                // int notification_type = (int)NOTIFICATION_TYPE::QUERY_RCT;
-                // in << notification_type << my_node_.get_local_rank() << bt << ct;
+                trx_table_ -> modify_status(req.trx_id, req.new_status, req.ct);
             } else {
-                // update state
                 trx_table_ -> modify_status(req.trx_id, req.new_status);
             }
         }
@@ -625,37 +577,6 @@ class Worker {
         }
     }
 
-    void ProcessObtainingTimestamp() {
-        // bind to the last core
-        MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
-
-        // timestamper_->Init(MPI_COMM_WORLD);
-        timestamper_->Init(my_node_.local_comm, 3, 1000);
-        // calculate the system error of clock
-        timestamper_->GlobalSystemErrorCalculate(1000, 5, 0.2);
-
-        mpi_timestamper_initialized_ = true;
-
-        while (true) {
-            TimestampRequest req;
-            pending_timestamp_request_.WaitAndPop(req);
-
-            AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.is_ct, timestamper_->GetTimestamp());
-            pending_allocated_timestamp_.Push(allocated_ts);
-
-            // call this to obtain timestamp from Master
-            // if (req.is_ct) {
-            //     ibinstream in;
-            //     in << (int)(NOTIFICATION_TYPE::OBTAIN_CT) << my_node_.get_local_rank() << req.trx_id;
-            //     mailbox_ ->SendNotification(config_->global_num_workers, in);
-            // } else {
-            //     ibinstream in;
-            //     in << (int)(NOTIFICATION_TYPE::OBTAIN_BT) << my_node_.get_local_rank() << req.trx_id;
-            //     mailbox_ ->SendNotification(config_->global_num_workers, in);
-            // }
-        }
-    }
-
     void ProcessAllocatedTimestamp() {
         while (true) {
             AllocatedTimestamp allocated_ts;
@@ -663,8 +584,9 @@ class Worker {
             uint64_t trx_id = allocated_ts.trx_id;
 
             if (allocated_ts.is_ct) {
+                // for not readonly
                 uint64_t ct = allocated_ts.timestamp;
-                printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
+                // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
                 rct_->insert_trx(ct, trx_id);
 
@@ -677,15 +599,14 @@ class Worker {
                 TrxPlan& plan = accessor->second;
                 uint64_t bt = plan.GetStartTime();
 
-                // first, query in the local RCT
-                VPackAccessor v_pack_accessor;
-                validaton_pkgs_.find(v_pack_accessor, trx_id);
-
-                ValidationPack& v_pkg = v_pack_accessor->second;
+                // first, query the local RCT
                 std::set<uint64_t> trx_ids;
-                rct_ -> query_trx(bt, ct - 1, trx_ids);
+                rct_->query_trx(bt, ct - 1, trx_ids);
                 std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
-                v_pkg.trx_id_list.swap(trx_ids_vec);
+                QueryRCTResult query_result;
+                query_result.trx_id = trx_id;
+                query_result.trx_id_list.swap(trx_ids_vec);
+                pending_rct_query_result_.Push(query_result);
 
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
@@ -696,7 +617,7 @@ class Worker {
                         mailbox_ ->SendNotification(i, in);
             } else {
                 uint64_t bt = allocated_ts.timestamp;
-                printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
+                // printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
                 fflush(stdout);
                 running_trx_list_->InsertTrx(bt);
 
@@ -735,7 +656,7 @@ class Worker {
             v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), rct_query_result.trx_id_list.begin(), rct_query_result.trx_id_list.end());
             v_pkg.collected_count++;
 
-            if (v_pkg.collected_count == config_->global_num_workers - 1) {
+            if (v_pkg.collected_count == config_->global_num_workers) {
                 for (auto & trxID : v_pkg.trx_id_list) {
                     value_t v;
                     Tool::uint64_t2value_t(trxID, v);
@@ -776,11 +697,16 @@ class Worker {
         core_affinity->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init Core Affinity" << endl;
 
+        // =================Coordinator=========================
+        coordinator_ = Coordinator::GetInstance();
+        coordinator_->Init(&my_node_, &pending_timestamp_request_, &pending_allocated_timestamp_);
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
+
         // =================MPITimestamper========================
         timestamper_ = MPITimestamper::GetInstance();
         // Use this thread to initialize MPITimestamper
         mpi_timestamper_initialized_ = false;  // set true in ProcessObtainingTimestamp
-        thread timestamp_obtainer(&Worker::ProcessObtainingTimestamp, this);
+        thread timestamp_obtainer(&Coordinator::ProcessObtainingTimestamp, coordinator_);
 
         // =================PrimitiveRCTTable===============
         PrimitiveRCTTable * pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
@@ -837,11 +763,6 @@ class Worker {
         // =================TrxTable=========================
         trx_table_ = TransactionTable::GetInstance();
 
-        // =================Coordinator=========================
-        coordinator_ = Coordinator::GetInstance();
-        coordinator_->Init(&my_node_);
-        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
-
         // =================RunningTrxList=========================
         running_trx_list_ = RunningTrxList::GetInstance();
         running_trx_list_->Init(my_node_);
@@ -864,7 +785,7 @@ class Worker {
         thread debug(&Worker::Debug, this);
 
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << "Waiting for init of timestamp generator" << endl;
-        WaitForMPITimestamperInit();
+        coordinator_->WaitForMPITimestamperInit();
 
         worker_barrier(my_node_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
@@ -983,15 +904,6 @@ class Worker {
 
     inline int socket_code(int n_id, int t_id) {
         return config_ -> global_num_threads * n_id + t_id;
-    }
-
-    inline void WaitForMPITimestamperInit() {
-        while (true) {
-            usleep(1000);
-            bool initialized = mpi_timestamper_initialized_;
-            if (initialized)
-                return;
-        }
     }
 };
 #endif /* WORKER_HPP_ */

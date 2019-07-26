@@ -8,6 +8,8 @@
 RDMATrxTableStub * RDMATrxTableStub::instance_ = nullptr;
 
 bool RDMATrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only) {
+    CHECK(new_status != TRX_STAT::VALIDATING);
+
     ibinstream in;
     int status_i = int(new_status);
     in << (int)(NOTIFICATION_TYPE::UPDATE_STATUS) << node_.get_local_rank() << trx_id << status_i << is_read_only;

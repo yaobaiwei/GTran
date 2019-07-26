@@ -493,14 +493,11 @@ class Config{
             dgram_buf_sz = dgram_recv_buffer_sz + dgram_send_buffer_sz;
         } else {
             // Master:
-            kvstore_sz = send_buffer_sz = recv_buffer_sz = local_head_buffer_sz = remote_head_buffer_sz = 0;
+            kvstore_sz = send_buffer_sz = recv_buffer_sz = local_head_buffer_sz = remote_head_buffer_sz = trx_table_sz = min_bt_buffer_sz = 0;
             kvstore_offset = send_buffer_offset = recv_buffer_offset = local_head_buffer_offset = remote_head_buffer_offset = 0;
-            // RC rdma
-            trx_table_offset = kvstore_offset + kvstore_sz;  // 0
-            min_bt_buffer_offset = trx_table_offset + trx_table_sz;
             // UD rdma
             dgram_send_buffer_sz = MiB2B(global_per_send_buffer_sz_mb);
-            dgram_send_buffer_offset = min_bt_buffer_offset + min_bt_buffer_sz;
+            dgram_send_buffer_offset = 0;
             dgram_recv_buffer_sz = MiB2B(global_per_recv_buffer_sz_mb);
             dgram_recv_buffer_offset = dgram_send_buffer_sz + dgram_send_buffer_offset;
 

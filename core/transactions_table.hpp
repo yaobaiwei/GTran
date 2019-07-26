@@ -22,27 +22,6 @@ struct Trx {
     TRX_STAT status;
 };
 
-class TrxGlobalCoordinator{
- private:
-    static TrxGlobalCoordinator * trx_coordinator;
-
-    TrxGlobalCoordinator();
-
-    uint64_t next_time_;
-
- public:
-
-    // allocate bt and trx_id
-    // Note that trx_id must begin with 1, not 0
-    bool allocate_bt(uint64_t &bt);
-
-    // assign a ct for a existing trx
-    // can only be called for once for some specific Transsaction undefined behavior if some transaction call it over once
-    bool allocate_ct(uint64_t &ct);
-
-    static TrxGlobalCoordinator* GetInstance();
-};
-
 /*
  * A table to record the status of transactions
  * logic schema : trx_id, status, bt(Begin Time)
@@ -63,7 +42,7 @@ class TransactionTable {
     bool modify_status(uint64_t trx_id, TRX_STAT new_status);
 
     // called if p->V
-    bool modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct, bool is_read_only);
+    bool modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct);
 
     bool query_bt(uint64_t trx_id, uint64_t& bt);
 

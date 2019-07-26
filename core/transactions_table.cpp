@@ -5,29 +5,6 @@
 
 #include "core/transactions_table.hpp"
 
-TrxGlobalCoordinator* TrxGlobalCoordinator::trx_coordinator = nullptr;
-
-TrxGlobalCoordinator::TrxGlobalCoordinator() {
-    next_time_ = 1;
-}
-
-TrxGlobalCoordinator* TrxGlobalCoordinator::GetInstance() {
-    if (trx_coordinator == nullptr)
-        trx_coordinator = new TrxGlobalCoordinator();
-    return trx_coordinator;
-}
-
-bool TrxGlobalCoordinator::allocate_bt(uint64_t& bt) {
-    bt = next_time_++;
-    return true;
-}
-
-/* delete with check existance */
-bool TrxGlobalCoordinator::allocate_ct(uint64_t& ct) {
-    ct = next_time_++;
-    return true;
-}
-
 TransactionTable::TransactionTable() {
     config_ = Config::GetInstance();
 
@@ -185,7 +162,7 @@ done:
     return true;
 }
 
-bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct, bool is_read_only) {
+bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     if (!register_ct(trx_id, ct))

@@ -18,8 +18,16 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "base/node.hpp"
 #include "base/communication.hpp"
-#include "core/buffer.hpp"
 #include "core/common.hpp"
+#include "utils/global.hpp"
+#include "utils/config.hpp"
+#include "utils/zmq.hpp"
+#include "glog/logging.h"
+
+
+#include "base/node.hpp"
+#include "base/communication.hpp"
+#include "core/buffer.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "utils/global.hpp"
@@ -27,8 +35,10 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/zmq.hpp"
 #include "base/abstract_thread_safe_queue.hpp"
 #include "base/thread_safe_queue.hpp"
+#include "core/RCT.hpp"
 #include "core/transactions_table.hpp"
 #include "glog/logging.h"
+#include "core/common.hpp"
 
 struct Progress {
     uint32_t assign_tasks;
@@ -119,46 +129,9 @@ class Master {
         }
     }
 
-    void RecvNotification() {
-        int notification_type;
-
-        while (true) {
-            obinstream out;
-            mailbox -> RecvNotification(out);
-            out >> notification_type;
-
-            if (notification_type == (int)(NOTIFICATION_TYPE::OBTAIN_CT)) {
-                int n_id;
-                uint64_t trxid;
-                out >> n_id >> trxid;
-
-                uint64_t ct;
-                trx_p -> allocate_ct(ct);
-
-                ibinstream in;
-                int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_CT);
-                in << notification_type << trxid << ct;
-                mailbox -> SendNotification(n_id, in);
-            } else if (notification_type == (int)(NOTIFICATION_TYPE::OBTAIN_BT)) {
-                int n_id;
-                uint64_t trxid;
-                out >> n_id >> trxid;
-
-                uint64_t st;
-                trx_p -> allocate_bt(st);
-
-                ibinstream in;
-                int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_BT);
-                in << notification_type << trxid << st;
-                mailbox -> SendNotification(n_id, in);
-            } else {
-                CHECK(false);
-            }
-        }
-    }
-
     void Start() {
         cout << "[Master] Start()" <<endl;
+
         // Register RDMA
         Buffer* buf = Buffer::GetInstance(&node_);
 
@@ -168,11 +141,8 @@ class Master {
             mailbox = new TCPMailbox(node_, node_);
         mailbox->Init(workers_);
 
-        trx_p = TrxGlobalCoordinator::GetInstance();
-
         thread listen(&Master::ProgListener, this);
         thread process(&Master::ProcessREQ, this);
-        thread notification_listener(&Master::RecvNotification, this);
 
         int end_tag = 0;
         while (end_tag < node_.get_local_size()) {
@@ -184,7 +154,6 @@ class Master {
 
         listen.join();
         process.join();
-        notification_listener.join();
     }
 
  private:
@@ -193,16 +162,13 @@ class Master {
     Config * config_;
     map<int, Progress> progress_map_;
     int client_num;
-    TrxGlobalCoordinator * trx_p;
-    AbstractMailbox * mailbox;
 
-    bool is_end_;
     zmq::context_t context_;
     zmq::socket_t * socket_;
 
-    inline int socket_code(int n_id, int t_id) {
-        return config_ -> global_num_threads * n_id + t_id;
-    }
+    AbstractMailbox * mailbox;
+
+    bool is_end_;
 };
 
 #endif /* MASTER_HPP_ */
