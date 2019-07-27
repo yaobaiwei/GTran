@@ -482,11 +482,13 @@ class Worker {
     }
 
     void Debug() {
+        return;
         MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
         coordinator_->WaitForMPITimestamperInit();
         while (1) {
             sleep(5);
             uint64_t min_bt = running_trx_list_->GetGlobalMinBT();
+            rct_->erase_trxs(min_bt);
         }
     }
 

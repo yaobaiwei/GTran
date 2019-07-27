@@ -25,3 +25,22 @@ void RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) c
         lower++;
     }
 }
+
+void RCTable::erase_trxs(uint64_t min_bt) {
+    WriterLockGuard lock_guard(lock_);
+
+    if (min_bt == 0)
+        return;
+
+    auto lower = rct_map_.lower_bound(0);
+    auto upper = rct_map_.upper_bound(min_bt - 1);
+
+    // dbg
+    auto lower_dbg = rct_map_.lower_bound(0);
+    while (lower_dbg != upper) {
+        printf("[RCTable::erase_trxs], erased %lu %lu\n", lower_dbg->first, lower_dbg->second);
+        lower_dbg++;
+    }
+
+    rct_map_.erase(lower, upper);
+}

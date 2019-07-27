@@ -20,16 +20,6 @@ TransactionTable::TransactionTable() {
     last_ext_ = 0;
 }
 
-bool TransactionTable::query_bt(uint64_t trx_id, uint64_t& bt) {
-    // CHECK(bt.find(trx_id) != bt.endl())
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    bt_table_const_accessor ac;
-    bt_table_.find(ac, trx_id);
-    bt = ac->second;
-    return true;
-}
-
 bool TransactionTable::query_ct(uint64_t trx_id, uint64_t& ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
@@ -51,25 +41,6 @@ bool TransactionTable::query_status(uint64_t trx_id, TRX_STAT & status) {
         status = p -> getState();
         return true;
     }
-}
-
-
-bool TransactionTable::register_bt(uint64_t trx_id, uint64_t bt) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    bt_table_accessor ac;
-    bt_table_.insert(ac, trx_id);
-    ac->second = bt;
-    return true;
-}
-
-bool TransactionTable::deregister_bt(uint64_t trx_id) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    bt_table_accessor ac;
-    bt_table_.find(ac, trx_id);
-    bt_table_.erase(ac);
-    return true;
 }
 
 bool TransactionTable::register_ct(uint64_t trx_id, uint64_t ct) {
@@ -115,9 +86,6 @@ bool TransactionTable::find_trx(uint64_t trx_id, TidStatus** p) {
 
 bool TransactionTable::insert_single_trx(const uint64_t& trx_id, const uint64_t& bt) {
     // insert into btct_table
-    if (!register_bt(trx_id, bt))
-        return false;
-
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
 
     printf("[Trx Table] bucket %d found\n", bucket_id);

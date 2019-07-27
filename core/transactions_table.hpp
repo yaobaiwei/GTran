@@ -44,8 +44,6 @@ class TransactionTable {
     // called if p->V
     bool modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct);
 
-    bool query_bt(uint64_t trx_id, uint64_t& bt);
-
     bool query_ct(uint64_t trx_id, uint64_t& ct);
 
     bool query_status(uint64_t trx_id, TRX_STAT & status);
@@ -58,8 +56,6 @@ class TransactionTable {
 
     bool find_trx(uint64_t trx_id, TidStatus** p);
     bool register_ct(uint64_t trx_id, uint64_t ct);
-    bool register_bt(uint64_t trx_id, uint64_t bt);
-    bool deregister_bt(uint64_t trx_id);
 
     // bt table is separated from status region since we must keep status region in RDMA
     tbb::concurrent_hash_map<uint64_t, uint64_t> bt_table_;
