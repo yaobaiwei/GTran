@@ -23,6 +23,7 @@
 class TcpTrxTableStub : public TrxTableStub {
  private:
     Node master_;
+    vector<Node> workers_;
 
     static TcpTrxTableStub *instance_;
     vector<zmq::socket_t *> senders_;
@@ -32,27 +33,32 @@ class TcpTrxTableStub : public TrxTableStub {
 
     Coordinator* coordinator_;
 
-    TcpTrxTableStub(AbstractMailbox *mailbox, Node &master) : master_(master) {
+    TcpTrxTableStub(AbstractMailbox *mailbox, Node &master, vector<Node> workers) : master_(master), workers_(workers) {
         mailbox_ = mailbox;
         config_ = Config::GetInstance();
         node_ = Node::StaticInstance();
         coordinator_ = Coordinator::GetInstance();
     }
 
-    void send_req(int t_id, ibinstream &in);
+    void send_req(int n_id, int t_id, ibinstream &in);
 
     bool recv_rep(int t_id, obinstream &out);
 
+    inline int socket_code(int n_id, int t_id) {
+        return config_ -> global_num_threads * n_id + t_id;
+    }
+
  public:
     static TcpTrxTableStub * GetInstance(Node & master,
-                                         AbstractMailbox * mailbox) {
-        assert(instance_==nullptr) ;
+                                         AbstractMailbox * mailbox,
+                                         vector<Node>& workers) {
+        assert(instance_==nullptr);
         // << "[TcpTrxTableStub::GetInstance] duplicate initilization";
-        assert(mailbox!=nullptr) ;
+        assert(mailbox!=nullptr);
         // << "[TcpTrxTableStub::GetInstance] must provide valid mailbox";
         DLOG(INFO) << "[TcpTrxTableStub::GetInstance] Initialize instance_" << mailbox;
 
-        instance_ = new TcpTrxTableStub(mailbox, master);
+        instance_ = new TcpTrxTableStub(mailbox, master, workers);
 
         assert(instance_ != nullptr);
         CHECK(instance_) << "[TcpTrxTableStub::GetInstance] Null instance_";
@@ -71,21 +77,34 @@ class TcpTrxTableStub : public TrxTableStub {
         char addr[64] = "";
 
         receivers_.resize(config_->global_num_threads);
-        senders_.resize(config_->global_num_threads);
+        senders_.resize(config_->global_num_threads * (config_->global_num_workers + 1));
 
         for (int i = 0; i < config_->global_num_threads; ++i) {
             receivers_[i] = new zmq::socket_t(context, ZMQ_PULL);
+            // snprintf(addr, sizeof(addr), "tcp://*:%d",
+            //         node_.tcp_port + i + 3 + config_->global_num_threads);
             snprintf(addr, sizeof(addr), "tcp://*:%d",
                     node_.tcp_port + i + 3 + config_->global_num_threads);
             receivers_[i]->bind(addr);
             DLOG(INFO) << "Worker " << node_.hostname << ": " << "bind " << string(addr);
         }
 
+        for (int j = 0; j < config_->global_num_workers; j++) {
+            for (int i = 0; i < config_->global_num_threads; ++i) {
+                senders_[socket_code(j, i)] = new zmq::socket_t(context, ZMQ_PUSH);
+                snprintf(addr, sizeof(addr), "tcp://%s:%d", workers_[j].ibname.c_str(),
+                        workers_[j].tcp_port + 3 + 2 * config_->global_num_threads);
+                senders_[socket_code(j, i)]->connect(
+                    addr);  // connect to the same port with update_status reqs
+                DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
+            }
+        }
+
         for (int i = 0; i < config_->global_num_threads; ++i) {
-            senders_[i] = new zmq::socket_t(context, ZMQ_PUSH);
+            senders_[socket_code(config_->global_num_workers, i)] = new zmq::socket_t(context, ZMQ_PUSH);
             snprintf(addr, sizeof(addr), "tcp://%s:%d", master_ibname.c_str(),
                     master_.tcp_port + 3);
-            senders_[i]->connect(
+            senders_[socket_code(config_->global_num_workers, i)]->connect(
                 addr);  // connect to the same port with update_status reqs
             DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
         }

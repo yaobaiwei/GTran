@@ -39,12 +39,11 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
 
         int master_id = config_->global_num_workers;
 
-        rdma.dev->RdmaRead(t_id, master_id, send_buffer, sz, off);
+        // rdma.dev->RdmaRead(t_id, master_id, send_buffer, sz, off);
 
-        // int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
-        // off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
-        // printf("[Before Dying] RdmaRead(%d %d)\n", t_id, worker_id);
-        // rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
+        int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+        off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
+        rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
 
         TidStatus *trx_status = (TidStatus *)(send_buffer);
 

@@ -335,6 +335,30 @@ bool TransactionTable::query_bt(uint64_t trx_id, uint64_t& bt) {
     return true;
 }
 
+bool TransactionTable::query_ct(uint64_t trx_id, uint64_t& ct) {
+    CHECK(IS_VALID_TRX_ID(trx_id));
+
+    TidStatus * p = nullptr;
+    if (find_trx(trx_id, &p)) {
+        ct = p->ct;
+        return true;
+    }
+    return false;
+}
+
+bool TransactionTable::query_status(uint64_t trx_id, TRX_STAT & status) {
+    CHECK(IS_VALID_TRX_ID(trx_id));
+    TidStatus * p = nullptr;
+    bool found = find_trx(trx_id, &p);
+    if (!found) {
+        return false;
+    } else {
+        status = p -> getState();
+        return true;
+    }
+}
+
+
 bool TransactionTable::register_bt(uint64_t trx_id, uint64_t bt) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 

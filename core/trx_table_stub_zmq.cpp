@@ -29,7 +29,9 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
     int t_id = TidMapper::GetInstance()->GetTid();
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << false;
-    send_req(t_id, in);
+
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+    send_req(worker_id, t_id, in);
     // DLOG (INFO) << "[TcpTrxTableStub::read_status] send a read_status req";
 
     obinstream out;
@@ -48,7 +50,9 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct)
     int t_id = TidMapper::GetInstance()->GetTid();
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << true;
-    send_req(t_id, in);
+
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+    send_req(worker_id, t_id, in);
     // DLOG (INFO) << "[TcpTrxTableStub::read_ct] send a read_ct req";
 
     obinstream out;
@@ -63,11 +67,12 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct)
     return true;
 }
 
-void TcpTrxTableStub::send_req(int t_id, ibinstream& in) {
+void TcpTrxTableStub::send_req(int n_id, int t_id, ibinstream& in) {
     zmq::message_t zmq_send_msg(in.size());
     memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
            in.size());
-    senders_[t_id]->send(zmq_send_msg);
+    // senders_[socket_code(config_->global_num_workers, t_id)]->send(zmq_send_msg);
+    senders_[socket_code(n_id, t_id)]->send(zmq_send_msg);
     return;
 }
 

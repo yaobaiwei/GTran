@@ -123,6 +123,10 @@ class TransactionTable {
 
     bool query_bt(uint64_t trx_id, uint64_t& bt);
 
+    bool query_ct(uint64_t trx_id, uint64_t& ct);
+
+    bool query_status(uint64_t trx_id, TRX_STAT & status);
+
  private:
     TransactionTable();
     TransactionTable(const TransactionTable&);  // not to def
