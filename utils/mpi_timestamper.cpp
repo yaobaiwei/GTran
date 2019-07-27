@@ -105,6 +105,8 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
             ns_offsets[partner] = 0;
 
             int iter_cnt = 0;
+
+            // only sample those send-recv pair with lowest latencies
             for (auto v : tmp_pair_set) {
                 if (iter_cnt == iter_len)
                     break;
@@ -189,5 +191,6 @@ void MPITimestamper::GlobalSystemErrorCalculate(int global_calibrate_loop, int s
     int64_t end_tmp_global_ns_offset = measured_global_ns_offset_;
 
     // calculate system_error_fix_rate_
+    // not so precise when sleep_duration is not large enough.
     system_error_fix_rate_ = 1.0 + (double)(end_tmp_global_ns_offset - start_tmp_global_ns_offset) / (end_ns - start_ns);
 }

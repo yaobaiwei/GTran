@@ -32,14 +32,10 @@ Coordinator::Coordinator() {
     mpi_timestamper_initialized_ = false;
 }
 
-void Coordinator::Init(Node* node, ThreadSafeQueue<TimestampRequest>* pending_timestamp_request,
-                       ThreadSafeQueue<AllocatedTimestamp>* pending_allocated_timestamp) {
+void Coordinator::Init(Node* node) {
     node_ = node;
     MPI_Comm_size(node_->local_comm, &comm_sz_);
     MPI_Comm_rank(node_->local_comm, &my_rank_);
-
-    pending_timestamp_request_ = pending_timestamp_request;
-    pending_allocated_timestamp_ = pending_allocated_timestamp;
 
     config_ = Config::GetInstance();
 
@@ -51,13 +47,14 @@ void Coordinator::Init(Node* node, ThreadSafeQueue<TimestampRequest>* pending_ti
     }
 }
 
+// get trx id
 void Coordinator::RegisterTrx(uint64_t& trx_id) {
-    trx_id = 0x8000000000000000 | (((next_trx_id_) * comm_sz_ + my_rank_) << 8);
+    trx_id = 0x8000000000000000 | (((next_trx_id_) * comm_sz_ + my_rank_) << TRXID_MACHINE_ID_BITS);
     next_trx_id_++;
 }
 
 int Coordinator::GetWorkerFromTrxID(const uint64_t& trx_id) {
-    return ((trx_id ^ 0x8000000000000000) >> 8) % comm_sz_;
+    return ((trx_id ^ 0x8000000000000000) >> TRXID_MACHINE_ID_BITS) % comm_sz_;
 }
 
 void Coordinator::WaitForMPITimestamperInit() {
@@ -70,12 +67,14 @@ void Coordinator::WaitForMPITimestamperInit() {
 }
 
 void Coordinator::ProcessObtainingTimestamp() {
+    // To ensure rdtsc works
     MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
 
     timestamper_->Init(node_->local_comm, 3, 1000);
 
     mpi_timestamper_initialized_ = true;
 
+    // To ensure the correctness, only one thread can call GetTimestamp.
     while (true) {
         TimestampRequest req;
         pending_timestamp_request_->WaitAndPop(req);
@@ -101,16 +100,18 @@ uint64_t Coordinator::ReadTimestampFromRDMAMem(uint64_t tag) {
 }
 
 void Coordinator::PerformCalibration() {
-    MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
     if (comm_sz_ == 1)
         return;
 
-    const int ms_to_sleep = 500;
+    // To ensure rdtsc works
+    MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
+
+    const int calibration_interval = 500;
 
     uint64_t remote_ns, ns;
     uint64_t loop = 0;
     while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms_to_sleep));
+        std::this_thread::sleep_for(std::chrono::milliseconds(calibration_interval));
         if (config_->global_use_rdma) {
             /*
                 Clock calibration for RDMA:
@@ -186,5 +187,115 @@ void Coordinator::PerformCalibration() {
         // if (my_rank_ == 0)
         //     printf("[<PerformCalibration>] finished loop %lu\n", loop);
         loop++;
+    }
+}
+
+void Coordinator::PrepareSockets() {
+    char addr[64];
+    snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port);
+
+    if (!config_->global_use_rdma) {
+        trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
+        snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
+        trx_read_recv_socket_->bind(addr);
+        DLOG(INFO) << "[Master] bind " << string(addr);
+
+        trx_read_rep_sockets_.resize(config_->global_num_threads *
+                                    config_->global_num_workers);
+
+        // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
+        for (int i = 0; i < config_->global_num_workers; ++i) {
+            Node& r_node = GetNodeById(workers_, i + 1);
+
+            for (int j = 0; j < config_->global_num_threads; ++j) {
+                trx_read_rep_sockets_[socket_code(i, j)] =
+                    new zmq::socket_t(context_, ZMQ_PUSH);
+                snprintf(
+                    addr, sizeof(addr), "tcp://%s:%d",
+                    workers_[i].ibname.c_str(),
+                    r_node.tcp_port + j + 3 + config_->global_num_threads);
+                trx_read_rep_sockets_[socket_code(i, j)]->connect(addr);
+                DLOG(INFO) << "[Master] connects to " << string(addr);
+            }
+        }
+    }
+}
+
+void Coordinator::ProcessQueryRCTRequest() {
+    while (true) {
+        QueryRCTRequest request;
+        pending_rct_query_request_->WaitAndPop(request);
+
+        std::set<uint64_t> trx_ids;
+        rct_ -> query_trx(request.bt, request.ct - 1, trx_ids);
+
+        std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
+
+        ibinstream in;
+        int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
+        in << notification_type << request.trx_id;
+        in << trx_ids_vec;
+        mailbox_->SendNotification(request.n_id, in);
+    }
+}
+
+void Coordinator::ProcessTrxTableWriteReqs() {
+    while (true) {
+        // pop a req
+        UpdateTrxStatusReq req;
+        pending_trx_updates_->WaitAndPop(req);
+
+        // check if P->V
+        if (req.new_status == TRX_STAT::VALIDATING) {
+            trx_table_->modify_status(req.trx_id, req.new_status, req.ct);
+        } else {
+            trx_table_->modify_status(req.trx_id, req.new_status);
+        }
+    }
+}
+
+void Coordinator::ListenTCPTrxReads() {
+    while (true) {
+        ReadTrxStatusReq req;
+        obinstream out;
+        zmq::message_t zmq_req_msg;
+        if (trx_read_recv_socket_ -> recv(&zmq_req_msg, 0) < 0) {
+            CHECK(false) << "[Coordinator::ListenTCPTrxReads] Coordinator failed to recv TCP read";
+        }
+        char* buf = new char[zmq_req_msg.size()];
+        memcpy(buf, zmq_req_msg.data(), zmq_req_msg.size());
+        out.assign(buf, zmq_req_msg.size(), 0);
+
+        out >> req.n_id >> req.t_id >> req.trx_id >> req.read_ct;
+        pending_trx_reads_->Push(req);
+    }
+}
+
+void Coordinator::ProcessTCPTrxReads() {
+    while (true) {
+        // pop a req
+        ReadTrxStatusReq req;
+        pending_trx_reads_->WaitAndPop(req);
+        // printf("[Worker%d ProcessTCPTrxReads] %s\n", node_->get_local_rank(), req.DebugString().c_str());
+
+        ibinstream in;
+        if (req.read_ct) {
+            uint64_t ct_;
+            TRX_STAT status;
+            trx_table_ -> query_ct(req.trx_id, ct_);
+            trx_table_ -> query_status(req.trx_id, status);
+            int status_i = (int) status;
+            in << ct_;
+            in << status_i;
+        } else {
+            TRX_STAT status;
+            trx_table_ -> query_status(req.trx_id, status);
+            int status_i = (int) status;
+            in << status_i;
+        }
+        zmq::message_t zmq_send_msg(in.size());
+        memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
+               in.size());
+        trx_read_rep_sockets_[socket_code(req.n_id, req.t_id)] -> send(zmq_send_msg);
     }
 }

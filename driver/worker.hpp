@@ -47,18 +47,12 @@ struct Pack {
     QueryPlan qplan;
 };
 
-struct ValidationPack {
+struct ValidationQueryPack {
     vector<uint64_t> trx_id_list;
+    // Since we need to query RCT from multible workers,
+    // a counter is needed to ensure that all trx_id_list from those workers.
     int collected_count = 0;
     Pack pack;
-};
-
-struct QueryRCTRequest {
-    QueryRCTRequest() : trx_id(0) {};
-    QueryRCTRequest(int _n_id, uint64_t _trx_id, uint64_t _bt, uint64_t _ct) :
-                    n_id(_n_id), trx_id(_trx_id), bt(_bt), ct(_ct) {}
-    int n_id;
-    uint64_t trx_id, bt, ct;
 };
 
 struct QueryRCTResult {
@@ -100,31 +94,6 @@ class Worker {
                 snprintf(addr, sizeof(addr), "tcp://%s:%d", workers_[i].hostname.c_str(), workers_[i].tcp_port);
                 sender->connect(addr);
                 senders_.push_back(sender);
-            }
-        }
-
-        if (!config_->global_use_rdma) {
-            trx_read_recv_socket = new zmq::socket_t(context_, ZMQ_PULL);
-            snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port + 3 + 2 * config_->global_num_threads);
-            trx_read_recv_socket->bind(addr);
-            DLOG(INFO) << "[Master] bind " << string(addr);
-            trx_read_rep_sockets.resize(config_->global_num_threads *
-                                        config_->global_num_workers);
-
-            // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
-            for (int i = 0; i < config_->global_num_workers; ++i) {
-                Node& r_node = GetNodeById(workers_, i + 1);
-
-                for (int j = 0; j < config_->global_num_threads; ++j) {
-                    trx_read_rep_sockets[socket_code(i, j)] =
-                        new zmq::socket_t(context_, ZMQ_PUSH);
-                    snprintf(
-                        addr, sizeof(addr), "tcp://%s:%d",
-                        workers_[i].ibname.c_str(),
-                        r_node.tcp_port + j + 3 + config_->global_num_threads);
-                    trx_read_rep_sockets[socket_code(i, j)]->connect(addr);
-                    DLOG(INFO) << "[Master] connects to " << string(addr);
-                }
             }
         }
     }
@@ -316,6 +285,7 @@ class Worker {
             plans_.insert(accessor, trxid);
             accessor->second = move(plan);
 
+            // Allocate begin time
             TimestampRequest req(trxid, false);
             pending_timestamp_request_.Push(req);
         } else {
@@ -381,19 +351,22 @@ class Worker {
                 if (pkg.qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
                     if (pkg.qplan.trx_type != TRX_READONLY) {
                         VPackAccessor accessor;
-                        validaton_pkgs_.insert(accessor, pkg.qplan.trxid);
+                        validaton_query_pkgs_.insert(accessor, pkg.qplan.trxid);
 
-                        ValidationPack v_pkg;
+                        ValidationQueryPack v_pkg;
                         v_pkg.pack = move(pkg);
 
+                        // Before obtaining CT and quering RCT, the qplan cannot be executed.
                         accessor->second = move(v_pkg);
 
+                        // Allocate commit time
                         TimestampRequest req(pkg.qplan.trxid, true);
                         pending_timestamp_request_.Push(req);
                     } else {
-                        // do not need to query rct
+                        // do not need to allocate CT and query RCT.
                         UpdateTrxStatusReq req{-1, plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
                         pending_trx_updates_.Push(req);
+                        // Push query plan to SendQueryMsg queue directly.
                         queue_.Push(pkg);
                     }
                 } else {
@@ -434,10 +407,11 @@ class Worker {
 
     void NotifyTrxFinished(uint64_t trx_id, uint64_t bt) {
         // printf("[Worker%d] EraseTrx(%lu)\n", my_node_.get_local_rank(), bt);
-        // fflush(stdout);
         running_trx_list_->EraseTrx(bt);
     }
 
+    // Do not put any compute intensive tasks in this function.
+    // Use queues to dispatch them to other threads.
     void RecvNotification() {
         while (1) {
             obinstream out;
@@ -464,10 +438,12 @@ class Worker {
                 bool is_read_only;
                 out >> n_id >> trx_id >> status_i >> is_read_only;
 
-                if (status_i != (int)(TRX_STAT::VALIDATING)) {
-                    UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
-                    pending_trx_updates_.Push(req);
-                }
+                // Update status to VALIDATING only occurs locally.
+                // Won't pass by mailbox.
+                CHECK(status_i != (int)(TRX_STAT::VALIDATING));
+
+                UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
+                pending_trx_updates_.Push(req);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::QUERY_RCT)) {
                 int n_id;
                 uint64_t bt, ct, trx_id;
@@ -483,7 +459,6 @@ class Worker {
 
     void Debug() {
         return;
-        MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
         coordinator_->WaitForMPITimestamperInit();
         while (1) {
             sleep(5);
@@ -512,81 +487,16 @@ class Worker {
         }
     }
 
-    void ProcessTrxTableWriteReqs() {
-        while (true) {
-            // pop a req
-            UpdateTrxStatusReq req;
-            pending_trx_updates_.WaitAndPop(req);
-
-            // check if P->V
-            if (req.new_status == TRX_STAT::VALIDATING) {
-                trx_table_ -> modify_status(req.trx_id, req.new_status, req.ct);
-            } else {
-                trx_table_ -> modify_status(req.trx_id, req.new_status);
-            }
-        }
-    }
-
-    // cover only TCP read
-    void ListenTCPTrxReads(){
-        while(true){
-            ReadTrxStatusReq req;
-            obinstream out;
-            zmq::message_t zmq_req_msg;
-            if (trx_read_recv_socket -> recv(&zmq_req_msg, 0) < 0) {
-                CHECK(false) << "[Master::ListenTCPTrxReads] Master failed to recv TCP read";
-            }
-            // DLOG(INFO) << "[Master::ListenTCPTrxReads] recvs a read status req";
-            char* buf = new char[zmq_req_msg.size()];
-            memcpy(buf, zmq_req_msg.data(), zmq_req_msg.size());
-            out.assign(buf, zmq_req_msg.size(), 0);
-
-            out >> req.n_id >> req.t_id >> req.trx_id >> req.read_ct;
-            pending_trx_reads_.Push(req);
-        }
-    }
-
-    void ProcessTCPTrxReads() {
-        while (true) {
-            // pop a req
-            ReadTrxStatusReq req;
-            pending_trx_reads_.WaitAndPop(req);
-
-            // printf("[Worker%d ProcessTCPTrxReads] %s\n", my_node_.get_local_rank(), req.DebugString().c_str());
-
-            ibinstream in;
-            if (req.read_ct) {
-                uint64_t ct_;
-                TRX_STAT status;
-                trx_table_ -> query_ct(req.trx_id, ct_);
-                trx_table_ -> query_status(req.trx_id, status);
-                int status_i = (int) status;
-                in << ct_;
-                in << status_i;
-                // DLOG(INFO) << "[Master::query_status] ct of " << req.trx_id << " is " << ct_;
-            } else {
-                TRX_STAT status;
-                trx_table_ -> query_status(req.trx_id, status);
-                int status_i = (int) status;
-                in << status_i;
-                // DLOG(INFO) << "[Master::query_status] status of " << req.trx_id << " is " << status_i;
-            }
-
-            zmq::message_t zmq_send_msg(in.size());
-            memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
-                   in.size());
-            trx_read_rep_sockets[socket_code(req.n_id, req.t_id)] -> send(zmq_send_msg);
-        }
-    }
-
     void ProcessAllocatedTimestamp() {
         while (true) {
+            // Allocated in Coordinator::ProcessObtainingTimestamp
             AllocatedTimestamp allocated_ts;
             pending_allocated_timestamp_.WaitAndPop(allocated_ts);
             uint64_t trx_id = allocated_ts.trx_id;
 
             if (allocated_ts.is_ct) {
-                // for not readonly
+                // Only non-readonly transaction will go here.
+
                 uint64_t ct = allocated_ts.timestamp;
                 // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
@@ -601,7 +511,7 @@ class Worker {
                 TrxPlan& plan = accessor->second;
                 uint64_t bt = plan.GetStartTime();
 
-                // first, query the local RCT
+                // Firstly, query the local RCT
                 std::set<uint64_t> trx_ids;
                 rct_->query_trx(bt, ct - 1, trx_ids);
                 std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
@@ -614,6 +524,7 @@ class Worker {
                 ibinstream in;
                 in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
 
+                // Secondly, query the RCT on other workers.
                 for (int i = 0; i < config_->global_num_workers; i++)
                     if (i != my_node_.get_local_rank())
                         mailbox_ ->SendNotification(i, in);
@@ -645,48 +556,34 @@ class Worker {
         }
     }
 
+    // Fill RCT query result.
     void ProcessQueryRCTResult() {
         while (true) {
             QueryRCTResult rct_query_result;
             pending_rct_query_result_.WaitAndPop(rct_query_result);
 
             VPackAccessor accessor;
-            validaton_pkgs_.find(accessor, rct_query_result.trx_id);
+            validaton_query_pkgs_.find(accessor, rct_query_result.trx_id);
 
-            ValidationPack& v_pkg = accessor->second;
+            ValidationQueryPack& v_pkg = accessor->second;
 
             v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), rct_query_result.trx_id_list.begin(), rct_query_result.trx_id_list.end());
             v_pkg.collected_count++;
 
             if (v_pkg.collected_count == config_->global_num_workers) {
+                // RCT trx_id_list on all workers are collected.
+
                 for (auto & trxID : v_pkg.trx_id_list) {
                     value_t v;
                     Tool::uint64_t2value_t(trxID, v);
                     v_pkg.pack.qplan.actors[0].params.emplace_back(v);
                 }
 
+                // Release the validation query.
                 queue_.Push(v_pkg.pack);
 
-                validaton_pkgs_.erase(accessor);
+                validaton_query_pkgs_.erase(accessor);
             }
-        }
-    }
-
-    void ProcessQueryRCTRequest() {
-        while (true) {
-            QueryRCTRequest request;
-            pending_rct_query_request_.WaitAndPop(request);
-
-            std::set<uint64_t> trx_ids;
-            rct_ -> query_trx(request.bt, request.ct - 1, trx_ids);
-
-            std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
-
-            ibinstream in;
-            int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
-            in << notification_type << request.trx_id;
-            in << trx_ids_vec;
-            mailbox_->SendNotification(request.n_id, in);
         }
     }
 
@@ -712,7 +609,10 @@ class Worker {
 
         // =================Coordinator=========================
         coordinator_ = Coordinator::GetInstance();
-        coordinator_->Init(&my_node_, &pending_timestamp_request_, &pending_allocated_timestamp_);
+        coordinator_->Init(&my_node_);
+        coordinator_->GetQueuesFromWorker(&pending_timestamp_request_, &pending_allocated_timestamp_,
+                                          &pending_trx_updates_, &pending_trx_reads_, &pending_rct_query_request_);
+
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
 
         // =================MPITimestamper========================
@@ -769,19 +669,23 @@ class Worker {
         running_trx_list_ = RunningTrxList::GetInstance();
         running_trx_list_->Init(my_node_);
 
+        coordinator_->GetInstancesFromWorker(trx_table_, mailbox_, rct_, workers_);
+        coordinator_->PrepareSockets();
+
         // =================Recv&SendThread=================
         thread recvreq(&Worker::RecvRequest, this);
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
         thread recvnotification(&Worker::RecvNotification, this);
-        thread trx_table_write_executor(&Worker::ProcessTrxTableWriteReqs, this);
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
-        thread process_rct_query_request(&Worker::ProcessQueryRCTRequest, this);
         thread process_rct_query_result(&Worker::ProcessQueryRCTResult, this);
+
+        thread process_rct_query_request(&Coordinator::ProcessQueryRCTRequest, coordinator_);
+        thread trx_table_write_executor(&Coordinator::ProcessTrxTableWriteReqs, coordinator_);
 
         thread *trx_table_tcp_read_listener, *trx_table_tcp_read_executor, *running_trx_min_bt_listener;
         if (!config_->global_use_rdma) {
-            trx_table_tcp_read_listener = new thread(&Worker::ListenTCPTrxReads, this);
-            trx_table_tcp_read_executor = new thread(&Worker::ProcessTCPTrxReads, this);
+            trx_table_tcp_read_listener = new thread(&Coordinator::ListenTCPTrxReads, coordinator_);
+            trx_table_tcp_read_executor = new thread(&Coordinator::ProcessTCPTrxReads, coordinator_);
             running_trx_min_bt_listener = new thread(&RunningTrxList::ProcessReadMinBTRequest, running_trx_list_);
         }
         thread debug(&Worker::Debug, this);
@@ -882,8 +786,8 @@ class Worker {
 
     tbb::concurrent_hash_map<uint64_t, TrxPlan> plans_;
     typedef tbb::concurrent_hash_map<uint64_t, TrxPlan>::accessor TrxPlanAccessor;
-    tbb::concurrent_hash_map<uint64_t, ValidationPack> validaton_pkgs_;
-    typedef tbb::concurrent_hash_map<uint64_t, ValidationPack>::accessor VPackAccessor;
+    tbb::concurrent_hash_map<uint64_t, ValidationQueryPack> validaton_query_pkgs_;
+    typedef tbb::concurrent_hash_map<uint64_t, ValidationQueryPack>::accessor VPackAccessor;
 
     vector<zmq::socket_t *> senders_;
 
@@ -892,23 +796,15 @@ class Worker {
 
     RCTable* rct_;
     TransactionTable* trx_table_;
+
     ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
     ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
-
     ThreadSafeQueue<TimestampRequest> pending_timestamp_request_;
     ThreadSafeQueue<AllocatedTimestamp> pending_allocated_timestamp_;
-
     ThreadSafeQueue<QueryRCTRequest> pending_rct_query_request_;
     ThreadSafeQueue<QueryRCTResult> pending_rct_query_result_;
 
-    zmq::socket_t * trx_read_recv_socket;
-    vector<zmq::socket_t *> trx_read_rep_sockets;
-
     Coordinator* coordinator_;
     RunningTrxList* running_trx_list_;
-
-    inline int socket_code(int n_id, int t_id) {
-        return config_ -> global_num_threads * n_id + t_id;
-    }
 };
 #endif /* WORKER_HPP_ */
