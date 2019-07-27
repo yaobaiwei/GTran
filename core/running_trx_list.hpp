@@ -20,13 +20,14 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/config.hpp"
 
 // A cache line (64B)
-struct MinBTCLine {
+// Used for RDMA write
+struct Uint64CLine {
     volatile uint64_t data[8] __attribute__((aligned(64)));
 
     // called by Master
-    void SetValue(uint64_t bt);
+    void SetValue(uint64_t val);
     // called by Worker
-    bool GetValue(uint64_t& bt);
+    bool GetValue(uint64_t& val);
 } __attribute__((aligned(64)));
 
 // Containing a list of running transactions, from which we can get the minimum BT of them.

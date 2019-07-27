@@ -15,6 +15,7 @@ void MPITimestamper::Init(MPI_Comm comm, int local_calibrate_delay, int global_c
     MPI_Comm_rank(comm_, &my_rank_);
 
     assert((comm_sz_ - 1 >> TIMESTAMP_MACHINE_ID_BITS) == 0);
+    post_calibrate_offset_ = 0;
     
     LocalCalibrate(local_calibrate_delay);
     GlobalCalibrateMeasure(global_calibrate_loop, sample_rate);
@@ -27,12 +28,27 @@ void MPITimestamper::Init(MPI_Comm comm, int local_calibrate_delay, int global_c
 }
 
 uint64_t MPITimestamper::GetTimestamp() const {
-    uint64_t nano_sec = GetGlobalPhysicalNSWithSystemErrorFix() - global_min_ns_;
+    uint64_t nano_sec = GetRefinedNS();
 
     assert((nano_sec >> (64 - 1 - TIMESTAMP_MACHINE_ID_BITS)) == 0);
 
+    uint64_t ret = (nano_sec << TIMESTAMP_MACHINE_ID_BITS) + my_rank_;
+    assert(last_ts_ < ret);
+
     // printf("[Worker%d], allocated timestamp: %lu\n", my_rank_, nano_sec);
-    return (nano_sec << TIMESTAMP_MACHINE_ID_BITS) + my_rank_;
+    return ret;
+}
+
+uint64_t MPITimestamper::GetTimestampWithSystemErrorFix() const {
+    uint64_t nano_sec = GetRefinedNSWithSystemErrorFix();
+
+    assert((nano_sec >> (64 - 1 - TIMESTAMP_MACHINE_ID_BITS)) == 0);
+
+    uint64_t ret = (nano_sec << TIMESTAMP_MACHINE_ID_BITS) + my_rank_;
+    assert(last_ts_ < ret);
+
+    // printf("[Worker%d], allocated timestamp: %lu\n", my_rank_, nano_sec);
+    return ret;
 }
 
 void MPITimestamper::LocalCalibrate(int local_calibrate_delay) {
@@ -97,7 +113,7 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
                 int64_t tmp_send_recv_latency = (nss[v.pos + 1] - nss[v.pos]) >> 1;
                 int64_t tmp_ns_offset = remote_nss[v.pos] - nss[v.pos] - tmp_send_recv_latency;
                 send_recv_latency += tmp_send_recv_latency;
-                ns_offsets[partner] += tmp_ns_offset;
+                ns_offsets[partner] -= tmp_ns_offset;
                 // printf("ns_offsets[partner] += %ld\n", tmp_ns_offset);
             }
 
@@ -113,7 +129,7 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
         int64_t min_ns_offset = 0;
 
         for (int partner = 1; partner < comm_sz_; partner++)
-            if (min_ns_offset < ns_offsets[partner])
+            if (min_ns_offset > ns_offsets[partner])
                 min_ns_offset = ns_offsets[partner];
 
         // if (!with_sys_error_fix)
@@ -145,13 +161,13 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
         }
     }
 
-    // MPI_Scatter(ns_offsets, 1, MPI_DOUBLE, &measured_global_ns_offset_, 1, MPI_DOUBLE, 0, comm_);
-    MPI_Bcast(ns_offsets, comm_sz_, MPI_UINT64_T, 0, comm_);
-    measured_global_ns_offset_ = ns_offsets[my_rank_];
+    MPI_Scatter(ns_offsets, 1, MPI_DOUBLE, &measured_global_ns_offset_, 1, MPI_DOUBLE, 0, comm_);
+    assert(measured_global_ns_offset_ >= 0);
 }
 
 void MPITimestamper::GlobalCalibrateApply() {
     global_ns_offset_ += measured_global_ns_offset_;
+    assert(global_ns_offset_ >= 0);
     global_calibrate_applied_ns_ = GetGlobalPhysicalNS();
 
     // get the global min physical timestamp
@@ -173,5 +189,5 @@ void MPITimestamper::GlobalSystemErrorCalculate(int global_calibrate_loop, int s
     int64_t end_tmp_global_ns_offset = measured_global_ns_offset_;
 
     // calculate system_error_fix_rate_
-    system_error_fix_rate_ = 1.0 - (double)(end_tmp_global_ns_offset - start_tmp_global_ns_offset) / (end_ns - start_ns);
+    system_error_fix_rate_ = 1.0 + (double)(end_tmp_global_ns_offset - start_tmp_global_ns_offset) / (end_ns - start_ns);
 }

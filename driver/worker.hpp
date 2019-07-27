@@ -697,17 +697,6 @@ class Worker {
         core_affinity->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init Core Affinity" << endl;
 
-        // =================Coordinator=========================
-        coordinator_ = Coordinator::GetInstance();
-        coordinator_->Init(&my_node_, &pending_timestamp_request_, &pending_allocated_timestamp_);
-        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
-
-        // =================MPITimestamper========================
-        timestamper_ = MPITimestamper::GetInstance();
-        // Use this thread to initialize MPITimestamper
-        mpi_timestamper_initialized_ = false;  // set true in ProcessObtainingTimestamp
-        thread timestamp_obtainer(&Coordinator::ProcessObtainingTimestamp, coordinator_);
-
         // =================PrimitiveRCTTable===============
         PrimitiveRCTTable * pmt_rct_table_ = PrimitiveRCTTable::GetInstance();
         pmt_rct_table_->Init();
@@ -718,6 +707,17 @@ class Worker {
         cout << "[Worker" << my_node_.get_local_rank()
                 << "]: DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
+
+        // =================Coordinator=========================
+        coordinator_ = Coordinator::GetInstance();
+        coordinator_->Init(&my_node_, &pending_timestamp_request_, &pending_allocated_timestamp_);
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
+
+        // =================MPITimestamper========================
+        timestamper_ = MPITimestamper::GetInstance();
+        // Use this thread to initialize MPITimestamper
+        mpi_timestamper_initialized_ = false;  // set true in ProcessObtainingTimestamp
+        thread timestamp_obtainer(&Coordinator::ProcessObtainingTimestamp, coordinator_);
 
         // =================MailBox=========================
         if (config_->global_use_rdma) {
@@ -787,6 +787,8 @@ class Worker {
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << "Waiting for init of timestamp generator" << endl;
         coordinator_->WaitForMPITimestamperInit();
 
+        thread timestamp_calibration(&Coordinator::PerformCalibration, coordinator_);
+
         worker_barrier(my_node_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
         worker_barrier(my_node_);
@@ -852,6 +854,7 @@ class Worker {
             running_trx_min_bt_listener->join();
         }
         debug.join();
+        timestamp_calibration.join();
     }
 
  private:

@@ -5,16 +5,16 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "running_trx_list.hpp"
 
-void MinBTCLine::SetValue(uint64_t bt) {
+void Uint64CLine::SetValue(uint64_t val) {
     uint64_t tmp_data[8] __attribute__((aligned(64)));
-    tmp_data[0] = tmp_data[6] = bt;
-    tmp_data[1] = tmp_data[7] = bt + 1;
+    tmp_data[0] = tmp_data[6] = val;
+    tmp_data[1] = tmp_data[7] = val + 1;
     memcpy(data, tmp_data, 64);
 }
 
-bool MinBTCLine::GetValue(uint64_t& bt) {
+bool Uint64CLine::GetValue(uint64_t& val) {
     if (data[0] == data[6] && data[1] == data[7] && data[0] + 1 == data[1]) {
-        bt = data[0];
+        val = data[0];
         return true;
     }
 
@@ -53,8 +53,8 @@ void RunningTrxList::Init(const Node& node) {
     node_ = node;
     if (config_->global_use_rdma){
         for (int i = 0; i < node_.get_local_size(); i++){
-            char* my_buff_addr = rdma_mem_ + i * sizeof(MinBTCLine);
-            MinBTCLine* my_min_bt = (MinBTCLine*)my_buff_addr;
+            char* my_buff_addr = rdma_mem_ + i * sizeof(Uint64CLine);
+            Uint64CLine* my_min_bt = (Uint64CLine*)my_buff_addr;
             my_min_bt->SetValue(0);
         }
     }
@@ -118,18 +118,18 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
 
     if (config_->global_use_rdma) {
         // copy to local rdma mem
-        char* my_buff_addr = rdma_mem_ + node_.get_local_rank() * sizeof(MinBTCLine);
-        MinBTCLine* my_min_bt = (MinBTCLine*)my_buff_addr;
+        char* my_buff_addr = rdma_mem_ + node_.get_local_rank() * sizeof(Uint64CLine);
+        Uint64CLine* my_min_bt = (Uint64CLine*)my_buff_addr;
 
         my_min_bt->SetValue(bt);
         // write to remote
-        uint64_t off = config_->min_bt_buffer_offset + node_.get_local_rank() * sizeof(MinBTCLine);
+        uint64_t off = config_->min_bt_buffer_offset + node_.get_local_rank() * sizeof(Uint64CLine);
 
         int t_id = config_->global_num_threads + 1;
         RDMA &rdma = RDMA::get_rdma();
         for (int i = 0; i < node_.get_local_size(); i++) {
             if (i != node_.get_local_rank()) {
-                rdma.dev->RdmaWrite(t_id, i, my_buff_addr, sizeof(MinBTCLine), off);
+                rdma.dev->RdmaWrite(t_id, i, my_buff_addr, sizeof(Uint64CLine), off);
                 // printf("[UpdateMinBT], worker %d, dst_tid = %d, dst_nid = %d, off = %lu\n",
                 //         node_.get_local_rank(), t_id, i, off);
             }
@@ -142,7 +142,7 @@ uint64_t RunningTrxList::GetGlobalMinBT() {
     if (config_->global_use_rdma) {
         for (int i = 0; i < node_.get_local_size(); i++) {
             uint64_t local_min_bt;
-            MinBTCLine* cline = (MinBTCLine*)(rdma_mem_ + i * sizeof(MinBTCLine));
+            Uint64CLine* cline = (Uint64CLine*)(rdma_mem_ + i * sizeof(Uint64CLine));
             while (!cline->GetValue(local_min_bt));
             ret = max(ret, local_min_bt);
         }

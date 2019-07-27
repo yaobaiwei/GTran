@@ -9,6 +9,7 @@ Authors: Created by Chenghuan Huang (entityless@gmail.com)
 #include <mpi.h>
 #include <time.h>
 
+#include <atomic>
 #include <set>
 
 #define TIMESTAMP_MACHINE_ID_BITS 8
@@ -36,24 +37,43 @@ class MPITimestamper {
 
     // not thread safe
     uint64_t GetTimestamp() const;
+    uint64_t GetTimestampWithSystemErrorFix() const;
+
+    // for GetTimestamp
+    inline uint64_t GetRefinedNS() const {
+        return GetGlobalPhysicalNS() - global_min_ns_;
+    }
+
+    inline uint64_t GetRefinedNSWithSystemErrorFix() const {
+        return GetGlobalPhysicalNSWithSystemErrorFix() - global_min_ns_;
+    }
 
     inline uint64_t GetGlobalPhysicalNSWithSystemErrorFix() const {
         uint64_t ret = GetGlobalPhysicalNS();
-        return (ret - global_calibrate_applied_ns_) * system_error_fix_rate_ + global_calibrate_applied_ns_;
+        return (ret - global_calibrate_applied_ns_) * system_error_fix_rate_ + global_calibrate_applied_ns_ + post_calibrate_offset_;
     }
 
     inline uint64_t GetGlobalPhysicalNS() const {
         // system error occurs
-        return GetLocalPhysicalNS() - global_ns_offset_;
+        return GetLocalPhysicalNS() + global_ns_offset_ + post_calibrate_offset_;
     }
 
     inline uint64_t GetGlobalSysNS() const {
-        return rdsysns() - global_ns_offset_;
+        return rdsysns() + global_ns_offset_;
     }
 
     inline uint64_t GetLocalPhysicalNS() const {
         uint64_t tsc = rdtsc();
         return local_ns_offset_ + (int64_t)((int64_t)tsc * tsc_ghz_inv_);
+    }
+
+    inline void IncreaseGlobalNSOffset(int64_t delta) {
+        assert(delta > 0);
+        post_calibrate_offset_ += delta;
+    }
+
+    inline int64_t GetMeasuredGlobalNSOffset() const {
+        return measured_global_ns_offset_;
     }
 
  private:
@@ -63,14 +83,15 @@ class MPITimestamper {
     int my_rank_, comm_sz_;
     double tsc_ghz_inv_;
     uint64_t local_ns_offset_;  // set in LocalCalibrate
-    int64_t global_ns_offset_ = 0, measured_global_ns_offset_;
+    std::atomic<int64_t> post_calibrate_offset_;
+    int64_t global_ns_offset_ = 0;
+    int64_t measured_global_ns_offset_;
     uint64_t global_calibrate_applied_ns_ = 0;
     double system_error_fix_rate_ = 1.0;
     uint64_t global_min_ns_ = 0;  // set in GlobalSystemErrorCalculate
     uint64_t init_ns_;  // for debug usage
 
-    mutable uint64_t last_nanosec_ = 0;
-    mutable int nanosec_duplicate_count_ = 0;
+    uint64_t last_ts_ = 0;
 
     struct DiffPosPair {
         DiffPosPair(int64_t _diff, int _pos) : diff(_diff), pos(_pos) {}

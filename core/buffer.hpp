@@ -140,6 +140,10 @@ class Buffer {
         return buffer_ + config_->min_bt_buffer_offset;
     }
 
+    inline char* GetTSSyncBuf() {
+        return buffer_ + config_->ts_sync_buffer_offset;
+    }
+
  private:
     // layout: (kv-store) | send_buffer | recv_buffer | local_head_buffer | remote_head_buffer
     char* buffer_;
