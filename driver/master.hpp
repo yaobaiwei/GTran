@@ -21,7 +21,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/buffer.hpp"
 #include "core/common.hpp"
 #include "core/rdma_mailbox.hpp"
-#include "core/running_trx_list.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "utils/global.hpp"
 #include "utils/config.hpp"
@@ -44,7 +43,6 @@ class Master {
  public:
     Master(Node & node, vector<Node> & workers): node_(node), workers_(workers) {
         config_ = Config::GetInstance();
-        running_trx_list_ = RunningTrxList::GetInstance();
         is_end_ = false;
         client_num = 0;
     }
@@ -58,30 +56,6 @@ class Master {
         char addr[64];
         snprintf(addr, sizeof(addr), "tcp://*:%d", node_.tcp_port);
         socket_->bind(addr);
-
-        if (!config_->global_use_rdma) {
-            trx_read_recv_socket = new zmq::socket_t(context_, ZMQ_PULL);
-            snprintf(addr, sizeof(addr), "tcp://*:%d", node_.tcp_port + 3);
-            trx_read_recv_socket->bind(addr);
-            DLOG(INFO) << "[Master] bind " << string(addr);
-            trx_read_rep_sockets.resize(config_->global_num_threads *
-                                        config_->global_num_workers);
-            // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
-            for (int i = 0; i < config_->global_num_workers; ++i) {
-                Node& r_node = GetNodeById(workers_, i + 1);
-
-                for (int j = 0; j < config_->global_num_threads; ++j) {
-                    trx_read_rep_sockets[socket_code(i, j)] =
-                        new zmq::socket_t(context_, ZMQ_PUSH);
-                    snprintf(
-                        addr, sizeof(addr), "tcp://%s:%d",
-                        workers_[i].ibname.c_str(),
-                        r_node.tcp_port + j + 3 + config_->global_num_threads);
-                    trx_read_rep_sockets[socket_code(i, j)]->connect(addr);
-                    DLOG(INFO) << "[Master] connects to " << string(addr);
-                }
-            }
-        }
     }
 
     void ProgListener() {
@@ -145,7 +119,6 @@ class Master {
         }
     }
 
-    //receive a msg of tran status update
     void RecvNotification() {
         int notification_type;
 
@@ -154,21 +127,18 @@ class Master {
             mailbox -> RecvNotification(out);
             out >> notification_type;
 
-            if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
+            if (notification_type == (int)(NOTIFICATION_TYPE::OBTAIN_CT)) {
                 int n_id;
-                uint64_t trx_id;
-                int status_i;
-                bool is_read_only;
-                out >> n_id >> trx_id >> status_i >> is_read_only;
+                uint64_t trxid;
+                out >> n_id >> trxid;
 
-                UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
-                pending_trx_updates_.Push(req);
-            } else if (notification_type == (int)(NOTIFICATION_TYPE::TRX_FINISHED)) {
-                uint64_t bt;
-                out >> bt;
-                printf("[Master] EraseTrx(%lu)\n", bt);
-                fflush(stdout);
-                running_trx_list_->EraseTrx(bt);
+                uint64_t ct;
+                trx_p -> allocate_ct(ct);
+
+                ibinstream in;
+                int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_CT);
+                in << notification_type << trxid << ct;
+                mailbox -> SendNotification(n_id, in);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::OBTAIN_BT)) {
                 int n_id;
                 uint64_t trxid;
@@ -177,10 +147,6 @@ class Master {
                 uint64_t st;
                 trx_p -> allocate_bt(st);
 
-                printf("[Master] InsertTrx(%lu)\n", st);
-                fflush(stdout);
-                running_trx_list_->InsertTrx(st);
-
                 ibinstream in;
                 int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_BT);
                 in << notification_type << trxid << st;
@@ -188,39 +154,6 @@ class Master {
             } else {
                 CHECK(false);
             }
-        }
-    }
-
-    // pop from queue and process requests of accessing the tables
-    void ProcessTrxTableWriteReqs() {
-        while (true) {
-            // pop a req
-            UpdateTrxStatusReq req;
-            pending_trx_updates_.WaitAndPop(req);
-
-            // check if P->V
-            if (req.new_status == TRX_STAT::VALIDATING) {
-                uint64_t ct;
-
-                trx_p->allocate_ct(ct);
-                // reply with ct
-                ibinstream in;
-                int notification_type = (int)(NOTIFICATION_TYPE::ALLOCATED_CT);
-                in << notification_type << req.trx_id << ct;
-                mailbox -> SendNotification(req.n_id, in);
-            } else {
-                // update state
-                // worker shouldn't wait for reply since master will not notify it
-                // trx_p -> modify_status(req.trx_id, req.new_status);
-            }
-        }
-    }
-
-    void ProcessReadMinBT() {
-        while (1) {
-            int n_id = recv_data<int>(node_, MPI_ANY_SOURCE, true, MINBT_CHANNEL);
-            uint64_t min_bt = running_trx_list_->GetMinBT();
-            send_data(node_, min_bt, n_id, true, MINBT_CHANNEL);
         }
     }
 
@@ -235,21 +168,11 @@ class Master {
             mailbox = new TCPMailbox(node_, node_);
         mailbox->Init(workers_);
 
-        if (config_->global_use_rdma)
-            running_trx_list_->AttachRDMAMem(buf->GetMinBTBuf());
-
         trx_p = TrxGlobalCoordinator::GetInstance();
 
         thread listen(&Master::ProgListener, this);
         thread process(&Master::ProcessREQ, this);
-
         thread notification_listener(&Master::RecvNotification, this);
-        thread trx_table_write_executor(&Master::ProcessTrxTableWriteReqs, this);
-
-        thread * trx_table_tcp_read_listener, * trx_table_tcp_read_executor, *running_trx_min_bt_listener;
-        if (!config_->global_use_rdma) {
-            running_trx_min_bt_listener = new thread(&Master::ProcessReadMinBT, this);
-        }
 
         int end_tag = 0;
         while (end_tag < node_.get_local_size()) {
@@ -262,10 +185,6 @@ class Master {
         listen.join();
         process.join();
         notification_listener.join();
-        trx_table_write_executor.join();
-        if (!config_->global_use_rdma) {
-            running_trx_min_bt_listener->join();
-        }
     }
 
  private:
@@ -274,19 +193,12 @@ class Master {
     Config * config_;
     map<int, Progress> progress_map_;
     int client_num;
-    ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
-    ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
     TrxGlobalCoordinator * trx_p;
-    RunningTrxList* running_trx_list_;
     AbstractMailbox * mailbox;
 
     bool is_end_;
     zmq::context_t context_;
     zmq::socket_t * socket_;
-
-    // trx tcp
-    zmq::socket_t * trx_read_recv_socket;
-    vector<zmq::socket_t *> trx_read_rep_sockets;
 
     inline int socket_code(int n_id, int t_id) {
         return config_ -> global_num_threads * n_id + t_id;

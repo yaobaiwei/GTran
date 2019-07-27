@@ -13,7 +13,7 @@ bool RDMATrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool 
     in << (int)(NOTIFICATION_TYPE::UPDATE_STATUS) << node_.get_local_rank() << trx_id << status_i << is_read_only;
 
     unique_lock<mutex> lk(update_mutex_);
-    mailbox_ ->SendNotification(config_->global_num_workers, in);
+    // mailbox_ ->SendNotification(config_->global_num_workers, in);
 
     // // TMP: also send to worker
     int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
@@ -107,24 +107,4 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
             }
         }
     }
-}
-
-uint64_t RDMATrxTableStub::read_min_bt() {
-    uint64_t ret;
-    while (true) {
-        char* min_bt_recv_buffer = buf_->GetMinBTBuf();
-        RDMA &rdma = RDMA::get_rdma();
-
-        int master_id = config_->global_num_workers;
-        int off = config_->trx_table_sz;
-        int t_id = config_->global_num_threads + 1;
-
-        rdma.dev->RdmaRead(t_id, master_id, min_bt_recv_buffer, 64, off);
-
-        bool ok = ((MinBTCLine*)min_bt_recv_buffer)->GetMinBT(ret);
-        if (ok)
-            break;
-    }
-
-    return ret;
 }

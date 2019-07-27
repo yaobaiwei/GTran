@@ -12,17 +12,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <string>
 #include <unordered_map>
 
+#include "base/communication.hpp"
+#include "base/node.hpp"
 #include "tbb/atomic.h"
-
-// A cache line (64B)
-struct MinBTCLine {
-    uint64_t data[8] __attribute__((aligned(64)));
-
-    // called by Master
-    void SetBT(uint64_t bt);
-    // called by Worker
-    bool GetMinBT(uint64_t& bt);
-} __attribute__((aligned(64)));
 
 // Containing a list of running transactions, from which we can get the minimum BT of them.
 class RunningTrxList {
@@ -30,8 +22,7 @@ class RunningTrxList {
     // Only one thread will perform modification
     void InsertTrx(uint64_t bt);
     void EraseTrx(uint64_t bt);
-    void UpdateMinBT(uint64_t bt);  // Also need to update RDMA mem
-    void AttachRDMAMem(char* mem);
+    void UpdateMinBT(uint64_t bt);
 
     uint64_t GetMinBT() const {return min_bt_;}  // debug
     std::string PrintList() const;
@@ -41,21 +32,28 @@ class RunningTrxList {
         return &instance;
     }
 
+    void Init(const Node& node);
+
+    void ProcessReadMinBTRequest();
+
+    uint64_t GetGlobalMinBT();
+
  private:
-    struct Node {
-        explicit Node(uint64_t _bt) : bt(_bt), left(nullptr), right(nullptr) {}
-        Node *left, *right;
+    struct ListNode {
+        explicit ListNode(uint64_t _bt) : bt(_bt), left(nullptr), right(nullptr) {}
+        ListNode *left, *right;
         uint64_t bt;
     };
 
+    Node node_;
+
     tbb::atomic<uint64_t> min_bt_ = 0;
-    MinBTCLine* mem_ = nullptr;  // attached RDMA memory to be RDMARead by workers
     uint64_t max_bt_ = 0;
 
-    std::unordered_map<uint64_t, Node*> list_node_map_;
+    std::unordered_map<uint64_t, ListNode*> list_node_map_;
 
-    Node* head_ = nullptr;
-    Node* tail_ = nullptr;
+    ListNode* head_ = nullptr;
+    ListNode* tail_ = nullptr;
 
     mutable pthread_spinlock_t lock_;
 

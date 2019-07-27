@@ -6,6 +6,7 @@
 #pragma once
 
 #include <iostream>
+#include "base/communication.hpp"
 #include "base/node.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/buffer.hpp"
@@ -29,6 +30,4 @@ class TrxTableStub {
 
     // Read ct and trx status. ct = 0 when trx is processing or aborted
     virtual bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) = 0;
-
-    virtual uint64_t read_min_bt() = 0;
 };

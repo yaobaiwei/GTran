@@ -13,7 +13,7 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool i
     in << (int)(NOTIFICATION_TYPE::UPDATE_STATUS) << node_.get_local_rank() << trx_id << status_i << is_read_only;
 
     unique_lock<mutex> lk(update_mutex_);
-    mailbox_ ->SendNotification(config_->global_num_workers, in);
+    // mailbox_ ->SendNotification(config_->global_num_workers, in);
 
     // TMP: also send to worker
     int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
@@ -85,9 +85,4 @@ bool TcpTrxTableStub::recv_rep(int t_id, obinstream& out) {
     memcpy(buf, zmq_reply_msg.data(), zmq_reply_msg.size());
     out.assign(buf, zmq_reply_msg.size(), 0);
     return true;
-}
-
-uint64_t TcpTrxTableStub::read_min_bt() {
-    send_data(node_, node_.get_world_rank(), 0, true, MINBT_CHANNEL);
-    return recv_data<uint64_t>(node_, MPI_ANY_SOURCE, true, MINBT_CHANNEL);
 }
