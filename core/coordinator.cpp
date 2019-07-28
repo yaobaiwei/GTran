@@ -167,7 +167,7 @@ void Coordinator::PerformCalibration() {
                     WriteTimestampToWorker(partner, ns, tag + 1);
                     remote_ns = ReadTimestampFromRDMAMem(tag + 2);
                     ns = timestamper_->GetRefinedNS();
-                    WriteTimestampToWorker(partner, 4396, tag + 3);
+                    WriteTimestampToWorker(partner, 0, tag + 3);
                     int64_t delta = remote_ns - ns;
                     if (delta > 0) {
                         timestamper_->IncreaseGlobalNSOffset(delta);

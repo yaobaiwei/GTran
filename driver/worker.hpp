@@ -364,7 +364,7 @@ class Worker {
                         pending_timestamp_request_.Push(req);
                     } else {
                         // do not need to allocate CT and query RCT.
-                        UpdateTrxStatusReq req{-1, plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
+                        UpdateTrxStatusReq req{my_node_.get_local_rank(), plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
                         pending_trx_updates_.Push(req);
                         // Push query plan to SendQueryMsg queue directly.
                         queue_.Push(pkg);
@@ -607,6 +607,9 @@ class Worker {
                 << "]: DONE -> Register RDMA MEM, SIZE = "
                 << buf->GetBufSize() << endl;
 
+        // =================TrxTable=========================
+        trx_table_ = TransactionTable::GetInstance();
+
         // =================Coordinator=========================
         coordinator_ = Coordinator::GetInstance();
         coordinator_->Init(&my_node_);
@@ -633,9 +636,9 @@ class Worker {
 
         // =================TransactionTableStub============
         if (config_->global_use_rdma) {
-            trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox_);
+            trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox_, &pending_trx_updates_);
         } else {
-            trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox_, workers_);
+            trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox_, workers_, &pending_trx_updates_);
         }
         trx_table_stub_->Init();
         cout << "[Worker" << my_node_.get_local_rank()
@@ -661,9 +664,6 @@ class Worker {
 
         // =================RCT=========================
         rct_ = RCTable::GetInstance();
-
-        // =================TrxTable=========================
-        trx_table_ = TransactionTable::GetInstance();
 
         // =================RunningTrxList=========================
         running_trx_list_ = RunningTrxList::GetInstance();

@@ -32,11 +32,14 @@ class TcpTrxTableStub : public TrxTableStub {
 
     Coordinator* coordinator_;
 
-    TcpTrxTableStub(AbstractMailbox *mailbox, Node &master, vector<Node> workers) : master_(master), workers_(workers) {
+    TcpTrxTableStub(AbstractMailbox *mailbox, Node &master, vector<Node> workers, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) :
+                    master_(master), workers_(workers) {
         mailbox_ = mailbox;
+        pending_trx_updates_ = pending_trx_updates;
         config_ = Config::GetInstance();
         node_ = Node::StaticInstance();
         coordinator_ = Coordinator::GetInstance();
+        trx_table_ = TransactionTable::GetInstance();
     }
 
     void send_req(int n_id, int t_id, ibinstream &in);
@@ -50,14 +53,16 @@ class TcpTrxTableStub : public TrxTableStub {
  public:
     static TcpTrxTableStub * GetInstance(Node & master,
                                          AbstractMailbox * mailbox,
-                                         vector<Node>& workers) {
-        assert(instance_==nullptr);
+                                         vector<Node>& workers,
+                                         ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) {
+        assert(instance_ == nullptr);
         // << "[TcpTrxTableStub::GetInstance] duplicate initilization";
-        assert(mailbox!=nullptr);
+        assert(mailbox != nullptr);
         // << "[TcpTrxTableStub::GetInstance] must provide valid mailbox";
+        assert(pending_trx_updates != nullptr);
         DLOG(INFO) << "[TcpTrxTableStub::GetInstance] Initialize instance_" << mailbox;
 
-        instance_ = new TcpTrxTableStub(mailbox, master, workers);
+        instance_ = new TcpTrxTableStub(mailbox, master, workers, pending_trx_updates);
 
         assert(instance_ != nullptr);
         CHECK(instance_) << "[TcpTrxTableStub::GetInstance] Null instance_";

@@ -157,10 +157,10 @@ class RDMA {
             } else {
                 // create RC connection QP between workers
                 for (uint i = 0; i< num_workers; ++i) {
-                    // if (i == nid) {
-                    //     // skip local qp
-                    //     continue;
-                    // }
+                    if (i == nid) {
+                        // skip local qp
+                        continue;
+                    }
                     for (uint j = 0; j < num_threads * 2; ++j) {
                         Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
                         assert(qp != NULL);
@@ -171,9 +171,9 @@ class RDMA {
                 while (1) {
                     int connected = 0;
                     for (uint i = 0; i< num_workers; ++i) {
-                        // if (i == nid) {
-                        //     continue;
-                        // }
+                        if (i == nid) {
+                            continue;
+                        }
                         for (uint j = 0; j < num_threads * 2; ++j) {
                             Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
                             if (qp->inited_) {
@@ -183,7 +183,7 @@ class RDMA {
                             }
                         }
                     }
-                    if (connected == (num_workers) * num_threads * 2)
+                    if (connected == (num_workers - 1) * num_threads * 2)
                         break;
                     else
                         sleep(1);

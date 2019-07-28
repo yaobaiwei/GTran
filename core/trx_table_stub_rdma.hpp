@@ -37,11 +37,13 @@ class RDMATrxTableStub : public TrxTableStub{
 
     Coordinator* coordinator_;
 
-    RDMATrxTableStub(AbstractMailbox * mailbox){
+    RDMATrxTableStub(AbstractMailbox * mailbox, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) {
         config_ = Config::GetInstance();
         mailbox_ = mailbox;
         node_ = Node::StaticInstance();
         buf_ = Buffer::GetInstance();
+        pending_trx_updates_ = pending_trx_updates;
+        trx_table_ = TransactionTable::GetInstance();
 
         trx_num_total_buckets_ = config_ -> trx_num_total_buckets;
         trx_num_main_buckets_ = config_ -> trx_num_main_buckets;
@@ -57,9 +59,9 @@ class RDMATrxTableStub : public TrxTableStub{
     }
 
  public:
-    static RDMATrxTableStub* GetInstance(AbstractMailbox * mailbox = nullptr){
-        if(instance_ == nullptr && mailbox != nullptr){
-            instance_ = new RDMATrxTableStub(mailbox);
+    static RDMATrxTableStub* GetInstance(AbstractMailbox * mailbox = nullptr, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates = nullptr) {
+        if(instance_ == nullptr && mailbox != nullptr && pending_trx_updates != nullptr) {
+            instance_ = new RDMATrxTableStub(mailbox, pending_trx_updates);
         }
         return instance_;
     }

@@ -12,6 +12,7 @@
 #include "core/buffer.hpp"
 #include "core/common.hpp"
 #include "core/rdma_mailbox.hpp"
+#include "core/transactions_table.hpp"
 #include "glog/logging.h"
 #include "utils/config.hpp"
 #include "utils/tid_mapper.hpp"
@@ -21,6 +22,8 @@ class TrxTableStub {
     AbstractMailbox * mailbox_;
     Config* config_;
     Node node_;
+    TransactionTable* trx_table_;
+    ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates_;
 
  public:
     virtual bool Init() = 0;
