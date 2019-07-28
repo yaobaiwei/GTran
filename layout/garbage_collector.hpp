@@ -8,6 +8,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include <tbb/concurrent_queue.h>
 
 #include "layout/gc_task.hpp"
+#include "utils/config.hpp"
 
 class GCProducer;
 class GCConsumer;
@@ -34,6 +35,8 @@ class GarbageCollector {
     GCProducer * gc_producer_;
     GCConsumer * gc_consumer_;
     GarbageCollector();
+
+    Config * config_;
 
     tbb::concurrent_queue<AbstractGCJob*> pending_job_queue;
     tbb::concurrent_queue<AbstractGCJob*> finished_job_queue;

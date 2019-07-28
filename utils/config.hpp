@@ -89,6 +89,7 @@ class Config{
     bool global_enable_step_reorder;
     bool global_enable_indexing;
     bool global_enable_workstealing;
+    bool global_enable_garbage_collect;
 
 
     int max_data_size;
@@ -446,6 +447,14 @@ class Config{
             global_enable_workstealing = val;
         } else {
             fprintf(stderr, "must enter the ENABLE_STEALING. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getboolean(ini, "SYSTEM:ENABLE_GARBAGE_COLLECT", val_not_found);
+        if (val != val_not_found) {
+            global_enable_garbage_collect = val;
+        } else {
+            fprintf(stderr, "must enter the ENABLE_GARBAGE_COLLECT. exits.\n");
             exit(-1);
         }
 

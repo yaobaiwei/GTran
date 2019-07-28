@@ -57,7 +57,7 @@ class InitActor : public AbstractActor {
         } else if (actor_obj.params.size() == 2) {
             InitWithoutIndex(tid, qplan, init_data, msg);
         } else {
-            InitWithIndex(tid, qplan.actors, msg);
+            InitWithIndex(tid, qplan.actors, init_data, msg);
         }
 
         vector<Message> msg_vec;
@@ -144,8 +144,11 @@ class InitActor : public AbstractActor {
     void InitVtxData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data) {
         vector<vid_t> vid_list;
         uint64_t start_time = timer::get_usec();
-        // data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
-        index_store_->ReadVtxTopoIndex(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
+        if (config_->global_enable_indexing) {
+            index_store_->ReadVtxTopoIndex(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
+        } else {
+            data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
+        }
         uint64_t end_time = timer::get_usec();
         cout << "[Timer] " << (end_time - start_time) << " us for GetAllVertices()" << endl;
         uint64_t count = vid_list.size();
@@ -166,8 +169,11 @@ class InitActor : public AbstractActor {
     void InitEdgeData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>>& init_data) {
         vector<eid_t> eid_list;
         uint64_t start_time = timer::get_usec();
-        // data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
-        index_store_->ReadEdgeTopoIndex(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
+        if (config_->global_enable_indexing) {
+            index_store_->ReadEdgeTopoIndex(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
+        } else {
+            data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
+        }
         uint64_t end_time = timer::get_usec();
         cout << "[Timer] " << (end_time - start_time) << " us for GetAllEdges()" << endl;
         uint64_t count = eid_list.size();
@@ -196,7 +202,7 @@ class InitActor : public AbstractActor {
                                  make_move_iterator(actor_obj.params.end()));
     }
 
-    void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, Message & msg) {
+    void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, vector<pair<history_t, vector<value_t>>>& init_data, Message & msg) {
         Meta m = msg.meta;
         const Actor_Object& actor_obj = actor_objs[m.step];
 
@@ -222,15 +228,10 @@ class InitActor : public AbstractActor {
         msg.max_data_size = config_->max_data_size;
         msg.data.clear();
         msg.data.emplace_back(history_t(), vector<value_t>());
-        index_store_->ReadPropIndex(inType, pred_chain, msg.data[0].second);
-
-        vector<Message> vec;
-        msg.CreateNextMsg(actor_objs, msg.data, num_thread_, core_affinity_, vec);
-
-        // Send Message
-        for (auto& msg_ : vec) {
-            mailbox_->Send(tid, msg_);
-        }
+        // index_store_->ReadPropIndex(inType, pred_chain, msg.data[0].second);
+        init_data.clear();
+        init_data.emplace_back(history_t(), vector<value_t>());
+        index_store_->ReadPropIndex(inType, pred_chain, init_data[0].second);
     }
 
     void InitWithoutIndex(int tid, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data, Message & msg) {

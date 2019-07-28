@@ -82,16 +82,20 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
         spawn_mvcc_list_gctask(mvcc_list->head_, element_id, gc_version_count);
         mvcc_list->head_ = gc_checkpoint->next;  // Could be nullptr or a uncommitted version
         if (gc_checkpoint == iterate_tail) {  // There is at most one left
-            mvcc_list->pre_tail_ = nullptr;
-            mvcc_list->tmp_pre_tail_ = nullptr;
             if (!uncommitted_version_exists) {
                 mvcc_list->tail_ = nullptr;
+                mvcc_list->pre_tail_ = nullptr;
+                mvcc_list->tmp_pre_tail_ = nullptr;
                 return true;  // Nothing Left, cell could be GC
+            } else {  // Only one uncommitted version left
+                mvcc_list->pre_tail_ = mvcc_list->tail_;
+                mvcc_list->tmp_pre_tail_ = mvcc_list->tail_;
             }
         } else if (gc_checkpoint->next == iterate_tail) {  // At most two, at least one version left
-            mvcc_list->tmp_pre_tail_ = nullptr;
             if (!uncommitted_version_exists) {  // One version left
-                mvcc_list->pre_tail_ = nullptr;
+                mvcc_list->pre_tail_ = mvcc_list->tail_;
+            } else {  // two version left and one is uncommitted
+                mvcc_list->tmp_pre_tail_ = mvcc_list->pre_tail_; 
             }
         }
 

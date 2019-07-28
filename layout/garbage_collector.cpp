@@ -10,16 +10,21 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 GarbageCollector::GarbageCollector() {
     gc_producer_ = GCProducer::GetInstance();
     gc_consumer_ = GCConsumer::GetInstance();
+    config_ = Config::GetInstance();
 }
 
 void GarbageCollector::Init() {
-    gc_producer_->Init();
-    gc_consumer_->Init();
+    if (config_->global_enable_garbage_collect) {
+        gc_producer_->Init();
+        gc_consumer_->Init();
+    }
 }
 
 void GarbageCollector::Stop() {
-    gc_producer_->Stop();
-    gc_consumer_->Stop();
+    if (config_->global_enable_garbage_collect) {
+        gc_producer_->Stop();
+        gc_consumer_->Stop();
+    }
 }
 
 void GarbageCollector::PushJobToPendingQueue(AbstractGCJob* job_ptr) {
