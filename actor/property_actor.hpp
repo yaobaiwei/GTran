@@ -87,9 +87,9 @@ class PropertyActor : public AbstractActor {
             // Insert Update data to Index Buffer
             if (index_updatable) {
                 if (elem_type == Element_T::VERTEX) {
-                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::VPID, true, TRX_STAT::PROCESSING, &new_val, &values);
+                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::VPID, true, &new_val, &values);
                 } else if (elem_type == Element_T::EDGE) {
-                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::EPID, true, TRX_STAT::PROCESSING, &new_val, &values);
+                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::EPID, true, &new_val, &values);
                 }
             }
 

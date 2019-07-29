@@ -8,7 +8,9 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     int tid = TidMapper::GetInstance()->GetTid();
 
     // Move Update Data of Transaction from IndexBuffer to IndexRegion
-    index_store_->MoveTopoBufferToRegion(qplan.trxid);
+    uint64_t self_ct; TRX_STAT stat;
+    trx_table_stub_->read_ct(qplan.trxid, stat, self_ct);
+    index_store_->MoveTopoBufferToRegion(qplan.trxid, self_ct);
 
     // ===================Abstract====================//
     /**

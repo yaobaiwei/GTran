@@ -26,7 +26,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
         CHECK(msg.data.at(0).second.size() == 1);
         uint64_t ct = Tool::value_t2uint64_t(msg.data.at(0).second.at(0));
         data_storage_->Commit(qplan.trxid, ct);
-        index_store_->MovePropBufferToRegion(qplan.trxid);
+        index_store_->MovePropBufferToRegion(qplan.trxid, ct);
         Tool::str2str("Transaction committed", result);
     } else {
         cout << "[Error] Unexpected Message Type in Commit Actor" << endl;
