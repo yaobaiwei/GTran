@@ -8,7 +8,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include <thread>
 
+#include "core/running_trx_list.hpp"
 #include "layout/gc_task.hpp"
+#include "layout/index_store.hpp"
 #include "utils/config.hpp"
 #include "utils/tid_mapper.hpp"
 
@@ -37,6 +39,8 @@ class GCConsumer {
     DataStorage * data_storage_;
     GarbageCollector * garbage_collector_;
     TidMapper * tid_mapper_;
+    IndexStore * index_store_;
+    RunningTrxList * running_trx_list_;
 
     void ExecuteEraseVJob(EraseVJob*);
     void ExecuteEraseOutEJob(EraseOutEJob*);
@@ -55,4 +59,7 @@ class GCConsumer {
 
     void ExecuteEPRowListGCJob(EPRowListGCJob*);
     void ExecuteEPRowListDefragJob(EPRowListDefragJob*);
+
+    void ExecuteTopoIndexGCJob(TopoIndexGCJob*);
+    void ExecutePropIndexGCJob(PropIndexGCJob*);
 };

@@ -16,7 +16,10 @@ void GCProducer::Init() {
     data_storage_ = DataStorage::GetInstance();
     gc_task_dag_ = GCTaskDAG::GetInstance();
     garbage_collector_ = GarbageCollector::GetInstance();
+    index_store_ = IndexStore::GetInstance();
+    config_ = Config::GetInstance();
     node_ = Node::StaticInstance();
+    running_trx_list_ = RunningTrxList::GetInstance();
 }
 
 void GCProducer::Stop() {
@@ -28,6 +31,10 @@ void GCProducer::Execute() {
         // Do Scan with DFS for whole datastorage
         scan_vertex_map();
 
+        // Scan Index Store
+        scan_topo_index_updata_region();
+        scan_prop_index_updata_region();
+
         // Currently, sleep for a while and the do next scan
         sleep(SCAN_PERIOD);
 
@@ -37,7 +44,7 @@ void GCProducer::Execute() {
         check_finished_job();
         check_returned_edge();
 
-        DebugPrint();
+        // DebugPrint();
     }
 }
 
@@ -351,7 +358,7 @@ void GCProducer::scan_vertex_map() {
         // (i.e. version->end_time < MINIMUM_ACTIVE_TRANSACTION_BT), the vertex can be GC.
         vid_t vid;
         uint2vid_t(v_pair->first, vid);
-        if (mvcc_item->GetEndTime() < MINIMUM_ACTIVE_TRANSACTION_BT) {
+        if (mvcc_item->GetEndTime() < running_trx_list_->GetGlobalMinBT()) {
             // Vertex GCable
             mvcc_list->head_ = nullptr;
             mvcc_list->tail_ = nullptr;
@@ -393,6 +400,76 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
 
     if (gcable_cell_count >= edge_count_snapshot % VE_ROW_ITEM_COUNT) {
         spawn_topo_row_list_defrag_gctask(topo_row_list, vid, gcable_cell_count);
+    }
+}
+
+void GCProducer::scan_topo_index_updata_region() {
+    {
+        ReaderLockGuard vtx_reader_lock_guard(index_store_->vtx_topo_gc_rwlock_);
+        double ratio = (double) config_->Topo_Index_GC_RATIO / 100;
+        int mergable_update_count = 0;
+        for (auto & up_elem : index_store_->vtx_update_list) {
+            if (up_elem.ct < running_trx_list_->GetGlobalMinBT()) {
+                mergable_update_count++;
+            }
+        }
+
+        if (mergable_update_count > index_store_->topo_vtx_data.size() * ratio) {
+            spawn_topo_index_gctask(Element_T::VERTEX);
+        }
+    }
+
+    {
+        ReaderLockGuard edge_reader_lock_guard(index_store_->edge_topo_gc_rwlock_);
+        double ratio = (double) config_->Prop_Index_GC_RATIO / 100;
+        int mergable_update_count = 0;
+        for (auto & up_elem : index_store_->edge_update_list) {
+            if (up_elem.ct < running_trx_list_->GetGlobalMinBT()) {
+                mergable_update_count++;
+            }
+        }
+
+        if (mergable_update_count > index_store_->topo_edge_data.size() * ratio) {
+            spawn_topo_index_gctask(Element_T::EDGE);
+        }
+    }
+}
+
+void GCProducer::scan_prop_index_updata_region() {
+    {
+        ReaderLockGuard vp_reader_lock_guard(index_store_->vtx_prop_gc_rwlock_);
+        double ratio = (double) config_->Prop_Index_GC_RATIO / 100;
+        for (auto & pair : index_store_->vtx_prop_index) {
+            IndexStore::prop_up_map_const_accessor pcac;
+            if (index_store_->vp_update_map.find(pcac, pair.first)) {
+                int up_elem_counter = 0;
+                for (auto & update_pair : pcac->second) {
+                    up_elem_counter += update_pair.second.size();
+                }
+
+                if (up_elem_counter > pair.second.total * ratio) {
+                    spawn_prop_index_gctask(Element_T::VERTEX, pair.first, up_elem_counter);
+                }
+            }
+        }
+    }
+
+    {
+        ReaderLockGuard ep_reader_lock_guard(index_store_->edge_prop_gc_rwlock_);
+        double ratio = (double) config_->Prop_Index_GC_RATIO / 100;
+        for (auto & pair : index_store_->edge_prop_index) {
+            IndexStore::prop_up_map_const_accessor pcac;
+            if (index_store_->ep_update_map.find(pcac, pair.first)) {
+                int up_elem_counter = 0;
+                for (auto & update_pair : pcac->second) {
+                    up_elem_counter += update_pair.second.size();
+                }
+
+                if (up_elem_counter > pair.second.total * ratio) {
+                    spawn_prop_index_gctask(Element_T::EDGE, pair.first, up_elem_counter);
+                }
+            }
+        }
     }
 }
 
@@ -602,6 +679,30 @@ void GCProducer::spawn_ep_row_defrag_gctask(PropertyRowList<EdgePropertyRow>* ro
     }
 }
 
+void GCProducer::spawn_topo_index_gctask(Element_T type) {
+    TopoIndexGCTask* task = new TopoIndexGCTask(type);
+    topo_index_gc_job.AddTask(task);
+
+    if (topo_index_gc_job.isReady()) {
+        TopoIndexGCJob* new_job = new TopoIndexGCJob(); 
+        new_job[0] = topo_index_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        topo_index_gc_job.Clear();
+    }
+}
+
+void GCProducer::spawn_prop_index_gctask(Element_T type, const int& pid, const int& cost) {
+    PropIndexGCTask* task = new PropIndexGCTask(type, pid, cost);
+    prop_index_gc_job.AddTask(task);
+
+    if (prop_index_gc_job.isReady()) {
+        PropIndexGCJob* new_job = new PropIndexGCJob(); 
+        new_job[0] = prop_index_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        prop_index_gc_job.Clear();
+    }
+}
+
 void GCProducer::construct_edge_id(const vid_t& v1, EdgeHeader* adjacent_edge_header, eid_t& eid) {
     if (adjacent_edge_header->is_out) {
         eid = eid_t(adjacent_edge_header->conn_vtx_id.value(), v1.value());
@@ -625,6 +726,8 @@ void GCProducer::check_finished_job() {
           case JobType::VPMVCCGC:
           case JobType::EPMVCCGC:
           case JobType::EMVCCGC:
+          case JobType::TopoIndexGC:
+          case JobType::PropIndexGC:
             break;
           case JobType::TopoRowGC:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
@@ -716,6 +819,9 @@ void GCProducer::DebugPrint() {
 
         cout << "\tGC::EPRowListGC: " << ep_row_list_gc_job.DebugString() << endl;
         cout << "\tGC::EPRowListDefrag: " << ep_row_list_defrag_job.DebugString() << endl;
+
+        cout << "\tGC::TopoIndexGC: " << topo_index_gc_job.DebugString() << endl;
+        cout << "\tGC::PropIndexGC: " << prop_index_gc_job.DebugString() << endl;
         cout << endl;
     }
 }

@@ -107,6 +107,12 @@ class Config{
     int VP_Row_Defrag_Task_THRESHOLD;
     int EP_Row_GC_Task_THRESHOLD;
     int EP_Row_Defrag_Task_THRESHOLD;
+    int Topo_Index_GC_RATIO;
+    // TopoIndexTask Threshold is always 1 to make sure
+    // the task will be pushed out immediately once created
+    const int Topo_Index_GC_Task_THRESHOLD = 1;
+    int Prop_Index_GC_RATIO;
+    int Prop_Index_GC_Task_THRESHOLD;
 
     // ================================================================
     // mutable_config
@@ -491,7 +497,7 @@ class Config{
             SNAPSHOT_PATH = "";
         }
 
-        val = iniparser_getint(ini, "SYSTEM:ERASE_V_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:ERASE_V_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             Erase_V_Task_THRESHOLD = val;
         } else {
@@ -499,7 +505,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:ERASE_OUTE_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:ERASE_OUTE_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             Erase_OUTE_Task_THRESHOLD = val;
         } else {
@@ -507,7 +513,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:ERASE_INE_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:ERASE_INE_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             Erase_INE_Task_THRESHOLD = val;
         } else {
@@ -515,7 +521,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:VMVCC_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:VMVCC_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             VMVCC_GC_Task_THRESHOLD = val;
         } else {
@@ -523,7 +529,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:VPMVCC_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:VPMVCC_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             VPMVCC_GC_Task_THRESHOLD = val;
         } else {
@@ -531,7 +537,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:EPMVCC_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:EPMVCC_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             EPMVCC_GC_Task_THRESHOLD = val;
         } else {
@@ -539,7 +545,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:EMVCC_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:EMVCC_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             EMVCC_GC_Task_THRESHOLD = val;
         } else {
@@ -547,7 +553,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:TOPO_ROW_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:TOPO_ROW_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             Topo_Row_GC_Task_THRESHOLD = val;
         } else {
@@ -555,7 +561,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:TOPO_ROW_DEFRAG_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:TOPO_ROW_DEFRAG_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             Topo_Row_Defrag_Task_THRESHOLD = val;
         } else {
@@ -563,7 +569,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:VP_ROW_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:VP_ROW_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             VP_Row_GC_Task_THRESHOLD = val;
         } else {
@@ -571,7 +577,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:VP_ROW_DEFRAG_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:VP_ROW_DEFRAG_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             VP_Row_Defrag_Task_THRESHOLD = val;
         } else {
@@ -579,7 +585,7 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:EP_ROW_GC_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:EP_ROW_GC_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             EP_Row_GC_Task_THRESHOLD = val;
         } else {
@@ -587,11 +593,35 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:EP_ROW_DEFRAG_T_THRESHOLD", val_not_found);
+        val = iniparser_getint(ini, "GC:EP_ROW_DEFRAG_T_THRESHOLD", val_not_found);
         if (val != val_not_found) {
             EP_Row_Defrag_Task_THRESHOLD = val;
         } else {
             fprintf(stderr, "must enter the EP_ROW_DEFRAG_T_THRESHOLD. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "GC:TOPO_INDEX_GC_RATIO", val_not_found);
+        if (val != val_not_found && val <= 100 && val >= 0) {
+            Topo_Index_GC_RATIO = val;
+        } else {
+            fprintf(stderr, "must enter the TOPO_INDEX_GC_RATIO and value in range [0, 100]. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "GC:PROP_INDEX_GC_RATIO", val_not_found);
+        if (val != val_not_found && val <= 100 && val >= 0) {
+            Prop_Index_GC_RATIO = val;
+        } else {
+            fprintf(stderr, "must enter the PROP_INDEX_GC_RATIO and value in range [0, 100]. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "GC:PROP_INDEX_GC_T_THRESHOLD", val_not_found);
+        if (val != val_not_found) {
+            Prop_Index_GC_Task_THRESHOLD = val;
+        } else {
+            fprintf(stderr, "must enter the PROP_INDEX_GC_T_THRESHOLD. exits.\n");
             exit(-1);
         }
 

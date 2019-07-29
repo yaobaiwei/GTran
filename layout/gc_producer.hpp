@@ -11,7 +11,10 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <unistd.h>
 
 #include "base/node.hpp"
+#include "core/running_trx_list.hpp"
 #include "layout/gc_task.hpp"
+#include "layout/index_store.hpp"
+#include "utils/config.hpp"
 #include "utils/simple_spinlock_guard.hpp"
 
 /* GCProducer encapsulates methods to scan the whole data layout and generate garbage collection tasks to
@@ -24,9 +27,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
  * GCProducer maintains containers of tasks without dependency. For tasks with dependency, their containers
  * are in GCTaskDAG.
  */
-
-// Fake one;
-static constexpr int MINIMUM_ACTIVE_TRANSACTION_BT = 3;
 
 class GarbageCollector;
 
@@ -121,11 +121,17 @@ class GCProducer {
     EPRowListGCJob ep_row_list_gc_job;
     EPRowListDefragJob ep_row_list_defrag_job;
 
+    TopoIndexGCJob topo_index_gc_job;
+    PropIndexGCJob prop_index_gc_job;
+
     // -------Sys Components------------
     GCTaskDAG * gc_task_dag_;
     DataStorage * data_storage_;
     GarbageCollector * garbage_collector_;
+    IndexStore * index_store_;
+    Config * config_;
     Node node_;
+    RunningTrxList * running_trx_list_;
 
     // Thread to scan data store
     thread scanner_;
@@ -139,9 +145,13 @@ class GCProducer {
     void scan_topo_row_list(const vid_t&, TopologyRowList*);
     // Scan RowList && MVCCList
     template <class PropertyRow>
-    void scan_prop_row_list(const uint64_t&, PropertyRowList<PropertyRow>*);
+    void scan_prop_row_list(const uint64_t& element_id, PropertyRowList<PropertyRow>*);
     template <class MVCCItem>
-    bool scan_mvcc_list(const uint64_t&, MVCCList<MVCCItem>*);
+    bool scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>*);
+
+    // Index Store Scan
+    void scan_topo_index_updata_region();
+    void scan_prop_index_updata_region();
 
     // -------Task spawning function-------
     void spawn_vertex_map_gctask(vid_t&);
@@ -149,23 +159,27 @@ class GCProducer {
     void spawn_erase_in_edge_gctask(eid_t&);
 
     void spawn_v_mvcc_gctask(VertexMVCCItem*);
-    void spawn_vp_mvcc_list_gctask(VPropertyMVCCItem*, const int&);
-    void spawn_ep_mvcc_list_gctask(EPropertyMVCCItem*, const int&);
-    void spawn_edge_mvcc_list_gctask(EdgeMVCCItem*, const uint64_t&, const int&);
+    void spawn_vp_mvcc_list_gctask(VPropertyMVCCItem*, const int& cost);
+    void spawn_ep_mvcc_list_gctask(EPropertyMVCCItem*, const int& cost);
+    void spawn_edge_mvcc_list_gctask(EdgeMVCCItem*, const uint64_t& element_id, const int& cost);
 
     void spawn_topo_row_list_gctask(TopologyRowList*, vid_t&);
-    void spawn_topo_row_list_defrag_gctask(TopologyRowList*, const vid_t&, const int&);
+    void spawn_topo_row_list_defrag_gctask(TopologyRowList*, const vid_t&, const int& cost);
 
     void spawn_vp_row_list_gctask(PropertyRowList<VertexPropertyRow>*, vid_t&);
-    void spawn_vp_row_defrag_gctask(PropertyRowList<VertexPropertyRow>*, const uint64_t&, const int&);
+    void spawn_vp_row_defrag_gctask(PropertyRowList<VertexPropertyRow>*, const uint64_t& element_id, const int& cost);
 
     void spawn_ep_row_list_gctask(PropertyRowList<EdgePropertyRow>*, eid_t&);
-    void spawn_ep_row_defrag_gctask(PropertyRowList<EdgePropertyRow>*, const uint64_t&, const int&);
+    void spawn_ep_row_defrag_gctask(PropertyRowList<EdgePropertyRow>*, const uint64_t& element_id, const int& cost);
 
     template <class MVCCItem>
-    void spawn_mvcc_list_gctask(MVCCItem*, const uint64_t&, const int&);
+    void spawn_mvcc_list_gctask(MVCCItem*, const uint64_t& element_id, const int& cost);
     template <class PropertyRow>
-    void spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow>*, const uint64_t&, const int&);
+    void spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow>*, const uint64_t& element_id, const int& cost);
+
+    // Index Store Task Spawn
+    void spawn_topo_index_gctask(Element_T);
+    void spawn_prop_index_gctask(Element_T type, const int& pid, const int& cost);
 
     // -------Other help functions--------
     void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&);

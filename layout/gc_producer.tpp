@@ -53,7 +53,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
     MVCCItem *gc_checkpoint = nullptr;
     int gc_version_count = 0;
     while (true) {
-        if (cur_ptr->GetEndTime() < MINIMUM_ACTIVE_TRANSACTION_BT) {
+        if (cur_ptr->GetEndTime() < running_trx_list_->GetGlobalMinBT()) {
             // This version GCable
             gc_checkpoint = cur_ptr;
             gc_version_count++;

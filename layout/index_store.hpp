@@ -26,6 +26,9 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #define INDEX_THRESHOLD_RATIO 0.2
 
+class GCProducer;
+class GCConsumer;
+
 /**
  * IndexStore is used to store all index related data to accelerate processing,
  * including 1.Topology Index (i.e. Init Message) 2.Property Index
@@ -35,7 +38,6 @@ class IndexStore {
     IndexStore() {
         config_ = Config::GetInstance();
         data_storage_ = DataStorage::GetInstance();
-        trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
     }
 
     static IndexStore* GetInstance() {
@@ -94,6 +96,7 @@ class IndexStore {
                             value_t* new_val = NULL, vector<value_t>* old_vals = NULL);
     void MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t & ct);  // Invoke when validation begins
     void MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t & ct);  // Invoke when commit successfully
+    void UpdateTrxStatus(const uint64_t & trx_id, TRX_STAT stat);  // Update trx status in trx_status_and_count_table
 
     // Prop Index Related
     bool IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL);
@@ -106,15 +109,24 @@ class IndexStore {
     void ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data);  // For Prop
     bool GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str);
 
-    // GC
+    // GC:
+    //  For each update_element,
+    //  if it's mergable, merge
+    //      [For Topo,
+    //          if related trx is committed, merge
+    //          if related trx is abort, erase from update list
+    //      ]
+    //  else do nothin;
     void VtxSelfGarbageCollect(const uint64_t& threshold);
     void EdgeSelfGarbageCollect(const uint64_t& threshold);
     void PropSelfGarbageCollect(const uint64_t& threshold, const int& pid, Element_T type);
 
+    friend class GCProducer;
+    friend class GCConsumer;
+
  private:
     Config * config_;
     DataStorage * data_storage_;
-    TrxTableStub * trx_table_stub_;
 
     mutex thread_mutex_;
     struct index_{  // One Index for One PropertyKey (e.g. age)
@@ -168,6 +180,16 @@ class IndexStore {
     WritePriorRWLock edge_topo_gc_rwlock_;
     WritePriorRWLock vtx_prop_gc_rwlock_;
     WritePriorRWLock edge_prop_gc_rwlock_;
+
+    // Map for recording trx status and related updates number
+    // is used for GC to decide which operation be applied to
+    // update element, for avoiding read_status during gc which
+    // will make status table gc impossible
+    //
+    // Only for Topo Update, nothing do with Prop
+    tbb::concurrent_hash_map<uint64_t, pair<TRX_STAT, int>> trx_status_and_count_table;
+    typedef tbb::concurrent_hash_map<uint64_t, pair<TRX_STAT, int>>::accessor trx_sc_accessor;
+    typedef tbb::concurrent_hash_map<uint64_t, pair<TRX_STAT, int>>::const_accessor trx_sc_const_accessor;
 
     void build_topo_data();
 

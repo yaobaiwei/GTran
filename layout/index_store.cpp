@@ -11,12 +11,17 @@ void IndexStore::Init() {
 
 bool IndexStore::IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL) {
     if (config_->global_enable_indexing) {
+        WritePriorRWLock * rw_lock;
         unordered_map<int, index_>* m;
         if (type == Element_T::VERTEX) {
             m = &vtx_prop_index;
+            rw_lock = &vtx_prop_gc_rwlock_;
         } else {
             m = &edge_prop_index;
+            rw_lock = &edge_prop_gc_rwlock_;
         }
+
+        ReaderLockGuard reader_guard_lock(*rw_lock);
 
         thread_mutex_.lock();
         // check property key
@@ -53,13 +58,17 @@ bool IndexStore::IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = 
 //  no_key_vec:        vector of elements that have no provided key
 bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<value_t>>& index_map, vector<value_t>& no_key_vec) {
     if (config_->global_enable_indexing) {
+        WritePriorRWLock * rw_lock;
         unordered_map<int, index_>* m;
         if (type == Element_T::VERTEX) {
             m = &vtx_prop_index;
+            rw_lock = &vtx_prop_gc_rwlock_;
         } else {
             m = &edge_prop_index;
+            rw_lock = &edge_prop_gc_rwlock_;
         }
 
+        ReaderLockGuard reader_guard_lock(*rw_lock);
         index_ &idx = (*m)[pid];
 
         uint64_t sum = 0;
@@ -85,13 +94,17 @@ bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<value_
 
 bool IndexStore::SetIndexMapEnable(Element_T type, int pid, bool inverse = false) {
     if (config_->global_enable_indexing) {
+        WritePriorRWLock * rw_lock;
         unordered_map<int, index_>* m;
         if (type == Element_T::VERTEX) {
             m = &vtx_prop_index;
+            rw_lock = &vtx_prop_gc_rwlock_;
         } else {
             m = &edge_prop_index;
+            rw_lock = &edge_prop_gc_rwlock_;
         }
 
+        ReaderLockGuard reader_guard_lock(*rw_lock);
         index_ &idx = (*m)[pid];
 
         thread_mutex_.lock();
@@ -130,12 +143,16 @@ void IndexStore::ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>
 }
 
 bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str) {
+    WritePriorRWLock * rw_lock;
     unordered_map<int, index_>* m;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
+        rw_lock = &vtx_prop_gc_rwlock_;
     } else {
         m = &edge_prop_index;
+        rw_lock = &edge_prop_gc_rwlock_;
     }
+    ReaderLockGuard reader_guard_lock(*rw_lock);
 
     auto itr = m->find(pid);
     if (itr == m->end()) {
@@ -155,7 +172,9 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& 
 }
 
 void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
-    // Note: Lock outside for reduce lock contension
+    WriterLockGuard writer_lock_guard(vtx_topo_gc_rwlock_);
+
+    cout << "[IndexStore] Start" << endl;
     vector<vid_t> addV_vec;
     set<vid_t> delV_set;
     // tbb::concurrent_vector does NOT support erase store
@@ -165,7 +184,13 @@ void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
         if (up_elem.ct < threshold && up_elem.ct != 0) {
             // Mergable element
             TRX_STAT trx_stat;
-            trx_table_stub_->read_status(up_elem.trxid, trx_stat);
+            trx_sc_accessor tac;
+            if (trx_status_and_count_table.find(tac, up_elem.trxid)) {
+                trx_stat = tac->second.first;
+            } else {
+                cout << "[IndexStore] Zombie Update Element Exists in IndexStore" << endl;
+                continue;
+            }
 
             vid_t vid;
             uint2vid_t(up_elem.element_id, vid);
@@ -175,16 +200,24 @@ void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
                 } else {
                     delV_set.emplace(vid);
                 }
+
+                tac->second.second--;
             } else { 
                 if (trx_stat != TRX_STAT::ABORT) {
                     // For Abort Trx, Erase element from update list
                     new_update_list.emplace_back(up_elem);
+                } else {
+                    tac->second.second--;
                 }
             }
+
+            if (tac->second.second == 0) { trx_status_and_count_table.erase(tac); }
         } else {
             new_update_list.emplace_back(up_elem);
         }
     }
+
+    cout << "[IndexStore] new_update_list size " << new_update_list.size() << endl;
 
     auto checkFunc = [&](vid_t& vid) {
         if (delV_set.find(vid) != delV_set.end()) {
@@ -199,10 +232,13 @@ void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
     }
     topo_vtx_data.insert(topo_vtx_data.end(), addV_vec.begin(), addV_vec.end());
     vtx_update_list.swap(new_update_list);
+
+    cout << "[IndexStore] vtx_update_list size after swap : " << vtx_update_list.size() << endl;
 }
 
 void IndexStore::EdgeSelfGarbageCollect(const uint64_t& threshold) {
-    // Note: Lock outside for reduce lock contension 
+    WriterLockGuard writer_lock_guard(edge_topo_gc_rwlock_);
+
     set<eid_t> addE_set;
     set<eid_t> delE_set;
     // tbb::concurrent_vector does NOT support erase store
@@ -212,7 +248,13 @@ void IndexStore::EdgeSelfGarbageCollect(const uint64_t& threshold) {
         if (up_elem.ct < threshold && up_elem.ct != 0) {
             // Mergable element
             TRX_STAT trx_stat;
-            trx_table_stub_->read_status(up_elem.trxid, trx_stat);
+            trx_sc_accessor tac;
+            if (trx_status_and_count_table.find(tac, up_elem.trxid)) {
+                trx_stat = tac->second.first;
+            } else {
+                cout << "[IndexStore] Zombie Update Element Exists in IndexStore" << endl;
+                continue;
+            }
 
             eid_t eid;
             uint2eid_t(up_elem.element_id, eid);
@@ -253,17 +295,22 @@ void IndexStore::EdgeSelfGarbageCollect(const uint64_t& threshold) {
 }
 
 void IndexStore::PropSelfGarbageCollect(const uint64_t& threshold, const int& pid, Element_T type) {
+    WritePriorRWLock* rw_lock;
     unordered_map<int, index_>* m;
     tbb::concurrent_hash_map<int, map<value_t, vector<update_element>>>* up_region;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
         up_region = &vp_update_map;
+        rw_lock = &vtx_prop_gc_rwlock_;
     } else {
         m = &edge_prop_index;
         up_region = &ep_update_map;
+        rw_lock = &edge_prop_gc_rwlock_;
     }
 
-    // Note: Lock outside for reduce lock contension
+    // Lock Here, Lock outside is hard
+    WriterLockGuard writer_lock_guard(*rw_lock);
+
     if (m->find(pid) == m->end()) {
         // There is no such key in index
         cout << "[IndexStore] Unexpected PropertyKey when try to gc" << endl;
@@ -281,44 +328,36 @@ void IndexStore::PropSelfGarbageCollect(const uint64_t& threshold, const int& pi
         auto up_elem_itr = pair.second.begin();
         while (up_elem_itr != pair.second.end()) {
             if (up_elem_itr->ct < threshold && up_elem_itr->ct != 0) {
-                TRX_STAT stat;
-                trx_table_stub_->read_status(up_elem_itr->trxid, stat);
-                if (stat == TRX_STAT::COMMITTED) {
-                    epid_t epid; value_t eid_value_t;
-                    uint2epid_t(up_elem_itr->element_id, epid);
+                epid_t epid; value_t eid_value_t;
+                uint2epid_t(up_elem_itr->element_id, epid);
 
-                    eid_t eid(epid.in_vid, epid.out_vid);
-                    Tool::uint64_t2value_t(eid.value(), eid_value_t);
+                eid_t eid(epid.in_vid, epid.out_vid);
+                Tool::uint64_t2value_t(eid.value(), eid_value_t);
 
-                    if (up_elem_itr->update_type == PropertyUpdateT::ADD) {
-                        // Add a new property for this vertex
-                        // Need to modify index_map, no_key and count_map
-                        // index_.no_key
-                        auto itr = cur_index->no_key.find(eid_value_t);
-                        if (itr != cur_index->no_key.end()) { cur_index->no_key.erase(itr); }
+                if (up_elem_itr->update_type == PropertyUpdateT::ADD) {
+                    // Add a new property for this vertex
+                    // Need to modify index_map, no_key and count_map
+                    // index_.no_key
+                    auto itr = cur_index->no_key.find(eid_value_t);
+                    if (itr != cur_index->no_key.end()) { cur_index->no_key.erase(itr); }
 
-                        modify_index(cur_index, eid_value_t, up_elem_itr->value, true);
-                    } else if (up_elem_itr->update_type == PropertyUpdateT::DROP) {
-                        // property dropped from this vertex
-                        // Need to modify index_map, no_key and count_map
+                    modify_index(cur_index, eid_value_t, up_elem_itr->value, true);
+                } else if (up_elem_itr->update_type == PropertyUpdateT::DROP) {
+                    // property dropped from this vertex
+                    // Need to modify index_map, no_key and count_map
 
-                        // index_.no_key
-                        cur_index->no_key.emplace(eid_value_t);
+                    // index_.no_key
+                    cur_index->no_key.emplace(eid_value_t);
 
-                        modify_index(cur_index, eid_value_t, up_elem_itr->value, false);
-                    } else if (up_elem_itr->update_type == PropertyUpdateT::MODIFY) {
-                        // Property value changed from this vertex
-                        // Need to modify index_map, count_map
-                        modify_index(cur_index, eid_value_t, up_elem_itr->value, up_elem_itr->isAdd);
-                    }
-
-                    up_elem_itr = pair.second.erase(up_elem_itr);
-                    continue;
-                } else if (stat == TRX_STAT::ABORT) {
-                    // For Abort Trx, Erase element from update list
-                    up_elem_itr = pair.second.erase(up_elem_itr);
-                    continue;
+                    modify_index(cur_index, eid_value_t, up_elem_itr->value, false);
+                } else if (up_elem_itr->update_type == PropertyUpdateT::MODIFY) {
+                    // Property value changed from this vertex
+                    // Need to modify index_map, count_map
+                    modify_index(cur_index, eid_value_t, up_elem_itr->value, up_elem_itr->isAdd);
                 }
+
+                up_elem_itr = pair.second.erase(up_elem_itr);
+                continue;
             }
 
             up_elem_itr++;
@@ -384,6 +423,13 @@ void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t 
         for (auto & up_elem : cac->second) {
             up_elem.set_ct(ct);
             vtx_update_list.emplace_back(up_elem);
+
+            trx_sc_accessor tac;
+            if (trx_status_and_count_table.insert(tac, trx_id)) {
+                tac->second = make_pair(TRX_STAT::VALIDATING, 1); 
+            } else {
+                tac->second.second++;
+            }
         }
         vtx_update_buffers.erase(cac);
     }
@@ -393,6 +439,13 @@ void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t 
         for (auto & up_elem : cac->second) {
             up_elem.set_ct(ct);
             edge_update_list.emplace_back(up_elem);
+
+            trx_sc_accessor tac;
+            if (trx_status_and_count_table.insert(tac, trx_id)) {
+                tac->second = make_pair(TRX_STAT::VALIDATING, 1); 
+            } else {
+                tac->second.second++;
+            }
         }
         edge_update_buffers.erase(cac);
     }
@@ -439,6 +492,13 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
     }
 }
 
+void IndexStore::UpdateTrxStatus(const uint64_t & trx_id, TRX_STAT stat) {
+    trx_sc_accessor tac;
+    if (trx_status_and_count_table.find(tac, trx_id)) {
+        tac->second.first = stat; 
+    }
+}
+
 void IndexStore::ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time,
                                   const bool & read_only, vector<vid_t> & data) {
     vector<vid_t> addV_vec;
@@ -469,6 +529,7 @@ void IndexStore::ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begi
         return false;
     };
 
+    ReaderLockGuard reader_lock_guard(vtx_topo_gc_rwlock_);
     data = topo_vtx_data;
     if (delV_set.size() != 0) {
         data.erase(remove_if(data.begin(), data.end(), checkFunc), data.end());
@@ -520,6 +581,7 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
         return false;
     };
 
+    ReaderLockGuard reader_lock_guard(edge_topo_gc_rwlock_);
     data = topo_edge_data;
     if (delE_set.size() != 0) {
         data.erase(remove_if(data.begin(), data.end(), checkFunc), data.end());
@@ -540,14 +602,18 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
 void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
     unordered_map<int, index_>* m;
     tbb::concurrent_hash_map<int, map<value_t, vector<update_element>>>* up_region;
+    WritePriorRWLock * rw_lock;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
         up_region = &vp_update_map;
+        rw_lock = &vtx_prop_gc_rwlock_;
     } else {
         m = &edge_prop_index;
         up_region = &ep_update_map;
+        rw_lock = &edge_prop_gc_rwlock_;
     }
 
+    ReaderLockGuard reader_guard_lock(*rw_lock);
     index_ &idx = (*m)[pid];
 
     auto &index_map = idx.index_map;
@@ -691,12 +757,16 @@ void IndexStore::read_prop_update_data(const update_element & up_elem, vector<va
 
 uint64_t IndexStore::get_count_by_predicate(Element_T type, int pid, PredicateValue& pred) {
     unordered_map<int, index_>* m;
+    WritePriorRWLock * rw_lock;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
+        rw_lock = &vtx_prop_gc_rwlock_;
     } else {
         m = &edge_prop_index;
+        rw_lock = &edge_prop_gc_rwlock_;
     }
 
+    ReaderLockGuard reader_guard_lock(*rw_lock);
     index_ &idx = (*m)[pid];
     auto& count_map = idx.count_map;
     uint64_t count = 0;

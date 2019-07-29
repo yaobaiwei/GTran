@@ -19,6 +19,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
         // TODO : Erase Barrier TmpData
 
         string abort_phase_info = m.msg_type == MSG_T::INIT ? "processing" : "validation";
+        index_store_->UpdateTrxStatus(qplan.trxid, TRX_STAT::ABORT);
 
         Tool::str2str("Transaction aborted during " + abort_phase_info, result);
     } else if (m.msg_type == MSG_T::COMMIT) {
@@ -27,6 +28,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
         uint64_t ct = Tool::value_t2uint64_t(msg.data.at(0).second.at(0));
         data_storage_->Commit(qplan.trxid, ct);
         index_store_->MovePropBufferToRegion(qplan.trxid, ct);
+        index_store_->UpdateTrxStatus(qplan.trxid, TRX_STAT::COMMITTED);
         Tool::str2str("Transaction committed", result);
     } else {
         cout << "[Error] Unexpected Message Type in Commit Actor" << endl;

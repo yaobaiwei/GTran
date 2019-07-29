@@ -646,4 +646,4 @@ enum AddEdgeMethodType { PlaceHolder, StepLabel, NotApplicable };
 
 
 // For GCTask
-enum JobType { EraseV, EraseOutE, EraseInE, VMVCCGC, VPMVCCGC, EPMVCCGC, EMVCCGC, TopoRowGC, TopoRowDefrag, VPRowGC, VPRowDefrag, EPRowGC, EPRowDefrag };
+enum JobType { EraseV, EraseOutE, EraseInE, VMVCCGC, VPMVCCGC, EPMVCCGC, EMVCCGC, TopoIndexGC, PropIndexGC, TopoRowGC, TopoRowDefrag, VPRowGC, VPRowDefrag, EPRowGC, EPRowDefrag };

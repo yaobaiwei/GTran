@@ -31,6 +31,8 @@ enum class TaskStatus {
     BLOCKED
 };
 
+/* =====================Task Region============================== */
+
 /* AbstractGCTask is the parent class for all GC tasks. */
 class AbstractGCTask {
  public:
@@ -42,8 +44,6 @@ class AbstractGCTask {
     AbstractGCTask(int cost) : cost_(cost) {}
 };
 
-/* IndependentGCTask is the parent class of GC tasks without dependency.
- */
 class IndependentGCTask : public AbstractGCTask {
  public:
     IndependentGCTask() {}
@@ -233,6 +233,27 @@ class EPMVCCGCTask : public IndependentGCTask {
     EPMVCCGCTask(EPropertyMVCCItem* target_, int cost) : target(target_), IndependentGCTask(cost) {}
 };
 
+// Perform GC on IndexStore:TopoIndex
+class TopoIndexGCTask : public IndependentGCTask {
+ public:
+    Element_T element_type;
+
+    // The cost of TopoIndexGC is always 1 which makes sure
+    // the task will be pushed out immediately.
+    TopoIndexGCTask(Element_T element_type_) : element_type(element_type_), IndependentGCTask(1) {}
+};
+
+// Perform GC on IndexStore:PropIndex
+class PropIndexGCTask : public IndependentGCTask {
+ public:
+     Element_T element_type;
+     int pid;
+
+     PropIndexGCTask(Element_T element_type_, int pid_, int cost) : element_type(element_type_), pid(pid_), IndependentGCTask(cost) {}
+};
+
+/* =====================Job Region============================== */
+
 class AbstractGCJob {
  public:
     // sum of cost of all tasks
@@ -404,6 +425,16 @@ class EPMVCCGCJob : public IndependentGCJob {
 class EMVCCGCJob : public IndependentGCJob {
  public:
     EMVCCGCJob() : IndependentGCJob(JobType::EMVCCGC, Config::GetInstance()->EMVCC_GC_Task_THRESHOLD) {}
+};
+
+class TopoIndexGCJob : public IndependentGCJob {
+ public:
+    TopoIndexGCJob() : IndependentGCJob(JobType::TopoIndexGC, Config::GetInstance()->Topo_Index_GC_Task_THRESHOLD) {}
+};
+
+class PropIndexGCJob : public IndependentGCJob {
+ public:
+    PropIndexGCJob() : IndependentGCJob(JobType::PropIndexGC, Config::GetInstance()->Prop_Index_GC_Task_THRESHOLD) {}
 };
 
 class TopoRowListGCJob : public DependentGCJob {

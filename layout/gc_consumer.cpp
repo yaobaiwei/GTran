@@ -11,6 +11,8 @@ GCConsumer::GCConsumer() {
     config_ = Config::GetInstance();
     data_storage_ = DataStorage::GetInstance();
     tid_mapper_ = TidMapper::GetInstance();
+    index_store_ = IndexStore::GetInstance();
+    running_trx_list_ = RunningTrxList::GetInstance();
 }
 
 void GCConsumer::Init() {
@@ -57,6 +59,12 @@ void GCConsumer::Execute(int tid) {
             break;
           case JobType::EMVCCGC:
             ExecuteEMVCCGCJob(job);
+            break;
+          case JobType::TopoIndexGC:
+            ExecuteTopoIndexGCJob(job);
+            break;
+          case JobType::PropIndexGC:
+            ExecutePropIndexGCJob(job);
             break;
           case JobType::TopoRowGC:
             ExecuteTopoRowListGCJob(job);
@@ -179,6 +187,26 @@ void GCConsumer::ExecuteEMVCCGCJob(EMVCCGCJob* job) {
             to_free->ValueGC();
             data_storage_->edge_mvcc_pool_->Free(to_free, tid_mapper_->GetTidUnique());
         }
+    }
+}
+
+void GCConsumer::ExecuteTopoIndexGCJob(TopoIndexGCJob* job) {
+    for (auto t : job->tasks_) {
+        Element_T type = static_cast<TopoIndexGCTask*>(t)->element_type;
+        if (type == Element_T::VERTEX) {
+            index_store_->VtxSelfGarbageCollect(running_trx_list_->GetGlobalMinBT());
+        } else if (type == Element_T::EDGE) {
+            index_store_->EdgeSelfGarbageCollect(running_trx_list_->GetGlobalMinBT());
+        }
+    }
+}
+
+void GCConsumer::ExecutePropIndexGCJob(PropIndexGCJob* job) {
+    for (auto t : job->tasks_) {
+        Element_T type = static_cast<PropIndexGCTask*>(t)->element_type;
+        int pid = static_cast<PropIndexGCTask*>(t)->pid;
+        // Lock inside
+        index_store_->PropSelfGarbageCollect(running_trx_list_->GetGlobalMinBT(), pid, type);
     }
 }
 
