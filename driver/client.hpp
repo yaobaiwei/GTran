@@ -43,8 +43,6 @@ class Client{
     Node master_;
     ClientConnection cc_;
     int handler_;
-    // uint64_t time_stamp_;
-    // uint64_t trxid_;
 
     void RequestWorker();
     string CommitQuery(string query);

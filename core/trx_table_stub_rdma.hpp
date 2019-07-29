@@ -33,8 +33,6 @@ class RDMATrxTableStub : public TrxTableStub{
 
     uint64_t ASSOCIATIVITY_;
 
-    mutex update_mutex_;
-
     Coordinator* coordinator_;
 
     RDMATrxTableStub(AbstractMailbox * mailbox, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) {

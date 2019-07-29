@@ -63,6 +63,8 @@ class TCPMailbox : public AbstractMailbox {
     socket_vector notification_senders_;
     zmq::socket_t* notificaton_receiver_;
 
+    pthread_spinlock_t send_notification_lock_;
+
  public:
     TCPMailbox(Node & my_node, Node & master) : my_node_(my_node), master_(master), context(1) {
         config_ = Config::GetInstance();

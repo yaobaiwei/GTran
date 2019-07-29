@@ -57,11 +57,6 @@ class TransactionTable {
     bool find_trx(uint64_t trx_id, TidStatus** p);
     bool register_ct(uint64_t trx_id, uint64_t ct);
 
-    // bt table is separated from status region since we must keep status region in RDMA
-    tbb::concurrent_hash_map<uint64_t, uint64_t> bt_table_;
-    typedef tbb::concurrent_hash_map<uint64_t, uint64_t>::accessor bt_table_accessor;
-    typedef tbb::concurrent_hash_map<uint64_t, uint64_t>::const_accessor bt_table_const_accessor;
-
     char * buffer_;
     uint64_t buffer_sz_;
     TidStatus * table_;

@@ -27,10 +27,6 @@ obinstream& operator>>(obinstream& m, QueryPlan& plan) {
 
 void TrxPlan::SetST(uint64_t st) {
     st_ = st;
-
-    for (auto& plan : query_plans_) {
-        plan.st = st_;
-    }
 }
 
 void TrxPlan::RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int actor_index, int param_index) {

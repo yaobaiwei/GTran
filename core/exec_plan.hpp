@@ -44,14 +44,15 @@ class Parser;
 class TrxPlan {
  public:
     TrxPlan() {}
-    TrxPlan(uint64_t trxid_, uint64_t st, string client_host_) : trxid(trxid_), st_(st), client_host(client_host_) {
+    TrxPlan(uint64_t trxid_, string client_host_) : trxid(trxid_), client_host(client_host_) {
         trx_type_ = TRX_READONLY;
         start_time = timer::get_usec();
         is_abort_ = false;
         is_end_ = false;
     }
 
-    // TODO(entityless): Remove this in the future
+    // This is needed since when parsing is finished and TrxPlan is created,
+    // the begin time of the transaction is unknown.
     void SetST(uint64_t st);
 
     // Register place holder, dst_index depends on src_index
@@ -80,7 +81,6 @@ class TrxPlan {
     // physical time
     uint64_t start_time;
 
-    // Interfaces to read private members
     uint64_t GetStartTime() const {return st_;}
 
  private:

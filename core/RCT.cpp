@@ -11,7 +11,7 @@ void RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
     rct_map_.insert(std::make_pair(ct, trx_id));
 }
 
-void RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) const {   
+void RCTable::query_trx(uint64_t bt, uint64_t ct, std::vector<uint64_t>& trx_ids) const {
     CHECK_EQ(trx_ids.size(), 0) << "[RCTable] trx_ids should be empty";
     if (ct <= bt)
         return;
@@ -21,7 +21,7 @@ void RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) c
     auto upper = rct_map_.upper_bound(ct);
 
     while (lower != upper) {
-        trx_ids.insert(lower->second);
+        trx_ids.emplace_back(lower->second);
         lower++;
     }
 }
@@ -34,13 +34,6 @@ void RCTable::erase_trxs(uint64_t min_bt) {
 
     auto lower = rct_map_.lower_bound(0);
     auto upper = rct_map_.upper_bound(min_bt - 1);
-
-    // dbg
-    auto lower_dbg = rct_map_.lower_bound(0);
-    while (lower_dbg != upper) {
-        printf("[RCTable::erase_trxs], erased %lu %lu\n", lower_dbg->first, lower_dbg->second);
-        lower_dbg++;
-    }
 
     rct_map_.erase(lower, upper);
 }

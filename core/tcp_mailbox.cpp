@@ -110,6 +110,8 @@ void TCPMailbox::Init(vector<Node> &nodes) {
         local_msgs[i] = new ThreadSafeQueue<Message>();
     }
     rr_size = 3;
+
+    pthread_spin_init(&send_notification_lock_, 0);
 }
 
 int TCPMailbox::Send(int tid, const Message & msg) {
@@ -178,9 +180,9 @@ void TCPMailbox::SendNotification(int dst_nid, ibinstream &in) {
 
     zmq::message_t msg(in.size());
     memcpy(reinterpret_cast<void *>(msg.data()), in.get_buf(), in.size());
-    notification_senders_[dst_nid]->send(msg);
 
-    return;
+    SimpleSpinLockGuard lock_guard(&send_notification_lock_);
+    notification_senders_[dst_nid]->send(msg);
 }
 
 void TCPMailbox::RecvNotification(obinstream &out) {
@@ -191,8 +193,6 @@ void TCPMailbox::RecvNotification(obinstream &out) {
     char *buf = new char[zmq_msg.size()];
     memcpy(buf, zmq_msg.data(), zmq_msg.size());
     out.assign(buf, zmq_msg.size(), 0);
-
-    return;
 }
 
 void TCPMailbox::Recv(int tid, Message & msg) { return; }

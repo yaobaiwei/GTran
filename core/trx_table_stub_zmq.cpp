@@ -11,18 +11,18 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool i
     CHECK(new_status != TRX_STAT::VALIDATING);
 
     int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+
     if (worker_id == node_.get_local_rank()) {
-        // append to local queue
+        // directly append the request to the local queue
         UpdateTrxStatusReq req{node_.get_local_rank(), trx_id, new_status, is_read_only};
         pending_trx_updates_->Push(req);
     } else {
+        // send the request to remote worker
         ibinstream in;
         int status_i = int(new_status);
         in << (int)(NOTIFICATION_TYPE::UPDATE_STATUS) << node_.get_local_rank() << trx_id << status_i << is_read_only;
 
-        unique_lock<mutex> lk(update_mutex_);
-
-        mailbox_ ->SendNotification(worker_id, in);
+        mailbox_->SendNotification(worker_id, in);
     }
 
     return true;
@@ -35,7 +35,7 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
     int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
 
     if (worker_id == node_.get_local_rank()) {
-        return trx_table_ -> query_status(trx_id, status);
+        return trx_table_->query_status(trx_id, status);
     }
 
     int t_id = TidMapper::GetInstance()->GetTid();

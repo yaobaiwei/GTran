@@ -28,8 +28,6 @@ class TcpTrxTableStub : public TrxTableStub {
     vector<zmq::socket_t *> senders_;
     vector<zmq::socket_t *> receivers_;  // global_num_threads
 
-    mutex update_mutex_;
-
     Coordinator* coordinator_;
 
     TcpTrxTableStub(AbstractMailbox *mailbox, Node &master, vector<Node> workers, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) :

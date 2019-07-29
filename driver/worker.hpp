@@ -276,7 +276,7 @@ class Worker {
         uint64_t trxid;
         coordinator_->RegisterTrx(trxid);
 
-        TrxPlan plan(trxid, 0, client_host);
+        TrxPlan plan(trxid, client_host);
         string error_msg;
         bool success = parser_->Parse(query, plan, error_msg);
 
@@ -285,7 +285,7 @@ class Worker {
             plans_.insert(accessor, trxid);
             accessor->second = move(plan);
 
-            // Allocate begin time
+            // Request begin time
             TimestampRequest req(trxid, false);
             pending_timestamp_request_.Push(req);
         } else {
@@ -356,14 +356,14 @@ class Worker {
                         ValidationQueryPack v_pkg;
                         v_pkg.pack = move(pkg);
 
-                        // Before obtaining CT and quering RCT, the qplan cannot be executed.
+                        // Until obtaining CT and quering RCT, the qplan cannot be executed.
                         accessor->second = move(v_pkg);
 
-                        // Allocate commit time
+                        // Request commit time
                         TimestampRequest req(pkg.qplan.trxid, true);
                         pending_timestamp_request_.Push(req);
                     } else {
-                        // do not need to allocate CT and query RCT.
+                        // For readonly trx, do not need to allocate CT and query RCT.
                         UpdateTrxStatusReq req{my_node_.get_local_rank(), plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
                         pending_trx_updates_.Push(req);
                         // Push query plan to SendQueryMsg queue directly.
@@ -421,30 +421,30 @@ class Worker {
             out >> notification_type;
 
             if (notification_type == (int)(NOTIFICATION_TYPE::RCT_TIDS)) {
-                vector<uint64_t> trxIDList;
+                // RCT query result from remote workers
+                vector<uint64_t> trx_id_list;
                 uint64_t trxid;
-                out >> trxid >> trxIDList;
+                out >> trxid >> trx_id_list;
 
                 QueryRCTResult query_result;
                 query_result.trx_id = trxid;
-                query_result.trx_id_list.swap(trxIDList);
+                query_result.trx_id_list.swap(trx_id_list);
 
                 pending_rct_query_result_.Push(query_result);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
-                // P->V will not go here.
                 int n_id;
                 uint64_t trx_id;
                 int status_i;
                 bool is_read_only;
                 out >> n_id >> trx_id >> status_i >> is_read_only;
 
-                // Update status to VALIDATING only occurs locally.
-                // Won't pass by mailbox.
+                // P->V request will not go here. (Directly append to pending_trx_updates_)
                 CHECK(status_i != (int)(TRX_STAT::VALIDATING));
 
                 UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
                 pending_trx_updates_.Push(req);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::QUERY_RCT)) {
+                // RCT query request from remote workers
                 int n_id;
                 uint64_t bt, ct, trx_id;
                 out >> n_id >> trx_id >> bt >> ct;
@@ -454,16 +454,6 @@ class Worker {
             } else {
                 CHECK(false);
             }
-        }
-    }
-
-    void Debug() {
-        return;
-        coordinator_->WaitForMPITimestamperInit();
-        while (1) {
-            sleep(5);
-            uint64_t min_bt = running_trx_list_->GetGlobalMinBT();
-            rct_->erase_trxs(min_bt);
         }
     }
 
@@ -489,14 +479,13 @@ class Worker {
 
     void ProcessAllocatedTimestamp() {
         while (true) {
-            // Allocated in Coordinator::ProcessObtainingTimestamp
+            // The timestamp is allocated in Coordinator::ProcessObtainingTimestamp
             AllocatedTimestamp allocated_ts;
             pending_allocated_timestamp_.WaitAndPop(allocated_ts);
             uint64_t trx_id = allocated_ts.trx_id;
 
             if (allocated_ts.is_ct) {
-                // Only non-readonly transaction will go here.
-
+                // Non-readonly transactions, CT allocated
                 uint64_t ct = allocated_ts.timestamp;
                 // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
@@ -512,26 +501,25 @@ class Worker {
                 uint64_t bt = plan.GetStartTime();
 
                 // Firstly, query the local RCT
-                std::set<uint64_t> trx_ids;
+                std::vector<uint64_t> trx_ids;
                 rct_->query_trx(bt, ct - 1, trx_ids);
-                std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
                 QueryRCTResult query_result;
                 query_result.trx_id = trx_id;
-                query_result.trx_id_list.swap(trx_ids_vec);
+                query_result.trx_id_list.swap(trx_ids);
                 pending_rct_query_result_.Push(query_result);
 
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
                 in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
 
-                // Secondly, query the RCT on other workers.
+                // Secondly, query the RCT on other workers (send the query RCT request).
                 for (int i = 0; i < config_->global_num_workers; i++)
                     if (i != my_node_.get_local_rank())
                         mailbox_ ->SendNotification(i, in);
             } else {
+                // BT allocated.
                 uint64_t bt = allocated_ts.timestamp;
                 // printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
-                fflush(stdout);
                 running_trx_list_->InsertTrx(bt);
 
                 trx_table_->insert_single_trx(trx_id, bt);
@@ -540,6 +528,7 @@ class Worker {
                 plans_.find(accessor, trx_id);
 
                 TrxPlan& plan = accessor->second;
+                // Set bt for TrxPlan
                 plan.SetST(bt);
 
                 if (!RegisterQuery(plan)) {
@@ -618,12 +607,6 @@ class Worker {
 
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> coordinator_->Init()" << endl;
 
-        // =================MPITimestamper========================
-        timestamper_ = MPITimestamper::GetInstance();
-        // Use this thread to initialize MPITimestamper
-        mpi_timestamper_initialized_ = false;  // set true in ProcessObtainingTimestamp
-        thread timestamp_obtainer(&Coordinator::ProcessObtainingTimestamp, coordinator_);
-
         // =================MailBox=========================
         if (config_->global_use_rdma) {
             mailbox_ = new RdmaMailbox(my_node_, master_, buf);
@@ -672,28 +655,38 @@ class Worker {
         coordinator_->GetInstancesFromWorker(trx_table_, mailbox_, rct_, workers_);
         coordinator_->PrepareSockets();
 
-        // =================Recv&SendThread=================
+        // =================Timestamp generator thread=================
+        thread timestamp_generator(&Coordinator::ProcessObtainingTimestamp, coordinator_);
+        cout << "[Worker" << my_node_.get_local_rank() << "]: " << "Waiting for init of timestamp generator" << endl;
+        coordinator_->WaitForDistributedClockInit();
+
+        // =================Other threads=================
+        // Recv&Send Thread
         thread recvreq(&Worker::RecvRequest, this);
         thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
+        // Process notification msgs among workers
         thread recvnotification(&Worker::RecvNotification, this);
+        // Deal with allocated timestamps
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
+        // Process RCT query result from remote workers
         thread process_rct_query_result(&Worker::ProcessQueryRCTResult, this);
-
+        // Send RCT query request to remote workers
         thread process_rct_query_request(&Coordinator::ProcessQueryRCTRequest, coordinator_);
+        // Execute TrxTable modification request from update_status
         thread trx_table_write_executor(&Coordinator::ProcessTrxTableWriteReqs, coordinator_);
+        // Perform clock calibration
+        thread timestamp_calibration(&Coordinator::PerformCalibration, coordinator_);
 
+        // For non-rdma configuration
         thread *trx_table_tcp_read_listener, *trx_table_tcp_read_executor, *running_trx_min_bt_listener;
         if (!config_->global_use_rdma) {
+            // Receive remote TrxTable read request
             trx_table_tcp_read_listener = new thread(&Coordinator::ListenTCPTrxReads, coordinator_);
+            // Reply remote TrxTable read request
             trx_table_tcp_read_executor = new thread(&Coordinator::ProcessTCPTrxReads, coordinator_);
+            // Receive and reply remote MIN_BT query request
             running_trx_min_bt_listener = new thread(&RunningTrxList::ProcessReadMinBTRequest, running_trx_list_);
         }
-        thread debug(&Worker::Debug, this);
-
-        cout << "[Worker" << my_node_.get_local_rank() << "]: " << "Waiting for init of timestamp generator" << endl;
-        coordinator_->WaitForMPITimestamperInit();
-
-        thread timestamp_calibration(&Coordinator::PerformCalibration, coordinator_);
 
         worker_barrier(my_node_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
@@ -750,7 +743,7 @@ class Worker {
         sendmsg.join();
         recvnotification.join();
         trx_table_write_executor.join();
-        timestamp_obtainer.join();
+        timestamp_generator.join();
         timestamp_consumer.join();
         process_rct_query_request.join();
         process_rct_query_result.join();
@@ -759,7 +752,6 @@ class Worker {
             trx_table_tcp_read_executor->join();
             running_trx_min_bt_listener->join();
         }
-        debug.join();
         timestamp_calibration.join();
     }
 
@@ -775,8 +767,6 @@ class Worker {
     ResultCollector * rc_;
     Monitor * monitor_;
     AbstractMailbox* mailbox_;
-    MPITimestamper* timestamper_;
-    atomic<bool> mpi_timestamper_initialized_;
 
     bool is_emu_mode_;
     ThroughputMonitor * thpt_monitor_;

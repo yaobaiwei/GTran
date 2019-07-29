@@ -15,10 +15,10 @@ Authors: Created by Chenghuan Huang (entityless@gmail.com)
 #define TIMESTAMP_MACHINE_ID_BITS 8
 
 // Use only one thread should be used to get the timestamp
-class MPITimestamper {
+class DistributedClock {
  public:
-    static MPITimestamper* GetInstance() {
-        static MPITimestamper instance;
+    static DistributedClock* GetInstance() {
+        static DistributedClock instance;
         return &instance;
     }
 
@@ -77,7 +77,7 @@ class MPITimestamper {
     }
 
  private:
-    MPITimestamper();
+    DistributedClock();
 
     MPI_Comm comm_, ori_comm_;
     int my_rank_, comm_sz_;
@@ -89,7 +89,7 @@ class MPITimestamper {
     uint64_t global_calibrate_applied_ns_ = 0;
     double system_error_fix_rate_ = 1.0;
     uint64_t global_min_ns_ = 0;  // set in GlobalSystemErrorCalculate
-    uint64_t init_ns_;  // for debug usage
+    uint64_t init_ns_;
 
     uint64_t last_ts_ = 0;
 

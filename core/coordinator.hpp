@@ -26,7 +26,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/transactions_table.hpp"
 #include "tbb/atomic.h"
 #include "utils/config.hpp"
-#include "utils/mpi_timestamper.hpp"
+#include "utils/distributed_clock.hpp"
 
 #define TRXID_MACHINE_ID_BITS 8
 
@@ -60,9 +60,7 @@ struct QueryRCTRequest {
 struct Uint64CLineWithTag {
     volatile uint64_t data[8] __attribute__((aligned(64)));
 
-    // called by Master
     void SetValue(uint64_t val, uint64_t tag);
-    // called by Worker
     bool GetValue(uint64_t& val, uint64_t tag);
 } __attribute__((aligned(64)));
 
@@ -99,32 +97,44 @@ class Coordinator {
         workers_ = workers;
     }
 
+    // Create tcp sockets
     void PrepareSockets();
 
     int GetWorkerFromTrxID(const uint64_t& trx_id);
 
-    void WaitForMPITimestamperInit();
+    // Wait until DistributedClock have finished calibration
+    void WaitForDistributedClockInit();
 
+    //// Threads:
+    // Obtains the timestamp
     void ProcessObtainingTimestamp();
+    // Performs calibration of global clocl
     void PerformCalibration();
-
+    // Handles RCT query request for remote workers
     void ProcessQueryRCTRequest();
+    // Handles TrxTable modification request
     void ProcessTrxTableWriteReqs();
+    // For TCP, listens TrxTable reading requests from remote workers
     void ListenTCPTrxReads();
+    // For TCP, handle those TrxTable listensing requests from remote workers
     void ProcessTCPTrxReads();
 
  private:
     uint64_t next_trx_id_;
     Node* node_;
     int comm_sz_, my_rank_;  // in node_->local_comm
-    MPITimestamper* timestamper_;
-    atomic<bool> mpi_timestamper_initialized_;
+    DistributedClock* distributed_clock_;
+
+    // Set false in the constructor.
+    // After the calibration, it will be set true.
+    // WaitForDistributedClockInit will check this variable.
+    atomic<bool> distributed_clock_initialized_;
 
     Config* config_;
 
     char* rdma_mem_;
-    Uint64CLineWithTag* ts_cline_;  // the same as rdma_mem_
-    uint64_t rdma_mem_offset_;
+    Uint64CLineWithTag* ts_cline_;  // The same pointer as rdma_mem_
+    uint64_t rdma_mem_offset_;  // RDMA mem offset used for RDMAWrite
 
     // queues in Worker
     ThreadSafeQueue<TimestampRequest>* pending_timestamp_request_;
@@ -142,6 +152,7 @@ class Coordinator {
     zmq::socket_t* trx_read_recv_socket_;
     vector<zmq::socket_t*> trx_read_rep_sockets_;
 
+    // Only called in PerformCalibration
     void WriteTimestampToWorker(int worker_id, uint64_t ts, uint64_t tag);
     uint64_t ReadTimestampFromRDMAMem(uint64_t tag);
 

@@ -34,6 +34,11 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     if (node_.get_world_rank() == MASTER_RANK) {
         nid = config_->global_num_workers;
     }
+
+    // Other threads may call RDMARead or RDMAWrite in:
+    //      Worker::SendQueryMsg (with tid = config_->global_num_threads)
+    //      RunningTrxList::UpdateMinBT (with tid = config_->global_num_threads + 1)
+    //      Coordinator::PerformCalibration (with tid = config_->global_num_threads + 2)
     RDMA_init(config_->global_num_workers, config_->global_num_threads + 3, nid, mem_info, nodes, master_);
 
     int nrbfs = (config_->global_num_workers - 1) * config_->global_num_threads;
@@ -273,16 +278,16 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 }
 
 void RdmaMailbox::SendNotification(int dst_nid, ibinstream& in) {
-    pthread_spin_lock(&send_notification_lock_);
     RDMA &rdma = RDMA::get_rdma();
     int failed = 0;
+    SimpleSpinLockGuard lock_guard(&send_notification_lock_);
+
     while (rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.get_buf(), in.size()) != 0) {
         failed++;
         cout << "Fail to send msg from " << node_.get_world_rank() << " to "
             << dst_nid << ", retry " << failed << " times"<< endl;
         CHECK_LT(failed, 10) << "Node " << node_.get_world_rank() << " fail sending msg 10 times!";
     }
-    pthread_spin_unlock(&send_notification_lock_);
 }
 
 void RdmaMailbox::RecvNotification(obinstream& out) {

@@ -3,12 +3,12 @@
 Authors: Created by Chenghuan Huang (entityless@gmail.com)
 */
 
-#include "mpi_timestamper.hpp"
+#include "distributed_clock.hpp"
 
-MPITimestamper::MPITimestamper() {
+DistributedClock::DistributedClock() {
 }
 
-void MPITimestamper::Init(MPI_Comm comm, int local_calibrate_delay, int global_calibrate_loop, double sample_rate) {
+void DistributedClock::Init(MPI_Comm comm, int local_calibrate_delay, int global_calibrate_loop, double sample_rate) {
     ori_comm_ = comm;
     MPI_Comm_dup(comm, &comm_);
     MPI_Comm_size(comm_, &comm_sz_);
@@ -22,12 +22,9 @@ void MPITimestamper::Init(MPI_Comm comm, int local_calibrate_delay, int global_c
     GlobalCalibrateApply();
 
     init_ns_ = GetLocalPhysicalNS();
-
-    // printf("<MPITimestamper::Init> finished, from %d\n", my_rank_);
-    fflush(stdout);
 }
 
-uint64_t MPITimestamper::GetTimestamp() const {
+uint64_t DistributedClock::GetTimestamp() const {
     uint64_t nano_sec = GetRefinedNS();
 
     assert((nano_sec >> (64 - 1 - TIMESTAMP_MACHINE_ID_BITS)) == 0);
@@ -39,7 +36,7 @@ uint64_t MPITimestamper::GetTimestamp() const {
     return ret;
 }
 
-uint64_t MPITimestamper::GetTimestampWithSystemErrorFix() const {
+uint64_t DistributedClock::GetTimestampWithSystemErrorFix() const {
     uint64_t nano_sec = GetRefinedNSWithSystemErrorFix();
 
     assert((nano_sec >> (64 - 1 - TIMESTAMP_MACHINE_ID_BITS)) == 0);
@@ -51,7 +48,7 @@ uint64_t MPITimestamper::GetTimestampWithSystemErrorFix() const {
     return ret;
 }
 
-void MPITimestamper::LocalCalibrate(int local_calibrate_delay) {
+void DistributedClock::LocalCalibrate(int local_calibrate_delay) {
     // check if constant_tsc feature exists
     uint64_t init_tsc, init_ns;
     uint64_t delayed_tsc, delayed_ns;
@@ -65,7 +62,7 @@ void MPITimestamper::LocalCalibrate(int local_calibrate_delay) {
     local_ns_offset_ = init_ns - (int64_t)((int64_t)init_tsc * tsc_ghz_inv_);
 }
 
-void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sample_rate, bool with_sys_error_fix) {
+void DistributedClock::GlobalCalibrateMeasure(int global_calibrate_loop, double sample_rate, bool with_sys_error_fix) {
     int64_t ns;
     int64_t remote_ns;
     MPI_Status mpi_status;
@@ -101,7 +98,7 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
             if (iter_len < 1)
                 iter_len = 1;
 
-            int64_t send_recv_latency = 0;  // for debug
+            int64_t send_recv_latency = 0;
             ns_offsets[partner] = 0;
 
             int iter_cnt = 0;
@@ -167,20 +164,20 @@ void MPITimestamper::GlobalCalibrateMeasure(int global_calibrate_loop, double sa
     assert(measured_global_ns_offset_ >= 0);
 }
 
-void MPITimestamper::GlobalCalibrateApply() {
+void DistributedClock::GlobalCalibrateApply() {
     global_ns_offset_ += measured_global_ns_offset_;
     assert(global_ns_offset_ >= 0);
     global_calibrate_applied_ns_ = GetGlobalPhysicalNS();
 
     // get the global min physical timestamp
     MPI_Allreduce(&global_calibrate_applied_ns_, &global_min_ns_, 1, MPI_UINT64_T, MPI_MIN, comm_);
-    // printf("[Worker%d] MPITimestamper::GlobalCalibrateApply, off = %ld, %ld, global_min_ns_ = %lu\n", my_rank_, global_ns_offset_, measured_global_ns_offset_, global_min_ns_);
+    // printf("[Worker%d] DistributedClock::GlobalCalibrateApply, off = %ld, %ld, global_min_ns_ = %lu\n", my_rank_, global_ns_offset_, measured_global_ns_offset_, global_min_ns_);
     MPI_Barrier(comm_);
 }
 
-void MPITimestamper::GlobalSystemErrorCalculate(int global_calibrate_loop, int sleep_duration, double sample_rate) {
+void DistributedClock::GlobalSystemErrorCalculate(int global_calibrate_loop, int sleep_duration, double sample_rate) {
     if (my_rank_ == 0)
-        printf("[MPITimestamper] Measuring system error for, please wait for %d sec.\n", sleep_duration);
+        printf("[DistributedClock] Measuring system error for, please wait for %d sec.\n", sleep_duration);
 
     GlobalCalibrateMeasure(global_calibrate_loop, sample_rate);
     uint64_t start_ns = GetGlobalPhysicalNS();

@@ -13,8 +13,11 @@ void Uint64CLine::SetValue(uint64_t val) {
 }
 
 bool Uint64CLine::GetValue(uint64_t& val) {
-    if (data[0] == data[6] && data[1] == data[7] && data[0] + 1 == data[1]) {
-        val = data[0];
+    uint64_t tmp_data[8] __attribute__((aligned(64)));
+    memcpy(tmp_data, data, 64);
+
+    if (tmp_data[0] == tmp_data[6] && tmp_data[1] == tmp_data[7] && tmp_data[0] + 1 == tmp_data[1]) {
+        val = tmp_data[0];
         return true;
     }
 
@@ -140,23 +143,26 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
 uint64_t RunningTrxList::GetGlobalMinBT() {
     uint64_t ret = 0;
     if (config_->global_use_rdma) {
+        // The remote workers will update rdma_mem_ with their MIN_BT via RDMA
+        // Thus, from rdma_mem_, the global MIN_BT can be obtained.
         for (int i = 0; i < node_.get_local_size(); i++) {
-            uint64_t local_min_bt;
+            uint64_t min_bt;
             Uint64CLine* cline = (Uint64CLine*)(rdma_mem_ + i * sizeof(Uint64CLine));
-            while (!cline->GetValue(local_min_bt));
-            ret = max(ret, local_min_bt);
+            while (!cline->GetValue(min_bt));
+            ret = max(ret, min_bt);
         }
     } else {
         pthread_spin_lock(&lock_);
         for (int i = 0; i < node_.get_local_size(); i++) {
-            uint64_t local_min_bt;
+            uint64_t min_bt;
             if (i == node_.get_local_rank()) {
-                local_min_bt = GetMinBT();
+                min_bt = GetMinBT();
             } else {
+                // request remote MIN_BT
                 send_data(node_, node_.get_local_rank(), i, false, MINBT_REQUEST_CHANNEL);
-                local_min_bt = recv_data<uint64_t>(node_, i, false, MINBT_REPLY_CHANNEL);
+                min_bt = recv_data<uint64_t>(node_, i, false, MINBT_REPLY_CHANNEL);
             }
-            ret = max(ret, local_min_bt);
+            ret = max(ret, min_bt);
         }
         pthread_spin_unlock(&lock_);
     }
@@ -169,6 +175,7 @@ void RunningTrxList::ProcessReadMinBTRequest() {
     while (1) {
         int n_id = recv_data<int>(node_, MPI_ANY_SOURCE, false, MINBT_REQUEST_CHANNEL);
         uint64_t min_bt = GetMinBT();
+        // send local MIN_BT to the remote worker
         send_data(node_, min_bt, n_id, false, MINBT_REPLY_CHANNEL);
     }
 }

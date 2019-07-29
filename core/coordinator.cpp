@@ -9,8 +9,7 @@ void Uint64CLineWithTag::SetValue(uint64_t val, uint64_t tag) {
     uint64_t tmp_data[8] __attribute__((aligned(64)));
     tmp_data[0] = tmp_data[6] = tag;
     tmp_data[1] = tmp_data[7] = tag + 1;
-    tmp_data[2] = tmp_data[4] = val;
-    tmp_data[3] = tmp_data[5] = val + 1;
+    tmp_data[2] = val;
     memcpy(data, tmp_data, 64);
 }
 
@@ -28,8 +27,8 @@ bool Uint64CLineWithTag::GetValue(uint64_t& val, uint64_t tag) {
 
 Coordinator::Coordinator() {
     next_trx_id_ = 1;
-    timestamper_ = MPITimestamper::GetInstance();
-    mpi_timestamper_initialized_ = false;
+    distributed_clock_ = DistributedClock::GetInstance();
+    distributed_clock_initialized_ = false;
 }
 
 void Coordinator::Init(Node* node) {
@@ -54,13 +53,14 @@ void Coordinator::RegisterTrx(uint64_t& trx_id) {
 }
 
 int Coordinator::GetWorkerFromTrxID(const uint64_t& trx_id) {
+    CHECK(IS_VALID_TRX_ID(trx_id));
     return ((trx_id ^ 0x8000000000000000) >> TRXID_MACHINE_ID_BITS) % comm_sz_;
 }
 
-void Coordinator::WaitForMPITimestamperInit() {
+void Coordinator::WaitForDistributedClockInit() {
     while (true) {
         usleep(1000);
-        bool initialized = mpi_timestamper_initialized_;
+        bool initialized = distributed_clock_initialized_;
         if (initialized)
             return;
     }
@@ -68,22 +68,23 @@ void Coordinator::WaitForMPITimestamperInit() {
 
 void Coordinator::ProcessObtainingTimestamp() {
     // To ensure rdtsc works
-    MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
+    DistributedClock::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
 
-    timestamper_->Init(node_->local_comm, 3, 1000);
+    distributed_clock_->Init(node_->local_comm, 3, 1000);
 
-    mpi_timestamper_initialized_ = true;
+    distributed_clock_initialized_ = true;
 
     // To ensure the correctness, only one thread can call GetTimestamp.
     while (true) {
         TimestampRequest req;
         pending_timestamp_request_->WaitAndPop(req);
 
-        AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.is_ct, timestamper_->GetTimestamp());
+        AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.is_ct, distributed_clock_->GetTimestamp());
         pending_allocated_timestamp_->Push(allocated_ts);
     }
 }
 
+// Only called in PerformCalibration
 void Coordinator::WriteTimestampToWorker(int worker_id, uint64_t ts, uint64_t tag) {
     RDMA &rdma = RDMA::get_rdma();
     int t_id = config_->global_num_threads + 2;
@@ -91,6 +92,7 @@ void Coordinator::WriteTimestampToWorker(int worker_id, uint64_t ts, uint64_t ta
     rdma.dev->RdmaWrite(t_id, worker_id, rdma_mem_, sizeof(Uint64CLineWithTag), rdma_mem_offset_);
 }
 
+// Only called in PerformCalibration
 uint64_t Coordinator::ReadTimestampFromRDMAMem(uint64_t tag) {
     uint64_t ret;
     while (true) {
@@ -100,11 +102,12 @@ uint64_t Coordinator::ReadTimestampFromRDMAMem(uint64_t tag) {
 }
 
 void Coordinator::PerformCalibration() {
+    // Only one worker, do not need to calibrate
     if (comm_sz_ == 1)
         return;
 
     // To ensure rdtsc works
-    MPITimestamper::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
+    DistributedClock::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
 
     const int calibration_interval = 500;
 
@@ -138,64 +141,71 @@ void Coordinator::PerformCalibration() {
                                 If the local timestamp is less than the remote timestamp:
                                     Increase the offset of the local clock.
                             Send a signal to the master.
-
+                        When phase 2 is finished, the Master will have the fastest clock.
+                        So, the procedure need to be repeated (phase 3), to sync all workers to the fastest clock.
                     Phase 3:
-                        Do the same thing as phase 2 (round = 1).
+                        Do the same thing as phase 2 (round == 1).
              */
 
             for (int round = 0; round < 2; round++) {
                 if (my_rank_ == 0) {
-                    // send greeting msg
                     for (int partner = 1; partner < comm_sz_; partner++) {
                         uint64_t tag = (loop * (comm_sz_ - 1) * 2 * 4) + (partner - 1) * 4 + (round * (comm_sz_ - 1) * 4);
+                        // Send greeting signal to the partner
                         WriteTimestampToWorker(partner, 0, tag);
+                        // Wait for the remote time from the partner
                         remote_ns = ReadTimestampFromRDMAMem(tag + 1);
-                        ns = timestamper_->GetRefinedNS();
+                        // Get local time and send to tht partner
+                        ns = distributed_clock_->GetRefinedNS();
                         WriteTimestampToWorker(partner, ns, tag + 2);
+                        // Recv finishing signal from the partner to make sure that RDMA mem can be used for the next partner
                         ReadTimestampFromRDMAMem(tag + 3);
                         int64_t delta = remote_ns - ns;
                         if (delta > 0) {
-                            timestamper_->IncreaseGlobalNSOffset(delta);
+                            distributed_clock_->IncreaseGlobalNSOffset(delta);
                             // printf("[Worker%d, partner = %d] ns = %lu, remote_ns = %lu, delta = %ld\n", my_rank_, partner, ns, remote_ns, delta);
                         }
                     }
                 } else {
                     uint64_t tag = (loop * (comm_sz_ - 1) * 2 * 4) + (my_rank_ - 1) * 4 + (round * (comm_sz_ - 1) * 4);
                     const int partner = 0;
+                    // Recv greeting signal from the partner
                     ReadTimestampFromRDMAMem(tag);
-                    ns = timestamper_->GetRefinedNS();
+                    // Get local time and send to tht partner
+                    ns = distributed_clock_->GetRefinedNS();
                     WriteTimestampToWorker(partner, ns, tag + 1);
+                    // Wait for the remote time from the partner
                     remote_ns = ReadTimestampFromRDMAMem(tag + 2);
-                    ns = timestamper_->GetRefinedNS();
+                    // Get local time after receiving the remote time
+                    ns = distributed_clock_->GetRefinedNS();
+                    // Send finishing signal to the partner
                     WriteTimestampToWorker(partner, 0, tag + 3);
                     int64_t delta = remote_ns - ns;
                     if (delta > 0) {
-                        timestamper_->IncreaseGlobalNSOffset(delta);
+                        distributed_clock_->IncreaseGlobalNSOffset(delta);
                         // printf("[Worker%d, partner = %d] ns = %lu, remote_ns = %lu, delta = %ld\n", my_rank_, partner, ns, remote_ns, delta);
                     }
                 }
             }
         } else {
-            timestamper_->GlobalCalibrateMeasure(40, 0.1, false);
-            int64_t delta = timestamper_->GetMeasuredGlobalNSOffset();
+            distributed_clock_->GlobalCalibrateMeasure(40, 0.1, false);
+            int64_t delta = distributed_clock_->GetMeasuredGlobalNSOffset();
 
             if (delta != 0) {
                 // printf("[<PerformCalibration>] node %d, delta = %ld\n", my_rank_, delta);
-                timestamper_->IncreaseGlobalNSOffset(delta);
+                distributed_clock_->IncreaseGlobalNSOffset(delta);
             }
         }
-        // if (my_rank_ == 0)
-        //     printf("[<PerformCalibration>] finished loop %lu\n", loop);
         loop++;
     }
 }
 
 void Coordinator::PrepareSockets() {
     char addr[64];
-    snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port);
 
     if (!config_->global_use_rdma) {
         trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
+        // Ports with node_->tcp_port + 3 + 1 * config_->global_num_threads are occupied by TCPMailbox
         snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
         trx_read_recv_socket_->bind(addr);
         DLOG(INFO) << "[Master] bind " << string(addr);
@@ -224,17 +234,16 @@ void Coordinator::PrepareSockets() {
 void Coordinator::ProcessQueryRCTRequest() {
     while (true) {
         QueryRCTRequest request;
+        // Pop RCT query request from other workers
         pending_rct_query_request_->WaitAndPop(request);
 
-        std::set<uint64_t> trx_ids;
-        rct_ -> query_trx(request.bt, request.ct - 1, trx_ids);
-
-        std::vector<uint64_t> trx_ids_vec(trx_ids.begin(), trx_ids.end());
+        vector<uint64_t> trx_ids;
+        rct_->query_trx(request.bt, request.ct - 1, trx_ids);
 
         ibinstream in;
         int notification_type = (int)(NOTIFICATION_TYPE::RCT_TIDS);
         in << notification_type << request.trx_id;
-        in << trx_ids_vec;
+        in << trx_ids;
         mailbox_->SendNotification(request.n_id, in);
     }
 }
@@ -259,7 +268,7 @@ void Coordinator::ListenTCPTrxReads() {
         ReadTrxStatusReq req;
         obinstream out;
         zmq::message_t zmq_req_msg;
-        if (trx_read_recv_socket_ -> recv(&zmq_req_msg, 0) < 0) {
+        if (trx_read_recv_socket_->recv(&zmq_req_msg, 0) < 0) {
             CHECK(false) << "[Coordinator::ListenTCPTrxReads] Coordinator failed to recv TCP read";
         }
         char* buf = new char[zmq_req_msg.size()];
@@ -282,20 +291,20 @@ void Coordinator::ProcessTCPTrxReads() {
         if (req.read_ct) {
             uint64_t ct_;
             TRX_STAT status;
-            trx_table_ -> query_ct(req.trx_id, ct_);
-            trx_table_ -> query_status(req.trx_id, status);
+            trx_table_->query_ct(req.trx_id, ct_);
+            trx_table_->query_status(req.trx_id, status);
             int status_i = (int) status;
             in << ct_;
             in << status_i;
         } else {
             TRX_STAT status;
-            trx_table_ -> query_status(req.trx_id, status);
+            trx_table_->query_status(req.trx_id, status);
             int status_i = (int) status;
             in << status_i;
         }
         zmq::message_t zmq_send_msg(in.size());
         memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
                in.size());
-        trx_read_rep_sockets_[socket_code(req.n_id, req.t_id)] -> send(zmq_send_msg);
+        trx_read_rep_sockets_[socket_code(req.n_id, req.t_id)]->send(zmq_send_msg);
     }
 }

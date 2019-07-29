@@ -34,7 +34,8 @@ class RCTable {
 
     void insert_trx(uint64_t ct, uint64_t trx_id);
 
-    void query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) const;
+    void query_trx(uint64_t bt, uint64_t ct, std::vector<uint64_t>& trx_ids) const;
 
+    // Erase all transactions with CT < min-bt
     void erase_trxs(uint64_t min_bt);
 };

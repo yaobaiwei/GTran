@@ -38,7 +38,7 @@ class RunningTrxList {
     void EraseTrx(uint64_t bt);
     void UpdateMinBT(uint64_t bt);
 
-    uint64_t GetMinBT() const {return min_bt_;}  // debug
+    uint64_t GetMinBT() const {return min_bt_;}
     std::string PrintList() const;
 
     static RunningTrxList* GetInstance() {
@@ -48,8 +48,11 @@ class RunningTrxList {
 
     void Init(const Node& node);
 
+    // For non-rdma implementation, a thread should be standing by
+    // to send local MIN_BT to remote workers.
     void ProcessReadMinBTRequest();
 
+    // Called by the GC thread.
     uint64_t GetGlobalMinBT();
 
  private:
@@ -65,6 +68,7 @@ class RunningTrxList {
     tbb::atomic<uint64_t> min_bt_ = 0;
     uint64_t max_bt_ = 0;
 
+    // Enable fast erasure in the list
     std::unordered_map<uint64_t, ListNode*> list_node_map_;
 
     ListNode* head_ = nullptr;

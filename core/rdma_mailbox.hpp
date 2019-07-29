@@ -21,6 +21,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/thread_safe_queue.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
+#include "utils/simple_spinlock_guard.hpp"
 
 #include "glog/logging.h"
 
