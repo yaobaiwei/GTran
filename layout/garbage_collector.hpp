@@ -13,6 +13,9 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 class GCProducer;
 class GCConsumer;
 
+// GarbageCollector is used to init GCProducer and
+// GCConsumer. It also maintains the task queue for
+// transferring task between GCProducer and GCConsumer
 class GarbageCollector {
  public:
     static GarbageCollector* GetInstance() {

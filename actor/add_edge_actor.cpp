@@ -58,7 +58,7 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
                 itr = pair.second.erase(itr);
             } else {
                 itr++;
-            } 
+            }
         } while (itr != pair.second.end());
     }
 

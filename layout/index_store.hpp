@@ -133,8 +133,8 @@ class IndexStore {
         bool isEnabled;
         uint64_t total;  // Number of objs in total {i.e. all vertices or edges}
         map<value_t, set<value_t>> index_map;  // Map for (value, set<element>) (e.g. (13 -> [v1, v2]) {g.V().has("age", 13)}
-        set<value_t> no_key; // Set for all elements that does not have propertyKey; {g.V().hasNot("age")}
-        map<value_t, uint64_t> count_map; // Number of each 'age' values (e.g. (13 -> 2)) {g.V().has("age", 13).count()}
+        set<value_t> no_key;  // Set for all elements that does not have propertyKey; {g.V().hasNot("age")}
+        map<value_t, uint64_t> count_map;  // Number of each 'age' values (e.g. (13 -> 2)) {g.V().has("age", 13).count()}
         vector<const value_t *> values;  // Used when creating random values; Not for normal index
 
         string DebugString() {

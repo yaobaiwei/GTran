@@ -35,11 +35,13 @@ void GCConsumer::Execute(int tid) {
     while (true) {
         AbstractGCJob * job;
         if (!garbage_collector_->PopJobFromPendingQueue(job)) {
-            usleep(5000);
+            // Give a sleep to GCConsumer rather than urgent pop
+            // to reduce lock contention
+            usleep(POP_PERIOD);
             continue;
         }
 
-        switch (job->job_t) {
+        switch (job->job_t_) {
           case JobType::EraseV:
             ExecuteEraseVJob(job);
             break;
@@ -62,15 +64,12 @@ void GCConsumer::Execute(int tid) {
             ExecuteEMVCCGCJob(job);
             break;
           case JobType::TopoIndexGC:
-            cout << "[GCConsumer] Execute TopoIndexGC" << endl;
             ExecuteTopoIndexGCJob(job);
             break;
           case JobType::PropIndexGC:
-            cout << "[GCConsumer] Execute PropIndexGC" << endl;
             ExecutePropIndexGCJob(job);
             break;
           case JobType::RCTGC:
-            cout << "[GCConsumer] Execute RCTGC" << endl;
             ExecuteRCTGCJob(job);
             break;
           case JobType::TopoRowGC:
@@ -96,28 +95,33 @@ void GCConsumer::Execute(int tid) {
             CHECK(false);
         }
 
+        // After finish a task, push it back to GarbageCollector
         garbage_collector_->PushJobToFinishedQueue(job);
     }
 }
 
 void GCConsumer::ExecuteEraseVJob(EraseVJob * job) {
+    // Erase a set of vertices from vertex_map in data_storage
     WriterLockGuard writer_lock_guard(data_storage_->vertex_map_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        if (t == nullptr || t->task_status_ != TaskStatus::ACTIVE) { continue; }
         data_storage_->vertex_map_.unsafe_erase(static_cast<EraseVTask*>(t)->target.value());
     }
 }
 
 void GCConsumer::ExecuteEraseOutEJob(EraseOutEJob * job) {
+    // Erase a set of edges (out_edge) from out_e_map
     WriterLockGuard writer_lock_guard(data_storage_->out_edge_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        if (t == nullptr || t->task_status_ != TaskStatus::ACTIVE) { continue; }
 
         uint64_t eid_value = static_cast<EraseOutETask*>(t)->target.value();
         DataStorage::OutEdgeAccessor ac;
         if (data_storage_->out_edge_map_.Find(ac, eid_value)) {
+            // Erase mvcc_list linked on the edge
             MVCCList<EdgeMVCCItem>* mvcc_list = ac->second.mvcc_list;
-            CHECK(mvcc_list->head_ == nullptr || mvcc_list == nullptr);
+            if (mvcc_list->head_ == nullptr) { continue; }
+            CHECK(mvcc_list == nullptr);
             delete mvcc_list;
         }
 
@@ -126,15 +130,18 @@ void GCConsumer::ExecuteEraseOutEJob(EraseOutEJob * job) {
 }
 
 void GCConsumer::ExecuteEraseInEJob(EraseInEJob * job) {
+    // Erase a set of edges (in_edge) from in_e_map
     WriterLockGuard writer_lock_guard(data_storage_->in_edge_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        if (t == nullptr || t->task_status_ != TaskStatus::ACTIVE) { continue; }
 
         uint64_t eid_value = static_cast<EraseInETask*>(t)->target.value();
         DataStorage::InEdgeAccessor ac;
         if (data_storage_->in_edge_map_.Find(ac, eid_value)) {
+            // Erase mvcc_list linked on the edge
             MVCCList<EdgeMVCCItem>* mvcc_list = ac->second.mvcc_list;
-            CHECK(mvcc_list->head_ == nullptr || mvcc_list == nullptr);
+            if (mvcc_list->head_ == nullptr) { continue; }
+            CHECK(mvcc_list == nullptr);
             delete mvcc_list;
         }
 
@@ -143,7 +150,11 @@ void GCConsumer::ExecuteEraseInEJob(EraseInEJob * job) {
 }
 
 void GCConsumer::ExecuteVMVCCGCJob(VMVCCGCJob* job) {
+    // Free a list of VMVCC
+    // No need to lock since the list of MVCC has already been cut
+    // Same for all other MVCCGCTask
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         VertexMVCCItem* cur_item = static_cast<VMVCCGCTask*>(t)->target;
         while (cur_item != nullptr) {
             auto* to_free = cur_item;
@@ -156,7 +167,9 @@ void GCConsumer::ExecuteVMVCCGCJob(VMVCCGCJob* job) {
 }
 
 void GCConsumer::ExecuteVPMVCCGCJob(VPMVCCGCJob* job) {
+    // Free a list of VPMVCC
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         VPropertyMVCCItem* cur_item = static_cast<VPMVCCGCTask*>(t)->target;
         while (cur_item != nullptr) {
             auto* to_free = cur_item;
@@ -170,7 +183,9 @@ void GCConsumer::ExecuteVPMVCCGCJob(VPMVCCGCJob* job) {
 }
 
 void GCConsumer::ExecuteEPMVCCGCJob(EPMVCCGCJob* job) {
+    // Free a list of EPMVCC
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         EPropertyMVCCItem* cur_item = static_cast<EPMVCCGCTask*>(t)->target;
         while (cur_item != nullptr) {
             auto* to_free = cur_item;
@@ -184,7 +199,9 @@ void GCConsumer::ExecuteEPMVCCGCJob(EPMVCCGCJob* job) {
 }
 
 void GCConsumer::ExecuteEMVCCGCJob(EMVCCGCJob* job) {
+    // Free a list of EMVCC
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         EdgeMVCCItem* cur_item = static_cast<EMVCCGCTask*>(t)->target;
         while (cur_item != nullptr) {
             auto* to_free = cur_item;
@@ -199,10 +216,13 @@ void GCConsumer::ExecuteEMVCCGCJob(EMVCCGCJob* job) {
 
 void GCConsumer::ExecuteTopoIndexGCJob(TopoIndexGCJob* job) {
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         Element_T type = static_cast<TopoIndexGCTask*>(t)->element_type;
         if (type == Element_T::VERTEX) {
+            // Lock inside
             index_store_->VtxSelfGarbageCollect(running_trx_list_->GetGlobalMinBT());
         } else if (type == Element_T::EDGE) {
+            // Lock inside
             index_store_->EdgeSelfGarbageCollect(running_trx_list_->GetGlobalMinBT());
         }
     }
@@ -210,6 +230,7 @@ void GCConsumer::ExecuteTopoIndexGCJob(TopoIndexGCJob* job) {
 
 void GCConsumer::ExecutePropIndexGCJob(PropIndexGCJob* job) {
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         Element_T type = static_cast<PropIndexGCTask*>(t)->element_type;
         int pid = static_cast<PropIndexGCTask*>(t)->pid;
         // Lock inside
@@ -218,12 +239,16 @@ void GCConsumer::ExecutePropIndexGCJob(PropIndexGCJob* job) {
 }
 
 void GCConsumer::ExecuteRCTGCJob(RCTGCJob* job) {
+    // There must be only one task in RCTGCJob
+    // Lock inside
     rct_table_->erase_trxs(running_trx_list_->GetGlobalMinBT());
 }
 
 void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {
+    // Prepare for transfer eids to GCProducer
     vector<pair<eid_t, bool>>* gcable_eid = new vector<pair<eid_t, bool>>();
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfGarbageCollect(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
@@ -232,8 +257,10 @@ void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {
 }
 
 void GCConsumer::ExecuteTopoRowListDefragJob(TopoRowListDefragJob* job) {
+    // Prepare for transfer eids to GCProducer
     vector<pair<eid_t, bool>>* gcable_eid = new vector<pair<eid_t, bool>>();
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfDefragment(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
@@ -243,6 +270,7 @@ void GCConsumer::ExecuteTopoRowListDefragJob(TopoRowListDefragJob* job) {
 
 void GCConsumer::ExecuteVPRowListGCJob(VPRowListGCJob* job) {
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfGarbageCollect();
@@ -251,6 +279,7 @@ void GCConsumer::ExecuteVPRowListGCJob(VPRowListGCJob* job) {
 
 void GCConsumer::ExecuteVPRowListDefragJob(VPRowListDefragJob* job) {
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListDefragTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfDefragment();
@@ -259,6 +288,7 @@ void GCConsumer::ExecuteVPRowListDefragJob(VPRowListDefragJob* job) {
 
 void GCConsumer::ExecuteEPRowListGCJob(EPRowListGCJob* job) {
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfGarbageCollect();
@@ -267,6 +297,7 @@ void GCConsumer::ExecuteEPRowListGCJob(EPRowListGCJob* job) {
 
 void GCConsumer::ExecuteEPRowListDefragJob(EPRowListDefragJob* job) {
     for (auto t : job->tasks_) {
+        if (t->task_status_ != TaskStatus::ACTIVE) { continue; }
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListDefragTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfDefragment();

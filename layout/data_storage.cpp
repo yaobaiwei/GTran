@@ -4,6 +4,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
 #include "layout/data_storage.hpp"
+#include "layout/garbage_collector.hpp"
 
 template<class MVCC> ConcurrentMemPool<MVCC>* MVCCList<MVCC>::mem_pool_ = nullptr;
 template<class PropertyRow> ConcurrentMemPool<PropertyRow>* PropertyRowList<PropertyRow>::mem_pool_ = nullptr;
@@ -19,7 +20,8 @@ void DataStorage::Init() {
     snapshot_manager_ = MPISnapshotManager::GetInstance();
     worker_rank_ = node_.get_local_rank();
     worker_size_ = node_.get_local_size();
-    nthreads_ = config_->global_num_threads + 1 + config_->num_gc_consumer;  // allow the main thread to use memory pool
+    // allow the main thread and GCConsumer threads to use memory pool
+    nthreads_ = config_->global_num_threads + 1 + config_->num_gc_consumer;
     TidMapper::GetInstance()->Register(config_->global_num_threads);  // register the main thread in TidMapper
 
     node_.Rank0PrintfWithWorkerBarrier(
@@ -50,6 +52,7 @@ void DataStorage::Init() {
     FillContainer();
     PrintLoadedData();
     hdfs_data_loader_->FreeMemory();
+    garbage_collector_ = GarbageCollector::GetInstance();
 
     trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
@@ -100,7 +103,6 @@ void DataStorage::FillContainer() {
     int max_vid = worker_rank_;
 
     for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
-        ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
         VertexAccessor v_accessor;
         vertex_map_.Insert(v_accessor, vtx.id.value());
 
@@ -121,7 +123,6 @@ void DataStorage::FillContainer() {
 
         // Insert in edges
         for (auto in_nb : vtx.in_nbs) {
-            ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
             eid_t eid = eid_t(vtx.id.vid, in_nb.vid);
 
             InEdgeAccessor in_e_accessor;
@@ -137,7 +138,6 @@ void DataStorage::FillContainer() {
 
         // Insert out edges
         for (auto out_nb : vtx.out_nbs) {
-            ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
             eid_t eid = eid_t(out_nb.vid, vtx.id.vid);
 
             OutEdgeAccessor out_e_accessor;
@@ -166,7 +166,6 @@ void DataStorage::FillContainer() {
 
     // Insert edge properties
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
-        ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
         OutEdgeConstAccessor out_e_accessor;
         out_edge_map_.Find(out_e_accessor, edge.id.value());
 
@@ -613,7 +612,7 @@ bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& 
 
 bool DataStorage::CheckEdgeVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, eid_t& eid) {
-    // Check visibility of the edge 
+    // Check visibility of the edge
     OutEdgeConstAccessor out_e_accessor;
     EdgeVersion edge_version;
     auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
@@ -1008,9 +1007,9 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
  */
 PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, const bool& is_out,
                                       const uint64_t& trx_id, const uint64_t& begin_time) {
-    ReaderLockGuard out_edge_rlock_guard(out_edge_erase_rwlock_);
-    ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
+    WritePriorRWLock* erase_rwlock_;
+
     InEdgeAccessor in_e_accessor;
     OutEdgeAccessor out_e_accessor;
     bool is_new;
@@ -1021,14 +1020,16 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
      *      else, this function will add an inE, which means that dst_vid is on this node.
      */
     if (is_out) {
-        in_edge_rlock_guard.Unlock();
+        erase_rwlock_ = &out_edge_erase_rwlock_;
         local_vid = src_vid;
         conn_vid = dst_vid;
     } else {
-        out_edge_rlock_guard.Unlock();
+        erase_rwlock_ = &in_edge_erase_rwlock_;
         local_vid = dst_vid;
         conn_vid = src_vid;
     }
+
+    ReaderLockGuard edge_map_rlock_guard(*erase_rwlock_);
 
     // anyway, need to check if the vertex exists or not
     VertexConstAccessor v_accessor;
@@ -1104,6 +1105,8 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
                                        const uint64_t& trx_id, const uint64_t& begin_time) {
     ReaderLockGuard out_edge_rlock_guard(out_edge_erase_rwlock_);
     ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
+
+    WritePriorRWLock* erase_rwlock_;
     InEdgeConstAccessor in_e_accessor;
     OutEdgeConstAccessor out_e_accessor;
     bool found;
@@ -1114,14 +1117,16 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
      *      else, this function will add an inE, which means that dst_vid is on this node.
      */
     if (is_out) {
-        in_edge_rlock_guard.Unlock();
+        erase_rwlock_ = &out_edge_erase_rwlock_;
         found = out_edge_map_.Find(out_e_accessor, eid.value());
         conn_vid = dst_vid;
     } else {
-        out_edge_rlock_guard.Unlock();
+        erase_rwlock_ = &in_edge_erase_rwlock_;
         found = in_edge_map_.Find(in_e_accessor, eid.value());
         conn_vid = src_vid;
     }
+
+    ReaderLockGuard edge_map_rlock_guard(*erase_rwlock_);
 
     // do nothing
     if (!found)
@@ -1382,7 +1387,14 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
                 VertexAccessor v_accessor;
                 vertex_map_.Find(v_accessor, vid_map_ref[v_mvcc_list]);
-                v_accessor->second.ve_row_list->SelfGarbageCollect();
+
+                // Attached eid need to be deleted; GC will handle it
+                vector<pair<eid_t, bool>> * deletable_eids = new vector<pair<eid_t, bool>>();
+                vid_t vid;
+                uint2vid_t(vid_map_ref[v_mvcc_list], vid);
+                v_accessor->second.ve_row_list->SelfGarbageCollect(vid, deletable_eids);
+                garbage_collector_->PushGCAbleEidToQueue(deletable_eids);
+
                 delete v_accessor->second.ve_row_list;
                 v_accessor->second.ve_row_list = nullptr;
                 v_accessor->second.vp_row_list->SelfGarbageCollect();

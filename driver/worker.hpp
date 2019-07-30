@@ -705,6 +705,7 @@ class Worker {
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 
         // =================GarbageCollector================
+        // GarbageCollector must init after ActorAdapter since it require GlobalMinBt
         garbage_collector_ = GarbageCollector::GetInstance();
         garbage_collector_->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> garbage_collector->Start()" << endl;

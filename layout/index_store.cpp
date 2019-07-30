@@ -174,7 +174,6 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& 
 void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
     WriterLockGuard writer_lock_guard(vtx_topo_gc_rwlock_);
 
-    cout << "[IndexStore] Start" << endl;
     vector<vid_t> addV_vec;
     set<vid_t> delV_set;
     // tbb::concurrent_vector does NOT support erase store
@@ -202,7 +201,7 @@ void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
                 }
 
                 tac->second.second--;
-            } else { 
+            } else {
                 if (trx_stat != TRX_STAT::ABORT) {
                     // For Abort Trx, Erase element from update list
                     new_update_list.emplace_back(up_elem);
@@ -217,8 +216,6 @@ void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
         }
     }
 
-    cout << "[IndexStore] new_update_list size " << new_update_list.size() << endl;
-
     auto checkFunc = [&](vid_t& vid) {
         if (delV_set.find(vid) != delV_set.end()) {
             // Need to delete, erase
@@ -232,8 +229,6 @@ void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
     }
     topo_vtx_data.insert(topo_vtx_data.end(), addV_vec.begin(), addV_vec.end());
     vtx_update_list.swap(new_update_list);
-
-    cout << "[IndexStore] vtx_update_list size after swap : " << vtx_update_list.size() << endl;
 }
 
 void IndexStore::EdgeSelfGarbageCollect(const uint64_t& threshold) {
@@ -264,7 +259,7 @@ void IndexStore::EdgeSelfGarbageCollect(const uint64_t& threshold) {
                 } else {
                     delE_set.emplace(eid);
                 }
-            } else { 
+            } else {
                 if (trx_stat != TRX_STAT::ABORT) {
                     // For Abort Trx, Erase element from update list
                     new_update_list.emplace_back(up_elem);
@@ -419,14 +414,14 @@ void IndexStore::InsertToUpdateBuffer(const uint64_t& trx_id, vector<uint64_t>& 
 void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t & ct) {
     up_buf_const_accessor cac;
     // V
-    if(vtx_update_buffers.find(cac, trx_id)) {
+    if (vtx_update_buffers.find(cac, trx_id)) {
         for (auto & up_elem : cac->second) {
             up_elem.set_ct(ct);
             vtx_update_list.emplace_back(up_elem);
 
             trx_sc_accessor tac;
             if (trx_status_and_count_table.insert(tac, trx_id)) {
-                tac->second = make_pair(TRX_STAT::VALIDATING, 1); 
+                tac->second = make_pair(TRX_STAT::VALIDATING, 1);
             } else {
                 tac->second.second++;
             }
@@ -435,14 +430,14 @@ void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t 
     }
 
     // E
-    if(edge_update_buffers.find(cac, trx_id)) {
+    if (edge_update_buffers.find(cac, trx_id)) {
         for (auto & up_elem : cac->second) {
             up_elem.set_ct(ct);
             edge_update_list.emplace_back(up_elem);
 
             trx_sc_accessor tac;
             if (trx_status_and_count_table.insert(tac, trx_id)) {
-                tac->second = make_pair(TRX_STAT::VALIDATING, 1); 
+                tac->second = make_pair(TRX_STAT::VALIDATING, 1);
             } else {
                 tac->second.second++;
             }
@@ -454,16 +449,16 @@ void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t 
 void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t & ct) {
     up_buf_const_accessor cac;
     // VP
-    if(vp_update_buffers.find(cac, trx_id)) {
+    if (vp_update_buffers.find(cac, trx_id)) {
         prop_up_map_accessor pac;
         for (auto & up_elem : cac->second) {
             uint64_t vid = up_elem.element_id >> PID_BITS;
-            uint64_t pid = up_elem.element_id - (vid << PID_BITS); 
+            uint64_t pid = up_elem.element_id - (vid << PID_BITS);
             up_elem.set_ct(ct);
 
             vp_update_map.insert(pac, pid);
 
-            if(pac->second.find(up_elem.value) != pac->second.end()) {
+            if (pac->second.find(up_elem.value) != pac->second.end()) {
                 pac->second.at(up_elem.value).emplace_back(up_elem);
             } else {
                 pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
@@ -473,16 +468,16 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
     }
 
     // EP
-    if(ep_update_buffers.find(cac, trx_id)) {
+    if (ep_update_buffers.find(cac, trx_id)) {
         prop_up_map_accessor pac;
         for (auto & up_elem : cac->second) {
             uint64_t eid = up_elem.element_id >> PID_BITS;
-            uint64_t pid = up_elem.element_id - (eid << PID_BITS); 
+            uint64_t pid = up_elem.element_id - (eid << PID_BITS);
             up_elem.set_ct(ct);
 
             ep_update_map.insert(pac, pid);
 
-            if(pac->second.find(up_elem.value) != pac->second.end()) {
+            if (pac->second.find(up_elem.value) != pac->second.end()) {
                 pac->second.at(up_elem.value).emplace_back(up_elem);
             } else {
                 pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
@@ -495,7 +490,7 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
 void IndexStore::UpdateTrxStatus(const uint64_t & trx_id, TRX_STAT stat) {
     trx_sc_accessor tac;
     if (trx_status_and_count_table.find(tac, trx_id)) {
-        tac->second.first = stat; 
+        tac->second.first = stat;
     }
 }
 
@@ -538,7 +533,7 @@ void IndexStore::ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begi
 
     // Check Update Buffer to Read self-updated data
     up_buf_const_accessor cac;
-    if(vtx_update_buffers.find(cac, trx_id)) {
+    if (vtx_update_buffers.find(cac, trx_id)) {
         for (auto & up_elem : cac->second) {
             vid_t vid;
             uint2vid_t(up_elem.element_id, vid);
@@ -590,7 +585,7 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
 
     // Check Update Buffer to Read self-updated data
     up_buf_const_accessor cac;
-    if(edge_update_buffers.find(cac, trx_id)) {
+    if (edge_update_buffers.find(cac, trx_id)) {
         for (auto & up_elem : cac->second) {
             eid_t eid;
             uint2eid_t(up_elem.element_id, eid);
@@ -599,7 +594,8 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
     }
 }
 
-void IndexStore::get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
+void IndexStore::get_elements_by_predicate(Element_T type, int pid,
+        PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
     unordered_map<int, index_>* m;
     tbb::concurrent_hash_map<int, map<value_t, vector<update_element>>>* up_region;
     WritePriorRWLock * rw_lock;
@@ -744,12 +740,12 @@ void IndexStore::read_prop_update_data(const update_element & up_elem, vector<va
     value_t id_value_t;
     Tool::uint64_t2value_t(up_elem.element_id, id_value_t);
     vector<value_t>::iterator itr = find(vec.begin(), vec.end(), id_value_t);
-    if(up_elem.isAdd) {
-        if(itr == vec.end()) {
-            vec.emplace_back(id_value_t); 
+    if (up_elem.isAdd) {
+        if (itr == vec.end()) {
+            vec.emplace_back(id_value_t);
         }
     } else {
-        if(itr != vec.end()) {
+        if (itr != vec.end()) {
             vec.erase(itr);
         }
     }
@@ -834,7 +830,8 @@ void IndexStore::build_range_count(map<value_t, uint64_t>& m, PredicateValue& pr
     }
 }
 
-void IndexStore::build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred, vector<value_t>& vec, int& num_set) {
+void IndexStore::build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred,
+        vector<value_t>& vec, int& num_set) {
     map<value_t, set<value_t>>::iterator itr_low;
     map<value_t, set<value_t>>::iterator itr_high;
 

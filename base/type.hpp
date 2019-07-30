@@ -70,7 +70,7 @@ enum class NOTIFICATION_TYPE {
 
 template <class EnumClass>
 struct EnumClassHash {
-    size_t operator() (const EnumClass& v) const{
+    size_t operator() (const EnumClass& v) const {
         return hash<int>()((int)(v));
     }
     bool operator() (const EnumClass& a, const EnumClass& b) const{
@@ -502,7 +502,7 @@ enum Order_T {INCR, DECR};
 enum Predicate_T{ ANY, NONE, EQ, NEQ, LT, LTE, GT, GTE, INSIDE, OUTSIDE, BETWEEN, WITHIN, WITHOUT };
 
 struct qid_t{
-    uint64_t trxid; // lower 8 bits = 0, reserved for query index
+    uint64_t trxid;  // lower 8 bits = 0, reserved for query index
     uint8_t id;
 
     qid_t(): trxid(0), id(0) {}
@@ -644,6 +644,6 @@ struct PrimitiveEnumClassHash {
 //  PlaceHolder, AsLabel, NotApplicable
 enum AddEdgeMethodType { PlaceHolder, StepLabel, NotApplicable };
 
-
 // For GCTask
-enum JobType { EraseV, EraseOutE, EraseInE, VMVCCGC, VPMVCCGC, EPMVCCGC, EMVCCGC, TopoIndexGC, PropIndexGC, RCTGC, TopoRowGC, TopoRowDefrag, VPRowGC, VPRowDefrag, EPRowGC, EPRowDefrag };
+enum class JobType { EraseV, EraseOutE, EraseInE, VMVCCGC, VPMVCCGC, EPMVCCGC, EMVCCGC, TopoIndexGC,
+    PropIndexGC, RCTGC, TopoRowGC, TopoRowDefrag, VPRowGC, VPRowDefrag, EPRowGC, EPRowDefrag };

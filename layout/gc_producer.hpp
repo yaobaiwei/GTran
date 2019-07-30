@@ -32,6 +32,10 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 class GarbageCollector;
 
 // The container of dependent tasks
+//  Insert Function will check dependency and erase downsteam tasks or delete self
+//  since upstream tasks existing
+//
+//  Delete Function will delete finished tasks and release blocking tasks
 class GCTaskDAG {
  private:
     GCTaskDAG();
@@ -163,7 +167,7 @@ class GCProducer {
     void scan_rct();
 
     // -------Task spawning function-------
-    void spawn_vertex_map_gctask(vid_t&);
+    void spawn_erase_vertex_gctask(vid_t&);
     void spawn_erase_out_edge_gctask(eid_t&);
     void spawn_erase_in_edge_gctask(eid_t&);
 
@@ -199,8 +203,6 @@ class GCProducer {
     void check_returned_edge();
 
     void DebugPrint();
-
-    // Other GCable Component
 };
 
 #include "layout/gc_producer.tpp"

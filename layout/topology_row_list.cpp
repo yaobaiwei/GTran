@@ -135,7 +135,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
     return mvcc_list;
 }
 
-void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid = NULL, vector<pair<eid_t, bool>>* gcable_eids = nullptr) {
+void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
     int row_count = edge_count_ / VE_ROW_ITEM_COUNT;
@@ -239,7 +239,6 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
         }
     }
 
-    // move cell from tail to empty cell
     int inverse_cell_index = edge_count_ - 1;
     int cur_edge_count = edge_count_ - empty_cell_queue.size();
     int num_movable_cell = cur_edge_count;
@@ -253,12 +252,13 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
     int num_gcable_rows = row_count - cur_row_count;
 
     bool first_iteration = true;
+    // move cell from tail to empty cell
     while (true) {
         int cell_id_in_row = inverse_cell_index % VE_ROW_ITEM_COUNT;
         if (cell_id_in_row == VE_ROW_ITEM_COUNT - 1 &&
             inverse_cell_index != edge_count_ - 1) {
             inverse_row_index--;
-            CHECK(inverse_row_index >= 0);
+            CHECK_GE(inverse_row_index, 0);
         }
 
         auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
@@ -266,7 +266,7 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
 
         if (mvcc_list->GetHead() != nullptr) {
             num_movable_cell--;
-            pair<int, int> empty_cell = empty_cell_queue.front(); 
+            pair<int, int> empty_cell = empty_cell_queue.front();
             empty_cell_queue.pop();
 
             row_ptrs[empty_cell.first]->cells_[empty_cell.second] = cell_ref;

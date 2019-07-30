@@ -540,7 +540,6 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
         }
     }
 
-    // move cell from tail to empty cell
     int inverse_cell_index = property_count_ - 1;
     int cur_property_count = property_count_ - empty_cell_queue.size();
     int num_movable_cell = cur_property_count;
@@ -554,12 +553,13 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     int num_gcable_rows = row_count - cur_row_count;
 
     bool first_iteration = true;
+    // move cell from tail to empty cell
     while (true) {
         int cell_id_in_row = inverse_cell_index % PropertyRow::ROW_ITEM_COUNT;
         if (cell_id_in_row == PropertyRow::ROW_ITEM_COUNT - 1 &&
             inverse_cell_index != property_count_ - 1) {
             inverse_row_index--;
-            CHECK(inverse_row_index >= 0);
+            CHECK_GE(inverse_row_index, 0);
         }
 
         auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
@@ -567,7 +567,7 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
 
         if (mvcc_list->GetHead() != nullptr) {
             num_movable_cell--;
-            pair<int, int> empty_cell = empty_cell_queue.front(); 
+            pair<int, int> empty_cell = empty_cell_queue.front();
             empty_cell_queue.pop();
             row_ptrs[empty_cell.first]->cells_[empty_cell.second] = cell_ref;
         }

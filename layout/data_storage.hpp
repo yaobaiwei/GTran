@@ -70,6 +70,7 @@ struct TrxProcessHistory {
 
 class GCProducer;
 class GCConsumer;
+class GarbageCollector;
 
 class DataStorage {
  private:
@@ -84,6 +85,7 @@ class DataStorage {
     Config* config_ = nullptr;
     Node node_;
     SimpleIdMapper* id_mapper_ = nullptr;
+    GarbageCollector* garbage_collector_;
     int nthreads_;
 
     /* the MVCCList<EdgeMVCCItem>* pointer will be the same in the EdgeHeader in
@@ -100,7 +102,7 @@ class DataStorage {
     ConcurrentUnorderedMap<uint32_t, Vertex> vertex_map_;
     typedef ConcurrentUnorderedMap<uint32_t, Vertex>::accessor VertexAccessor;
     typedef ConcurrentUnorderedMap<uint32_t, Vertex>::const_accessor VertexConstAccessor;
-    // These three locks are only used for avoid conflict between
+    // These three locks are only used to avoid conflict between
     // erase operator (always batch erase) and others (insert, find);
     // write_lock -> erase
     // read_lock -> others

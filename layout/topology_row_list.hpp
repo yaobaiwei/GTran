@@ -61,9 +61,7 @@ class TopologyRowList {
         mem_pool_ = mem_pool;
     }
 
-    static vector<eid_t> DEFAULT_VECTOR;
-
-    void SelfGarbageCollect(const vid_t& vid = NULL, vector<pair<eid_t, bool>>* vec = nullptr);
+    void SelfGarbageCollect(const vid_t& vid, vector<pair<eid_t, bool>>* vec);
     void SelfDefragment(const vid_t&, vector<pair<eid_t, bool>>*);
 
     friend class GCProducer;

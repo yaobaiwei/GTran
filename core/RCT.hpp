@@ -21,14 +21,14 @@ class GCConsumer;
 class RCTable {
  private:
     std::map<uint64_t, uint64_t> rct_map_;
-    
+
     mutable WritePriorRWLock lock_;
-    
+
     RCTable() {}
     RCTable(const RCTable&);  // not to def
     RCTable& operator=(const RCTable&);  // not to def
     ~RCTable() {}
- 
+
  public:
     static RCTable* GetInstance() {
         static RCTable instance;

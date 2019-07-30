@@ -27,6 +27,8 @@ class GCConsumer {
     void Init();
     void Stop();
 
+    // Each thread as GCConsumer will use Execute()
+    // to try pop Jobs from GarbageCollector
     void Execute(int tid);
 
  private:
@@ -44,6 +46,11 @@ class GCConsumer {
     RunningTrxList * running_trx_list_;
     RCTable * rct_table_;
 
+    // Sleep period for GCConsumer to rest
+    // (unit : us)
+    const int POP_PERIOD = 5000;
+
+    // ===========Execute Function for each Job===========
     void ExecuteEraseVJob(EraseVJob*);
     void ExecuteEraseOutEJob(EraseOutEJob*);
     void ExecuteEraseInEJob(EraseInEJob*);

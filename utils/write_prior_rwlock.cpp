@@ -8,7 +8,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 WritePriorRWLock::WritePriorRWLock() {
     pthread_rwlockattr_t attr;
     pthread_rwlockattr_init(&attr);
-    pthread_rwlockattr_setkind_np (&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+    pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
     assert(pthread_rwlock_init(&lock_, &attr) == 0);
 }
 

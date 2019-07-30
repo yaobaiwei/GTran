@@ -18,6 +18,7 @@ void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<
         }
 
         cur_mvcc_list_ptr = row_ptr->cells_[cell_id_in_row].mvcc_list;
+        // scan mvcc list and count empty cell
         if (scan_mvcc_list(element_id, cur_mvcc_list_ptr)) {
             gcable_cell_counter++;
         }
@@ -80,6 +81,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
 
     if (gc_checkpoint != nullptr) {
         spawn_mvcc_list_gctask(mvcc_list->head_, element_id, gc_version_count);
+        // Cut the mvcc_list down
         mvcc_list->head_ = gc_checkpoint->next;  // Could be nullptr or a uncommitted version
         if (gc_checkpoint == iterate_tail) {  // There is at most one left
             if (!uncommitted_version_exists) {
@@ -95,7 +97,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
             if (!uncommitted_version_exists) {  // One version left
                 mvcc_list->pre_tail_ = mvcc_list->tail_;
             } else {  // two version left and one is uncommitted
-                mvcc_list->tmp_pre_tail_ = mvcc_list->pre_tail_; 
+                mvcc_list->tmp_pre_tail_ = mvcc_list->pre_tail_;
             }
         }
 
@@ -113,7 +115,8 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
  *  to solve it with code commented in each function
  */
 template<class PropertyRow>
-void GCProducer::spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow> * prop_row_list, const uint64_t& element_id, const int& gcable_cell_counter) {
+void GCProducer::spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow> * prop_row_list,
+        const uint64_t& element_id, const int& gcable_cell_counter) {
     if (is_same<PropertyRow, VertexPropertyRow>::value) {
         spawn_vp_row_defrag_gctask((PropertyRowList<VertexPropertyRow>*)prop_row_list, element_id, gcable_cell_counter);
     } else if (is_same<PropertyRow, EdgePropertyRow>::value) {
