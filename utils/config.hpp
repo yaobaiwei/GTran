@@ -113,6 +113,7 @@ class Config{
     const int Topo_Index_GC_Task_THRESHOLD = 1;
     int Prop_Index_GC_RATIO;
     int Prop_Index_GC_Task_THRESHOLD;
+    int RCT_GC_Task_THRESHOLD;
 
     // ================================================================
     // mutable_config
@@ -622,6 +623,14 @@ class Config{
             Prop_Index_GC_Task_THRESHOLD = val;
         } else {
             fprintf(stderr, "must enter the PROP_INDEX_GC_T_THRESHOLD. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "GC:RCT_GC_T_THRESHOLD", val_not_found);
+        if (val != val_not_found) {
+            RCT_GC_Task_THRESHOLD = val;
+        } else {
+            fprintf(stderr, "must enter the RCT_GC_T_THRESHOLD. exits.\n");
             exit(-1);
         }
 

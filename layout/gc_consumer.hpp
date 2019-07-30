@@ -8,6 +8,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include <thread>
 
+#include "core/RCT.hpp"
 #include "core/running_trx_list.hpp"
 #include "layout/gc_task.hpp"
 #include "layout/index_store.hpp"
@@ -41,6 +42,7 @@ class GCConsumer {
     TidMapper * tid_mapper_;
     IndexStore * index_store_;
     RunningTrxList * running_trx_list_;
+    RCTable * rct_table_;
 
     void ExecuteEraseVJob(EraseVJob*);
     void ExecuteEraseOutEJob(EraseOutEJob*);
@@ -62,4 +64,6 @@ class GCConsumer {
 
     void ExecuteTopoIndexGCJob(TopoIndexGCJob*);
     void ExecutePropIndexGCJob(PropIndexGCJob*);
+
+    void ExecuteRCTGCJob(RCTGCJob*);
 };

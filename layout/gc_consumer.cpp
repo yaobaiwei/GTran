@@ -13,6 +13,7 @@ GCConsumer::GCConsumer() {
     tid_mapper_ = TidMapper::GetInstance();
     index_store_ = IndexStore::GetInstance();
     running_trx_list_ = RunningTrxList::GetInstance();
+    rct_table_ = RCTable::GetInstance();
 }
 
 void GCConsumer::Init() {
@@ -61,10 +62,16 @@ void GCConsumer::Execute(int tid) {
             ExecuteEMVCCGCJob(job);
             break;
           case JobType::TopoIndexGC:
+            cout << "[GCConsumer] Execute TopoIndexGC" << endl;
             ExecuteTopoIndexGCJob(job);
             break;
           case JobType::PropIndexGC:
+            cout << "[GCConsumer] Execute PropIndexGC" << endl;
             ExecutePropIndexGCJob(job);
+            break;
+          case JobType::RCTGC:
+            cout << "[GCConsumer] Execute RCTGC" << endl;
+            ExecuteRCTGCJob(job);
             break;
           case JobType::TopoRowGC:
             ExecuteTopoRowListGCJob(job);
@@ -208,6 +215,10 @@ void GCConsumer::ExecutePropIndexGCJob(PropIndexGCJob* job) {
         // Lock inside
         index_store_->PropSelfGarbageCollect(running_trx_list_->GetGlobalMinBT(), pid, type);
     }
+}
+
+void GCConsumer::ExecuteRCTGCJob(RCTGCJob* job) {
+    rct_table_->erase_trxs(running_trx_list_->GetGlobalMinBT());
 }
 
 void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {

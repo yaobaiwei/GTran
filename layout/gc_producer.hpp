@@ -12,6 +12,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/node.hpp"
 #include "core/running_trx_list.hpp"
+#include "core/RCT.hpp"
 #include "layout/gc_task.hpp"
 #include "layout/index_store.hpp"
 #include "utils/config.hpp"
@@ -121,8 +122,12 @@ class GCProducer {
     EPRowListGCJob ep_row_list_gc_job;
     EPRowListDefragJob ep_row_list_defrag_job;
 
+    // Index Store GC
     TopoIndexGCJob topo_index_gc_job;
     PropIndexGCJob prop_index_gc_job;
+
+    // RCT
+    RCTGCJob rct_gc_job;
 
     // -------Sys Components------------
     GCTaskDAG * gc_task_dag_;
@@ -132,6 +137,7 @@ class GCProducer {
     Config * config_;
     Node node_;
     RunningTrxList * running_trx_list_;
+    RCTable * rct_table_;
 
     // Thread to scan data store
     thread scanner_;
@@ -150,8 +156,11 @@ class GCProducer {
     bool scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>*);
 
     // Index Store Scan
-    void scan_topo_index_updata_region();
-    void scan_prop_index_updata_region();
+    void scan_topo_index_update_region();
+    void scan_prop_index_update_region();
+
+    // RCT Scan
+    void scan_rct();
 
     // -------Task spawning function-------
     void spawn_vertex_map_gctask(vid_t&);
@@ -180,6 +189,9 @@ class GCProducer {
     // Index Store Task Spawn
     void spawn_topo_index_gctask(Element_T);
     void spawn_prop_index_gctask(Element_T type, const int& pid, const int& cost);
+
+    // RCT Task Spawn
+    void spawn_rct_gctask(const int& cost);
 
     // -------Other help functions--------
     void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&);

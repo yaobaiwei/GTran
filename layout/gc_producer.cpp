@@ -12,7 +12,6 @@ GCTaskDAG::GCTaskDAG() {
 }
 
 void GCProducer::Init() {
-    scanner_ = thread(&GCProducer::Execute, this);
     data_storage_ = DataStorage::GetInstance();
     gc_task_dag_ = GCTaskDAG::GetInstance();
     garbage_collector_ = GarbageCollector::GetInstance();
@@ -20,6 +19,10 @@ void GCProducer::Init() {
     config_ = Config::GetInstance();
     node_ = Node::StaticInstance();
     running_trx_list_ = RunningTrxList::GetInstance();
+    rct_table_ = RCTable::GetInstance();
+
+    // Put thread at the end of Init()
+    scanner_ = thread(&GCProducer::Execute, this);
 }
 
 void GCProducer::Stop() {
@@ -32,8 +35,11 @@ void GCProducer::Execute() {
         scan_vertex_map();
 
         // Scan Index Store
-        scan_topo_index_updata_region();
-        scan_prop_index_updata_region();
+        scan_topo_index_update_region();
+        scan_prop_index_update_region();
+
+        // Scan RCT
+        scan_rct();
 
         // Currently, sleep for a while and the do next scan
         sleep(SCAN_PERIOD);
@@ -403,7 +409,7 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
     }
 }
 
-void GCProducer::scan_topo_index_updata_region() {
+void GCProducer::scan_topo_index_update_region() {
     {
         ReaderLockGuard vtx_reader_lock_guard(index_store_->vtx_topo_gc_rwlock_);
         double ratio = (double) config_->Topo_Index_GC_RATIO / 100;
@@ -435,7 +441,7 @@ void GCProducer::scan_topo_index_updata_region() {
     }
 }
 
-void GCProducer::scan_prop_index_updata_region() {
+void GCProducer::scan_prop_index_update_region() {
     {
         ReaderLockGuard vp_reader_lock_guard(index_store_->vtx_prop_gc_rwlock_);
         double ratio = (double) config_->Prop_Index_GC_RATIO / 100;
@@ -471,6 +477,20 @@ void GCProducer::scan_prop_index_updata_region() {
             }
         }
     }
+}
+
+void GCProducer::scan_rct() {
+    ReaderLockGuard reader_lock_guard(rct_table_->lock_);
+
+    uint64_t cur_minimum_bt = running_trx_list_->GetGlobalMinBT();
+    int num_gcable_record = 0;
+    for (auto & pair : rct_table_->rct_map_) {
+        if (pair.first < cur_minimum_bt) {
+            num_gcable_record++;
+        }
+    }
+
+    spawn_rct_gctask(num_gcable_record);
 }
 
 void GCProducer::spawn_vertex_map_gctask(vid_t & vid) {
@@ -703,6 +723,18 @@ void GCProducer::spawn_prop_index_gctask(Element_T type, const int& pid, const i
     }
 }
 
+void GCProducer::spawn_rct_gctask(const int& cost) {
+    RCTGCTask * task = new RCTGCTask(cost);
+    rct_gc_job.AddTask(task);
+
+    if (rct_gc_job.isReady()) {
+        RCTGCJob * new_job = new RCTGCJob();
+        new_job[0] = rct_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        rct_gc_job.Clear();
+    }
+}
+
 void GCProducer::construct_edge_id(const vid_t& v1, EdgeHeader* adjacent_edge_header, eid_t& eid) {
     if (adjacent_edge_header->is_out) {
         eid = eid_t(adjacent_edge_header->conn_vtx_id.value(), v1.value());
@@ -728,6 +760,7 @@ void GCProducer::check_finished_job() {
           case JobType::EMVCCGC:
           case JobType::TopoIndexGC:
           case JobType::PropIndexGC:
+          case JobType::RCTGC:
             break;
           case JobType::TopoRowGC:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {

@@ -246,10 +246,16 @@ class TopoIndexGCTask : public IndependentGCTask {
 // Perform GC on IndexStore:PropIndex
 class PropIndexGCTask : public IndependentGCTask {
  public:
-     Element_T element_type;
-     int pid;
+    Element_T element_type;
+    int pid;
 
-     PropIndexGCTask(Element_T element_type_, int pid_, int cost) : element_type(element_type_), pid(pid_), IndependentGCTask(cost) {}
+    PropIndexGCTask(Element_T element_type_, int pid_, int cost) : element_type(element_type_), pid(pid_), IndependentGCTask(cost) {}
+};
+
+// Perform GC on RCT
+class RCTGCTask : public IndependentGCTask {
+ public:
+    RCTGCTask(int cost) : IndependentGCTask(cost) {}
 };
 
 /* =====================Job Region============================== */
@@ -435,6 +441,11 @@ class TopoIndexGCJob : public IndependentGCJob {
 class PropIndexGCJob : public IndependentGCJob {
  public:
     PropIndexGCJob() : IndependentGCJob(JobType::PropIndexGC, Config::GetInstance()->Prop_Index_GC_Task_THRESHOLD) {}
+};
+
+class RCTGCJob : public IndependentGCJob {
+ public:
+    RCTGCJob() : IndependentGCJob(JobType::RCTGC, Config::GetInstance()->RCT_GC_Task_THRESHOLD) {}
 };
 
 class TopoRowListGCJob : public DependentGCJob {
