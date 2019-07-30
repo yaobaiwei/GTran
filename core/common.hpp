@@ -106,6 +106,7 @@ struct UpdateTrxStatusReq{
     uint64_t trx_id;
     TRX_STAT new_status;
     bool is_read_only;
+    uint64_t ct;
 };
 
 struct ReadTrxStatusReq{

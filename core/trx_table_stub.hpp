@@ -6,11 +6,13 @@
 #pragma once
 
 #include <iostream>
+#include "base/communication.hpp"
 #include "base/node.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/buffer.hpp"
 #include "core/common.hpp"
 #include "core/rdma_mailbox.hpp"
+#include "core/transactions_table.hpp"
 #include "glog/logging.h"
 #include "utils/config.hpp"
 #include "utils/tid_mapper.hpp"
@@ -20,11 +22,12 @@ class TrxTableStub {
     AbstractMailbox * mailbox_;
     Config* config_;
     Node node_;
+    TransactionTable* trx_table_;
+    ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates_;
 
  public:
     virtual bool Init() = 0;
-    virtual bool update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only = false,
-                       std::vector<uint64_t>* trx_ids = nullptr) = 0;
+    virtual bool update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only = false) = 0;
 
     virtual bool read_status(uint64_t trx_id, TRX_STAT& status) = 0;
 

@@ -58,16 +58,24 @@ enum class PROCESS_STAT {
     ABORT_DROP_EP_DROP,
 };
 
-struct ProcessStatHash {
-    size_t operator() (const PROCESS_STAT& stat) const{
-        return hash<int>()((int)(stat));
+enum class NOTIFICATION_TYPE {
+    UPDATE_STATUS,
+    RCT_TIDS,
+    QUERY_RCT,
+};
+
+template <class EnumClass>
+struct EnumClassHash {
+    size_t operator() (const EnumClass& v) const{
+        return hash<int>()((int)(v));
     }
-    bool operator() (const PROCESS_STAT& a, const PROCESS_STAT& b) const{
+    bool operator() (const EnumClass& a, const EnumClass& b) const{
         return a == b;
     }
 };
 
-extern const unordered_map<PROCESS_STAT, string, ProcessStatHash> abort_reason_map;
+extern const unordered_map<PROCESS_STAT, string, EnumClassHash<PROCESS_STAT>> abort_reason_map;
+extern const unordered_map<TRX_STAT, string, EnumClassHash<TRX_STAT>> trx_stat_str_map;
 
 struct ptr_t {
     uint64_t size: NBITS_SIZE;

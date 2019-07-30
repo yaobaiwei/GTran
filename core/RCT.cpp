@@ -5,58 +5,35 @@
 
 #include "core/RCT.hpp"
 
-RCTable * RCTable::rct_ = nullptr;
-
-RCTable::RCTable() {
-     /* Init b+tree_ */
-    bpt_config_.order = 7;
-    bpt_config_.entries = 10;
-
-    tree_ = bplus_tree_init(bpt_config_.order, bpt_config_.entries);
-
-    if (tree_ == nullptr) {
-        std::cerr << "RCT Error: Init Failure!" << std::endl;
-        CHECK(false);
-    }
-}
-
-// outer trx id => inner representation
-long long RCTable::trxid2llint(uint64_t trx_id) { // to long long
-    CHECK(IS_VALID_TRX_ID(trx_id)) << "[RCTable] trxid2int: invalid trx_id";  // make sure will not lose infomation due to being capped
-    return ((trx_id << 1) >> 1);
-}
-
-// inner representation => outer trx id
-uint64_t RCTable::llint2trxid(long long trx_id) {
-    CHECK_GE(trx_id, 0) << "[RCTable] trx_id should >= 0";
-    return trx_id | 0x8000000000000000;
-}
-
-bool RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
+void RCTable::insert_trx(uint64_t ct, uint64_t trx_id) {
     CHECK(IS_VALID_TRX_ID(trx_id));
-
-    long long inner_trx_id = trxid2llint(trx_id);
-    
-    DLOG(INFO) << "[RCT] insert_trx: " << ct << " trx_id " << inner_trx_id << " inserted" << endl;
-
-    bplus_tree_put(tree_, ct, inner_trx_id);
-    return true;
+    WriterLockGuard lock_guard(lock_);
+    rct_map_.insert(std::make_pair(ct, trx_id));
 }
 
-bool RCTable::query_trx(uint64_t bt, uint64_t ct, std::set<uint64_t>& trx_ids) {
+void RCTable::query_trx(uint64_t bt, uint64_t ct, std::vector<uint64_t>& trx_ids) const {
     CHECK_EQ(trx_ids.size(), 0) << "[RCTable] trx_ids should be empty";
-    
-    std::set<long long> values;
-    bplus_tree_get_range(tree_, bt, ct, values);
-    for(auto it = values.begin(); it!=values.end(); ++ it){
-        trx_ids.insert(llint2trxid(*it));
+    if (ct <= bt)
+        return;
+    ReaderLockGuard lock_guard(lock_);
+
+    auto lower = rct_map_.lower_bound(bt);
+    auto upper = rct_map_.upper_bound(ct);
+
+    while (lower != upper) {
+        trx_ids.emplace_back(lower->second);
+        lower++;
     }
-
-    return true;
 }
 
-bool RCTable::delete_transaction(uint64_t ct) {
-    bplus_tree_put(tree_, ct, 0);
-    return true;
-}
+void RCTable::erase_trxs(uint64_t min_bt) {
+    WriterLockGuard lock_guard(lock_);
 
+    if (min_bt == 0)
+        return;
+
+    auto lower = rct_map_.lower_bound(0);
+    auto upper = rct_map_.upper_bound(min_bt - 1);
+
+    rct_map_.erase(lower, upper);
+}

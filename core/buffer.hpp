@@ -136,6 +136,14 @@ class Buffer {
         return config_->remote_head_buffer_offset + GetIndex(tid, node_.get_local_rank(), nid) * sizeof(uint64_t);
     }
 
+    inline char* GetMinBTBuf() {
+        return buffer_ + config_->min_bt_buffer_offset;
+    }
+
+    inline char* GetTSSyncBuf() {
+        return buffer_ + config_->ts_sync_buffer_offset;
+    }
+
  private:
     // layout: (kv-store) | send_buffer | recv_buffer | local_head_buffer | remote_head_buffer
     char* buffer_;
@@ -158,9 +166,10 @@ class Buffer {
             config_->dgram_recv_buf = buffer_ + config_->dgram_recv_buffer_offset;
         } else {  // without rdma
             if (node.get_world_rank() != 0) {  // workers
-                buffer_ = new char[config_->kvstore_sz];
-                memset(buffer_, 0, config_->kvstore_sz);
+                buffer_ = new char[config_->kvstore_sz + config_->trx_table_sz];
+                memset(buffer_, 0, config_->kvstore_sz + config_->trx_table_sz);
                 config_->kvstore = buffer_ + config_->kvstore_offset;
+                config_->trx_table = buffer_ + config_->kvstore_sz;
             } else {  // master
                 buffer_ = new char[config_->trx_table_sz];
                 memset(buffer_, 0, config_->trx_table_sz);

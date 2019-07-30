@@ -25,6 +25,10 @@ obinstream& operator>>(obinstream& m, QueryPlan& plan) {
     return m;
 }
 
+void TrxPlan::SetST(uint64_t st) {
+    st_ = st;
+}
+
 void TrxPlan::RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int actor_index, int param_index) {
     // Record the position of placeholder
     // When src_index is finished, results will be inserted into recorded positions.

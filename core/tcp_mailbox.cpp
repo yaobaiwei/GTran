@@ -26,25 +26,25 @@ TCPMailbox::~TCPMailbox() {
 }
 
 void TCPMailbox::Init(vector<Node> &nodes) {
+    notification_senders_.resize(config_->global_num_workers);
+
+    for (int nid = 0; nid < config_->global_num_workers; nid++) {
+        notification_senders_[nid] = new zmq::socket_t(context, ZMQ_PUSH);
+        char addr[64] = "";
+        const Node& r_node = GetNodeById(nodes, nid + 1);  // remote worker node
+        snprintf(addr, sizeof(addr), "tcp://%s:%d", r_node.ibname.c_str(),
+            r_node.tcp_port + 2 + config_->global_num_threads);  // TODO: check the port
+        notification_senders_[nid] -> connect(addr);
+        DLOG(INFO) << "[TCPMailbox::Init] Notificaton sender connect to " << string(addr);
+    }
+
     if (my_node_.get_world_rank() == MASTER_RANK) {  // Master
-        trx_master_receiver_ = new zmq::socket_t(context, ZMQ_PULL);
+        notificaton_receiver_ = new zmq::socket_t(context, ZMQ_PULL);
         char addr[64] = "";
         snprintf(addr, sizeof(addr), "tcp://*:%d",
                  my_node_.tcp_port + 1);  // TODO: check the port
-        trx_master_receiver_->bind(addr);
+        notificaton_receiver_->bind(addr);
         DLOG(INFO) << "[TCPMailbox::Init] Master bind " << string(addr);
-
-        trx_master_senders_.resize(config_->global_num_workers);
-
-        for (int nid = 0; nid < config_->global_num_workers; nid++) {
-            trx_master_senders_[nid] = new zmq::socket_t(context, ZMQ_PUSH);
-            char addr[64] = "";
-            const Node& r_node = GetNodeById(nodes, nid + 1);  // remote worker node
-            snprintf(addr, sizeof(addr), "tcp://%s:%d", r_node.ibname.c_str(),
-                r_node.tcp_port + 2 + config_->global_num_threads);  // TODO: check the port
-            trx_master_senders_[nid] -> connect(addr);
-            DLOG(INFO) << "[TCPMailbox::Init] Master connect to " << string(addr);
-        }
     } else {  // Worker
         receivers_.resize(config_->global_num_threads);
 
@@ -77,24 +77,23 @@ void TCPMailbox::Init(vector<Node> &nodes) {
         locks = (pthread_spinlock_t *)malloc(
             sizeof(pthread_spinlock_t) *
             (config_->global_num_threads * config_->global_num_workers));
-        for (int n = 0; n < config_->global_num_workers; n++) {
+        for (int n = 0; n < config_->global_num_workers; n++)
             for (int t = 0; t < config_->global_num_threads; t++)
-                pthread_spin_init(&locks[n * config_->global_num_threads + t],
-                                  0);
-        }
+                pthread_spin_init(&locks[n * config_->global_num_threads + t], 0);
 
         // tcp_trx
         string master_ibname = master_.ibname;
-        trx_worker_sender_ = new zmq::socket_t(context, ZMQ_PUSH);
+        zmq::socket_t* trx_worker_sender = new zmq::socket_t(context, ZMQ_PUSH);
         char addr[64] = "";
         snprintf(addr, sizeof(addr), "tcp://%s:%d", master_ibname.c_str(),
             master_.tcp_port + 1);
-        trx_worker_sender_->connect(addr);
+        trx_worker_sender->connect(addr);
+        notification_senders_.push_back(trx_worker_sender);
 
         // receive replies from master
-        trx_worker_receiver_ = new zmq::socket_t(context, ZMQ_PULL);
+        notificaton_receiver_ = new zmq::socket_t(context, ZMQ_PULL);
         snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port + 2 + config_->global_num_threads);
-        trx_worker_receiver_->bind(addr);
+        notificaton_receiver_->bind(addr);
         DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << "bind " << string(addr);
     }
 
@@ -111,6 +110,8 @@ void TCPMailbox::Init(vector<Node> &nodes) {
         local_msgs[i] = new ThreadSafeQueue<Message>();
     }
     rr_size = 3;
+
+    pthread_spin_init(&send_notification_lock_, 0);
 }
 
 int TCPMailbox::Send(int tid, const Message & msg) {
@@ -172,41 +173,26 @@ bool TCPMailbox::TryRecv(int tid, Message & msg) {
     return false;
 }
 
-// if worker send to master: dst_id should be global_num_workers
 void TCPMailbox::SendNotification(int dst_nid, ibinstream &in) {
     if (my_node_.get_world_rank() == MASTER_RANK) {  // master sends to worker
         CHECK(dst_nid != config_ -> global_num_workers) << "[TCPMailbox::SendNotification] wrong worker dst_id";
-        zmq::message_t msg(in.size());
-        memcpy(reinterpret_cast<void *>(msg.data()), in.get_buf(), in.size());
-        trx_master_senders_[dst_nid]->send(msg);
-    } else {  // worker sends to master
-        CHECK_EQ(dst_nid, config_ -> global_num_workers) << "[TCPMailbox::SendNotification] wrong master dst_id";
-        zmq::message_t msg(in.size());
-        memcpy(reinterpret_cast<void *>(msg.data()), in.get_buf(), in.size());
-        trx_worker_sender_->send(msg);
     }
-    return;
+
+    zmq::message_t msg(in.size());
+    memcpy(reinterpret_cast<void *>(msg.data()), in.get_buf(), in.size());
+
+    SimpleSpinLockGuard lock_guard(&send_notification_lock_);
+    notification_senders_[dst_nid]->send(msg);
 }
 
 void TCPMailbox::RecvNotification(obinstream &out) {
     zmq::message_t zmq_msg;
-    if (my_node_.get_world_rank() == MASTER_RANK) {  // master recvs from worker
+    CHECK_GT(notificaton_receiver_->recv(&zmq_msg), 0)
+        << "[TCPMailbox::RecvNotification] worker recvs failed";
 
-        CHECK_GT(trx_master_receiver_->recv(&zmq_msg), 0)
-            << "[TCPMailbox::RecvNotification] master recvs from worker failed";
-
-        char *buf = new char[zmq_msg.size()];
-        memcpy(buf, zmq_msg.data(), zmq_msg.size());
-        out.assign(buf, zmq_msg.size(), 0);
-    } else {  // worker recvs from master
-        CHECK_GT(trx_worker_receiver_->recv(&zmq_msg), 0)
-            << "[TCPMailbox::RecvNotification] worker recvs from master failed";
-
-        char *buf = new char[zmq_msg.size()];
-        memcpy(buf, zmq_msg.data(), zmq_msg.size());
-        out.assign(buf, zmq_msg.size(), 0);
-    }
-    return;
+    char *buf = new char[zmq_msg.size()];
+    memcpy(buf, zmq_msg.data(), zmq_msg.size());
+    out.assign(buf, zmq_msg.size(), 0);
 }
 
 void TCPMailbox::Recv(int tid, Message & msg) { return; }

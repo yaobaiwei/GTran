@@ -34,7 +34,12 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     if (node_.get_world_rank() == MASTER_RANK) {
         nid = config_->global_num_workers;
     }
-    RDMA_init(config_->global_num_workers, config_->global_num_threads + 1, nid, mem_info, nodes, master_);
+
+    // Other threads may call RDMARead or RDMAWrite in:
+    //      Worker::SendQueryMsg (with tid = config_->global_num_threads)
+    //      RunningTrxList::UpdateMinBT (with tid = config_->global_num_threads + 1)
+    //      Coordinator::PerformCalibration (with tid = config_->global_num_threads + 2)
+    RDMA_init(config_->global_num_workers, config_->global_num_threads + 3, nid, mem_info, nodes, master_);
 
     int nrbfs = (config_->global_num_workers - 1) * config_->global_num_threads;
 
@@ -69,6 +74,8 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     // 1 more thread for worker to send init msg
     pending_msgs.resize(config_->global_num_threads + 1);
     rr_size = 3;
+
+    pthread_spin_init(&send_notification_lock_, 0);
 }
 
 bool RdmaMailbox::IsBufferFull(int dst_nid, int dst_tid, uint64_t tail, uint64_t msg_sz) {
@@ -273,6 +280,8 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
 void RdmaMailbox::SendNotification(int dst_nid, ibinstream& in) {
     RDMA &rdma = RDMA::get_rdma();
     int failed = 0;
+    SimpleSpinLockGuard lock_guard(&send_notification_lock_);
+
     while (rdma.dev->RdmaSend(dst_nid, config_->dgram_send_buf, in.get_buf(), in.size()) != 0) {
         failed++;
         cout << "Fail to send msg from " << node_.get_world_rank() << " to "

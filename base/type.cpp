@@ -7,7 +7,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <vector>
 #include "base/type.hpp"
 
-const unordered_map<PROCESS_STAT, string, ProcessStatHash> abort_reason_map = {
+const unordered_map<PROCESS_STAT, string, EnumClassHash<PROCESS_STAT>> abort_reason_map = {
     {PROCESS_STAT::ABORT, "[Undefined abort reason]"},
     {PROCESS_STAT::ABORT_DROP_V_GET_CONN_E, "[ABORT_DROP_V_GET_CONN_E]"},
     {PROCESS_STAT::ABORT_DROP_V_APPEND, "[ABORT_DROP_V_APPEND]"},
@@ -24,6 +24,13 @@ const unordered_map<PROCESS_STAT, string, ProcessStatHash> abort_reason_map = {
     {PROCESS_STAT::ABORT_DROP_EP_EITEM, "[ABORT_DROP_EP_EITEM]"},
     {PROCESS_STAT::ABORT_DROP_EP_DELETED_E, "[ABORT_DROP_EP_DELETED_E]"},
     {PROCESS_STAT::ABORT_DROP_EP_DROP, "[ABORT_DROP_EP_DROP]"},
+};
+
+const unordered_map<TRX_STAT, string, EnumClassHash<TRX_STAT>> trx_stat_str_map = {
+    {TRX_STAT::PROCESSING, "[PROCESSING]"},
+    {TRX_STAT::VALIDATING, "[VALIDATING]"},
+    {TRX_STAT::ABORT, "[ABORT]"},
+    {TRX_STAT::COMMITTED, "[COMMITTED]"},
 };
 
 ibinstream& operator<<(ibinstream& m, const ptr_t& p) {

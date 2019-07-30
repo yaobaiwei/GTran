@@ -21,6 +21,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/thread_safe_queue.hpp"
 #include "utils/config.hpp"
 #include "utils/global.hpp"
+#include "utils/simple_spinlock_guard.hpp"
 
 #include "glog/logging.h"
 
@@ -103,4 +104,5 @@ class RdmaMailbox : public AbstractMailbox {
     rbf_lmeta_t *lmetas = NULL;
     pthread_spinlock_t *recv_locks = NULL;
     scheduler_t *schedulers;
+    pthread_spinlock_t send_notification_lock_;
 };

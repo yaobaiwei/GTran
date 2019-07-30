@@ -7,22 +7,24 @@
 
 TcpTrxTableStub * TcpTrxTableStub::instance_ = nullptr;
 
-bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only, std::vector<uint64_t> * trx_ids = nullptr) {
-    CHECK((new_status == TRX_STAT::VALIDATING && trx_ids != nullptr) || (new_status != TRX_STAT::VALIDATING && trx_ids == nullptr)) << "[TrxTableStub] update_status: new_status should correspond to trx_ids";
+bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only) {
+    CHECK(new_status != TRX_STAT::VALIDATING);
 
-    ibinstream in;
-    int status_i = int(new_status);
-    in << node_.get_local_rank() << trx_id << status_i << is_read_only;
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
 
-    unique_lock<mutex> lk(update_mutex_);
-    mailbox_ ->SendNotification(config_->global_num_workers, in);
+    if (worker_id == node_.get_local_rank()) {
+        // directly append the request to the local queue
+        UpdateTrxStatusReq req{node_.get_local_rank(), trx_id, new_status, is_read_only};
+        pending_trx_updates_->Push(req);
+    } else {
+        // send the request to remote worker
+        ibinstream in;
+        int status_i = int(new_status);
+        in << (int)(NOTIFICATION_TYPE::UPDATE_STATUS) << node_.get_local_rank() << trx_id << status_i << is_read_only;
 
-    if (new_status == TRX_STAT::VALIDATING) {
-        obinstream out;
-        mailbox_ -> RecvNotification(out);
-        lk.unlock();
-        out >> *trx_ids;
+        mailbox_->SendNotification(worker_id, in);
     }
+
     return true;
 }
 
@@ -30,10 +32,17 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
     CHECK(IS_VALID_TRX_ID(trx_id))
         << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
 
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+
+    if (worker_id == node_.get_local_rank()) {
+        return trx_table_->query_status(trx_id, status);
+    }
+
     int t_id = TidMapper::GetInstance()->GetTid();
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << false;
-    send_req(t_id, in);
+
+    send_req(worker_id, t_id, in);
     // DLOG (INFO) << "[TcpTrxTableStub::read_status] send a read_status req";
 
     obinstream out;
@@ -49,10 +58,19 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct)
     CHECK(IS_VALID_TRX_ID(trx_id))
         << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
 
+    int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
+
+    if (worker_id == node_.get_local_rank()) {
+        bool query_status_ret = trx_table_->query_status(trx_id, status);
+        bool query_ct_ret = trx_table_->query_ct(trx_id, ct);
+        return query_status_ret && query_ct_ret;
+    }
+
     int t_id = TidMapper::GetInstance()->GetTid();
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << true;
-    send_req(t_id, in);
+
+    send_req(worker_id, t_id, in);
     // DLOG (INFO) << "[TcpTrxTableStub::read_ct] send a read_ct req";
 
     obinstream out;
@@ -67,11 +85,11 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct)
     return true;
 }
 
-void TcpTrxTableStub::send_req(int t_id, ibinstream& in) {
+void TcpTrxTableStub::send_req(int n_id, int t_id, ibinstream& in) {
     zmq::message_t zmq_send_msg(in.size());
     memcpy(reinterpret_cast<void*>(zmq_send_msg.data()), in.get_buf(),
            in.size());
-    senders_[t_id]->send(zmq_send_msg);
+    senders_[socket_code(n_id, t_id)]->send(zmq_send_msg);
     return;
 }
 

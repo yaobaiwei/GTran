@@ -9,6 +9,7 @@ file(GLOB utils-src-files
     console_util.cpp
     tid_mapper.cpp
     mkl_util.cpp
+    distributed_clock.cpp
     write_prior_rwlock.cpp
     )
 

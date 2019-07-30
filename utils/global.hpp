@@ -30,6 +30,8 @@ enum MSG {
 const int COMMUN_CHANNEL = 200;
 const int MONITOR_CHANNEL = 201;
 const int MSCOMMUN_CHANNEL = 202;
+const int MINBT_REQUEST_CHANNEL = 203;
+const int MINBT_REPLY_CHANNEL = 204;
 const int COMMUN_TIME = 1;
 
 // ============================

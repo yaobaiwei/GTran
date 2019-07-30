@@ -155,7 +155,7 @@ class RDMA {
                         sleep(1);
                 }
             } else {
-                // RC connection between workers
+                // create RC connection QP between workers
                 for (uint i = 0; i< num_workers; ++i) {
                     if (i == nid) {
                         // skip local qp
@@ -167,6 +167,7 @@ class RDMA {
                     }
                 }
 
+                // connect those RC QP
                 while (1) {
                     int connected = 0;
                     for (uint i = 0; i< num_workers; ++i) {
@@ -188,6 +189,7 @@ class RDMA {
                         sleep(1);
                 }
 
+                // create RC connection QP to the master
                 for (uint j = 0; j < num_threads; ++ j) {
                     Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 , 1);
                     CHECK(qp != NULL);
@@ -215,7 +217,13 @@ class RDMA {
                 assert(ud_qp != NULL);
 
                 while (1) {
-                    if (ud_qp->get_ud_connect_info_specific(num_workers, 0, 0))
+                    int connected = 0;
+                    for (uint i = 0; i <= num_workers; ++i) {
+                        if (ud_qp->get_ud_connect_info_specific(i, 0, 0)) {
+                            connected += 1;
+                        }
+                    }
+                    if (connected == num_workers + 1)
                         break;
                     else
                         sleep(1);

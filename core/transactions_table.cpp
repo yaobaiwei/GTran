@@ -5,9 +5,7 @@
 
 #include "core/transactions_table.hpp"
 
-TrxGlobalCoordinator* TrxGlobalCoordinator::trx_coordinator = nullptr;
-
-TrxGlobalCoordinator::TrxGlobalCoordinator() {
+TransactionTable::TransactionTable() {
     config_ = Config::GetInstance();
 
     // release version
@@ -20,27 +18,9 @@ TrxGlobalCoordinator::TrxGlobalCoordinator() {
 
     table_ = (TidStatus*) buffer_;
     last_ext_ = 0;
-    next_time_ = 1;
-    next_trx_id_ = next_time_;
 }
 
-TrxGlobalCoordinator* TrxGlobalCoordinator::GetInstance() {
-    if (trx_coordinator == nullptr)
-        trx_coordinator = new TrxGlobalCoordinator();
-    return trx_coordinator;
-}
-
-bool TrxGlobalCoordinator::query_bt(uint64_t trx_id, uint64_t& bt) {
-    // CHECK(bt.find(trx_id) != bt.endl())
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    bt_table_const_accessor ac;
-    bt_table_.find(ac, trx_id);
-    bt = ac->second;
-    return true;
-}
-
-bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
+bool TransactionTable::query_ct(uint64_t trx_id, uint64_t& ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p = nullptr;
@@ -51,7 +31,7 @@ bool TrxGlobalCoordinator::query_ct(uint64_t trx_id, uint64_t& ct) {
     return false;
 }
 
-bool TrxGlobalCoordinator::query_status(uint64_t trx_id, TRX_STAT & status) {
+bool TransactionTable::query_status(uint64_t trx_id, TRX_STAT & status) {
     CHECK(IS_VALID_TRX_ID(trx_id));
     TidStatus * p = nullptr;
     bool found = find_trx(trx_id, &p);
@@ -63,35 +43,49 @@ bool TrxGlobalCoordinator::query_status(uint64_t trx_id, TRX_STAT & status) {
     }
 }
 
-bool TrxGlobalCoordinator::query_single_item(uint64_t trx_id, Trx & trx) {
+bool TransactionTable::register_ct(uint64_t trx_id, uint64_t ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
-    TidStatus * p = nullptr;
-    bool found = find_trx(trx_id, &p);
-//    CHECK(found) << "[TrxGlobalCoordinator::query_single_item] Not found";
-    if (!found) {
-        return false;
-    } else {
-        trx.trx_id = trx_id;
-        query_bt(trx_id, trx.bt);
-        query_ct(trx_id, trx.ct);
-        trx.status = p -> getState();
+    TidStatus * p;
+    if (find_trx(trx_id, &p)) {
+        p->enterCommitTime(ct);
         return true;
     }
+    return false;
 }
 
-bool TrxGlobalCoordinator::insert_single_trx(uint64_t& trx_id, uint64_t& bt) {
-    // trx_id is inner representation now
-    if (!allocate_trx_id(trx_id))
-        return false;
+bool TransactionTable::find_trx(uint64_t trx_id, TidStatus** p) {
+    CHECK(IS_VALID_TRX_ID(trx_id));
 
-    if (!allocate_bt(bt))
-        return false;
+    uint64_t bucket_id = trx_id % trx_num_main_buckets_;
 
+    while (true) {
+        for (int i = 0; i < ASSOCIATIVITY_; ++i) {
+            uint64_t slot_id = bucket_id * ASSOCIATIVITY_ + i;
+
+            if (i < ASSOCIATIVITY_ - 1) {
+                if (table_[slot_id].trx_id == trx_id) {  // found it
+                    *p = table_ + slot_id;
+                    return true;
+                }
+            } else {
+                if (table_[slot_id].isEmpty()) {
+                    CHECK(false);
+                    return false;  // not found
+                } else {
+                    bucket_id = table_[slot_id].trx_id;
+                    break;
+                }
+            }
+        }
+    }
+
+    CHECK(false);
+    return false;
+}
+
+bool TransactionTable::insert_single_trx(const uint64_t& trx_id, const uint64_t& bt) {
     // insert into btct_table
-    if (!register_bt(trx_id, bt))
-        return false;
-
     uint64_t bucket_id = trx_id % trx_num_main_buckets_;
 
     printf("[Trx Table] bucket %d found\n", bucket_id);
@@ -136,7 +130,16 @@ done:
     return true;
 }
 
-bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status) {
+bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct) {
+    CHECK(IS_VALID_TRX_ID(trx_id));
+
+    if (!register_ct(trx_id, ct))
+        return false;
+
+    return modify_status(trx_id, new_status);
+}
+
+bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     TRX_STAT old_status;
@@ -175,137 +178,3 @@ bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     return false;
 }
 
-bool TrxGlobalCoordinator::modify_status(uint64_t trx_id, TRX_STAT new_status, uint64_t& ct, bool is_read_only) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    if (is_read_only) {
-        query_bt(trx_id, ct);
-    } else {
-        allocate_ct(ct);
-    }
-
-    if (!register_ct(trx_id, ct)) {
-        return false;
-    }
-
-    return modify_status(trx_id, new_status);
-}
-
-bool TrxGlobalCoordinator::print_single_item(uint64_t trx_id) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    TidStatus * p = nullptr;
-
-    bool found = find_trx(trx_id, &p);
-
-    uint64_t bt, ct;
-    query_bt(trx_id, bt);
-    query_ct(trx_id, ct);
-
-    if (found) {
-        CHECK(p != nullptr);
-        printf("[TRX Table] print_single_item: trx_id=%llx; P=%d; V=%d; C=%d; A=%d; occupied=%d; bt=%ld; ct=%ld\n", (long long)trx_id, p->P, p->V, p->C, p->A, p->occupied, bt, ct);
-    } else {
-        printf("[TRX Table] print_single_item: Not Found");
-        return false;
-    }
-}
-
-bool TrxGlobalCoordinator::delete_single_item(uint64_t trx_id) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-    bool op_succ_1 = deregister_bt(trx_id);
-
-    TidStatus * p = nullptr;
-    bool found = find_trx(trx_id, &p);
-
-    if (found) {
-        CHECK(p != nullptr);
-        p -> setEmpty();
-        DLOG(INFO) << "[TRX] delete_single_item: " << p->DebugString() << endl;
-        return true;
-    } else {
-        return false;
-    }
-}
-
-// private functions part:
-
-uint64_t TrxGlobalCoordinator::next_trx_id() {
-    // Trxid : lower 8 bits are reserved for query index
-    return 0x8000000000000000 | (next_trx_id_ << 8);
-}
-
-bool TrxGlobalCoordinator::allocate_trx_id(uint64_t& trx_id) {
-    trx_id = next_trx_id();
-    next_trx_id_++;
-    printf("[Trx Table] allocated trx_id = %llx\n", (long long) trx_id);
-    return true;
-}
-
-bool TrxGlobalCoordinator::allocate_bt(uint64_t& bt) {
-    bt = next_time_++;
-    return true;
-}
-
-/* delete with check existance */
-bool TrxGlobalCoordinator::allocate_ct(uint64_t& ct) {
-    ct = next_time_++;
-    return true;
-}
-
-bool TrxGlobalCoordinator::find_trx(uint64_t trx_id, TidStatus** p) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    uint64_t bucket_id = trx_id % trx_num_main_buckets_;
-
-    while (true) {
-        for (int i = 0; i < ASSOCIATIVITY_; ++i) {
-            uint64_t slot_id = bucket_id * ASSOCIATIVITY_ + i;
-
-            if (i < ASSOCIATIVITY_ - 1) {
-                if (table_[slot_id].trx_id == trx_id) {  // found it
-                    *p = table_ + slot_id;
-                    return true;
-                }
-            } else {
-                if (table_[slot_id].isEmpty()) {
-                    return false;  // not found
-                } else {
-                    bucket_id = table_[slot_id].trx_id;
-                    break;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
-bool TrxGlobalCoordinator::register_ct(uint64_t trx_id, uint64_t ct) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    TidStatus * p;
-    if (find_trx(trx_id, &p)) {
-        p->enterCommitTime(ct);
-        return true;
-    }
-    return false;
-}
-
-bool TrxGlobalCoordinator::deregister_bt(uint64_t trx_id) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    bt_table_accessor ac;
-    bt_table_.find(ac, trx_id);
-    bt_table_.erase(ac);
-    return true;
-}
-
-bool TrxGlobalCoordinator::register_bt(uint64_t trx_id, uint64_t bt) {
-    CHECK(IS_VALID_TRX_ID(trx_id));
-
-    bt_table_accessor ac;
-    bt_table_.insert(ac, trx_id);
-    ac->second = bt;
-    return true;
-}

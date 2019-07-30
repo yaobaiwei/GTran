@@ -30,8 +30,6 @@ void Client::RequestWorker() {
     cc_.Recv(MASTER_RANK, um);
     um >> id;
     um >> handler_;
-    um >> trxid_;
-    um >> time_stamp_;
 
     cout << "[Client] Client " << id << " recvs a REP: get available worker_node" << handler_ - 1 << endl << endl;
 }
@@ -45,8 +43,6 @@ string Client::CommitQuery(string query) {
     string host_str(hostname);
     m << host_str;
     m << query;
-    m << trxid_;
-    m << time_stamp_;
 
     cc_.Send(handler_, m);
     cout << "[Client] Client posts the query to worker_node" << handler_ - 1 << endl << endl;
