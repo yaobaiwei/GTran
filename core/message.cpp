@@ -553,9 +553,13 @@ void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<p
     bool is_count = actors[m.step].actor_type == ACTOR_T::COUNT;
     bool consider_both_edge = false;
     if (actors[m.step].actor_type == ACTOR_T::DROP) {
-        // For DropE and DropEP, send edge src_v and dst_v
+        // For DropE, send edge src_v and dst_v
         Element_T inType = static_cast<Element_T>(Tool::value_t2int(actors[m.step].params.at(0)));
-        consider_both_edge = (inType == Element_T::EDGE);
+        bool isProperty = static_cast<bool>(Tool::value_t2int(actors[m.step].params.at(1)));
+        if (!isProperty) {
+            // For DropEP, only send edge to src_v machine
+            consider_both_edge = (inType == Element_T::EDGE);
+        }
     } else if (actors[m.step].actor_type == ACTOR_T::ADDE) {
         ConstructEdge(data, actors[m.step]);
         consider_both_edge = true;
