@@ -254,12 +254,9 @@ void Coordinator::ProcessTrxTableWriteReqs() {
         UpdateTrxStatusReq req;
         pending_trx_updates_->WaitAndPop(req);
 
-        // check if P->V
-        if (req.new_status == TRX_STAT::VALIDATING) {
-            trx_table_->modify_status(req.trx_id, req.new_status, req.ct);
-        } else {
-            trx_table_->modify_status(req.trx_id, req.new_status);
-        }
+        CHECK(req.new_status != TRX_STAT::VALIDATING);
+
+        trx_table_->modify_status(req.trx_id, req.new_status);
     }
 }
 

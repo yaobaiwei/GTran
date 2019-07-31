@@ -364,8 +364,8 @@ class Worker {
                         pending_timestamp_request_.Push(req);
                     } else {
                         // For readonly trx, do not need to allocate CT and query RCT.
-                        UpdateTrxStatusReq req{my_node_.get_local_rank(), plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
-                        pending_trx_updates_.Push(req);
+                        trx_table_->modify_status(plan.trxid, TRX_STAT::VALIDATING, plan.GetStartTime());
+
                         // Push query plan to SendQueryMsg queue directly.
                         queue_.Push(pkg);
                     }
@@ -490,9 +490,7 @@ class Worker {
                 // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
                 rct_->insert_trx(ct, trx_id);
-
-                UpdateTrxStatusReq req{-1, trx_id, TRX_STAT::VALIDATING, true, ct};
-                pending_trx_updates_.Push(req);
+                trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
 
                 TrxPlanAccessor accessor;
                 plans_.find(accessor, trx_id);
