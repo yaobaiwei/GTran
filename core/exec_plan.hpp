@@ -82,6 +82,7 @@ class TrxPlan {
     uint64_t start_time;
 
     uint64_t GetStartTime() const {return st_;}
+    uint8_t GetTrxType() const {return trx_type_;}
 
  private:
     // Locate the position of place holder

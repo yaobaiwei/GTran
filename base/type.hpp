@@ -29,6 +29,8 @@ using namespace std;
 enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
 
+#define QID_BITS sizeof(uint8_t)*8
+
 static uint64_t _56HFLAG = 0xFFFFFFFFFFFFFF00;
 static uint64_t _56LFLAG = 0xFFFFFFFFFFFFFF;
 static uint64_t _32LFLAG = 0xFFFFFFFF;
@@ -57,6 +59,8 @@ enum class PROCESS_STAT {
     ABORT_DROP_EP_DELETED_E,
     ABORT_DROP_EP_DROP,
 };
+
+enum class TIMESTAMP_TYPE {BEGIN_TIME, COMMIT_TIME, FINISH_TIME};
 
 enum class NOTIFICATION_TYPE {
     UPDATE_STATUS,

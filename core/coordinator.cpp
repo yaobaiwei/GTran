@@ -48,13 +48,13 @@ void Coordinator::Init(Node* node) {
 
 // get trx id
 void Coordinator::RegisterTrx(uint64_t& trx_id) {
-    trx_id = 0x8000000000000000 | (((next_trx_id_) * comm_sz_ + my_rank_) << TRXID_MACHINE_ID_BITS);
+    trx_id = 0x8000000000000000 | (((next_trx_id_) * comm_sz_ + my_rank_) << QID_BITS);
     next_trx_id_++;
 }
 
 int Coordinator::GetWorkerFromTrxID(const uint64_t& trx_id) {
     CHECK(IS_VALID_TRX_ID(trx_id));
-    return ((trx_id ^ 0x8000000000000000) >> TRXID_MACHINE_ID_BITS) % comm_sz_;
+    return ((trx_id ^ 0x8000000000000000) >> QID_BITS) % comm_sz_;
 }
 
 void Coordinator::WaitForDistributedClockInit() {
@@ -79,7 +79,7 @@ void Coordinator::ProcessObtainingTimestamp() {
         TimestampRequest req;
         pending_timestamp_request_->WaitAndPop(req);
 
-        AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.is_ct, distributed_clock_->GetTimestamp());
+        AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.ts_type, distributed_clock_->GetTimestamp());
         pending_allocated_timestamp_->Push(allocated_ts);
     }
 }
