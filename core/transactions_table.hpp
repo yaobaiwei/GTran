@@ -14,13 +14,15 @@
 #include "core/common.hpp"
 #include "glog/logging.h"
 #include "utils/config.hpp"
+#include "tbb/atomic.h"
 
-struct Trx {
-    uint64_t trx_id;
-    uint64_t bt;
-    uint64_t ct;
-    TRX_STAT status;
+struct TsPtrNode {
+    uint64_t ts;
+    TidStatus* ptr;
+    TsPtrNode* next = nullptr;
 };
+
+extern uint64_t TrxIDHash(uint64_t trx_id);
 
 /*
  * A table to record the status of transactions
@@ -36,7 +38,7 @@ class TransactionTable {
         return &instance;
     }
 
-    bool insert_single_trx(const uint64_t& trx_id, const uint64_t& bt);
+    bool insert_single_trx(const uint64_t& trx_id, const uint64_t& bt, const bool& readonly);
 
     // called if not P->V
     bool modify_status(uint64_t trx_id, TRX_STAT new_status);
@@ -47,6 +49,12 @@ class TransactionTable {
     bool query_ct(uint64_t trx_id, uint64_t& ct);
 
     bool query_status(uint64_t trx_id, TRX_STAT & status);
+
+    // =================GC related=================
+    // called by GC thread
+    void erase_trx_via_min_bt(uint64_t min_bt);
+    // For non-readonly transaction, record its finish time.
+    void record_nro_trx_with_ft(uint64_t trx_id, uint64_t ft);
 
  private:
     TransactionTable();
@@ -74,4 +82,12 @@ class TransactionTable {
 
     /* secondary fields: used to operate on external objects and the objects above*/
     Config * config_;
+
+    tbb::atomic<TsPtrNode*> ro_trxs_head_ = nullptr, ro_trxs_tail_ = nullptr;
+    tbb::atomic<TsPtrNode*> nro_trxs_head_ = nullptr, nro_trxs_tail_ = nullptr;
+
+    // For readonly transaction, record its begin time.
+    void record_ro_trx_with_bt(TidStatus* ptr, uint64_t bt);
+    // Perform the erasure of TrxTable. Return a new head.
+    TsPtrNode* perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t min_bt);
 };

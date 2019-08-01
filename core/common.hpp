@@ -30,14 +30,20 @@ struct TidStatus {
     uint8_t C : 1;
     uint8_t A : 1;
     uint8_t occupied : 1;
+    uint8_t erased : 1;
     uint64_t ct;  // Commit Time
 
     // enter P
     void enterProcessState(uint64_t trx_id) {
-        CHECK(trx_id != 0 && P == 0 && V == 0 && C == 0 && A == 0 && occupied == 0);
+        CHECK(occupied == 0 || erased == 1);
         this->trx_id = trx_id;
         this->P = 1;
+        this->V = 0;
+        this->C = 0;
+        this->A = 0;
         this->occupied = 1;
+        this->erased = 0;
+        this->ct = 0;
     }
 
     // P->V
@@ -63,6 +69,10 @@ struct TidStatus {
         this->ct = ct_;
     }
 
+    void markErased() {
+        erased = 1;
+    }
+
     TRX_STAT getState() {
         CHECK(!(A == 1 && C == 1));
         if (A == 1) return TRX_STAT::ABORT;
@@ -77,13 +87,11 @@ struct TidStatus {
     }
 
     bool isEmpty() {
-        return (occupied == 0) ? true : false;
+        return occupied == 0;
     }
 
-    bool setEmpty() {
-        P = 0; V = 0; A = 0; C = 0;
-        occupied = 0;
-        return true;
+    bool isErased() {
+        return erased == 1;
     }
 
     string DebugString() {
@@ -95,18 +103,18 @@ struct TidStatus {
             << "; C=" << std::to_string(C)
             << "; A=" << std::to_string(A)
             << "; occupied=" << std::to_string(occupied)
+            << "; erased=" << std::to_string(erased)
             << "; commit_time=" << ct;
 
         return ss.str();
     }
 } __attribute__((packed));
 
-struct UpdateTrxStatusReq{
+struct UpdateTrxStatusReq {
     int n_id;
     uint64_t trx_id;
     TRX_STAT new_status;
     bool is_read_only;
-    uint64_t ct;
 };
 
 struct ReadTrxStatusReq{

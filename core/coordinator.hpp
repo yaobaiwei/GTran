@@ -28,22 +28,20 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/config.hpp"
 #include "utils/distributed_clock.hpp"
 
-#define TRXID_MACHINE_ID_BITS 8
-
 struct TimestampRequest {
     TimestampRequest() : trx_id(0) {}
-    TimestampRequest(uint64_t _trx_id, bool _is_ct) :
-                     trx_id(_trx_id), is_ct(_is_ct) {}
+    TimestampRequest(uint64_t _trx_id, TIMESTAMP_TYPE _ts_type) :
+                     trx_id(_trx_id), ts_type(_ts_type) {}
     uint64_t trx_id;
-    bool is_ct;
+    TIMESTAMP_TYPE ts_type;
 };
 
 struct AllocatedTimestamp {
     AllocatedTimestamp() : trx_id(0) {}
-    AllocatedTimestamp(uint64_t _trx_id, bool _is_ct, uint64_t _timestamp) :
-                       trx_id(_trx_id), is_ct(_is_ct), timestamp(_timestamp) {}
+    AllocatedTimestamp(uint64_t _trx_id, TIMESTAMP_TYPE _ts_type, uint64_t _timestamp) :
+                       trx_id(_trx_id), ts_type(_ts_type), timestamp(_timestamp) {}
     uint64_t trx_id;
-    bool is_ct;
+    TIMESTAMP_TYPE ts_type;
     uint64_t timestamp;
 };
 

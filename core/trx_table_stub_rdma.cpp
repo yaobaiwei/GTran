@@ -37,7 +37,7 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
     }
 
     int t_id = TidMapper::GetInstance()->GetTid();
-    uint64_t bucket_id = trx_id % trx_num_main_buckets_;
+    uint64_t bucket_id = TrxIDHash(trx_id) % trx_num_main_buckets_;
     DLOG(INFO) << "[RDMATrxTableStub] read_status: t_id = " << t_id << "; bucket_id = " << bucket_id;
 
     while (true) {
@@ -60,10 +60,9 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
                 }
             }
             else {
-                if (trx_status[i].isEmpty()) {
-                    return false;
-                }
-                else {
+                if (trx_status[i].trx_id == 0) {
+                    CHECK(false);
+                } else {
                     bucket_id = trx_status[i].trx_id;
                     break;
                 }
@@ -83,7 +82,7 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
     }
 
     int t_id = TidMapper::GetInstance()->GetTid();
-    uint64_t bucket_id = trx_id % trx_num_main_buckets_;
+    uint64_t bucket_id = TrxIDHash(trx_id) % trx_num_main_buckets_;
     DLOG(INFO) << "[RDMATrxTableStub] read_status: t_id = " << t_id << "; bucket_id = " << bucket_id;
 
     while (true) {
@@ -112,10 +111,9 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
                 }
             }
             else {
-                if (trx_status[i].isEmpty()) {
-                    return false;
-                }
-                else {
+                if (trx_status[i].trx_id == 0) {
+                    CHECK(false);
+                } else {
                     bucket_id = trx_status[i].trx_id;
                     break;
                 }

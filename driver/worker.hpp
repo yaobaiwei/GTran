@@ -286,7 +286,7 @@ class Worker {
             accessor->second = move(plan);
 
             // Request begin time
-            TimestampRequest req(trxid, false);
+            TimestampRequest req(trxid, TIMESTAMP_TYPE::BEGIN_TIME);
             pending_timestamp_request_.Push(req);
         } else {
   ERROR:
@@ -360,12 +360,12 @@ class Worker {
                         accessor->second = move(v_pkg);
 
                         // Request commit time
-                        TimestampRequest req(pkg.qplan.trxid, true);
+                        TimestampRequest req(pkg.qplan.trxid, TIMESTAMP_TYPE::COMMIT_TIME);
                         pending_timestamp_request_.Push(req);
                     } else {
                         // For readonly trx, do not need to allocate CT and query RCT.
-                        UpdateTrxStatusReq req{my_node_.get_local_rank(), plan.trxid, TRX_STAT::VALIDATING, true, plan.GetStartTime()};
-                        pending_trx_updates_.Push(req);
+                        trx_table_->modify_status(plan.trxid, TRX_STAT::VALIDATING, plan.GetStartTime());
+
                         // Push query plan to SendQueryMsg queue directly.
                         queue_.Push(pkg);
                     }
@@ -484,15 +484,13 @@ class Worker {
             pending_allocated_timestamp_.WaitAndPop(allocated_ts);
             uint64_t trx_id = allocated_ts.trx_id;
 
-            if (allocated_ts.is_ct) {
+            if (allocated_ts.ts_type == TIMESTAMP_TYPE::COMMIT_TIME) {
                 // Non-readonly transactions, CT allocated
                 uint64_t ct = allocated_ts.timestamp;
                 // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
                 rct_->insert_trx(ct, trx_id);
-
-                UpdateTrxStatusReq req{-1, trx_id, TRX_STAT::VALIDATING, true, ct};
-                pending_trx_updates_.Push(req);
+                trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
 
                 TrxPlanAccessor accessor;
                 plans_.find(accessor, trx_id);
@@ -516,18 +514,19 @@ class Worker {
                 for (int i = 0; i < config_->global_num_workers; i++)
                     if (i != my_node_.get_local_rank())
                         mailbox_ ->SendNotification(i, in);
-            } else {
+            } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::BEGIN_TIME) {
                 // BT allocated.
                 uint64_t bt = allocated_ts.timestamp;
                 // printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
                 running_trx_list_->InsertTrx(bt);
 
-                trx_table_->insert_single_trx(trx_id, bt);
-
                 TrxPlanAccessor accessor;
                 plans_.find(accessor, trx_id);
 
                 TrxPlan& plan = accessor->second;
+
+                trx_table_->insert_single_trx(trx_id, bt, plan.GetTrxType() == TRX_READONLY);
+
                 // Set bt for TrxPlan
                 plan.SetST(bt);
 
@@ -541,6 +540,13 @@ class Worker {
                     NotifyTrxFinished(trx_id, plan.GetStartTime());
                     plans_.erase(accessor);
                 }
+            } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::FINISH_TIME) {
+                // The finish time for a non-readonly transaction is allocated.
+                uint64_t ft = allocated_ts.timestamp;
+                // Record it in the TrxTable, to help the GC thread decide when to erase it in the TrxTable.
+                trx_table_->record_nro_trx_with_ft(trx_id, ft);
+            } else {
+                CHECK(false);
             }
         }
     }
@@ -732,6 +738,12 @@ class Worker {
                 // Reply to client when transaction is finished
                 ReplyClient(plan);
                 NotifyTrxFinished(qid.trxid, plan.GetStartTime());
+                // if not readonly, abtain its finished time
+                if (plan.GetTrxType() != TRX_READONLY) {
+                    TimestampRequest req(qid.trxid, TIMESTAMP_TYPE::FINISH_TIME);
+                    pending_timestamp_request_.Push(req);
+                }
+
                 plans_.erase(accessor);
             }
         }
