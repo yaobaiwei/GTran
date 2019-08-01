@@ -200,6 +200,12 @@ class RCTGCTask : public IndependentGCTask {
     RCTGCTask(int cost) : IndependentGCTask(cost) {}
 };
 
+// Preform GC on TrxStatusTable
+class TrxStatusTableGCTask : public IndependentGCTask {
+ public:
+    TrxStatusTableGCTask(int cost) : IndependentGCTask(cost) {}
+};
+
 // Free a TopoRowList
 class TopoRowListGCTask : public DependentGCTask {
  public:
@@ -313,6 +319,10 @@ class IndependentGCJob : public AbstractGCJob {
         return sum_of_cost_ >= COST_THRESHOLD;
     }
 
+    bool isEmpty() {
+        return tasks_.size() == 0;
+    }
+
     string DebugString() {
         string ret = "#Tasks: " + to_string(tasks_.size());
         ret += " Sum_Of_Cost: " + to_string(sum_of_cost_);
@@ -338,6 +348,10 @@ class DependentGCJob : public AbstractGCJob {
 
     bool isReady() override {
         return ((sum_of_cost_ >= COST_THRESHOLD) && (sum_blocked_count_ == 0));
+    }
+
+    bool isEmpty() {
+        return tasks_.size() == 0;
     }
 
     void AddTask(DependentGCTask* task) {
@@ -452,6 +466,13 @@ class PropIndexGCJob : public IndependentGCJob {
 class RCTGCJob : public IndependentGCJob {
  public:
     RCTGCJob() : IndependentGCJob(JobType::RCTGC, Config::GetInstance()->RCT_GC_Task_THRESHOLD) {}
+};
+
+class TrxStatusTableGCJob : public IndependentGCJob {
+ public:
+    // Make threshold same with RCTGCJob, since we spawn rct_gc_task and trx_status_table_gc_tasks
+    // together to avoid scanning status table which is expensive to scan;
+    TrxStatusTableGCJob() : IndependentGCJob(JobType::TrxStatusTableGC, Config::GetInstance()->RCT_GC_Task_THRESHOLD) {}
 };
 
 class TopoRowListGCJob : public DependentGCJob {

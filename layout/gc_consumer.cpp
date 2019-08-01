@@ -14,6 +14,7 @@ GCConsumer::GCConsumer() {
     index_store_ = IndexStore::GetInstance();
     running_trx_list_ = RunningTrxList::GetInstance();
     rct_table_ = RCTable::GetInstance();
+    trx_table_ = TransactionTable::GetInstance();
 }
 
 void GCConsumer::Init() {
@@ -71,6 +72,9 @@ void GCConsumer::Execute(int tid) {
             break;
           case JobType::RCTGC:
             ExecuteRCTGCJob(job);
+            break;
+          case JobType::TrxStatusTableGC:
+            ExecuteTrxStatusTableGCJob(job);
             break;
           case JobType::TopoRowGC:
             ExecuteTopoRowListGCJob(job);
@@ -242,6 +246,12 @@ void GCConsumer::ExecuteRCTGCJob(RCTGCJob* job) {
     // There must be only one task in RCTGCJob
     // Lock inside
     rct_table_->erase_trxs(running_trx_list_->GetGlobalMinBT());
+}
+
+void GCConsumer::ExecuteTrxStatusTableGCJob(TrxStatusTableGCJob* job) {
+    // Same with rct, only one task existing
+    // Self handle thread safety
+    trx_table_->erase_trx_via_min_bt(running_trx_list_->GetGlobalMinBT());
 }
 
 void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {

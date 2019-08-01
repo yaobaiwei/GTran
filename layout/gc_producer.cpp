@@ -539,6 +539,7 @@ void GCProducer::scan_rct() {
     }
 
     spawn_rct_gctask(num_gcable_record);
+    spawn_trx_st_gctask(num_gcable_record);
 }
 
 void GCProducer::spawn_erase_vertex_gctask(vid_t & vid) {
@@ -783,14 +784,34 @@ void GCProducer::spawn_prop_index_gctask(Element_T type, const int& pid, const i
 }
 
 void GCProducer::spawn_rct_gctask(const int& cost) {
-    RCTGCTask * task = new RCTGCTask(cost);
-    rct_gc_job.AddTask(task);
+    if (rct_gc_job.isEmpty()) {
+        RCTGCTask * task = new RCTGCTask(cost);
+        rct_gc_job.AddTask(task);
+    } else {
+        rct_gc_job.sum_of_cost_ = cost;;
+    }
 
     if (rct_gc_job.isReady()) {
         RCTGCJob * new_job = new RCTGCJob();
         new_job[0] = rct_gc_job;
         garbage_collector_->PushJobToPendingQueue(new_job);
         rct_gc_job.Clear();
+    }
+}
+
+void GCProducer::spawn_trx_st_gctask(const int& cost) {
+    if (trx_st_gc_job.isEmpty()) {
+        TrxStatusTableGCTask * task = new TrxStatusTableGCTask(cost);
+        trx_st_gc_job.AddTask(task);
+    } else {
+        trx_st_gc_job.sum_of_cost_ = cost;
+    }
+
+    if (trx_st_gc_job.isReady()) {
+        TrxStatusTableGCJob * new_job = new TrxStatusTableGCJob();
+        new_job[0] = trx_st_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        trx_st_gc_job.Clear();
     }
 }
 
@@ -821,6 +842,7 @@ void GCProducer::check_finished_job() {
           case JobType::TopoIndexGC:
           case JobType::PropIndexGC:
           case JobType::RCTGC:
+          case JobType::TrxStatusTableGC:
             break;
           case JobType::TopoRowGC:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {

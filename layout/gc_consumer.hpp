@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "core/RCT.hpp"
 #include "core/running_trx_list.hpp"
+#include "core/transactions_table.hpp"
 #include "layout/gc_task.hpp"
 #include "layout/index_store.hpp"
 #include "utils/config.hpp"
@@ -45,6 +46,7 @@ class GCConsumer {
     IndexStore * index_store_;
     RunningTrxList * running_trx_list_;
     RCTable * rct_table_;
+    TransactionTable * trx_table_;
 
     // Sleep period for GCConsumer to rest
     // (unit : us)
@@ -73,4 +75,5 @@ class GCConsumer {
     void ExecutePropIndexGCJob(PropIndexGCJob*);
 
     void ExecuteRCTGCJob(RCTGCJob*);
+    void ExecuteTrxStatusTableGCJob(TrxStatusTableGCJob*);
 };

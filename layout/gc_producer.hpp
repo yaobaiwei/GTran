@@ -133,6 +133,9 @@ class GCProducer {
     // RCT
     RCTGCJob rct_gc_job;
 
+    // TrxStatusTable
+    TrxStatusTableGCJob trx_st_gc_job;
+
     // -------Sys Components------------
     GCTaskDAG * gc_task_dag_;
     DataStorage * data_storage_;
@@ -164,6 +167,8 @@ class GCProducer {
     void scan_prop_index_update_region();
 
     // RCT Scan
+    // Note: This scan will also spawn trx_status_table_gctask
+    // since scan status table is expensive
     void scan_rct();
 
     // -------Task spawning function-------
@@ -196,6 +201,9 @@ class GCProducer {
 
     // RCT Task Spawn
     void spawn_rct_gctask(const int& cost);
+
+    // TrxST Task Spawn
+    void spawn_trx_st_gctask(const int& cost);
 
     // -------Other help functions--------
     void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&);
