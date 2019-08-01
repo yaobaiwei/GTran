@@ -48,7 +48,7 @@ class AddVertexActor : public AbstractActor {
         pmt_rct_table_->InsertRecentActionSet(Primitive_T::IV, qplan.trxid, update_data);
 
         // Insert update data to topo index
-        index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::VID, true, TRX_STAT::PROCESSING);
+        index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::VID, true);
 
         vector<Message> msg_vec;
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);

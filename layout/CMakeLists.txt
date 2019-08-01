@@ -3,7 +3,9 @@ include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
 file(GLOB layout-src-files
     data_storage.cpp
     hdfs_data_loader.cpp
-    gc_executor.cpp
+    garbage_collector.cpp
+    gc_consumer.cpp
+    gc_producer.cpp
     index_store.cpp
     layout_type.cpp
     mpi_snapshot_manager.cpp

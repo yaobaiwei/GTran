@@ -15,9 +15,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
-#include "layout/gc_executor.hpp"
-#include "layout/gc_scanner.hpp"
-#include "layout/gc_task.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
@@ -28,6 +25,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
+#include "utils/write_prior_rwlock.hpp"
 
 struct TrxProcessHistory {
     enum ProcessType {
@@ -70,6 +68,10 @@ struct TrxProcessHistory {
     std::unordered_map<void*, uint32_t> addv_map;
 };
 
+class GCProducer;
+class GCConsumer;
+class GarbageCollector;
+
 class DataStorage {
  private:
     DataStorage() {}
@@ -83,6 +85,7 @@ class DataStorage {
     Config* config_ = nullptr;
     Node node_;
     SimpleIdMapper* id_mapper_ = nullptr;
+    GarbageCollector* garbage_collector_;
     int nthreads_;
 
     /* the MVCCList<EdgeMVCCItem>* pointer will be the same in the EdgeHeader in
@@ -99,6 +102,15 @@ class DataStorage {
     ConcurrentUnorderedMap<uint32_t, Vertex> vertex_map_;
     typedef ConcurrentUnorderedMap<uint32_t, Vertex>::accessor VertexAccessor;
     typedef ConcurrentUnorderedMap<uint32_t, Vertex>::const_accessor VertexConstAccessor;
+    // These three locks are only used to avoid conflict between
+    // erase operator (always batch erase) and others (insert, find);
+    // write_lock -> erase
+    // read_lock -> others
+    // concurrency for others is guaranteed by ConcurrentUnorderedMap
+    WritePriorRWLock vertex_map_erase_rwlock_;
+    WritePriorRWLock out_edge_erase_rwlock_;
+    WritePriorRWLock in_edge_erase_rwlock_;
+
     MVCCValueStore* vp_store_ = nullptr;
     MVCCValueStore* ep_store_ = nullptr;
 
@@ -141,15 +153,15 @@ class DataStorage {
     // TrxTableStub
     TrxTableStub * trx_table_stub_ = nullptr;
 
-    // Garbage Collection
-    GCExecutor* gc_executor_ = nullptr;
-
     // e_accessor and item_ref will be modified
     READ_STAT GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeVersion& item_ref);
 
     READ_STAT CheckVertexVisibility(const VertexConstAccessor& v_accessor, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);
+
+    friend class GCProducer;
+    friend class GCConsumer;
 
  public:
     // data access of vertices

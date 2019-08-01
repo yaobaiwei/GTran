@@ -12,6 +12,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/row_definition.hpp"
 #include "utils/tid_mapper.hpp"
 
+class GCProducer;
+class GCConsumer;
+
 class TopologyRowList {
  private:
     static ConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
@@ -20,6 +23,11 @@ class TopologyRowList {
     VertexEdgeRow* head_, *tail_;
     vid_t my_vid_;
     pthread_spinlock_t lock_;
+    // This lock is only used to avoid conflict between
+    // gc operator (including delete all and defrag) and all others;
+    // write_lock -> gc opr; read_lock -> others
+    // concurrency for others is guaranteed by spin lock above
+    WritePriorRWLock gc_rwlock_;
 
 
     void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
@@ -53,5 +61,9 @@ class TopologyRowList {
         mem_pool_ = mem_pool;
     }
 
-    void SelfGarbageCollect();
+    void SelfGarbageCollect(const vid_t& vid, vector<pair<eid_t, bool>>* vec);
+    void SelfDefragment(const vid_t&, vector<pair<eid_t, bool>>*);
+
+    friend class GCProducer;
+    friend class GCConsumer;
 };

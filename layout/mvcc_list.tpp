@@ -205,7 +205,7 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
 
     // Get Old Value for Index Update
     if (old_val_header != nullptr) {
-        old_val_header[0] = pre_tail_->val;
+        old_val_header[0] = tail_->val;
     }
 
     // extend the MVCCList

@@ -14,9 +14,21 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/layout_type.hpp"
 #include "layout/property_row_list.hpp"
 
+class GCProducer;
+class GCConsumer;
+
 struct VPHeader {
     vpid_t pid;
     std::atomic<MVCCList<VPropertyMVCCItem>*> mvcc_list;
+
+    VPHeader& operator= (const VPHeader& other) {
+        pid = other.pid;
+        MVCCList<VPropertyMVCCItem>* non_atomic = other.mvcc_list;
+        mvcc_list = non_atomic;
+
+        return *this;
+    }
+
     typedef VPropertyMVCCItem MVCCItemType;
 };
 
@@ -29,6 +41,15 @@ struct VPHeader {
 struct EPHeader {
     epid_t pid;
     std::atomic<MVCCList<EPropertyMVCCItem>*> mvcc_list;
+
+    EPHeader& operator= (const EPHeader& other) {
+        pid = other.pid;
+        MVCCList<EPropertyMVCCItem>* non_atomic = other.mvcc_list;
+        mvcc_list = non_atomic;
+
+        return *this;
+    }
+
     typedef EPropertyMVCCItem MVCCItemType;
 };
 
@@ -36,10 +57,17 @@ struct EPHeader {
 
 
 struct EdgeHeader {
-    bool is_out;  // If this vtx is a, true: a -> b, false: a <- b
+ public:
+    bool is_out;  // If this vtx is a, true: a -> conn_vtx_id, false: a <- conn_vtx_id
     // EdgeVersion labels are stored in EdgeMVCCItem->val
     vid_t conn_vtx_id;
     MVCCList<EdgeMVCCItem>* mvcc_list;
+
+    EdgeHeader& operator= (const EdgeHeader& _edge_header) {
+        this->is_out = _edge_header.is_out;
+        this->conn_vtx_id = _edge_header.conn_vtx_id;
+        this->mvcc_list = _edge_header.mvcc_list;
+    }
 };
 
 #define VE_ROW_ITEM_COUNT InferElementCount<EdgeHeader>(256, sizeof(void*))
@@ -54,6 +82,8 @@ struct VertexPropertyRow {
     VPHeader cells_[VP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
+    friend class GCProducer;
+    friend class GCConsumer;
 
  public:
     static constexpr int ROW_ITEM_COUNT = VP_ROW_ITEM_COUNT;
@@ -66,6 +96,8 @@ struct EdgePropertyRow {
     EPHeader cells_[EP_ROW_ITEM_COUNT];
 
     template<class PropertyRow> friend class PropertyRowList;
+    friend class GCProducer;
+    friend class GCConsumer;
 
  public:
     static constexpr int ROW_ITEM_COUNT = EP_ROW_ITEM_COUNT;
@@ -78,4 +110,6 @@ struct VertexEdgeRow {
     EdgeHeader cells_[VE_ROW_ITEM_COUNT];
 
     friend class TopologyRowList;
+    friend class GCProducer;
+    friend class GCConsumer;
 }  __attribute__((aligned(64)));

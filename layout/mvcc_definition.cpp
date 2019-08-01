@@ -28,7 +28,5 @@ void EPropertyMVCCItem::ValueGC() {
 void VertexMVCCItem::ValueGC() {}
 
 void EdgeMVCCItem::ValueGC() {
-    PropertyRowList<EdgePropertyRow>* ep_row_list = val.ep_row_list;
-    ep_row_list->SelfGarbageCollect();
-    delete ep_row_list;
+    val.ep_row_list = nullptr;
 }

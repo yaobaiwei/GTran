@@ -58,7 +58,7 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
                 itr = pair.second.erase(itr);
             } else {
                 itr++;
-            } 
+            }
         } while (itr != pair.second.end());
     }
 
@@ -68,7 +68,7 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
         pmt_rct_table_->InsertRecentActionSet(Primitive_T::IE, qplan.trxid, update_data);
 
         // Insert Update data to Index Buffer
-        index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::EID, true, TRX_STAT::PROCESSING);
+        index_store_->InsertToUpdateBuffer(qplan.trxid, update_data, ID_T::EID, true);
 
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
     } else {

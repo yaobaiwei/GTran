@@ -163,6 +163,7 @@ struct EdgeVersion {
     PropertyRowList<EdgePropertyRow>* ep_row_list = nullptr;
 
     bool Exist() const {return label != 0;}
+    bool IsEmpty() const {return label == 0;}
     EdgeVersion() {}
 
     constexpr EdgeVersion(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :

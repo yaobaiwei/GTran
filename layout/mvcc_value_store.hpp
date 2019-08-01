@@ -23,7 +23,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/type.hpp"
 
-// #define MVCC_VALUE_STORE_DEBUG
+#define MVCC_VALUE_STORE_DEBUG
 
 #define OffsetT uint32_t
 #define MEM_ITEM_SIZE 8

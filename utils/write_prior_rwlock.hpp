@@ -39,6 +39,9 @@ class ReaderLockGuard {
  public:
     explicit ReaderLockGuard(WritePriorRWLock& lock);
     ~ReaderLockGuard();
+    bool is_unlock = false;
+
+    void Unlock();
 
  private:
     WritePriorRWLock* lock_;
@@ -48,6 +51,9 @@ class WriterLockGuard {
  public:
     explicit WriterLockGuard(WritePriorRWLock& lock);
     ~WriterLockGuard();
+    bool is_unlock = false;
+
+    void Unlock();
 
  private:
     WritePriorRWLock* lock_;

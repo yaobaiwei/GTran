@@ -32,13 +32,13 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
 
         // Insert Update data to topo index (Currently only topo)
         if (!isProperty && elem_type == Element_T::VERTEX) {
-            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::VID, false, TRX_STAT::PROCESSING);
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::VID, false);
         } else if (!isProperty && elem_type == Element_T::EDGE) {
-            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::EID, false, TRX_STAT::PROCESSING);
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::EID, false);
         } else if (isProperty && elem_type == Element_T::VERTEX) {
-            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::VPID, false, TRX_STAT::PROCESSING, NULL, &update_vals);
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::VPID, false, NULL, &update_vals);
         } else if (isProperty && elem_type == Element_T::EDGE) {
-            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::EPID, false, TRX_STAT::PROCESSING, NULL, &update_vals);
+            index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::EPID, false, NULL, &update_vals);
         } else {
             cout << "[Drop Actor] Unexpected type combination" << endl;
             assert(false);

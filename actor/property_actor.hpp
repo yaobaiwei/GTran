@@ -43,7 +43,7 @@ class PropertyActor : public AbstractActor {
         Meta & m = msg.meta;
         Actor_Object actor_obj = qplan.actors[m.step];
 
-        // Prepare for Update Data (RCT and Index) 
+        // Prepare for Update Data (RCT and Index)
         vector<pair<uint64_t, value_t>> update_data;  // pair<vpid, old_value>
         Primitive_T pmt_type;
 
@@ -55,7 +55,7 @@ class PropertyActor : public AbstractActor {
         bool index_updatable = index_store_->IsIndexEnabled(elem_type, pid);
 
         PROCESS_STAT process_stat = PROCESS_STAT::SUCCESS;
-        switch(elem_type) {
+        switch (elem_type) {
           case Element_T::VERTEX:
             pmt_type = Primitive_T::MVP;
             process_stat = processVertexProperty(qplan, msg.data, pid, new_val, update_data);
@@ -87,9 +87,9 @@ class PropertyActor : public AbstractActor {
             // Insert Update data to Index Buffer
             if (index_updatable) {
                 if (elem_type == Element_T::VERTEX) {
-                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::VPID, true, TRX_STAT::PROCESSING, &new_val, &values);
+                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::VPID, true, &new_val, &values);
                 } else if (elem_type == Element_T::EDGE) {
-                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::EPID, true, TRX_STAT::PROCESSING, &new_val, &values);
+                    index_store_->InsertToUpdateBuffer(qplan.trxid, ids, ID_T::EPID, true, &new_val, &values);
                 }
             }
 
@@ -103,11 +103,10 @@ class PropertyActor : public AbstractActor {
         for (auto& msg : msg_vec) {
             mailbox_->Send(tid, msg);
         }
-
     }
 
  private:
-    // Node Info 
+    // Node Info
     int num_thread_;
 
     // Actor type

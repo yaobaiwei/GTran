@@ -38,6 +38,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "layout/pmt_rct_table.hpp"
 #include "layout/index_store.hpp"
 #include "layout/data_storage.hpp"
+#include "layout/garbage_collector.hpp"
 #include "core/trx_table_stub_zmq.hpp"
 #include "core/trx_table_stub_rdma.hpp"
 
@@ -703,6 +704,13 @@ class Worker {
         actor_adapter->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 
+        // =================GarbageCollector================
+        // GarbageCollector must init after ActorAdapter since it require GlobalMinBt
+        garbage_collector_ = GarbageCollector::GetInstance();
+        garbage_collector_->Init();
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> garbage_collector->Start()" << endl;
+
+
         worker_barrier(my_node_);
         fflush(stdout);
         worker_barrier(my_node_);
@@ -750,6 +758,7 @@ class Worker {
 
         actor_adapter->Stop();
         monitor_->Stop();
+        garbage_collector_->Stop();
 
         recvreq.join();
         sendmsg.join();
@@ -779,6 +788,7 @@ class Worker {
     ResultCollector * rc_;
     Monitor * monitor_;
     AbstractMailbox* mailbox_;
+    GarbageCollector * garbage_collector_;
 
     bool is_emu_mode_;
     ThroughputMonitor * thpt_monitor_;
