@@ -14,6 +14,10 @@ Item* MVCCList<Item>::GetHead() {
     return head_;
 }
 
+// Only for serializable isolation level
+// ReturnValue
+//  first: false if abort
+//  second: false if do not read the uncommitted tail
 template<class Item>
 pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_id, const uint64_t& begin_time,
                                                            const bool& read_only) {
@@ -63,6 +67,7 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
         }
     }
 
+    // Ignore
     return make_pair(true, false);
 }
 
@@ -72,84 +77,70 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
 template<class Item>
 pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, ValueType& ret) {
-    Item *iterate_head, *iterate_tail;
+    SimpleSpinLockGuard lock_guard(&lock_);
 
-    {
-        SimpleSpinLockGuard lock_guard(&lock_);
-
-        // The MVCCList is empty
-        if (head_ == nullptr) {
-            return make_pair(true, false);
-        }
-
-        // The tail_ is commited
-        if (tail_->GetTransactionID() == 0) {
-            // No visible version
-            if (head_->GetBeginTime() > begin_time) {
-                return make_pair(true, false);
-            } else {  // At least one visible between head_ and tail_
-                // For non-readonly transaction, if the visible version is not tail_, abort directly
-                if (!read_only) {
-                    if (tail_->GetBeginTime() > begin_time) {
-                        return make_pair(false, false);
-                    }
-                    ret = tail_->val;
-                    return make_pair(true, true);
-                }
-            }
-            iterate_tail = tail_;
-        } else {  // The tail is uncommited
-            // The tail_ is created by the same transaction
-            if (tail_->GetTransactionID() == trx_id) {
-                ret = tail_->val;
-                return make_pair(true, true);
-            } else if (head_ == tail_) {  // Only one version in the whole mvcc_list, and it is uncommited
-                pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
-                if (!preread_visible.first)
-                    return make_pair(false, false);
-
-                if (preread_visible.second)
-                    ret = tail_->val;
-
-                // Early return, since no commited version in the MVCCList
-                return preread_visible;
-            } else {  // At least one committed version in MVCCList; pre_tail is committed, and tail_ is uncommitted.
-                // The whole mvcc_list is not visible
-                if (head_->GetBeginTime() > begin_time) {
-                    return make_pair(true, false);
-                } else if (pre_tail_->GetBeginTime() <= begin_time) {  // pre_tail_ is visible to me
-                    pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
-
-                    if (!preread_visible.first)
-                        return make_pair(false, false);
-
-                    if (preread_visible.second)
-                        ret = tail_->val;
-                    else
-                        ret = pre_tail_->val;
-                    return make_pair(true, true);
-                } else {  // There is a visible version in [head_, pre_tail_)
-                    if (!read_only)
-                        return make_pair(false, false);
-                }
-            }
-            iterate_tail = pre_tail_;
-        }
-        iterate_head = head_;
+    // The MVCCList is empty
+    if (head_ == nullptr) {
+        return make_pair(true, false);
     }
 
-    // Begin the iteration from the head of MVCCList
-    Item* version = iterate_head;
+    // One special case: the uncommitted tail is created by the same transaction
+    if (tail_->GetTransactionID() == trx_id) {
+        ret = tail_->val;
+        return make_pair(true, true);
+    }
 
+    // head_ == tail_, uncommited
+    if (head_->GetTransactionID() != 0) {
+        pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
+
+        // Abort
+        if (!preread_visible.first)
+            return make_pair(false, false);
+
+        if (preread_visible.second)
+            ret = head_->val;
+
+        return preread_visible;
+    }
+
+    // Head is committed, and its begin_time > trx.begin_time
+    if (head_->GetBeginTime() > begin_time) {
+        if (read_only)
+            return make_pair(true, false);
+        else
+            return make_pair(false, false);
+    }
+
+    // locate a version that trx.begin_time is within [version.begin_time, version.end_time)
+    Item* version = head_;
     while (true) {
         // If visible, break
         if (begin_time < version->GetEndTime())
             break;
 
-        assert(version != iterate_tail);
+        assert(version != tail_);
 
         version = static_cast<Item*>(version->next);
     }
+
+    if (version->next == tail_ && tail_->GetTransactionID() != 0) {
+        pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
+        if (!preread_visible.first)
+            return make_pair(false, false);
+
+        if (preread_visible.second) {
+            ret = tail_->val;
+            return make_pair(true, true);
+        } else {
+            ret = version->val;
+            return make_pair(true, true);
+        }
+    }
+
+    // Non-readonly, and visible_version->next is committed
+    if (!read_only && version->next != nullptr)
+        return make_pair(false, false);
 
     ret = version->val;
     return make_pair(true, true);

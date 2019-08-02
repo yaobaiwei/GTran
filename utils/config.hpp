@@ -309,7 +309,7 @@ class Config{
         if (val != val_not_found) {
             num_gc_consumer = val;
         } else {
-            fprintf(stderr, "must enter the NUM_THREADS. exits.\n");
+            fprintf(stderr, "must enter the NUM_GC_CONSUMER. exits.\n");
             exit(-1);
         }
 
