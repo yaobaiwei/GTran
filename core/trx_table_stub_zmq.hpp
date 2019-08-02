@@ -21,7 +21,6 @@
 
 class TcpTrxTableStub : public TrxTableStub {
  private:
-    Node master_;
     vector<Node> workers_;
 
     static TcpTrxTableStub *instance_;
@@ -30,8 +29,8 @@ class TcpTrxTableStub : public TrxTableStub {
 
     Coordinator* coordinator_;
 
-    TcpTrxTableStub(AbstractMailbox *mailbox, Node &master, vector<Node> workers, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) :
-                    master_(master), workers_(workers) {
+    TcpTrxTableStub(AbstractMailbox *mailbox, vector<Node> workers, ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) :
+                    workers_(workers) {
         mailbox_ = mailbox;
         pending_trx_updates_ = pending_trx_updates;
         config_ = Config::GetInstance();
@@ -49,8 +48,7 @@ class TcpTrxTableStub : public TrxTableStub {
     }
 
  public:
-    static TcpTrxTableStub * GetInstance(Node & master,
-                                         AbstractMailbox * mailbox,
+    static TcpTrxTableStub * GetInstance(AbstractMailbox * mailbox,
                                          vector<Node>& workers,
                                          ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates) {
         assert(instance_ == nullptr);
@@ -60,7 +58,7 @@ class TcpTrxTableStub : public TrxTableStub {
         assert(pending_trx_updates != nullptr);
         DLOG(INFO) << "[TcpTrxTableStub::GetInstance] Initialize instance_" << mailbox;
 
-        instance_ = new TcpTrxTableStub(mailbox, master, workers, pending_trx_updates);
+        instance_ = new TcpTrxTableStub(mailbox, workers, pending_trx_updates);
 
         assert(instance_ != nullptr);
         CHECK(instance_) << "[TcpTrxTableStub::GetInstance] Null instance_";
@@ -75,7 +73,6 @@ class TcpTrxTableStub : public TrxTableStub {
     }
 
     bool Init() override {
-        string master_ibname = master_.ibname;
         char addr[64] = "";
 
         receivers_.resize(config_->global_num_threads);

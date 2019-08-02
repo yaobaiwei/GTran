@@ -51,8 +51,8 @@ struct Progress {
 
 class Master {
  public:
-    Master(Node & node, vector<Node> & workers): node_(node), workers_(workers) {
-        config_ = Config::GetInstance();
+    Master(Node & node): node_(node) {
+        // config_ = Config::GetInstance();
         is_end_ = false;
         client_num = 0;
     }
@@ -132,15 +132,6 @@ class Master {
     void Start() {
         cout << "[Master] Start()" <<endl;
 
-        // Register RDMA
-        Buffer* buf = Buffer::GetInstance(&node_);
-
-        if (config_->global_use_rdma)
-            mailbox = new RdmaMailbox(node_, node_, buf);
-        else
-            mailbox = new TCPMailbox(node_, node_);
-        mailbox->Init(workers_);
-
         thread listen(&Master::ProgListener, this);
         thread process(&Master::ProcessREQ, this);
 
@@ -158,15 +149,11 @@ class Master {
 
  private:
     Node & node_;
-    vector<Node> & workers_;
-    Config * config_;
     map<int, Progress> progress_map_;
     int client_num;
 
     zmq::context_t context_;
     zmq::socket_t * socket_;
-
-    AbstractMailbox * mailbox;
 
     bool is_end_;
 };

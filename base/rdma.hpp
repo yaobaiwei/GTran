@@ -88,14 +88,12 @@ class RDMA {
      public:
         RdmaCtrl* ctrl = NULL;
 
-        RDMA_Device(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master)
+        RDMA_Device(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes)
                 : num_threads_(num_threads), nid_(nid) {
             // record IPs of ndoes
             vector<string> ipset;
             for (const auto & node : nodes)
                 ipset.push_back(node.ibname);
-            // Master nid = #workders
-            ipset.push_back(master.ibname);
 
             int rdma_port = nodes[0].rdma_port;
             // initialization of new librdma
@@ -111,124 +109,58 @@ class RDMA {
             ctrl->register_connect_mr();
             ctrl->start_server();
 
-            if (nid == num_workers) {  // Master Rank
-                // RC connection betweenq
-                for (uint j = 0; j < num_threads; ++j) {
-                    for (uint i = 0; i < num_workers; ++i) {
-                        Qp *qp = ctrl->create_rc_qp(num_threads + j, i, 0, 1);
-                        assert(qp != NULL);
-                    }
+            // create RC connection QP between workers
+            for (uint i = 0; i< num_workers; ++i) {
+                if (i == nid) {
+                    // skip local qp
+                    continue;
                 }
-
-                while (1) {
-                    int connected = 0;
-                    for (uint j = 0; j < num_threads; ++j) {
-                        for (uint i = 0; i < num_workers; ++i) {
-                            Qp *qp = ctrl->create_rc_qp(num_threads + j, i, 0, 1);
-                            if (qp->inited_) {
-                                connected += 1;
-                            } else if (qp->connect_rc()) {
-                                connected += 1;
-                            }
-                        }
-                    }
-                    if (connected == num_workers * num_threads)
-                        break;
-                    else
-                        sleep(1);
+                for (uint j = 0; j < num_threads * 2; ++j) {
+                    Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
+                    assert(qp != NULL);
                 }
+            }
 
-                // UD connection between master and workers
-                ud_qp = ctrl->create_ud_qp(0, 0, 1, 0);
-                assert(ud_qp != NULL);
-
-                while (1) {
-                    int connected = 0;
-                    for (uint i = 0; i < num_workers; ++i) {
-                        if (ud_qp->get_ud_connect_info_specific(i, 0, 0)) {
-                            connected += 1;
-                        }
-                    }
-                    if (connected == num_workers)
-                        break;
-                    else
-                        sleep(1);
-                }
-            } else {
-                // create RC connection QP between workers
+            // connect those RC QP
+            while (1) {
+                int connected = 0;
                 for (uint i = 0; i< num_workers; ++i) {
                     if (i == nid) {
-                        // skip local qp
                         continue;
                     }
                     for (uint j = 0; j < num_threads * 2; ++j) {
                         Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
-                        assert(qp != NULL);
-                    }
-                }
-
-                // connect those RC QP
-                while (1) {
-                    int connected = 0;
-                    for (uint i = 0; i< num_workers; ++i) {
-                        if (i == nid) {
-                            continue;
-                        }
-                        for (uint j = 0; j < num_threads * 2; ++j) {
-                            Qp *qp = ctrl->create_rc_qp(j, i, 0, 1);
-                            if (qp->inited_) {
-                                connected += 1;
-                            } else if (qp->connect_rc()) {
-                                connected += 1;
-                            }
-                        }
-                    }
-                    if (connected == (num_workers - 1) * num_threads * 2)
-                        break;
-                    else
-                        sleep(1);
-                }
-
-                // create RC connection QP to the master
-                for (uint j = 0; j < num_threads; ++ j) {
-                    Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 , 1);
-                    CHECK(qp != NULL);
-                }
-
-                while (1) {
-                    int connected = 0;
-                    for (uint j = 0; j < num_threads; ++ j) {
-                        Qp * qp = ctrl -> create_rc_qp(num_threads + j, num_workers, 0 , 1);
                         if (qp->inited_) {
                             connected += 1;
                         } else if (qp->connect_rc()) {
                             connected += 1;
                         }
                     }
-                    if (connected == num_threads)
-                        break;
-                    else
-                        sleep(1);
                 }
-
-                // UD connection between master and workers
-                // Each worker will only have one send/recv qp
-                ud_qp = ctrl->create_ud_qp(0, 0, 1, 0);
-                assert(ud_qp != NULL);
-
-                while (1) {
-                    int connected = 0;
-                    for (uint i = 0; i <= num_workers; ++i) {
-                        if (ud_qp->get_ud_connect_info_specific(i, 0, 0)) {
-                            connected += 1;
-                        }
-                    }
-                    if (connected == num_workers + 1)
-                        break;
-                    else
-                        sleep(1);
-                }
+                if (connected == (num_workers - 1) * num_threads * 2)
+                    break;
+                else
+                    sleep(1);
             }
+
+            // each worker will only have one send/recv qp
+            ud_qp = ctrl->create_ud_qp(0, 0, 1, 0);
+            assert(ud_qp != NULL);
+
+            while (1) {
+                int connected = 0;
+                for (uint i = 0; i < num_workers; ++i) {
+                    if (ud_qp->get_ud_connect_info_specific(i, 0, 0)) {
+                        connected += 1;
+                    }
+                }
+
+                if (connected == num_workers)
+                    break;
+                else
+                    sleep(1);
+            }
+
             // Maximum number of outstanding work request
             int max_wr = min(UD_MAX_RECV_SIZE, static_cast<int>(mem_info.mem_dgram_recv_sz / RDMA_UD_RECV_BUF_SZ));
             // Post recv wr for each worker
@@ -382,8 +314,8 @@ class RDMA {
 
     ~RDMA() { if (dev != NULL) delete dev; }
 
-    void init_dev(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master) {
-        dev = new RDMA_Device(num_workers, num_threads, nid, mem_info, nodes, master);
+    void init_dev(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes) {
+        dev = new RDMA_Device(num_workers, num_threads, nid, mem_info, nodes);
     }
 
     inline static bool has_rdma() { return true; }
@@ -394,7 +326,7 @@ class RDMA {
     }
 };
 
-void RDMA_init(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master);
+void RDMA_init(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes);
 
 #else
 
@@ -402,7 +334,7 @@ class RDMA {
     class RDMA_Device {
      public:
         RDMA_Device(int num_workers, int num_threads, int nid, rdma_mem_t mem_info,
-                vector<Node> & nodes, Node & master) {
+                vector<Node> & nodes) {
             cout << "This system is compiled without RDMA support." << endl;
             assert(false);
         }
@@ -439,18 +371,17 @@ class RDMA {
 
     ~RDMA() { }
 
-    void init_dev(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master) {
-        dev = new RDMA_Device(num_workers, num_threads, nid, mem_info, nodes, master);
+    void init_dev(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes) {
+        dev = new RDMA_Device(num_workers, num_threads, nid, mem_info, nodes);
     }
 
     inline static bool has_rdma() { return false; }
-
     static RDMA &get_rdma() {
         static RDMA rdma;
         return rdma;
     }
 };
 
-void RDMA_init(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master);
+void RDMA_init(int num_workers, int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes);
 
 #endif

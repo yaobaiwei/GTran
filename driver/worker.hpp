@@ -63,8 +63,8 @@ struct QueryRCTResult {
 
 class Worker {
  public:
-    Worker(Node & my_node, vector<Node> & workers, Node & master) :
-            my_node_(my_node), workers_(workers), master_(master) {
+    Worker(Node & my_node, vector<Node> & workers) :
+            my_node_(my_node), workers_(workers) {
         config_ = Config::GetInstance();
         is_emu_mode_ = false;
     }
@@ -616,9 +616,9 @@ class Worker {
 
         // =================MailBox=========================
         if (config_->global_use_rdma) {
-            mailbox_ = new RdmaMailbox(my_node_, master_, buf);
+            mailbox_ = new RdmaMailbox(my_node_, buf);
         } else {
-            mailbox_ = new TCPMailbox(my_node_, master_);
+            mailbox_ = new TCPMailbox(my_node_);
         }
         mailbox_->Init(workers_);
         cout << "[Worker" << my_node_.get_local_rank()
@@ -628,7 +628,7 @@ class Worker {
         if (config_->global_use_rdma) {
             trx_table_stub_ = RDMATrxTableStub::GetInstance(mailbox_, &pending_trx_updates_);
         } else {
-            trx_table_stub_ = TcpTrxTableStub::GetInstance(master_, mailbox_, workers_, &pending_trx_updates_);
+            trx_table_stub_ = TcpTrxTableStub::GetInstance(mailbox_, workers_, &pending_trx_updates_);
         }
         trx_table_stub_->Init();
         cout << "[Worker" << my_node_.get_local_rank()
@@ -778,7 +778,6 @@ class Worker {
 
  private:
     Node & my_node_;
-    Node & master_;
 
     vector<Node> & workers_;
     Config * config_;
