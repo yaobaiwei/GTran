@@ -54,6 +54,7 @@ class Config{
     string SNAPSHOT_PATH;  // if can be left to blank
 
     // ==========================System Parameters==========================
+    ISOLATION_LEVEL isolation_level;
     int global_num_workers;
     int global_num_threads;
     int num_gc_consumer;
@@ -296,6 +297,27 @@ class Config{
         // }
 
         global_num_workers = node.get_world_size() - 1;
+
+
+        str = iniparser_getstring(ini, "SYSTEM:ISOLATION_LEVEL", str_not_found);
+
+        if (strcmp(str, str_not_found) != 0) {
+            string level = str;
+            if (str == string("SNAPSHOT")) {
+                isolation_level = ISOLATION_LEVEL::SNAPSHOT;
+            } else if (str == string("SERIALIZABLE")) {
+                isolation_level = ISOLATION_LEVEL::SERIALIZABLE;
+            } else {
+                fprintf(stderr, "ISOLATION_LEVEL of %s is not available, must be in {SNAPSHOT, SERIALIZABLE}. exits.\n",
+                        str);
+                exit(-1);
+            }
+            if (node.get_world_rank() == MASTER_RANK)
+                printf("ISOLATION_LEVEL = %s\n", str);
+        } else {
+            fprintf(stderr, "must enter the ISOLATION_LEVEL in {SNAPSHOT, SERIALIZABLE}. exits.\n");
+            exit(-1);
+        }
 
         val = iniparser_getint(ini, "SYSTEM:NUM_THREADS", val_not_found);
         if (val != val_not_found) {
