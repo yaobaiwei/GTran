@@ -30,16 +30,13 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     mem_info.mem_dgram_recv_sz = config_->dgram_recv_buffer_sz;
 
     int nid = node_.get_local_rank();
-    // Avoid conflict of master and worker 0
-    if (node_.get_world_rank() == MASTER_RANK) {
-        nid = config_->global_num_workers;
-    }
+
 
     // Other threads may call RDMARead or RDMAWrite in:
     //      Worker::SendQueryMsg (with tid = config_->global_num_threads)
     //      RunningTrxList::UpdateMinBT (with tid = config_->global_num_threads + 1)
     //      Coordinator::PerformCalibration (with tid = config_->global_num_threads + 2)
-    RDMA_init(config_->global_num_workers, config_->global_num_threads + 3, nid, mem_info, nodes, master_);
+    RDMA_init(config_->global_num_workers, config_->global_num_threads + 3, nid, mem_info, nodes);
 
     int nrbfs = (config_->global_num_workers - 1) * config_->global_num_threads;
 

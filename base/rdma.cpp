@@ -30,12 +30,12 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #ifdef HAS_RDMA
 
-void RDMA_init(int num_workers,  int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master) {
+void RDMA_init(int num_workers,  int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes) {
     uint64_t t = timer::get_usec();
 
     // init RDMA device
     RDMA &rdma = RDMA::get_rdma();
-    rdma.init_dev(num_workers, num_threads, nid, mem_info, nodes, master);
+    rdma.init_dev(num_workers, num_threads, nid, mem_info, nodes);
 
     t = timer::get_usec() - t;
     cout << "INFO: initializing RMDA done (" << t / 1000  << " ms)" << endl;
@@ -43,7 +43,7 @@ void RDMA_init(int num_workers,  int num_threads, int nid, rdma_mem_t mem_info, 
 
 #else
 
-void RDMA_init(int num_workers,  int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes, Node & master) {
+void RDMA_init(int num_workers,  int num_threads, int nid, rdma_mem_t mem_info, vector<Node> & nodes) {
     std::cout << "This system is compiled without RDMA support." << std::endl;
 }
 

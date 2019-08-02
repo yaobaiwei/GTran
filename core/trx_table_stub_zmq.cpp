@@ -97,7 +97,7 @@ bool TcpTrxTableStub::recv_rep(int t_id, obinstream& out) {
     zmq::message_t zmq_reply_msg;
     if (receivers_[t_id]->recv(&zmq_reply_msg, 0) < 0) {
         CHECK(false) << "[TcpTrxTableStub::read_status] Worker tries to read "
-                        "trx status from master failed";
+                        "trx status failed";
     }
     char* buf = new char[zmq_reply_msg.size()];
     memcpy(buf, zmq_reply_msg.data(), zmq_reply_msg.size());

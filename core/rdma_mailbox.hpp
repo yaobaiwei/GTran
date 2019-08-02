@@ -29,8 +29,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 class RdmaMailbox : public AbstractMailbox {
  public:
-    RdmaMailbox(Node & node, Node & master, Buffer * buffer) :
-        node_(node), master_(master), buffer_(buffer) {
+    RdmaMailbox(Node & node, Buffer * buffer) :
+        node_(node), buffer_(buffer) {
         config_ = Config::GetInstance();
     }
 
@@ -91,7 +91,6 @@ class RdmaMailbox : public AbstractMailbox {
     }
 
     Node & node_;
-    Node & master_;
     Config* config_;
     Buffer * buffer_;
 

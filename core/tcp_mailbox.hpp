@@ -38,7 +38,6 @@ class TCPMailbox : public AbstractMailbox {
     socket_map senders_;
 
     Node & my_node_;
-    Node & master_;
     Config * config_;
 
     pthread_spinlock_t *locks;
@@ -59,14 +58,14 @@ class TCPMailbox : public AbstractMailbox {
 
     inline int port_code (int nid, int tid) { return nid * config_->global_num_threads + tid; }
 
-    // between workers & master, and among workers: support tcp_trx_table_stub part
+    // among workers: support tcp_trx_table_stub part
     socket_vector notification_senders_;
     zmq::socket_t* notificaton_receiver_;
 
     pthread_spinlock_t send_notification_lock_;
 
  public:
-    TCPMailbox(Node & my_node, Node & master) : my_node_(my_node), master_(master), context(1) {
+    TCPMailbox(Node & my_node) : my_node_(my_node), context(1) {
         config_ = Config::GetInstance();
     }
 
