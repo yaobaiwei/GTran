@@ -13,6 +13,8 @@ ConcurrentMemPool<VertexEdgeRow>* TopologyRowList::mem_pool_ = nullptr;
 MVCCValueStore* VPropertyMVCCItem::value_store = nullptr;
 MVCCValueStore* EPropertyMVCCItem::value_store = nullptr;
 
+template<class MVCC> Config* MVCCList<MVCC>::config_ = Config::GetInstance();
+
 void DataStorage::Init() {
     node_ = Node::StaticInstance();
     config_ = Config::GetInstance();

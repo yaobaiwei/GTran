@@ -68,6 +68,11 @@ enum class NOTIFICATION_TYPE {
     QUERY_RCT,
 };
 
+enum class ISOLATION_LEVEL {
+    SNAPSHOT,
+    SERIALIZABLE,
+};
+
 template <class EnumClass>
 struct EnumClassHash {
     size_t operator() (const EnumClass& v) const {

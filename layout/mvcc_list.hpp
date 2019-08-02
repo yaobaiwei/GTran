@@ -13,6 +13,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_definition.hpp"
 #include "layout/layout_type.hpp"
+#include "utils/config.hpp"
 #include "utils/simple_spinlock_guard.hpp"
 #include "utils/tid_mapper.hpp"
 
@@ -36,7 +37,10 @@ class MVCCList {
     //  first: false if abort
     //  second: false if no version visible
     pair<bool, bool> GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
-                           const bool& read_only, ValueType& ret);
+                                       const bool& read_only, ValueType& ret);
+    pair<bool, bool> SerializableLevelGetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                                                        const bool& read_only, ValueType& ret);
+    bool SnapshotLevelGetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time, ValueType& ret);
 
     // Called by GetVisibleVersion. Check if the tail_ (uncommited) is to be read.
     // if ret.first == false, abort;
@@ -60,6 +64,7 @@ class MVCCList {
 
  private:
     static ConcurrentMemPool<Item>* mem_pool_;  // Initialized in data_storage.cpp
+    static Config* config_;
 
     // when a MVCCList is visible outside who created it, head_ must != nullptr,
     // this can only be guaranteed by the developer who use it.

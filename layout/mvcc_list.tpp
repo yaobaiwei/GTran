@@ -15,7 +15,7 @@ Item* MVCCList<Item>::GetHead() {
 }
 
 // Only for serializable isolation level
-// ReturnValue
+// Retuen value:
 //  first: false if abort
 //  second: false if do not read the uncommitted tail
 template<class Item>
@@ -71,12 +71,24 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
     return make_pair(true, false);
 }
 
-// ReturnValue
+// Retuen value:
 //  first: false if abort
 //  second: false if no version visible
 template<class Item>
 pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
-                                       const bool& read_only, ValueType& ret) {
+                                                   const bool& read_only, ValueType& ret) {
+    if (config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE)
+        return SerializableLevelGetVisibleVersion(trx_id, begin_time, read_only, ret);
+    else
+        return make_pair(true, SnapshotLevelGetVisibleVersion(trx_id, begin_time, ret));
+}
+
+// Retuen value:
+//  first: false if abort
+//  second: false if no version visible
+template<class Item>
+pair<bool, bool> MVCCList<Item>::SerializableLevelGetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                                                                    const bool& read_only, ValueType& ret) {
     SimpleSpinLockGuard lock_guard(&lock_);
 
     // The MVCCList is empty
@@ -144,6 +156,43 @@ pair<bool, bool> MVCCList<Item>::GetVisibleVersion(const uint64_t& trx_id, const
 
     ret = version->val;
     return make_pair(true, true);
+}
+
+
+// Retuen value::  false if no version visible
+template<class Item>
+bool MVCCList<Item>::SnapshotLevelGetVisibleVersion(const uint64_t& trx_id, const uint64_t& begin_time,
+                                                    ValueType& ret) {
+    SimpleSpinLockGuard lock_guard(&lock_);
+
+    // The MVCCList is empty
+    if (head_ == nullptr) {
+        return false;
+    }
+
+    // One special case: the uncommitted tail is created by the same transaction
+    if (tail_->GetTransactionID() == trx_id) {
+        ret = tail_->val;
+        return true;
+    }
+
+    if (head_->GetTransactionID() != 0 || head_->GetBeginTime() > begin_time)
+        return false;
+
+    // locate a version that trx.begin_time is within [version.begin_time, version.end_time)
+    Item* version = head_;
+    while (true) {
+        // If visible, break
+        if (begin_time < version->GetEndTime())
+            break;
+
+        assert(version != tail_);
+
+        version = static_cast<Item*>(version->next);
+    }
+
+    ret = version->val;
+    return true;
 }
 
 template<class Item>
