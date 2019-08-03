@@ -27,7 +27,9 @@ class KeyActor : public AbstractActor {
         AbstractActor(id, core_affinity),
         num_thread_(num_thread),
         mailbox_(mailbox),
-        type_(ACTOR_T::KEY) {}
+        type_(ACTOR_T::KEY) {
+        config_ = Config::GetInstance();
+    }
 
     // Key:
     //  Output all keys of properties of input
@@ -43,7 +45,7 @@ class KeyActor : public AbstractActor {
         // Get Params
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 
-        if (qplan.trx_type != TRX_READONLY) {
+        if (qplan.trx_type != TRX_READONLY && config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
             // Record Input Set
             for (auto & data_pair : msg.data) {
                 v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
@@ -115,6 +117,9 @@ class KeyActor : public AbstractActor {
 
     // Validation Store
     ActorValidationObject v_obj;
+
+    // Config
+    Config * config_;
 
     bool VertexKeys(const QueryPlan & qplan, vector<pair<history_t, vector<value_t>>> & data) {
         for (auto & data_pair : data) {

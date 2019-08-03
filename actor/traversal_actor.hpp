@@ -58,7 +58,7 @@ class TraversalActor : public AbstractActor {
         // Parser treat -1 as empty input, while DataStorage is 0 since it use label_t (uint16_t)
         lid = (lid == -1) ? 0 : lid;
 
-        if (qplan.trx_type != TRX_READONLY) {
+        if (qplan.trx_type != TRX_READONLY && config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
             // Record Input Set
             for (auto & data_pair : msg.data) {
                 v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);

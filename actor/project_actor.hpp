@@ -44,7 +44,7 @@ class ProjectActor : public AbstractActor {
         key_id = Tool::value_t2int(actor_obj.params.at(1));
         value_id = Tool::value_t2int(actor_obj.params.at(2));
 
-        if (qplan.trx_type != TRX_READONLY) {
+        if (qplan.trx_type != TRX_READONLY && config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
             // Record Input Set
             for (auto & data_pair : msg.data) {
                 v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
