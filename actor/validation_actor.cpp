@@ -12,6 +12,21 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     trx_table_stub_->read_ct(qplan.trxid, stat, self_ct);
     index_store_->MoveTopoBufferToRegion(qplan.trxid, self_ct);
 
+    // SNAPSHOT ISOLATION directly skip validation phase
+    if (config_->isolation_level == ISOLATION_LEVEL::SNAPSHOT) {
+        // Create Message
+        vector<Message> msg_vec;
+        msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
+
+        // Send Message
+        for (auto& msg : msg_vec) {
+            msg.meta.msg_type = MSG_T::COMMIT;
+            mailbox_->Send(tid, msg);
+        }
+
+        return;
+    }
+
     // ===================Abstract====================//
     /**
      * 0. Valid Dependency Read, including, (Details in layout/mvcc_list.tpp::TryPreReadUncommittedTail())
