@@ -490,7 +490,9 @@ class Worker {
                 uint64_t ct = allocated_ts.timestamp;
                 // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
 
-                rct_->insert_trx(ct, trx_id);
+                if (config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
+                    rct_->insert_trx(ct, trx_id);
+                }
                 trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
 
                 TrxPlanAccessor accessor;
