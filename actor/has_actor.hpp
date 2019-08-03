@@ -63,7 +63,7 @@ class HasActor : public AbstractActor {
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
         int numParamsGroup = (actor_obj.params.size() - 1) / 3;  // number of groups of params
 
-        if (qplan.trx_type != TRX_READONLY) {
+        if (qplan.trx_type != TRX_READONLY && config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
             // Record Input Set
             for (auto & data_pair : msg.data) {
                 v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
