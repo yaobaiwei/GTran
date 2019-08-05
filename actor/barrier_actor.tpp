@@ -80,7 +80,7 @@ bool BarrierActorBase<T>::get_history_value(history_t& his, int history_key, val
                 { return element.first == history_key; });
 
         if (his_itr != his.end()) {
-            val = move(his_itr->second);
+            val = his_itr->second;
             // some barrier actors will remove hisotry after branch key
             if (erase_his) {
                 his.erase(his_itr + 1, his.end());
