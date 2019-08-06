@@ -206,7 +206,7 @@ READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, cons
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetOutEdgeItem\n");
-        assert(false);
+        CHECK(false) << "[DataStorage] Src: " << to_string(eid.out_v) << " Dst: " << to_string(eid.in_v) << endl;;
     }
 
     pair<bool, bool> is_visible = out_e_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, item_ref);
@@ -244,7 +244,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVPByPKey\n");
-        assert(false);
+        CHECK(false);
     }
 
     /* Check if the vertex with given vid is invisible, which means that the read dependency (vertex)
@@ -275,7 +275,7 @@ READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const 
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetAllVP\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -300,7 +300,7 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVPByPKeyList\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -324,7 +324,7 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVPidList\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -348,7 +348,7 @@ READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetVL\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -488,7 +488,7 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetConnectedVertexList\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -514,7 +514,7 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
 
     if (!found) {
         printf("Impossible branch in DataStorage::GetConnectedEdgeList\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -891,7 +891,7 @@ vid_t DataStorage::AssignVID() {
  */
 void DataStorage::InsertTrxHistoryMap(const uint64_t& trx_id, const TrxProcessHistory::ProcessType& type,
                                          void* mvcc_list) {
-    assert(type != TrxProcessHistory::PROCESS_ADD_V);
+    CHECK(type != TrxProcessHistory::PROCESS_ADD_V);
     TransactionAccessor t_accessor;
     transaction_history_map_.insert(t_accessor, trx_id);
 
@@ -960,7 +960,7 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessDropV\n");
-        assert(false);
+        CHECK(false);
     }
 
     vector<eid_t> all_connected_edge;
@@ -1039,7 +1039,7 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessAddE\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
@@ -1166,7 +1166,7 @@ PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& valu
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessModifyVP\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
@@ -1239,7 +1239,7 @@ PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_i
 
     if (!found) {
         printf("Impossible branch in DataStorage::ProcessDropVP\n");
-        assert(false);
+        CHECK(false);
     }
 
     if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {

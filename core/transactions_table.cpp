@@ -109,7 +109,7 @@ bool TransactionTable::insert_single_trx(const uint64_t& trx_id, const uint64_t&
                 if (readonly)
                     record_ro_trx_with_bt(table_ + slot_id, bt);
 
-                printf("[Trx Table] insert_single_trx, slot %d found; offset is %d, %s\n", slot_id, slot_id * sizeof(TidStatus), table_[slot_id].DebugString().c_str());
+                // printf("[Trx Table] insert_single_trx, slot %d found; offset is %d, %s\n", slot_id, slot_id * sizeof(TidStatus), table_[slot_id].DebugString().c_str());
                 goto done;
             }
         }
@@ -128,7 +128,7 @@ bool TransactionTable::insert_single_trx(const uint64_t& trx_id, const uint64_t&
         table_[slot_id].trx_id = trx_num_main_buckets_ + last_ext_;
         ++last_ext_;
         slot_id = table_[slot_id].trx_id * ASSOCIATIVITY_;
-        printf("[Trx Table] insert_single_trx, slot %d found; offset is %d, %s\n", slot_id, slot_id * sizeof(TidStatus), table_[slot_id].DebugString().c_str());
+        // printf("[Trx Table] insert_single_trx, slot %d found; offset is %d, %s\n", slot_id, slot_id * sizeof(TidStatus), table_[slot_id].DebugString().c_str());
         table_[slot_id].enterProcessState(trx_id);
         goto done;
     }

@@ -61,6 +61,24 @@ struct QueryRCTResult {
     vector<uint64_t> trx_id_list;
 };
 
+struct EmuTrxString {
+    int num_rand_values = 0;
+    int trx_type = -1;
+
+    string query;
+    vector<Element_T> types;
+    vector<int> pkeys;
+
+    void DebugPrint() {
+        cout << "TrxString: " << endl;
+        cout << "\tNumOfRandValues: " << num_rand_values << endl;
+        cout << "\tQuery: " << query << endl;
+        for (int i = 0; i < pkeys.size(); i++) {
+            cout << "\tPkey: " << pkeys.at(i) << " with type " << (types.at(i) == Element_T::VERTEX ? "Vtx" : "Edge") << endl;
+        }
+    }
+};
+
 class Worker {
  public:
     Worker(Node & my_node, vector<Node> & workers) :
@@ -99,185 +117,304 @@ class Worker {
         }
     }
 
-    /* Not suitable for transaction base emulation, should be modified later
-    void RunEMU(string& cmd, string& client_host){
+    void RunEMU(string& cmd, string& client_host) {
         string emu_host = "EMUWORKER";
-        qid_t qid;
+        uint64_t trx_id;
         bool is_main_worker = false;
 
-        // Check if the first worker that get request from client
-        if(client_host != emu_host){
+        // Only for EMUHost, for result reply
+        // to client, this trx_id will not register
+        // anywhere else
+        TrxPlan emu_command_plan;
+
+        if (client_host != emu_host) {
             is_main_worker = true;
             ibinstream in;
             in << emu_host;
             in << cmd;
 
-            for(int i = 0; i < senders_.size(); i++){
+            for (int i = 0; i < senders_.size(); i++) {
                 zmq::message_t msg(in.size());
                 memcpy((void *)msg.data(), in.get_buf(), in.size());
                 senders_[i]->send(msg);
             }
 
-            qid = qid_t(my_node_.get_local_rank(), ++num_query);
-            rc_->Register(qid.value(), client_host);
+            coordinator_->RegisterTrx(trx_id);
+            emu_command_plan = TrxPlan(trx_id, client_host);
         }
 
+        // Read thpt config and query set fn from cmd
         cmd = cmd.substr(3);
-        string file_name = Tool::trim(cmd, " ");
-        ifstream ifs(file_name);
-        if (!ifs.good()) {
-            cout << "file not found: " << file_name << endl;
+        cmd = Tool::trim(cmd, " ");
+        istringstream iss(cmd);
+        string config_fn, query_set_fn;
+        iss >> config_fn >> query_set_fn;
+
+        // Check files
+        ifstream config_ifs(config_fn);
+        ifstream query_ifs(query_set_fn);
+        if (!config_ifs.good()) {
+            cout << "file not found: " << config_fn << endl;
             return;
         }
-        uint64_t test_time, parrellfactor, ratio;
-        ifs >> test_time >> parrellfactor;
 
-        test_time *= 1000000;
-        int n_type = 0;
-        ifs >> n_type;
-        assert(n_type > 0);
-
-        vector<string> queries;
-        vector<pair<Element_T, int>> query_infos;
-        vector<int> ratios;
-        for(int i = 0; i < n_type; i++){
-            string query;
-            string property_key;
-            int ratio;
-            ifs >> query >> property_key >> ratio;
-            ratios.push_back(ratio);
-            Element_T e_type;
-            if(query.find("g.V()") == 0){
-                e_type = Element_T::VERTEX;
-            }else{
-                e_type = Element_T::EDGE;
-            }
-
-            int pid = parser_->GetPid(e_type, property_key);
-            if(pid == -1){
-                if(is_main_worker){
-                    value_t v;
-                    Tool::str2str("Emu Mode Error", v);
-                    vector<value_t> result = {v};
-                    thpt_monitor_->RecordStart(qid.value());
-                    rc_->InsertResult(qid.value(), result);
-                }
-                return ;
-            }
-
-            queries.push_back(query);
-            query_infos.emplace_back(e_type, pid);
+        if (!query_ifs.good()) {
+            cout << "file not found: " << query_set_fn << endl;
+            return;
         }
 
+        // Read Config file
+        string line_in_file;
+        uint64_t test_time, paralellfactor;
+        int r_ratio, w_ratio;  // Read v.s. Write (e.g. 20 : 80)
+        config_ifs >> test_time >> paralellfactor >> r_ratio >> w_ratio;
+
+        test_time *= 1000000;
+
+        // Read query file
+        string query_line;
+        //  Key: INSERT, READ, UPDATE, MIX
+        unordered_map<string, vector<EmuTrxString>> trx_map;
+        unordered_map<string, int> trx_count_map;
+        string cur_trx_type = "NULL";
+        int trx_counter = 0;
+        while (getline(query_ifs, query_line)) {
+            if (query_line.at(0) == '#') {
+                continue;
+            } else if (query_line.at(0) == '[') {
+                cur_trx_type = query_line.substr(1, query_line.length() -2);
+                trx_map.emplace(cur_trx_type, vector<EmuTrxString>());
+                trx_count_map.emplace(cur_trx_type, 0);
+            } else {
+               if (cur_trx_type == "NULL") { cout << "Wrong Query Type" << endl; return; }
+
+               EmuTrxString cur_trx_string;
+               if (!CheckEmulationQuery(is_main_worker, query_line, emu_command_plan, cur_trx_string)) { return; }
+
+               cur_trx_string.trx_type = trx_counter;
+               trx_counter++;
+
+               trx_map.at(cur_trx_type).emplace_back(cur_trx_string);
+               trx_count_map.at(cur_trx_type)++;
+            }
+        }
+
+
         // wait until all previous query done
-        while(thpt_monitor_->WorksRemaining() != 0);
+        while (thpt_monitor_->WorksRemaining() != 0) {}
 
         is_emu_mode_ = true;
         srand(time(NULL));
         regex match("\\$RAND");
 
-        vector<string> commited_queries;
+        vector<string> pushed_trxs;
 
         // suppose one query will be generated within 10 us
-        commited_queries.reserve(test_time / 10);
+        pushed_trxs.reserve(test_time / 10);
         // wait for all nodes
         worker_barrier(my_node_);
 
         thpt_monitor_->StartEmu();
         uint64_t start = timer::get_usec();
-        while(timer::get_usec() - start < test_time){
-            if(thpt_monitor_->WorksRemaining() > parrellfactor){
+        while (timer::get_usec() - start < test_time) {
+            if (thpt_monitor_->WorksRemaining() > paralellfactor) {
                 continue;
             }
-            // pick random query type
-            int query_type = mymath::get_distribution(rand(), ratios);
 
-            // get query info
-            string query_temp = queries[query_type];
-            Element_T element_type = query_infos[query_type].first;
-            int pid = query_infos[query_type].second;
-
-            // generate random value
-            string rand_value;
-            if(!index_store_->GetRandomValue(element_type, pid, rand(), rand_value)){
-                cout << "Not values for property " << pid << " stored in node " << my_node_.get_local_rank() << endl;
-                break;
+            // pick read or write transaction
+            EmuTrxString emu_trx_string;
+            int r = rand() % 100;
+            if (r < r_ratio) {
+                // Read-Only Transaction
+                // READ, MIX
+                int total_trx_number = trx_count_map.at("READ") + trx_count_map.at("MIX");
+                CHECK(total_trx_number > 0) << "No Read-Only Transaction Provided";
+                int inner_r = rand() % total_trx_number;
+                if (inner_r < trx_count_map.at("READ")) {
+                    // READ
+                    emu_trx_string = trx_map.at("READ").at(inner_r);
+                } else {
+                    // MIX
+                    emu_trx_string = trx_map.at("MIX").at(inner_r - trx_count_map.at("READ"));
+                }
+            } else {
+                // Update Transaction
+                // INSERT, UPDATE, DROP
+                int total_trx_number = trx_count_map.at("INSERT") + trx_count_map.at("UPDATE") + trx_count_map.at("DROP");
+                CHECK(total_trx_number > 0) << "No Update Transaction Provided";
+                int inner_r = rand() % total_trx_number;
+                if (inner_r < trx_count_map.at("INSERT")) {
+                    // INSERT
+                    emu_trx_string = trx_map.at("INSERT").at(inner_r);
+                } else if (inner_r >= trx_count_map.at("INSERT") && inner_r < trx_count_map.at("UPDATE")) {
+                    // UPDATE
+                    emu_trx_string = trx_map.at("UPDATE").at(inner_r - trx_count_map.at("INSERT"));
+                } else {
+                    // DROP
+                    emu_trx_string = trx_map.at("DROP").at(inner_r - trx_count_map.at("INSERT") - trx_count_map.at("UPDATE"));
+                }
             }
 
-            query_temp = regex_replace(query_temp, match, rand_value);
-            // run query
-            ParseAndSendQuery(query_temp, emu_host, query_type);
-            commited_queries.push_back(move(query_temp));
-            if(is_main_worker){
+            string trx_tmp = emu_trx_string.query;
+            if (emu_trx_string.num_rand_values != 0) {
+                vector<string> rand_values;
+                for (int i = 0; i < emu_trx_string.pkeys.size(); i++) {
+                    string r_val;
+                    if (!index_store_->GetRandomValue(emu_trx_string.types.at(i), emu_trx_string.pkeys.at(i), rand(), r_val)) {
+                        cout << "not values for property " << emu_trx_string.pkeys.at(i) << " stored in node " << my_node_.get_local_rank() << endl;
+                        break;
+                    }
+                    rand_values.emplace_back(r_val);
+                }
+
+                trx_tmp = Tool::my_regex_replace(trx_tmp, match, rand_values);
+            }
+
+            ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type);
+            pushed_trxs.emplace_back(trx_tmp);
+
+            if (is_main_worker) {
                 thpt_monitor_->PrintThroughput();
             }
         }
         thpt_monitor_->StopEmu();
 
-        while(thpt_monitor_->WorksRemaining() != 0){
+        while (thpt_monitor_->WorksRemaining() != 0) {
             cout << "Node " << my_node_.get_local_rank() << " still has " << thpt_monitor_->WorksRemaining() << "queries" << endl;
             usleep(500000);
         }
 
         double thpt = thpt_monitor_->GetThroughput();
-        map<int,vector<uint64_t>> latency_map;
+        int num_completed_trx = thpt_monitor_->GetCompletedTrx();
+        int num_aborted_trx = thpt_monitor_->GetAbortedTrx();
+        map<int, vector<uint64_t>> latency_map;
         thpt_monitor_->GetLatencyMap(latency_map);
 
-        if(my_node_.get_local_rank() == 0){
+        if (my_node_.get_local_rank() == 0) {
             vector<double> thpt_list;
-            vector<map<int,vector<uint64_t>>> map_list;
+            vector<map<int, vector<uint64_t>>> map_list;
+            vector<int> num_completed_trx_list;
+            vector<int> num_aborted_trx_list;
+
             thpt_list.resize(my_node_.get_local_size());
             map_list.resize(my_node_.get_local_size());
+            num_completed_trx_list.resize(my_node_.get_local_size());
+            num_aborted_trx_list.resize(my_node_.get_local_size());
+
             master_gather(my_node_, false, thpt_list);
             master_gather(my_node_, false, map_list);
+            master_gather(my_node_, false, num_completed_trx_list);
+            master_gather(my_node_, false, num_aborted_trx_list);
 
 
             cout << "#################################" << endl;
-            cout << "Emulator result with " << n_type << " classes and parrell factor: " << parrellfactor << endl;
+            cout << "Emulator result with workload r:w is " << r_ratio << ":" << w_ratio << " and parrell factor: " << paralellfactor << endl;
             cout << "Throughput of node 0: " << thpt << " K queries/sec" << endl;
-            for(int i = 1; i < my_node_.get_local_size(); i++){
+            for (int i = 1; i < my_node_.get_local_size(); i++) {
                 thpt += thpt_list[i];
+                num_completed_trx += num_completed_trx_list[i];
+                num_aborted_trx += num_aborted_trx_list[i];
                 cout << "Throughput of node " << i << ": " << thpt_list[i] << " K queries/sec" << endl;
             }
+            double abort_rate = (double) num_aborted_trx * 100 / num_completed_trx;
             cout << "Total Throughput : " << thpt << " K queries/sec" << endl;
+            cout << "Abort Rate : " << abort_rate << "%" << endl;
             cout << "#################################" << endl;
 
             map_list[0] = move(latency_map);
             thpt_monitor_->PrintCDF(map_list);
-        }else{
+        } else {
             slave_gather(my_node_, false, thpt);
             slave_gather(my_node_, false, latency_map);
+            slave_gather(my_node_, false, num_completed_trx);
+            slave_gather(my_node_, false, num_aborted_trx);
         }
 
-        //output all commited_queries to file
+        // output all commited_queries to file
         string ofname = "Thpt_Queries_" + to_string(my_node_.get_local_rank()) + ".txt";
         ofstream ofs(ofname, ofstream::out);
-        ofs << commited_queries.size() << endl;
-        for(auto& query : commited_queries){
-            ofs << query << endl;
+        ofs << pushed_trxs.size() << endl;
+        for (auto & trx : pushed_trxs) {
+            ofs << trx << endl;
         }
 
         is_emu_mode_ = false;
 
         // send reply to client
-        if(is_main_worker){
+        if (is_main_worker) {
             value_t v;
             Tool::str2str("Run Emu Mode Done", v);
             vector<value_t> result = {v};
-            thpt_monitor_->SetEmuStartTime(qid.value());
-            rc_->InsertResult(qid.value(), result);
+            // thpt_monitor_->SetEmuStartTime(qid.value());
+            // rc_->InsertResult(qid.value(), result);
+            emu_command_plan.FillResult(-1, result);
+            ReplyClient(emu_command_plan);
         }
     }
-    */
+
+    bool CheckEmulationQuery(bool is_main_worker, string& emu_query_string, TrxPlan & plan, EmuTrxString & trx_string) {
+        istringstream iss(emu_query_string);
+        iss >> trx_string.query;
+
+        if (trx_string.query.find("$RAND") == 0) {
+            return true;
+        }
+
+        // Get Number of property key
+        while (!iss.eof()) {
+            string cur_type, cur_pkey;
+            iss >> cur_type >> cur_pkey;
+            Element_T type;
+            // get Type
+            if (cur_type == "V") {
+                type = Element_T::VERTEX;
+                trx_string.types.emplace_back(type);
+            } else if (cur_type == "E") {
+                type = Element_T::VERTEX;
+                trx_string.types.emplace_back(type);
+            } else {
+                if (is_main_worker) {
+                    string return_msg = "EMU Invalid Object Type";
+                    value_t v;
+                    Tool::str2str(return_msg, v);
+                    vector<value_t> vec = {v};
+                    thpt_monitor_->RecordStart(plan.trxid);
+                    plan.FillResult(-1, vec);
+                    ReplyClient(plan);
+                }
+                return false;
+            }
+
+            int pid = parser_->GetPid(type, cur_pkey);
+            if (pid == -1) {
+                if (is_main_worker) {
+                    string return_msg = "EMU Invalid Random PKey";
+                    value_t v;
+                    Tool::str2str(return_msg, v);
+                    vector<value_t> vec = {v};
+                    plan.FillResult(-1, vec);
+                    ReplyClient(plan);
+                }
+                return false;
+            }
+
+            trx_string.num_rand_values++;
+            trx_string.pkeys.emplace_back(pid);
+        }
+
+        return true;
+    }
 
     /**
      * Parse the query string into TrxPlan
      */
-    void ParseTransaction(string query, string client_host) {
+    void ParseTransaction(string query, string client_host, int trx_type = -1) {
         uint64_t trxid;
         coordinator_->RegisterTrx(trxid);
 
         TrxPlan plan(trxid, client_host);
+        thpt_monitor_->RecordStart(trxid, trx_type);
+
         string error_msg;
         bool success = parser_->Parse(query, plan, error_msg);
 
@@ -321,14 +458,12 @@ class Worker {
                     << " gets one QUERY: \"" << query << "\" from host "
                     << client_host << endl;
 
-            /*
-            if(query.find("emu") == 0){
+            if (query.find("emu") == 0) {
                 RunEMU(query, client_host);
-            }else{
-                ParseAndSendQuery(query, client_host);
-            }*/
-            // parse and insert into plans_
-            ParseTransaction(query, client_host);
+            } else {
+                // parse and insert into plans_
+                ParseTransaction(query, client_host);
+            }
         }
     }
 
@@ -744,9 +879,11 @@ class Worker {
                 CHECK(false);
             }
 
-            if (!RegisterQuery(plan) && !is_emu_mode_) {
+            if (!RegisterQuery(plan)) {
                 // Reply to client when transaction is finished
-                ReplyClient(plan);
+                if (!is_emu_mode_) { ReplyClient(plan); }  // If Running EMU, do NOT send result back
+
+                thpt_monitor_->RecordEnd(qid.trxid, plan.isAbort());
                 NotifyTrxFinished(qid.trxid, plan.GetStartTime());
                 // if not readonly, abtain its finished time
                 if (plan.GetTrxType() != TRX_READONLY) {

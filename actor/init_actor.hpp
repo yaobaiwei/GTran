@@ -133,11 +133,11 @@ class InitActor : public AbstractActor {
         if (inType == Element_T::VERTEX) {
             InitVtxData(m, qplan, init_data);
             end_t = timer::get_usec();
-            cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
+            // cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
         } else {
             InitEdgeData(m, qplan, init_data);
             end_t = timer::get_usec();
-            cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
+            // cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
         }
     }
 
@@ -150,7 +150,7 @@ class InitActor : public AbstractActor {
             data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
         }
         uint64_t end_time = timer::get_usec();
-        cout << "[Timer] " << (end_time - start_time) << " us for GetAllVertices()" << endl;
+        // cout << "[Timer] " << (end_time - start_time) << " us for GetAllVertices()" << endl;
         uint64_t count = vid_list.size();
 
         // vector<pair<history_t, vector<value_t>>> data;
@@ -175,7 +175,7 @@ class InitActor : public AbstractActor {
             data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
         }
         uint64_t end_time = timer::get_usec();
-        cout << "[Timer] " << (end_time - start_time) << " us for GetAllEdges()" << endl;
+        // cout << "[Timer] " << (end_time - start_time) << " us for GetAllEdges()" << endl;
         uint64_t count = eid_list.size();
 
         // vector<pair<history_t, vector<value_t>>> data;
