@@ -23,7 +23,7 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
         // with abort_info in CreateAbortMsg
         if (msg.data.size() > 0) {
             data.emplace_back(msg.data[0].second[0]);
-            printf("with abort_info: %s\n", Tool::DebugString(msg.data[0].second[0]).c_str());
+            // printf("with abort_info: %s\n", Tool::DebugString(msg.data[0].second[0]).c_str());
         }
     }
 
