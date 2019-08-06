@@ -67,8 +67,10 @@ class Config{
     int global_ve_row_pool_size;
     int global_vp_row_pool_size;
     int global_ep_row_pool_size;
-    int global_topo_mvcc_pool_size;
-    int global_property_mvcc_pool_size;
+    int global_v_mvcc_pool_size;
+    int global_e_mvcc_pool_size;
+    int global_vp_mvcc_pool_size;
+    int global_ep_mvcc_pool_size;
 
 
     // send_buffer_sz should be equal or less than recv_buffer_sz
@@ -181,9 +183,6 @@ class Config{
     uint64_t dgram_buf_sz;
     // buffer_sz =  conn_buf_sz + dgram_buf_sz
     uint64_t buffer_sz;
-
-    // head [key region] / (head + entry) [Total] * 100
-    int key_value_ratio_in_rdma;
 
 
     // ================================================================
@@ -367,14 +366,6 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:KEY_VALUE_RATIO", val_not_found);
-        if (val != val_not_found) {
-            key_value_ratio_in_rdma = val;
-        } else {
-            fprintf(stderr, "must enter the KEY_VALUE_RATIO. exits.\n");
-            exit(-1);
-        }
-
         val = iniparser_getint(ini, "SYSTEM:VE_ROW_POOL_SIZE", val_not_found);
         if (val != val_not_found) {
             global_ve_row_pool_size = val;
@@ -399,19 +390,35 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:TOPO_MVCC_POOL_SIZE", val_not_found);
+        val = iniparser_getint(ini, "SYSTEM:V_MVCC_POOL_SIZE", val_not_found);
         if (val != val_not_found) {
-            global_topo_mvcc_pool_size = val;
+            global_v_mvcc_pool_size = val;
         } else {
-            fprintf(stderr, "must enter the TOPO_MVCC_POOL_SIZE. exits.\n");
+            fprintf(stderr, "must enter the V_MVCC_POOL_SIZE. exits.\n");
             exit(-1);
         }
 
-        val = iniparser_getint(ini, "SYSTEM:PROPERTY_MVCC_POOL_SIZE", val_not_found);
+        val = iniparser_getint(ini, "SYSTEM:E_MVCC_POOL_SIZE", val_not_found);
         if (val != val_not_found) {
-            global_property_mvcc_pool_size = val;
+            global_e_mvcc_pool_size = val;
         } else {
-            fprintf(stderr, "must enter the PROPERTY_MVCC_POOL_SIZE. exits.\n");
+            fprintf(stderr, "must enter the E_MVCC_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:VP_MVCC_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_vp_mvcc_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the VP_MVCC_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:EP_MVCC_POOL_SIZE", val_not_found);
+        if (val != val_not_found) {
+            global_ep_mvcc_pool_size = val;
+        } else {
+            fprintf(stderr, "must enter the EP_MVCC_POOL_SIZE. exits.\n");
             exit(-1);
         }
 
@@ -739,7 +746,6 @@ class Config{
         ss << "global_edge_property_kv_sz_gb : " << global_edge_property_kv_sz_gb << endl;
         ss << "global_per_send_buffer_sz_mb : " << global_per_send_buffer_sz_mb << endl;
         ss << "global_per_recv_buffer_sz_mb : " << global_per_recv_buffer_sz_mb << endl;
-        ss << "key_value_ratio : " << key_value_ratio_in_rdma << endl;
 
         ss << "global_use_rdma : " << global_use_rdma << endl;
         ss << "global_enable_caching : " << global_enable_caching << endl;
