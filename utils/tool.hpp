@@ -400,6 +400,13 @@ class Tool{
 
         return string(tmp);
     }
+
+    static string my_regex_replace(string & original, regex match, vector<string> replace_target) {
+        for (auto & t : replace_target) {
+            original = regex_replace(original, match, t, regex_constants::format_first_only);
+        }
+        return original;
+    }
 };
 
 

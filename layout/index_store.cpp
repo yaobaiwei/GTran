@@ -501,6 +501,7 @@ void IndexStore::ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begi
     for (int i = 0; i < vtx_update_list.size(); i++) {
         // Risk Here : what if the iteration cannot stop
         update_element up_elem = vtx_update_list[i];
+        if (up_elem.element_id == 0) { continue; }
         vid_t vid;
         uint2vid_t(up_elem.element_id, vid);
         if (data_storage_->CheckVertexVisibility(trx_id, begin_time, read_only, vid)) {
@@ -549,8 +550,10 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
     for (int i = 0; i < edge_update_list.size(); i++) {
         // Risk Here : what if the iteration cannot stop
         update_element up_elem = edge_update_list[i];
+        if (up_elem.element_id == 0) { continue; }
         eid_t eid;
         uint2eid_t(up_elem.element_id, eid);
+
         if (data_storage_->CheckEdgeVisibility(trx_id, begin_time, read_only, eid)) {
             // Visible (For Add)
             if (up_elem.isAdd) {
@@ -738,6 +741,7 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid,
 
 void IndexStore::read_prop_update_data(const update_element & up_elem, vector<value_t> & vec) {
     value_t id_value_t;
+    if (up_elem.element_id == 0) { return; }
     Tool::uint64_t2value_t(up_elem.element_id, id_value_t);
     vector<value_t>::iterator itr = find(vec.begin(), vec.end(), id_value_t);
     if (up_elem.isAdd) {

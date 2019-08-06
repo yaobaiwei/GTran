@@ -27,6 +27,7 @@ class ThroughputMonitor {
 
         num_completed_ = 0;
         num_recorded_ = 0;
+        num_aborted_ = 0;
         last_cnt_ = 0;
         start_time_ = last_time_ = timer::get_usec();
         is_emu_ = true;
@@ -53,8 +54,9 @@ class ThroughputMonitor {
     }
 
     // Record latency of query
-    uint64_t RecordEnd(uint64_t qid) {
+    uint64_t RecordEnd(uint64_t qid, bool isAbort) {
         num_completed_++;
+        if (isAbort) { num_aborted_++; }
         unique_lock<mutex> lock(thread_mutex_);
         uint64_t latency = timer::get_usec() - stats_[qid].second;
         if (!is_emu_) {
@@ -64,6 +66,9 @@ class ThroughputMonitor {
         }
         return latency;
     }
+
+    int GetCompletedTrx() { return num_completed_; }
+    int GetAbortedTrx() { return num_aborted_; }
 
     double GetThroughput() {
         double thpt = 1000.0 * last_cnt_;
@@ -153,7 +158,7 @@ class ThroughputMonitor {
         // periodically print timely throughput
         if ((now - last_time_) > interval) {
             double cur_thpt = 1000.0 * (num_completed_ - last_cnt_) / (now - last_time_);
-            cout << "Throughput: " << cur_thpt << "K queries/sec" << endl;
+            cout << "Throughput: " << cur_thpt << "K queries/sec with abort rate: " << (double) num_aborted_ * 100 / num_completed_ << "%" << endl;
             last_time_ = now;
             last_cnt_ = num_completed_;
         }
@@ -162,6 +167,7 @@ class ThroughputMonitor {
  private:
     uint64_t num_completed_;
     uint64_t num_recorded_;
+    uint64_t num_aborted_;
     bool is_emu_;
     mutex thread_mutex_;
 
