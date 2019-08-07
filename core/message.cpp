@@ -550,7 +550,10 @@ void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<p
     // store history with empty data
     vector<pair<history_t, vector<value_t>>> empty_his;
 
-    bool is_count = actors[m.step].actor_type == ACTOR_T::COUNT;
+    bool is_count = false;
+    if (actors[m.step].actor_type == ACTOR_T::COUNT && actors[m.step-1].actor_type != ACTOR_T::INIT) {
+        is_count = true;
+    }
     bool consider_both_edge = false;
     if (actors[m.step].actor_type == ACTOR_T::DROP) {
         // For DropE, send edge src_v and dst_v
