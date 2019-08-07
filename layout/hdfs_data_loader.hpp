@@ -42,14 +42,17 @@ class HDFSDataLoader {
     void ToVP(char* line);
     void ToEP(char* line);
 
-    bool ReadSnapshot();
-    void WriteSnapshot();
+    bool ReadVertexSnapshot();
+    void WriteVertexSnapshot();
+    bool ReadEdgeSnapshot();
+    void WriteEdgeSnapshot();
 
     void GetStringIndexes();
     void GetVertices();
     void GetVPList();
     void GetEPList();
-    void Shuffle();
+    void ShuffleVertex();
+    void ShuffleEdge();
 
  public:
     static HDFSDataLoader* GetInstance() {
@@ -64,8 +67,10 @@ class HDFSDataLoader {
     }
 
     void Init();
-    void LoadData();
-    void FreeMemory();
+    void LoadVertexData();
+    void LoadEdgeData();
+    void FreeVertexMemory();
+    void FreeEdgeMemory();
 
     // "schema" related
     string_index* indexes_;

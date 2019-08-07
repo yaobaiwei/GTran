@@ -354,52 +354,72 @@ void HDFSDataLoader::ToEP(char* line) {
     eplist_.push_back(ep);
 }
 
-void HDFSDataLoader::LoadData() {
+void HDFSDataLoader::LoadVertexData() {
     GetStringIndexes();
-    if (!ReadSnapshot()) {
-        node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadSnapshot()\n");
+    if (!ReadVertexSnapshot()) {
+        node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadVertexSnapshot()\n");
         vector<TMPVertex>().swap(shuffled_vtx_);
-        vector<TMPEdge>().swap(shuffled_edge_);
-        vector<TMPEdge>().swap(shuffled_in_edge_);
         GetVertices();
         GetVPList();
-        GetEPList();
-        Shuffle();
-        WriteSnapshot();
+        ShuffleVertex();
+        WriteVertexSnapshot();
     }
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::LoadData() finished\n");
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::LoadVertexData() finished\n");
 }
 
-bool HDFSDataLoader::ReadSnapshot() {
+void HDFSDataLoader::LoadEdgeData() {
+    if (!ReadEdgeSnapshot()) {
+        node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadEdgeSnapshot()\n");
+        vector<TMPEdge>().swap(shuffled_edge_);
+        vector<TMPEdge>().swap(shuffled_in_edge_);
+        GetEPList();
+        ShuffleEdge();
+        WriteEdgeSnapshot();
+    }
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::LoadEdgeData() finished\n");
+}
+
+bool HDFSDataLoader::ReadVertexSnapshot() {
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, ReadBySerialization))
         return false;
+
+    for (auto& item : shuffled_vtx_)
+        vtx_part_map_[item.id.vid] = &item;
+
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ReadVertexSnapshot() finished\n");
+    return true;
+}
+
+bool HDFSDataLoader::ReadEdgeSnapshot() {
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_edge_", shuffled_edge_, ReadBySerialization))
         return false;
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, ReadBySerialization))
         return false;
 
-    for (auto& item : shuffled_vtx_)
-        vtx_part_map_[item.id.vid] = &item;
     for (auto& item : shuffled_edge_)
         edge_part_map_[item.id.value()] = &item;
     for (auto& item : shuffled_in_edge_)
         edge_part_map_[item.id.value()] = &item;
 
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ReadSnapshot() finished\n");
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ReadEdgeSnapshot() finished\n");
     return true;
 }
 
-void HDFSDataLoader::WriteSnapshot() {
+void HDFSDataLoader::WriteVertexSnapshot() {
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_vtx_\n");
     snapshot_manager_->WriteData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, WriteBySerialization);
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteVertexSnapshot() finished\n");
+}
+
+void HDFSDataLoader::WriteEdgeSnapshot() {
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_edge_\n");
     snapshot_manager_->WriteData("HDFSDataLoader::shuffled_edge_", shuffled_edge_, WriteBySerialization);
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_in_edge_\n");
     snapshot_manager_->WriteData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, WriteBySerialization);
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() finished\n");
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteEdgeSnapshot() finished\n");
 }
 
-void HDFSDataLoader::Shuffle() {
+void HDFSDataLoader::ShuffleVertex() {
     // vertices_
     vector<vector<TMPVertexInfo*>> vtx_parts;
     vtx_parts.resize(node_.get_local_size());
@@ -417,23 +437,6 @@ void HDFSDataLoader::Shuffle() {
     }
     vtx_parts.clear();
     vector<vector<TMPVertexInfo*>>().swap(vtx_parts);
-
-    // edges_
-    vector<vector<TMPEdgeInfo*>> edges_parts;
-    edges_parts.resize(node_.get_local_size());
-    for (int i = 0; i < edges_.size(); i++) {
-        TMPEdgeInfo* e = edges_[i];
-        edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
-    }
-    all_to_all(node_, false, edges_parts);
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle edge done\n");
-
-    edges_.clear();
-    for (int i = 0; i < node_.get_local_size(); i++) {
-        edges_.insert(edges_.end(), edges_parts[i].begin(), edges_parts[i].end());
-    }
-    edges_parts.clear();
-    vector<vector<TMPEdgeInfo*>>().swap(edges_parts);
 
     // VProperty
     vector<vector<VProperty*>> vp_parts;
@@ -463,6 +466,67 @@ void HDFSDataLoader::Shuffle() {
     }
     vp_parts.clear();
     vector<vector<VProperty*>>().swap(vp_parts);
+
+    shuffled_vtx_.resize(vertices_.size());
+
+    // construct TMPVertex
+    int auto_iter_counter;
+
+    auto_iter_counter = 0;
+    for (auto vtx_topo : vertices_) {
+        TMPVertex& vtx_ref = shuffled_vtx_[auto_iter_counter];
+        vtx_part_map_[vtx_topo->id.vid] = &vtx_ref;
+
+        vtx_ref.id = vtx_topo->id;
+        vtx_ref.in_nbs = vtx_topo->in_nbs;
+        vtx_ref.out_nbs = vtx_topo->out_nbs;
+
+        auto_iter_counter++;
+    }
+
+    // insert vp
+    for (auto vps : vplist_) {
+        TMPVertex& vtx_ref = *vtx_part_map_[vps->id.vid];
+
+        for (auto vp : vps->plist) {
+            // label
+            if (vp.key.pid == 0) {
+                vtx_ref.label = Tool::value_t2int(vp.value);
+            } else {
+                vtx_ref.vp_label_list.push_back(vp.key.pid);
+                vtx_ref.vp_value_list.push_back(vp.value);
+            }
+        }
+    }
+
+    // free shuffled buffer's memory
+    for (auto ptr : vertices_)
+        delete ptr;
+    for (auto ptr : vplist_)
+        delete ptr;
+    
+    vector<TMPVertexInfo*>().swap(vertices_);
+    vector<VProperty*>().swap(vplist_);
+}
+
+
+void HDFSDataLoader::ShuffleEdge() {
+    // edges_
+    vector<vector<TMPEdgeInfo*>> edges_parts;
+    edges_parts.resize(node_.get_local_size());
+    for (int i = 0; i < edges_.size(); i++) {
+        TMPEdgeInfo* e = edges_[i];
+        edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
+    }
+    all_to_all(node_, false, edges_parts);
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle edge done\n");
+
+    edges_.clear();
+    for (int i = 0; i < node_.get_local_size(); i++) {
+        edges_.insert(edges_.end(), edges_parts[i].begin(), edges_parts[i].end());
+    }
+    edges_parts.clear();
+    vector<vector<TMPEdgeInfo*>>().swap(edges_parts);
 
     // EProperty
     vector<vector<EProperty*>> ep_parts;
@@ -496,23 +560,9 @@ void HDFSDataLoader::Shuffle() {
     ep_parts.clear();
     vector<vector<EProperty*>>().swap(ep_parts);
 
-    shuffled_vtx_.resize(vertices_.size());
     shuffled_edge_.resize(edges_.size());
 
-    // construct TMPVertex
     int auto_iter_counter;
-
-    auto_iter_counter = 0;
-    for (auto vtx_topo : vertices_) {
-        TMPVertex& vtx_ref = shuffled_vtx_[auto_iter_counter];
-        vtx_part_map_[vtx_topo->id.vid] = &vtx_ref;
-
-        vtx_ref.id = vtx_topo->id;
-        vtx_ref.in_nbs = vtx_topo->in_nbs;
-        vtx_ref.out_nbs = vtx_topo->out_nbs;
-
-        auto_iter_counter++;
-    }
 
     // construct TMPEdge
     auto_iter_counter = 0;
@@ -523,21 +573,6 @@ void HDFSDataLoader::Shuffle() {
         edge_ref.id = edge->id;
 
         auto_iter_counter++;
-    }
-
-    // insert vp
-    for (auto vps : vplist_) {
-        TMPVertex& vtx_ref = *vtx_part_map_[vps->id.vid];
-
-        for (auto vp : vps->plist) {
-            // label
-            if (vp.key.pid == 0) {
-                vtx_ref.label = Tool::value_t2int(vp.value);
-            } else {
-                vtx_ref.vp_label_list.push_back(vp.key.pid);
-                vtx_ref.vp_value_list.push_back(vp.value);
-            }
-        }
     }
 
     // insert ep
@@ -568,22 +603,19 @@ void HDFSDataLoader::Shuffle() {
     // free shuffled buffer's memory
     for (auto ptr : edges_)
         delete ptr;
-    for (auto ptr : vertices_)
-        delete ptr;
-    for (auto ptr : vplist_)
-        delete ptr;
     for (auto ptr : eplist_)
         delete ptr;
     vector<TMPEdgeInfo*>().swap(edges_);
-    vector<TMPVertexInfo*>().swap(vertices_);
-    vector<VProperty*>().swap(vplist_);
     vector<EProperty*>().swap(eplist_);
 }
 
-void HDFSDataLoader::FreeMemory() {
+void HDFSDataLoader::FreeVertexMemory() {
     vtx_part_map_ = hash_map<uint32_t, TMPVertex*>();
-    edge_part_map_ = hash_map<uint64_t, TMPEdge*>();
     vector<TMPVertex>().swap(shuffled_vtx_);
+}
+
+void HDFSDataLoader::FreeEdgeMemory() {
+    edge_part_map_ = hash_map<uint64_t, TMPEdge*>();
     vector<TMPEdge>().swap(shuffled_edge_);
     vector<TMPEdge>().swap(shuffled_in_edge_);
 }
