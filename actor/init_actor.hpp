@@ -51,11 +51,13 @@ class InitActor : public AbstractActor {
         assert(actor_obj.params.size() >= 2);
         bool with_input = Tool::value_t2int(actor_obj.params[1]);
 
+        bool next_count = qplan.actors[msg.meta.step + 1].actor_type == ACTOR_T::COUNT;
+
         vector<pair<history_t, vector<value_t>>> init_data;
         if (with_input) {
             InitWithInput(tid, qplan.actors, init_data, msg);
         } else if (actor_obj.params.size() == 2) {
-            InitWithoutIndex(tid, qplan, init_data, msg);
+            InitWithoutIndex(tid, qplan, init_data, msg, next_count);
         } else {
             InitWithIndex(tid, qplan.actors, init_data, msg);
         }
@@ -122,7 +124,7 @@ class InitActor : public AbstractActor {
     // vector<Message> edge_count_msgs;
     /* =============OLAP Impl=============== */
 
-    void InitData(const QueryPlan& qplan, Element_T inType, vector<pair<history_t, vector<value_t>>> & init_data) {
+    void InitData(const QueryPlan& qplan, Element_T inType, vector<pair<history_t, vector<value_t>>> & init_data, bool & next_count) {
         // convert id to msg
         Meta m;
         m.step = 1;
@@ -131,17 +133,17 @@ class InitActor : public AbstractActor {
         uint64_t start_t, end_t;
         start_t = timer::get_usec();
         if (inType == Element_T::VERTEX) {
-            InitVtxData(m, qplan, init_data);
+            InitVtxData(m, qplan, init_data, next_count);
             end_t = timer::get_usec();
             // cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initV_Msg in init_actor" << endl;
         } else {
-            InitEdgeData(m, qplan, init_data);
+            InitEdgeData(m, qplan, init_data, next_count);
             end_t = timer::get_usec();
             // cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for initE_Msg in init_actor" << endl;
         }
     }
 
-    void InitVtxData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data) {
+    void InitVtxData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data, bool & next_count) {
         vector<vid_t> vid_list;
         uint64_t start_time = timer::get_usec();
         if (config_->global_enable_indexing) {
@@ -158,15 +160,21 @@ class InitActor : public AbstractActor {
         init_data.emplace_back(history_t(), vector<value_t>());
         init_data[0].second.reserve(count);
 
-        for (auto& vid : vid_list) {
-            value_t v;
-            Tool::str2int(to_string(vid.value()), v);
-            init_data[0].second.push_back(v);
+        if (next_count) {
+            value_t v; 
+            Tool::str2int(to_string(count), v);
+            init_data[0].second.emplace_back(v);
+        } else {
+            for (auto& vid : vid_list) {
+                value_t v;
+                Tool::str2int(to_string(vid.value()), v);
+                init_data[0].second.emplace_back(v);
+            }
         }
         vector<vid_t>().swap(vid_list);
     }
 
-    void InitEdgeData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>>& init_data) {
+    void InitEdgeData(const Meta& m, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>>& init_data, bool & next_count) {
         vector<eid_t> eid_list;
         uint64_t start_time = timer::get_usec();
         if (config_->global_enable_indexing) {
@@ -182,10 +190,17 @@ class InitActor : public AbstractActor {
         init_data.clear();
         init_data.emplace_back(history_t(), vector<value_t>());
         init_data[0].second.reserve(count);
-        for (auto& eid : eid_list) {
-            value_t v;
-            Tool::str2uint64_t(to_string(eid.value()), v);
-            init_data[0].second.push_back(v);
+
+        if (next_count) {
+            value_t v; 
+            Tool::str2int(to_string(count), v);
+            init_data[0].second.emplace_back(v);
+        } else {
+            for (auto& eid : eid_list) {
+                value_t v;
+                Tool::str2uint64_t(to_string(eid.value()), v);
+                init_data[0].second.push_back(v);
+            }
         }
         vector<eid_t>().swap(eid_list);
     }
@@ -234,7 +249,7 @@ class InitActor : public AbstractActor {
         index_store_->ReadPropIndex(inType, pred_chain, init_data[0].second);
     }
 
-    void InitWithoutIndex(int tid, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data, Message & msg) {
+    void InitWithoutIndex(int tid, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data, Message & msg, bool & next_count) {
         Meta m = msg.meta;
         const Actor_Object& actor_obj = qplan.actors[m.step];
 
@@ -242,7 +257,7 @@ class InitActor : public AbstractActor {
         Element_T inType = (Element_T)Tool::value_t2int(actor_obj.params.at(0));
 
         // No need to lock since init is for each transaction rather than whole system.
-        InitData(qplan, inType, init_data);
+        InitData(qplan, inType, init_data, next_count);
 
         m.step++;
         // update meta
