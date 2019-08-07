@@ -80,7 +80,9 @@ class DataStorage {
     bool ReadSnapshot();  // atomic, all or nothing
     void WriteSnapshot();
     void CreateContainer();
-    void FillContainer();  // since MVCC is used, the initial data will be treated as the first version
+    // since MVCC is used, the initial data will be treated as the first version
+    void FillVertexContainer();
+    void FillEdgeContainer();
 
     Config* config_ = nullptr;
     Node node_;
@@ -256,9 +258,6 @@ class DataStorage {
     // Dependency Read
     void GetDepReadTrxList(uint64_t trxID, set<uint64_t> & homoTrxDList, set<uint64_t> & heteroTrxIDList);
     void CleanDepReadTrxList(uint64_t trxID);
-
-    // Debug function, called after FillContainer.
-    void PrintLoadedData();  // TODO(entityless): remove this in the future
 
     // "schema" (indexes)
     string_index* indexes_ = nullptr;

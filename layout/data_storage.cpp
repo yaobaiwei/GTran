@@ -50,10 +50,15 @@ void DataStorage::Init() {
     snapshot_manager_->ConfirmConfig();
 
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
-    hdfs_data_loader_->LoadData();
-    FillContainer();
-    PrintLoadedData();
-    hdfs_data_loader_->FreeMemory();
+
+    hdfs_data_loader_->LoadVertexData();
+    FillVertexContainer();
+    hdfs_data_loader_->FreeVertexMemory();
+
+    hdfs_data_loader_->LoadEdgeData();
+    FillEdgeContainer();
+    hdfs_data_loader_->FreeEdgeMemory();
+
     garbage_collector_ = GarbageCollector::GetInstance();
 
     trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
@@ -95,12 +100,8 @@ void DataStorage::CreateContainer() {
     EPropertyMVCCItem::SetGlobalValueStore(ep_store_);
 }
 
-void DataStorage::FillContainer() {
+void DataStorage::FillVertexContainer() {
     indexes_ = hdfs_data_loader_->indexes_;
-
-    // access elements in HDFSDataLoader
-    hash_map<uint32_t, TMPVertex*>& v_map = hdfs_data_loader_->vtx_part_map_;
-    hash_map<uint64_t, TMPEdge*>& e_map = hdfs_data_loader_->edge_part_map_;
 
     int max_vid = worker_rank_;
 
@@ -123,38 +124,6 @@ void DataStorage::FillContainer() {
         v_accessor->second.mvcc_list->AppendInitialVersion()[0] = true;
         // true means that the Vertex is visible
 
-        // Insert in edges
-        for (auto in_nb : vtx.in_nbs) {
-            eid_t eid = eid_t(vtx.id.vid, in_nb.vid);
-
-            InEdgeAccessor in_e_accessor;
-            in_edge_map_.Insert(in_e_accessor, eid.value());
-
-            // "false" means that is_out = false, as this edge is an inE to the Vertex
-            auto* mvcc_list = v_accessor->second.ve_row_list
-                              ->InsertInitialCell(false, in_nb, e_map[eid.value()]->label, nullptr);
-
-            // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
-            in_e_accessor->second.mvcc_list = mvcc_list;
-        }
-
-        // Insert out edges
-        for (auto out_nb : vtx.out_nbs) {
-            eid_t eid = eid_t(out_nb.vid, vtx.id.vid);
-
-            OutEdgeAccessor out_e_accessor;
-            out_edge_map_.Insert(out_e_accessor, eid.value());
-            auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
-            ep_row_list->Init();
-
-            // "true" means that is_out = true, as this edge is an outE to the Vertex
-            auto* mvcc_list = v_accessor->second.ve_row_list
-                              ->InsertInitialCell(true, out_nb, e_map[eid.value()]->label, ep_row_list);
-
-            // pointer of MVCCList<EdgeMVCCItem> is shared with out_edge_map_
-            out_e_accessor->second.mvcc_list = mvcc_list;
-        }
-
         // Insert vertex properties
         for (int i = 0; i < vtx.vp_label_list.size(); i++) {
             v_accessor->second.vp_row_list->InsertInitialCell(vpid_t(vtx.id, vtx.vp_label_list[i]),
@@ -164,14 +133,36 @@ void DataStorage::FillContainer() {
 
     num_of_vertex_ = (max_vid - worker_rank_) / worker_size_;
 
-    node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() load vtx finished\n");
+    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("vp_row_pool_: " + vp_row_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("vp_mvcc_pool_: " + vp_mvcc_pool_->UsageString());
+    node_.LocalSequentialDebugPrint("vertex_mvcc_pool_: " + vertex_mvcc_pool_->UsageString());
+    #endif  // OFFSET_MEMORY_POOL_DEBUG
+    #ifdef MVCC_VALUE_STORE_DEBUG
+    node_.LocalSequentialDebugPrint("vp_store_: " + vp_store_->UsageString());
+    #endif  // MVCC_VALUE_STORE_DEBUG
 
-    // Insert edge properties
+    node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillVertexContainer() finished\n");
+}
+
+
+void DataStorage::FillEdgeContainer() {
+    // Insert edge properties and outE
     for (auto edge : hdfs_data_loader_->shuffled_edge_) {
-        OutEdgeConstAccessor out_e_accessor;
-        out_edge_map_.Find(out_e_accessor, edge.id.value());
+        OutEdgeAccessor out_e_accessor;
+        out_edge_map_.Insert(out_e_accessor, edge.id.value());
 
-        EdgeMVCCItem* edge_mvcc;
+        VertexAccessor v_accessor;
+        vertex_map_.Find(v_accessor, edge.id.out_v);
+
+        auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
+        ep_row_list->Init();
+
+        // "true" means that is_out = true, as this edge is an outE to the Vertex
+        auto* mvcc_list = v_accessor->second.ve_row_list
+                          ->InsertInitialCell(true, edge.id.in_v, edge.label, ep_row_list);
+        out_e_accessor->second.mvcc_list = mvcc_list;
 
         EdgeVersion edge_version;
         out_e_accessor->second.mvcc_list->GetVisibleVersion(0, 0, true, edge_version);
@@ -181,21 +172,51 @@ void DataStorage::FillContainer() {
         }
     }
 
+    // Insert inE
+
+    for (auto edge : hdfs_data_loader_->shuffled_edge_) {
+        // check if the dst_v on this node
+        if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
+            InEdgeAccessor in_e_accessor;
+            in_edge_map_.Insert(in_e_accessor, edge.id.value());
+
+            VertexAccessor v_accessor;
+            vertex_map_.Find(v_accessor, edge.id.in_v);
+
+            // "false" means that is_out = false, as this edge is an inE to the Vertex
+            auto* mvcc_list = v_accessor->second.ve_row_list
+                              ->InsertInitialCell(false, edge.id.out_v, edge.label, nullptr);
+
+            // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
+            in_e_accessor->second.mvcc_list = mvcc_list;
+        }
+    }
+
+    for (auto edge : hdfs_data_loader_->shuffled_in_edge_) {
+        InEdgeAccessor in_e_accessor;
+        in_edge_map_.Insert(in_e_accessor, edge.id.value());
+
+        VertexAccessor v_accessor;
+        vertex_map_.Find(v_accessor, edge.id.in_v);
+
+        // "false" means that is_out = false, as this edge is an inE to the Vertex
+        auto* mvcc_list = v_accessor->second.ve_row_list
+                          ->InsertInitialCell(false, edge.id.out_v, edge.label, nullptr);
+
+        // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
+        in_e_accessor->second.mvcc_list = mvcc_list;
+    }
+
     #ifdef OFFSET_MEMORY_POOL_DEBUG
-    node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
-    node_.LocalSequentialDebugPrint("vp_row_pool_: " + vp_row_pool_->UsageString());
     node_.LocalSequentialDebugPrint("ep_row_pool_: " + ep_row_pool_->UsageString());
-    node_.LocalSequentialDebugPrint("vp_mvcc_pool_: " + vp_mvcc_pool_->UsageString());
     node_.LocalSequentialDebugPrint("ep_mvcc_pool_: " + ep_mvcc_pool_->UsageString());
-    node_.LocalSequentialDebugPrint("vertex_mvcc_pool_: " + vertex_mvcc_pool_->UsageString());
     node_.LocalSequentialDebugPrint("edge_mvcc_pool_: " + edge_mvcc_pool_->UsageString());
     #endif  // OFFSET_MEMORY_POOL_DEBUG
     #ifdef MVCC_VALUE_STORE_DEBUG
-    node_.LocalSequentialDebugPrint("vp_store_: " + vp_store_->UsageString());
     node_.LocalSequentialDebugPrint("ep_store_: " + ep_store_->UsageString());
     #endif  // MVCC_VALUE_STORE_DEBUG
 
-    node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillContainer() finished\n");
+    node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillEdgeContainer() finished\n");
 }
 
 READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid,
@@ -732,153 +753,6 @@ void DataStorage::CleanDepReadTrxList(uint64_t trxID) {
     if (dep_trx_map.find(accessor, trxID)) {
         dep_trx_map.erase(accessor);
     }
-}
-
-void DataStorage::PrintLoadedData() {
-    node_.LocalSequentialStart();
-
-    if (hdfs_data_loader_->shuffled_vtx_.size() < 20 && hdfs_data_loader_->shuffled_edge_.size() < 40) {
-        for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
-            TMPVertex tmp_vtx;
-            tmp_vtx.id = vtx.id;
-
-            GetVL(vtx.id, 0x8000000000000001, 1, true, tmp_vtx.label);
-
-            // vector<pair<label_t, value_t>> properties;
-            // GetVP(vtx.id, 0x8000000000000001, 1, true, properties);
-            // for (auto p : properties) {
-            //     tmp_vtx.vp_label_list.push_back(p.first);
-            //     tmp_vtx.vp_value_list.push_back(p.second);
-            // }
-
-            // for (int i = 0; i < vtx.vp_label_list.size(); i++) {
-            //     tmp_vtx.vp_label_list.push_back(vtx.vp_label_list[i]);
-            //     value_t val;
-            //     GetAllVP(vpid_t(vtx.id, vtx.vp_label_list[i]), 0x8000000000000001, 1, true, val);
-            //     tmp_vtx.vp_value_list.push_back(val);
-            // }
-
-            // vector<vpid_t> vpids;
-            // GetVPidList(vtx.id, 0x8000000000000001, 1, true, vpids);
-            // for (int i = 0; i < vpids.size(); i++) {
-            //     tmp_vtx.vp_label_list.push_back(vpids[i].pid);
-            //     value_t val;
-            //     GetVPByPKey(vpids[i], 0x8000000000000001, 1, true, val);
-            //     tmp_vtx.vp_value_list.push_back(val);
-            // }
-
-            vector<pair<label_t, value_t>> properties;
-            GetVPByPKeyList(vtx.id, vtx.vp_label_list, 0x8000000000000001, 1, true, properties);
-            for (auto p : properties) {
-                tmp_vtx.vp_label_list.push_back(p.first);
-                tmp_vtx.vp_value_list.push_back(p.second);
-            }
-
-            // vector<vid_t> in_nbs;
-            // GetConnectedVertexList(vtx.id, 0, IN, 0x8000000000000001, 1, true, in_nbs);
-            // for (auto in_nb : in_nbs) {
-            //     tmp_vtx.in_nbs.push_back(in_nb);
-            // }
-
-            // vector<eid_t> in_es;
-            // GetConnectedEdgeList(vtx.id, 0, IN, 0x8000000000000001, 1, true, in_es);
-            // for (auto in_e : in_es) {
-            //     tmp_vtx.in_nbs.push_back(in_e.out_v);
-            // }
-
-            // vector<vid_t> out_nbs;
-            // GetConnectedVertexList(vtx.id, 0, OUT, 0x8000000000000001, 1, true, out_nbs);
-            // for (auto out_nb : out_nbs) {
-            //     tmp_vtx.out_nbs.push_back(out_nb);
-            // }
-
-            // vector<eid_t> out_es;
-            // GetConnectedEdgeList(vtx.id, 0, OUT, 0x8000000000000001, 1, true, out_es);
-            // for (auto out_e : out_es) {
-            //     tmp_vtx.out_nbs.push_back(out_e.in_v);
-            // }
-
-            // vector<vid_t> both_nbs;
-            // GetConnectedVertexList(vtx.id, 0, BOTH, 0x8000000000000001, 1, true, both_nbs);
-            // for (auto both_nb : both_nbs) {
-            //     tmp_vtx.in_nbs.push_back(both_nb);
-            // }
-
-            vector<eid_t> both_es;
-            GetConnectedEdgeList(vtx.id, 0, BOTH, 0x8000000000000001, 1, true, both_es);
-            for (auto out_e : both_es) {
-                if (out_e.in_v == vtx.id)
-                    tmp_vtx.in_nbs.push_back(out_e.out_v);
-                else
-                    tmp_vtx.out_nbs.push_back(out_e.in_v);
-            }
-
-            printf(("   original: " + vtx.DebugString() + "\n").c_str());
-            printf(("constructed: " + tmp_vtx.DebugString() + "\n").c_str());
-        }
-
-        vector<vid_t> all_vtx_id;
-        GetAllVertices(0x8000000000000001, 1, true, all_vtx_id);
-        printf("all vtx id: [");
-        for (auto vtx_id : all_vtx_id) {
-            printf("%d ", vtx_id.value());
-        }
-        printf("]\n");
-
-        fflush(stdout);
-
-        for (auto edge : hdfs_data_loader_->shuffled_edge_) {
-            TMPEdge tmp_edge;
-            tmp_edge.id = edge.id;
-
-             GetEL(edge.id, 0x8000000000000001, 1, true, tmp_edge.label);
-
-            // vector<pair<label_t, value_t>> properties;
-            // GetAllEP(edge.id, 0x8000000000000001, 1, true, properties);
-            // for (auto p : properties) {
-            //     tmp_edge.ep_label_list.push_back(p.first);
-            //     tmp_edge.ep_value_list.push_back(p.second);
-            // }
-
-            // for (int i = 0; i < edge.ep_label_list.size(); i++) {
-            //     tmp_edge.ep_label_list.push_back(edge.ep_label_list[i]);
-            //     value_t val;
-            //     GetEPByPKey(epid_t(edge.id, edge.ep_label_list[i]), 0x8000000000000001, 1, true, val);
-            //     tmp_edge.ep_value_list.push_back(val);
-            // }
-
-            // vector<epid_t> epids;
-            // GetEPidList(edge.id, 0x8000000000000001, 1, true, epids);
-            // for (int i = 0; i < edge.ep_label_list.size(); i++) {
-            //     tmp_edge.ep_label_list.push_back(epids[i].pid);
-            //     value_t val;
-            //     GetEPByPKey(epids[i], 0x8000000000000001, 1, true, val);
-            //     tmp_edge.ep_value_list.push_back(val);
-            // }
-
-            vector<pair<label_t, value_t>> properties;
-            GetEPByPKeyList(edge.id, edge.ep_label_list, 0x8000000000000001, 1, true, properties);
-            for (auto p : properties) {
-                tmp_edge.ep_label_list.push_back(p.first);
-                tmp_edge.ep_value_list.push_back(p.second);
-            }
-
-            printf(("   original: " + edge.DebugString() + "\n").c_str());
-            printf(("constructed: " + tmp_edge.DebugString() + "\n").c_str());
-        }
-
-        vector<eid_t> all_edge_id;
-        GetAllEdges(0x8000000000000001, 1, true, all_edge_id);
-        printf("all edge id: [");
-        for (auto edge_id : all_edge_id) {
-            printf("%d->%d ", edge_id.out_v, edge_id.in_v);
-        }
-        printf("]\n");
-
-        fflush(stdout);
-    }
-
-    node_.LocalSequentialEnd();
 }
 
 vid_t DataStorage::AssignVID() {
