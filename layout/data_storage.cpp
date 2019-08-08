@@ -51,6 +51,8 @@ void DataStorage::Init() {
 
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
 
+    hdfs_data_loader_->GetStringIndexes();
+
     hdfs_data_loader_->LoadVertexData();
     FillVertexContainer();
     hdfs_data_loader_->FreeVertexMemory();

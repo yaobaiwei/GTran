@@ -305,7 +305,6 @@ void HDFSDataLoader::LoadEPList(const char* inpath) {
 
 
 void HDFSDataLoader::ToEP(char* line) {
-    TMPEdgeInfo * e = new TMPEdgeInfo;
     EProperty * ep = new EProperty;
 
     uint64_t atoi_time = timer::get_usec();
@@ -316,7 +315,6 @@ void HDFSDataLoader::ToEP(char* line) {
     int in_v = atoi(pch);
 
     eid_t eid(in_v, out_v);
-    e->id = eid;
     ep->id = eid;
 
     pch = strtok(nullptr, "\t");
@@ -349,13 +347,10 @@ void HDFSDataLoader::ToEP(char* line) {
     }
 
     sort(pkeys.begin(), pkeys.end());
-    e->ep_list.insert(e->ep_list.end(), pkeys.begin(), pkeys.end());
-    edges_.push_back(e);
     eplist_.push_back(ep);
 }
 
 void HDFSDataLoader::LoadVertexData() {
-    GetStringIndexes();
     if (!ReadVertexSnapshot()) {
         node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadVertexSnapshot()\n");
         vector<TMPVertex>().swap(shuffled_vtx_);
@@ -370,8 +365,8 @@ void HDFSDataLoader::LoadVertexData() {
 void HDFSDataLoader::LoadEdgeData() {
     if (!ReadEdgeSnapshot()) {
         node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadEdgeSnapshot()\n");
-        vector<TMPEdge>().swap(shuffled_out_edge_);
-        vector<TMPEdge>().swap(shuffled_in_edge_);
+        vector<TMPOutEdge>().swap(shuffled_out_edge_);
+        vector<TMPInEdge>().swap(shuffled_in_edge_);
         GetEPList();
         ShuffleEdge();
         WriteEdgeSnapshot();
@@ -504,23 +499,6 @@ void HDFSDataLoader::ShuffleVertex() {
 
 
 void HDFSDataLoader::ShuffleEdge() {
-    // edges_
-    vector<vector<TMPEdgeInfo*>> edges_parts;
-    edges_parts.resize(node_.get_local_size());
-    for (int i = 0; i < edges_.size(); i++) {
-        TMPEdgeInfo* e = edges_[i];
-        edges_parts[id_mapper_->GetMachineIdForEdge(e->id)].push_back(e);
-    }
-    all_to_all(node_, false, edges_parts);
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle edge done\n");
-
-    edges_.clear();
-    for (int i = 0; i < node_.get_local_size(); i++) {
-        edges_.insert(edges_.end(), edges_parts[i].begin(), edges_parts[i].end());
-    }
-    edges_parts.clear();
-    vector<vector<TMPEdgeInfo*>>().swap(edges_parts);
-
     // EProperty
     vector<vector<EProperty*>> ep_parts;
     ep_parts.resize(node_.get_local_size());
@@ -528,10 +506,15 @@ void HDFSDataLoader::ShuffleEdge() {
         EProperty* ep = eplist_[i];
         map<int, vector<E_KVpair>> node_map;
         for (auto& kv_pair : ep->plist) {
-            node_map[id_mapper_->GetMachineIdForEProperty(kv_pair.key)].push_back(kv_pair);
+            int src_v_node_id = id_mapper_->GetMachineIdForEProperty(kv_pair.key);
+            node_map[src_v_node_id].push_back(kv_pair);
             // label should be stored on two side
-            if (kv_pair.key.pid == 0)
-                node_map[id_mapper_->GetMachineIdForVertex(vid_t(kv_pair.key.in_vid))].push_back(kv_pair);
+            if (kv_pair.key.pid == 0) {
+                int dst_v_node_id = id_mapper_->GetMachineIdForVertex(vid_t(kv_pair.key.in_vid));
+                if (dst_v_node_id != src_v_node_id) {
+                    node_map[dst_v_node_id].push_back(kv_pair);
+                }
+            }
         }
         for (auto& item : node_map) {
             EProperty* ep_ = new EProperty();
@@ -553,54 +536,50 @@ void HDFSDataLoader::ShuffleEdge() {
     ep_parts.clear();
     vector<vector<EProperty*>>().swap(ep_parts);
 
-    shuffled_out_edge_.resize(edges_.size());
-
-    int auto_iter_counter;
-
-    // construct TMPEdge
-    auto_iter_counter = 0;
-    for (auto edge : edges_) {
-        TMPEdge& edge_ref = shuffled_out_edge_[auto_iter_counter];
-        edge_part_map_[edge->id.value()] = &edge_ref;
-
-        edge_ref.id = edge->id;
-
-        auto_iter_counter++;
+    // For an edge, if src_v and dst_v are both on this node, it will be stored in out_edge_map_
+    size_t ine_cnt = 0, oute_cnt = 0;
+    for (auto eps : eplist_) {
+        if (id_mapper_->IsVertexLocal(eps->id.out_v)) {
+            oute_cnt++;
+        } else {
+            ine_cnt++;
+        }
     }
 
-    // insert ep
+    shuffled_out_edge_.resize(oute_cnt);
+    shuffled_in_edge_.resize(ine_cnt);
+
+    size_t ine_iter_counter = 0, oute_iter_counter = 0;
+
+    // construct shuffled_out_edge_ and shuffled_in_edge_
     for (auto eps : eplist_) {
-        // just construct a new edge to insert the label
-        if (edge_part_map_.count(eps->id.value()) == 0) {
-            TMPEdge tmp_in_edge;
-            tmp_in_edge.id = eid_t(eps->plist[0].key.in_vid, eps->plist[0].key.out_vid);
-            tmp_in_edge.label = Tool::value_t2int(eps->plist[0].value);
-
-            shuffled_in_edge_.push_back(tmp_in_edge);
-            edge_part_map_[eps->id.value()] = &(shuffled_in_edge_[shuffled_in_edge_.size() - 1]);
-        }
-
-        TMPEdge& edge_ref = *edge_part_map_[eps->id.value()];
-
-        for (auto ep : eps->plist) {
-            // label
-            if (ep.key.pid == 0) {
-                edge_ref.label = Tool::value_t2int(ep.value);
-            } else {
-                edge_ref.ep_label_list.push_back(ep.key.pid);
-                edge_ref.ep_value_list.push_back(ep.value);
+        if (id_mapper_->IsVertexLocal(eps->id.out_v)) {
+            auto& edge_ref = shuffled_out_edge_[oute_iter_counter];
+            edge_ref.id = eps->id;
+            for (auto ep : eps->plist) {
+                if (ep.key.pid == 0) {
+                    // label
+                    edge_ref.label = Tool::value_t2int(ep.value);
+                } else {
+                    edge_ref.ep_label_list.push_back(ep.key.pid);
+                    edge_ref.ep_value_list.push_back(ep.value);
+                }
             }
+
+            oute_iter_counter++;
+        } else {
+            auto& edge_ref = shuffled_in_edge_[ine_iter_counter];
+            edge_ref.id = eps->id;
+            edge_ref.label = Tool::value_t2int(eps->plist[0].value);
+
+            ine_iter_counter++;
         }
     }
 
     // free shuffled buffer's memory
-    for (auto ptr : edges_)
-        delete ptr;
     for (auto ptr : eplist_)
         delete ptr;
-    vector<TMPEdgeInfo*>().swap(edges_);
     vector<EProperty*>().swap(eplist_);
-    edge_part_map_.clear();
 }
 
 void HDFSDataLoader::FreeVertexMemory() {
@@ -608,6 +587,6 @@ void HDFSDataLoader::FreeVertexMemory() {
 }
 
 void HDFSDataLoader::FreeEdgeMemory() {
-    vector<TMPEdge>().swap(shuffled_out_edge_);
-    vector<TMPEdge>().swap(shuffled_in_edge_);
+    vector<TMPOutEdge>().swap(shuffled_out_edge_);
+    vector<TMPInEdge>().swap(shuffled_in_edge_);
 }

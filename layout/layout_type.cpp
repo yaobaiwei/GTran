@@ -27,7 +27,7 @@ obinstream& operator>>(obinstream& m, TMPVertex& v) {
     return m;
 }
 
-ibinstream& operator<<(ibinstream& m, const TMPEdge& e) {
+ibinstream& operator<<(ibinstream& m, const TMPOutEdge& e) {
     m << e.id;
     m << e.label;
     m << e.ep_label_list;
@@ -35,11 +35,23 @@ ibinstream& operator<<(ibinstream& m, const TMPEdge& e) {
     return m;
 }
 
-obinstream& operator>>(obinstream& m, TMPEdge& e) {
+obinstream& operator>>(obinstream& m, TMPOutEdge& e) {
     m >> e.id;
     m >> e.label;
     m >> e.ep_label_list;
     m >> e.ep_value_list;
+    return m;
+}
+
+ibinstream& operator<<(ibinstream& m, const TMPInEdge& e) {
+    m << e.id;
+    m << e.label;
+    return m;
+}
+
+obinstream& operator>>(obinstream& m, TMPInEdge& e) {
+    m >> e.id;
+    m >> e.label;
     return m;
 }
 
@@ -74,7 +86,7 @@ string TMPVertex::DebugString() const {
     return ret;
 }
 
-string TMPEdge::DebugString() const {
+string TMPOutEdge::DebugString() const {
     string ret = "eid: " + to_string(id.out_v) + "->" + to_string(id.in_v) + ", label: " + to_string(label);
 
     ret += ", properties: [";
@@ -123,29 +135,6 @@ obinstream& operator>>(obinstream& m, TMPVertexInfo& v) {
     m >> v.out_nbs;
     m >> v.vp_list;
     return m;
-    return m;
-}
-
-string TMPEdgeInfo::DebugString() const {
-    stringstream ss;
-    ss << "TMPEdgeInfo: { id = " << id.in_v << "," << id.out_v <<  " ep_list = [";
-    for (auto & ep : ep_list)
-        ss << ep << ", ";
-    ss << "]}" << endl;
-    return ss.str();
-}
-
-ibinstream& operator<<(ibinstream& m, const TMPEdgeInfo& e) {
-    m << e.id;
-    // m << e.label;
-    m << e.ep_list;
-    return m;
-}
-
-obinstream& operator>>(obinstream& m, TMPEdgeInfo& e) {
-    m >> e.id;
-    // m >> e.label;
-    m >> e.ep_list;
     return m;
 }
 

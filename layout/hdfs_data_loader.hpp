@@ -30,12 +30,10 @@ class HDFSDataLoader {
     HDFSDataLoader(const HDFSDataLoader&);
 
     // free them after calling Shuffle()
-    vector<TMPEdgeInfo*> edges_;
     vector<TMPVertexInfo*> vertices_;
     vector<VProperty*> vplist_;
     vector<EProperty*> eplist_;
     hash_map<uint32_t, TMPVertex*> vtx_part_map_;
-    hash_map<uint64_t, TMPEdge*> edge_part_map_;
 
     void LoadVertices(const char* inpath);
     void LoadVPList(const char* inpath);
@@ -49,7 +47,6 @@ class HDFSDataLoader {
     bool ReadEdgeSnapshot();
     void WriteEdgeSnapshot();
 
-    void GetStringIndexes();
     void GetVertices();
     void GetVPList();
     void GetEPList();
@@ -69,6 +66,7 @@ class HDFSDataLoader {
     }
 
     void Init();
+    void GetStringIndexes();
     void LoadVertexData();
     void LoadEdgeData();
     void FreeVertexMemory();
@@ -78,8 +76,8 @@ class HDFSDataLoader {
     string_index* indexes_;
 
     vector<TMPVertex> shuffled_vtx_;
-    vector<TMPEdge> shuffled_out_edge_;
-    vector<TMPEdge> shuffled_in_edge_;
+    vector<TMPOutEdge> shuffled_out_edge_;
+    vector<TMPInEdge> shuffled_in_edge_;
 
     // ep just follows the src_v
     // src_v -> e -> dst_v

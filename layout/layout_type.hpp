@@ -26,7 +26,7 @@ struct TMPVertex {
 };
 
 // tmp datatype for HDFSDataLoader
-struct TMPEdge {
+struct TMPOutEdge {
     eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
     label_t label;
     std::vector<label_t> ep_label_list;
@@ -35,10 +35,20 @@ struct TMPEdge {
     std::string DebugString() const;
 };
 
+// tmp datatype for HDFSDataLoader
+struct TMPInEdge {
+    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
+    label_t label;
+
+    std::string DebugString() const;
+};
+
 ibinstream& operator<<(ibinstream& m, const TMPVertex& v);
 obinstream& operator>>(obinstream& m, TMPVertex& v);
-ibinstream& operator<<(ibinstream& m, const TMPEdge& v);
-obinstream& operator>>(obinstream& m, TMPEdge& v);
+ibinstream& operator<<(ibinstream& m, const TMPOutEdge& v);
+obinstream& operator>>(obinstream& m, TMPOutEdge& v);
+ibinstream& operator<<(ibinstream& m, const TMPInEdge& v);
+obinstream& operator>>(obinstream& m, TMPInEdge& v);
 
 // To infer how many elements a row contains during compilation
 template <class T>
@@ -69,18 +79,6 @@ struct TMPVertexInfo {
 ibinstream& operator<<(ibinstream& m, const TMPVertexInfo& v);
 
 obinstream& operator>>(obinstream& m, TMPVertexInfo& v);
-
-// tmp datatype for HDFSDataLoader
-struct TMPEdgeInfo {
-    eid_t id;
-    // label_t label;
-    vector<label_t> ep_list;
-    string DebugString() const;
-};
-
-ibinstream& operator<<(ibinstream& m, const TMPEdgeInfo& e);
-
-obinstream& operator>>(obinstream& m, TMPEdgeInfo& e);
 
 // tmp datatype for HDFSDataLoader
 struct V_KVpair {
