@@ -421,7 +421,7 @@ void GCProducer::scan_vertex_map() {
 void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_list) {
     VertexEdgeRow* row_ptr = topo_row_list->head_;
 
-    if (row_ptr = nullptr)
+    if (row_ptr == nullptr)
         return;
 
     int edge_count_snapshot = topo_row_list->edge_count_;
