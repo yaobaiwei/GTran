@@ -55,11 +55,11 @@ class InitActor : public AbstractActor {
 
         vector<pair<history_t, vector<value_t>>> init_data;
         if (with_input) {
-            InitWithInput(tid, qplan.actors, init_data, msg);
+            InitWithInput(tid, qplan.actors, init_data, msg, next_count);
         } else if (actor_obj.params.size() == 2) {
             InitWithoutIndex(tid, qplan, init_data, msg, next_count);
         } else {
-            InitWithIndex(tid, qplan.actors, init_data, msg);
+            InitWithIndex(tid, qplan.actors, init_data, msg, next_count);
         }
 
         vector<Message> msg_vec;
@@ -205,7 +205,7 @@ class InitActor : public AbstractActor {
         vector<eid_t>().swap(eid_list);
     }
 
-    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, vector<pair<history_t, vector<value_t>>>& init_data, Message & msg) {
+    void InitWithInput(int tid, const vector<Actor_Object> & actor_objs, vector<pair<history_t, vector<value_t>>>& init_data, Message & msg, bool& next_count) {
         Meta m = msg.meta;
         const Actor_Object& actor_obj = actor_objs[m.step];
         msg.max_data_size = config_->max_data_size;
@@ -215,9 +215,18 @@ class InitActor : public AbstractActor {
         init_data[0].second.insert(init_data[0].second.end(),
                                  make_move_iterator(actor_obj.params.begin() + 2),
                                  make_move_iterator(actor_obj.params.end()));
+
+        if (next_count) {
+            int size = init_data[0].second.size();
+            init_data[0].second.clear();
+
+            value_t v;
+            Tool::str2int(to_string(size), v);
+            init_data[0].second.emplace_back(v);
+        }
     }
 
-    void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, vector<pair<history_t, vector<value_t>>>& init_data, Message & msg) {
+    void InitWithIndex(int tid, const vector<Actor_Object> & actor_objs, vector<pair<history_t, vector<value_t>>>& init_data, Message & msg, bool& next_count) {
         Meta m = msg.meta;
         const Actor_Object& actor_obj = actor_objs[m.step];
 
@@ -243,10 +252,18 @@ class InitActor : public AbstractActor {
         msg.max_data_size = config_->max_data_size;
         msg.data.clear();
         msg.data.emplace_back(history_t(), vector<value_t>());
-        // index_store_->ReadPropIndex(inType, pred_chain, msg.data[0].second);
         init_data.clear();
         init_data.emplace_back(history_t(), vector<value_t>());
         index_store_->ReadPropIndex(inType, pred_chain, init_data[0].second);
+
+        if (next_count) {
+            int size = init_data[0].second.size();
+            init_data[0].second.clear();
+
+            value_t v;
+            Tool::str2int(to_string(size), v);
+            init_data[0].second.emplace_back(v);
+        }
     }
 
     void InitWithoutIndex(int tid, const QueryPlan& qplan, vector<pair<history_t, vector<value_t>>> & init_data, Message & msg, bool & next_count) {
