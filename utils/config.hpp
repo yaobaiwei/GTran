@@ -669,7 +669,7 @@ class Config{
         min_bt_buffer_sz = 64 * global_num_workers;
         if (node.get_world_rank() != MASTER_RANK) {
             // Workers
-            kvstore_sz = GiB2B(global_vertex_property_kv_sz_gb) + GiB2B(global_edge_property_kv_sz_gb);
+            kvstore_sz = 0;
             kvstore_offset = 0;
 
             // one more thread for worker main thread
