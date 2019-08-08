@@ -34,6 +34,8 @@ class HDFSDataLoader {
     vector<TMPVertexInfo*> vertices_;
     vector<VProperty*> vplist_;
     vector<EProperty*> eplist_;
+    hash_map<uint32_t, TMPVertex*> vtx_part_map_;
+    hash_map<uint64_t, TMPEdge*> edge_part_map_;
 
     void LoadVertices(const char* inpath);
     void LoadVPList(const char* inpath);
@@ -75,11 +77,8 @@ class HDFSDataLoader {
     // "schema" related
     string_index* indexes_;
 
-    // shuffled data
-    hash_map<uint32_t, TMPVertex*> vtx_part_map_;
-    hash_map<uint64_t, TMPEdge*> edge_part_map_;
     vector<TMPVertex> shuffled_vtx_;
-    vector<TMPEdge> shuffled_edge_;
+    vector<TMPEdge> shuffled_out_edge_;
     vector<TMPEdge> shuffled_in_edge_;
 
     // ep just follows the src_v

@@ -5,7 +5,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 template <class PropertyRow>
 void PropertyRowList<PropertyRow>::Init() {
-    head_ = tail_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+    head_ = tail_ = nullptr;
     property_count_ = 0;
     cell_map_ = nullptr;
 }
@@ -22,9 +22,14 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         int cell_id = property_count_++;
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
-        if (cell_id_in_row == 0 && cell_id > 0) {
-            tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
-            tail_ = tail_->next_;
+        if (cell_id_in_row == 0) {
+            auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+            if (cell_id == 0) {
+                head_ = tail_ = new_row;
+            } else {
+                tail_->next_ = new_row;
+                tail_ = tail_->next_;
+            }
         }
 
         tail_->cells_[cell_id_in_row].pid = pid;
@@ -42,6 +47,8 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     // Check if new cell allocated by another thread
     if (recent_count != property_count_snapshot) {
         PropertyRow* current_row = tail_ptr[0];
+        if (current_row == nullptr)
+            current_row = head_;
         // Check pid of newly allocated cells
         for (int i = recent_count; i < property_count_snapshot; i++) {
             int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
@@ -61,7 +68,14 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         int cell_id = property_count_snapshot;
         int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
 
-        if (cell_id_in_row == 0 && cell_id > 0) {
+        if (cell_id_in_row == 0) {
+            auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+            if (cell_id == 0) {
+                head_ = tail_ = new_row;
+            } else {
+                tail_->next_ = new_row;
+                tail_ = tail_->next_;
+            }
             tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
             tail_ = tail_->next_;
         }
@@ -107,7 +121,7 @@ template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         LocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
     ReaderLockGuard reader_lock_guard(gc_rwlock_);
-    PropertyRow* current_row = head_;
+    PropertyRow* current_row;
     int property_count_snapshot;
     CellMap* map_snapshot;
 
@@ -119,10 +133,12 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         map_snapshot = cell_map_;
         property_count_snapshot = property_count_ptr[0] = property_count_;
         tail_ptr[0] = tail_;
+        current_row = head_;
     } else {
         ReaderLockGuard reader_lock_guard(rwlock_);
         map_snapshot = cell_map_;
         property_count_snapshot = property_count_;
+        current_row = head_;
     }
 
     if (map_snapshot == nullptr) {
@@ -204,7 +220,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                                                                const uint64_t& begin_time, const bool& read_only,
                                                                vector<pair<label_t, value_t>>& ret) {
     ReaderLockGuard reader_lock_guard(gc_rwlock_);
-    PropertyRow* current_row = head_;
+    PropertyRow* current_row;
     int property_count_snapshot;
     CellMap* map_snapshot;
 
@@ -212,7 +228,11 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
         ReaderLockGuard reader_lock_guard(rwlock_);
         map_snapshot = cell_map_;
         property_count_snapshot = property_count_;
+        current_row = head_;
     }
+    if (current_row == nullptr)
+        return;
+
     if (map_snapshot == nullptr) {
         // Traverse the whole PropertyRowList
         set<label_t> pkey_set;
@@ -308,8 +328,14 @@ READ_STAT PropertyRowList<PropertyRow>::
         ReadAllProperty(const uint64_t& trx_id, const uint64_t& begin_time,
                         const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     ReaderLockGuard reader_lock_guard(gc_rwlock_);
-    PropertyRow* current_row = head_;
-    int property_count_snapshot = property_count_;
+    PropertyRow* current_row;
+    int property_count_snapshot;
+
+    {
+        ReaderLockGuard reader_lock_guard(rwlock_);
+        current_row = head_;
+        property_count_snapshot = property_count_;
+    }
 
     for (int i = 0; i < property_count_snapshot; i++) {
         int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
@@ -353,8 +379,15 @@ READ_STAT PropertyRowList<PropertyRow>::
         ReadPidList(const uint64_t& trx_id, const uint64_t& begin_time,
                     const bool& read_only, vector<PidType>& ret) {
     ReaderLockGuard reader_lock_guard(gc_rwlock_);
-    PropertyRow* current_row = head_;
-    int property_count_snapshot = property_count_;
+
+    PropertyRow* current_row;
+    int property_count_snapshot;
+
+    {
+        ReaderLockGuard reader_lock_guard(rwlock_);
+        current_row = head_;
+        property_count_snapshot = property_count_;
+    }
 
     for (int i = 0; i < property_count_snapshot; i++) {
         int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
@@ -472,6 +505,9 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     // Free all cells
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
+    if (current_row == nullptr)
+        return;
+
     int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
     if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)
         row_count++;
@@ -510,6 +546,9 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     // Scan and collect cell
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     PropertyRow* current_row = head_;
+    if (current_row == nullptr)
+        return;
+
     int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
     if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)
         row_count++;

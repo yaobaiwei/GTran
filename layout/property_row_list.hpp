@@ -12,6 +12,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/mvcc_value_store.hpp"
 #include "utils/tid_mapper.hpp"
 #include "utils/write_prior_rwlock.hpp"
+#include "tbb/atomic.h"
 #include "tbb/concurrent_hash_map.h"
 
 class GCProducer;
@@ -29,7 +30,7 @@ class PropertyRowList {
     static MVCCValueStore* value_storage_;
 
     std::atomic_int property_count_;
-    PropertyRow* head_, *tail_;
+    tbb::atomic<PropertyRow*> head_, tail_;
     WritePriorRWLock rwlock_;
     // This lock is only used to avoid conflict between
     // gc operator (including delete all and defrag) and all others;

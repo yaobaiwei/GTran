@@ -7,6 +7,9 @@ template <class PropertyRow>
 void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<PropertyRow> * prop_row_list) {
     if (prop_row_list == nullptr) { return; }
     PropertyRow* row_ptr = prop_row_list->head_;
+    if (row_ptr = nullptr)
+        return;
+
     int property_count_snapshot = prop_row_list->property_count_;
 
     int gcable_cell_counter = 0;

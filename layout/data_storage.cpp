@@ -59,6 +59,9 @@ void DataStorage::Init() {
     FillEdgeContainer();
     hdfs_data_loader_->FreeEdgeMemory();
 
+    delete snapshot_manager_;
+    delete hdfs_data_loader_;
+
     garbage_collector_ = GarbageCollector::GetInstance();
 
     trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
@@ -149,7 +152,7 @@ void DataStorage::FillVertexContainer() {
 
 void DataStorage::FillEdgeContainer() {
     // Insert edge properties and outE
-    for (auto edge : hdfs_data_loader_->shuffled_edge_) {
+    for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
         OutEdgeAccessor out_e_accessor;
         out_edge_map_.Insert(out_e_accessor, edge.id.value());
 
@@ -174,7 +177,7 @@ void DataStorage::FillEdgeContainer() {
 
     // Insert inE
 
-    for (auto edge : hdfs_data_loader_->shuffled_edge_) {
+    for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
         // check if the dst_v on this node
         if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
             InEdgeAccessor in_e_accessor;
