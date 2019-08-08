@@ -7,7 +7,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 void TopologyRowList::Init(const vid_t& my_vid) {
     my_vid_ = my_vid;
-    head_ = tail_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+    head_ = tail_ = nullptr;
     edge_count_ = 0;
     pthread_spin_init(&lock_, 0);
 }
@@ -22,9 +22,14 @@ void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
     int cell_id = edge_count_;
     int cell_id_in_row = cell_id % VE_ROW_ITEM_COUNT;
 
-    if (cell_id_in_row == 0 && cell_id > 0) {
-        tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
-        tail_ = tail_->next_;
+    if (cell_id_in_row == 0) {
+        auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+        if (cell_id == 0) {
+            head_ = tail_ = new_row;
+        } else {
+            tail_->next_ = new_row;
+            tail_ = tail_->next_;
+        }
     }
 
     tail_->cells_[cell_id_in_row].is_out = is_out;
@@ -52,6 +57,9 @@ READ_STAT TopologyRowList::ReadConnectedVertex(const Direction_T& direction, con
                                                const bool& read_only, vector<vid_t>& ret) {
     ReaderLockGuard reader_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
+    if (current_row == nullptr)
+        return READ_STAT::SUCCESS;
+
     int current_edge_count = edge_count_;
 
     for (int i = 0; i < current_edge_count; i++) {
@@ -87,6 +95,10 @@ READ_STAT TopologyRowList::ReadConnectedEdge(const Direction_T& direction, const
                                              const bool& read_only, vector<eid_t>& ret) {
     ReaderLockGuard reader_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
+
+    if (current_row == nullptr)
+        return READ_STAT::SUCCESS;
+
     int current_edge_count = edge_count_;
 
     for (int i = 0; i < current_edge_count; i++) {
@@ -138,6 +150,10 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
 void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
+
+    if (current_row == nullptr)
+        return;
+
     int row_count = edge_count_ / VE_ROW_ITEM_COUNT;
     if (row_count * VE_ROW_ITEM_COUNT != edge_count_)
         row_count++;
@@ -192,6 +208,10 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
 void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
+
+    if (current_row == nullptr)
+        return;
+
     int row_count = edge_count_ / VE_ROW_ITEM_COUNT;
     if (row_count * VE_ROW_ITEM_COUNT != edge_count_)
         row_count++;

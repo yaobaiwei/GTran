@@ -10,6 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/row_definition.hpp"
+#include "tbb/atomic.h"
 #include "utils/tid_mapper.hpp"
 
 class GCProducer;
@@ -20,7 +21,7 @@ class TopologyRowList {
     static ConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
 
     atomic_int edge_count_;
-    VertexEdgeRow* head_, *tail_;
+    tbb::atomic<VertexEdgeRow*> head_, tail_;
     vid_t my_vid_;
     pthread_spinlock_t lock_;
     // This lock is only used to avoid conflict between

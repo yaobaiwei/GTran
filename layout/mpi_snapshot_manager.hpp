@@ -55,9 +55,14 @@ class MPISnapshotManager {
 
  public:
     static MPISnapshotManager* GetInstance() {
-        static MPISnapshotManager snapshot_manager_single_instance;
-        return &snapshot_manager_single_instance;
+        static MPISnapshotManager* snapshot_manager_single_instance = nullptr;
+        if (snapshot_manager_single_instance == nullptr) {
+            snapshot_manager_single_instance = new MPISnapshotManager;
+        }
+
+        return snapshot_manager_single_instance;
     }
+
 
     void SetRootPath(string root_path);
     void AppendConfig(string key, string str_val);
