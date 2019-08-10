@@ -494,7 +494,7 @@ void HDFSDataLoader::ShuffleVertex() {
     
     vector<TMPVertexInfo*>().swap(vertices_);
     vector<VProperty*>().swap(vplist_);
-    vtx_part_map_ = hash_map<uint32_t, TMPVertex*>();
+    vtx_part_map_.clear();
 }
 
 
