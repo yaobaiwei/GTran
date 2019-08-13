@@ -21,8 +21,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <string>
 
 
-#define OFFSET_MEMORY_POOL_DEBUG
-
 // if element_count is small than 65535, OffsetT can be set to uint16_t
 // if element_count is larger than 4G, OffsetT can be set to uint64_t
 template<class ItemT, class OffsetT = uint32_t, int BLOCK_SIZE = 2048>
@@ -32,16 +30,15 @@ class ConcurrentMemPool {
     ConcurrentMemPool(const ConcurrentMemPool&);
     ~ConcurrentMemPool();
 
-    void Init(ItemT* mem, OffsetT element_count, int nthreads);
+    void Init(ItemT* mem, OffsetT element_count, int nthreads, bool utilization_record);
 
     bool mem_allocated_ __attribute__((aligned(16))) = false;
     ItemT* attached_mem_ __attribute__((aligned(16))) = nullptr;
     OffsetT* next_offset_ __attribute__((aligned(16))) = nullptr;
 
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
     OffsetT element_count_;
-    std::atomic_int get_counter_, free_counter_;
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
+    int nthreads_;
+    bool utilization_record_;
 
     // Next avaliable element index, modified in Get
     OffsetT head_ __attribute__((aligned(64)));
@@ -55,6 +52,8 @@ class ConcurrentMemPool {
         OffsetT block_head __attribute__((aligned(16)));
         OffsetT block_tail __attribute__((aligned(16)));
         OffsetT free_cell_count __attribute__((aligned(16)));
+        std::atomic<OffsetT> get_counter __attribute__((aligned(16)));
+        std::atomic<OffsetT> free_counter __attribute__((aligned(16)));
     } __attribute__((aligned(64)));
 
     static_assert(sizeof(ThreadStat) % 64 == 0, "concurrent_mem_pool.hpp, sizeof(ThreadStat) % 64 != 0");
@@ -62,13 +61,14 @@ class ConcurrentMemPool {
     ThreadStat* thread_stat_ __attribute__((aligned(64)));
 
  public:
-    static ConcurrentMemPool* GetInstance(ItemT* mem = nullptr, OffsetT element_count = 0, int nthreads = 10) {
+    static ConcurrentMemPool* GetInstance(ItemT* mem, OffsetT element_count,
+                                          int nthreads, bool utilization_record) {
         static ConcurrentMemPool* p = nullptr;
 
         // null and var avail
         if (p == nullptr && element_count > 0) {
             p = new ConcurrentMemPool();
-            p->Init(mem, element_count, nthreads);
+            p->Init(mem, element_count, nthreads, utilization_record);
         }
 
         return p;
@@ -76,9 +76,9 @@ class ConcurrentMemPool {
 
     ItemT* Get(int tid = 0);
     void Free(ItemT* element, int tid = 0);
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
+
     std::string UsageString();
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
+    std::pair<OffsetT, OffsetT> GetUsage();  // <get_counter, free_counter>
 };
 
 #include "concurrent_mem_pool.tpp"

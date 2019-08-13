@@ -6,8 +6,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "mvcc_value_store.hpp"
 
-MVCCValueStore::MVCCValueStore(char* mem, OffsetT item_count, int nthreads) {
-    Init(mem, item_count, nthreads);
+MVCCValueStore::MVCCValueStore(char* mem, OffsetT item_count, int nthreads, bool utilization_record) {
+    Init(mem, item_count, nthreads, utilization_record);
 }
 
 MVCCValueStore::~MVCCValueStore() {
@@ -17,7 +17,7 @@ MVCCValueStore::~MVCCValueStore() {
         _mm_free(attached_mem_);
 }
 
-void MVCCValueStore::Init(char* mem, OffsetT item_count, int nthreads) {
+void MVCCValueStore::Init(char* mem, OffsetT item_count, int nthreads, bool utilization_record) {
     assert(item_count > nthreads * (BLOCK_SIZE + 2));
 
     if (mem != nullptr) {
@@ -54,15 +54,15 @@ void MVCCValueStore::Init(char* mem, OffsetT item_count, int nthreads) {
             }
             head_ = tmp_head;
         }
+        local_stat.get_counter = 0;
+        local_stat.free_counter = 0;
     }
 
     pthread_spin_init(&lock_, 0);
 
-    #ifdef MVCC_VALUE_STORE_DEBUG
-    get_counter_ = 0;
-    free_counter_ = 0;
     item_count_ = item_count;
-    #endif  // MVCC_VALUE_STORE_DEBUG
+    nthreads_ = nthreads;
+    utilization_record_ = utilization_record;
 }
 
 char* MVCCValueStore::GetItemPtr(const OffsetT& offset) {
@@ -159,9 +159,8 @@ void MVCCValueStore::FreeValue(const ValueHeader& header, int tid) {
 OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
     auto& local_stat = thread_stat_[tid];
 
-    #ifdef MVCC_VALUE_STORE_DEBUG
-    get_counter_ += count;
-    #endif  // MVCC_VALUE_STORE_DEBUG
+    if (utilization_record_)
+        local_stat.get_counter += count;
 
     // count + 2: make sure at least 2 free cells for each thread, reserved for head and tail
 
@@ -202,10 +201,10 @@ OffsetT MVCCValueStore::Get(const OffsetT& count, int tid) {
 
 // Called by FreeValue
 void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) {
-    // printf("MVCCValueStore::Free c = %d\n", count);
-    #ifdef MVCC_VALUE_STORE_DEBUG
-    free_counter_ += count;
-    #endif  // MVCC_VALUE_STORE_DEBUG
+    auto& local_stat = thread_stat_[tid];
+
+    if (utilization_record_)
+        local_stat.free_counter += count;
 
     // Free cells to global space directly when count is too large
     if (count > 2 * BLOCK_SIZE) {
@@ -221,8 +220,6 @@ void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) 
 
         return;
     }
-
-    auto& local_stat = thread_stat_[tid];
 
     next_offset_[local_stat.block_tail] = offset;
     local_stat.free_cell_count += count;
@@ -245,11 +242,26 @@ void MVCCValueStore::Free(const OffsetT& offset, const OffsetT& count, int tid) 
     }
 }
 
-#ifdef MVCC_VALUE_STORE_DEBUG
 std::string MVCCValueStore::UsageString() {
-    int get_counter = get_counter_;
-    int free_counter = free_counter_;
+    OffsetT get_counter = 0;
+    OffsetT free_counter = 0;
+    for (int tid = 0; tid < nthreads_; tid++) {
+        get_counter += thread_stat_[tid].get_counter;
+        free_counter += thread_stat_[tid].free_counter;
+    }
+    OffsetT cell_avail = item_count_ - get_counter + free_counter - 2;
+
     return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter)
-           + ", Total: " + std::to_string(item_count_);
+           + ", Total: " + std::to_string(item_count_) + ", Avail: " + std::to_string(cell_avail);
 }
-#endif  // MVCC_VALUE_STORE_DEBUG
+
+std::pair<OffsetT, OffsetT> MVCCValueStore::GetUsage() {
+    OffsetT get_counter = 0;
+    OffsetT free_counter = 0;
+    for (int tid = 0; tid < nthreads_; tid++) {
+        get_counter += thread_stat_[tid].get_counter;
+        free_counter += thread_stat_[tid].free_counter;
+    }
+
+    return std::make_pair(get_counter, free_counter);
+}
