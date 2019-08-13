@@ -12,9 +12,13 @@ ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::~ConcurrentMemPool() {
 }
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT element_count,
+void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, size_t element_count,
                                                          int nthreads, bool utilization_record) {
     assert(element_count > nthreads * (BLOCK_SIZE + 2));
+
+    element_count_ = element_count;
+    // Make sure that OffsetT can hold element_count
+    assert(element_count_ == element_count);
 
     if (mem != nullptr) {
         attached_mem_ = mem;
@@ -56,7 +60,6 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT ele
 
     pthread_spin_init(&lock_, 0);
 
-    element_count_ = element_count;
     nthreads_ = nthreads;
     utilization_record_ = utilization_record;
 }

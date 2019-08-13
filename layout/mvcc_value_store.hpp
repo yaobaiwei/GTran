@@ -71,7 +71,7 @@ class MVCCValueStore {
     void Free(const OffsetT& offset, const OffsetT& count, int tid);
     char* GetItemPtr(const OffsetT& offset);
 
-    void Init(char* mem, OffsetT item_count, int nthreads, bool utilization_record);
+    void Init(char* mem, size_t item_count, int nthreads, bool utilization_record);
 
  public:
     // Insert a value_t to the MVCCValueStore, returns a ValueHeader used to fetch and free this value_t
@@ -87,7 +87,7 @@ class MVCCValueStore {
     /* In the constructor, nthreads thread local blocks will be allocated, which means that
      * the concurrency of MVCCValueStore is nthreads at most (InsertValue and FreeValue).
      */
-    MVCCValueStore(char* mem, OffsetT item_count, int nthreads, bool utilization_record);
+    MVCCValueStore(char* mem, size_t item_count, int nthreads, bool utilization_record);
 
     static constexpr int BLOCK_SIZE = 1024;
 

@@ -6,7 +6,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "mvcc_value_store.hpp"
 
-MVCCValueStore::MVCCValueStore(char* mem, OffsetT item_count, int nthreads, bool utilization_record) {
+MVCCValueStore::MVCCValueStore(char* mem, size_t item_count, int nthreads, bool utilization_record) {
     Init(mem, item_count, nthreads, utilization_record);
 }
 
@@ -17,8 +17,12 @@ MVCCValueStore::~MVCCValueStore() {
         _mm_free(attached_mem_);
 }
 
-void MVCCValueStore::Init(char* mem, OffsetT item_count, int nthreads, bool utilization_record) {
+void MVCCValueStore::Init(char* mem, size_t item_count, int nthreads, bool utilization_record) {
     assert(item_count > nthreads * (BLOCK_SIZE + 2));
+
+    item_count_ = item_count;
+    // Make sure that OffsetT can hold item_count
+    assert(item_count_ == item_count);
 
     if (mem != nullptr) {
         attached_mem_ = mem;
@@ -60,7 +64,6 @@ void MVCCValueStore::Init(char* mem, OffsetT item_count, int nthreads, bool util
 
     pthread_spin_init(&lock_, 0);
 
-    item_count_ = item_count;
     nthreads_ = nthreads;
     utilization_record_ = utilization_record;
 }
