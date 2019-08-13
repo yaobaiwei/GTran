@@ -73,19 +73,26 @@ void DataStorage::Init() {
 
 void DataStorage::CreateContainer() {
     ve_row_pool_ = ConcurrentMemPool<VertexEdgeRow>::GetInstance(
-                            nullptr, config_->global_ve_row_pool_size, nthreads_);
+                            nullptr, config_->global_ve_row_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
     vp_row_pool_ = ConcurrentMemPool<VertexPropertyRow>::GetInstance(
-                            nullptr, config_->global_vp_row_pool_size, nthreads_);
+                            nullptr, config_->global_vp_row_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
     ep_row_pool_ = ConcurrentMemPool<EdgePropertyRow>::GetInstance(
-                            nullptr, config_->global_ep_row_pool_size, nthreads_);
+                            nullptr, config_->global_ep_row_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
     vp_mvcc_pool_ = ConcurrentMemPool<VPropertyMVCCItem>::GetInstance(
-                            nullptr, config_->global_vp_mvcc_pool_size, nthreads_);
+                            nullptr, config_->global_vp_mvcc_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
     ep_mvcc_pool_ = ConcurrentMemPool<EPropertyMVCCItem>::GetInstance(
-                            nullptr, config_->global_ep_mvcc_pool_size, nthreads_);
+                            nullptr, config_->global_ep_mvcc_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
     vertex_mvcc_pool_ = ConcurrentMemPool<VertexMVCCItem>::GetInstance(
-                            nullptr, config_->global_v_mvcc_pool_size, nthreads_);
+                            nullptr, config_->global_v_mvcc_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
     edge_mvcc_pool_ = ConcurrentMemPool<EdgeMVCCItem>::GetInstance(
-                            nullptr, config_->global_e_mvcc_pool_size, nthreads_);
+                            nullptr, config_->global_e_mvcc_pool_size, nthreads_,
+                            config_->global_enable_mem_pool_utilization_record);
 
     MVCCList<VPropertyMVCCItem>::SetGlobalMemoryPool(vp_mvcc_pool_);
     MVCCList<EPropertyMVCCItem>::SetGlobalMemoryPool(ep_mvcc_pool_);
@@ -97,8 +104,10 @@ void DataStorage::CreateContainer() {
 
     uint64_t vp_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
     uint64_t ep_sz = GiB2B(config_->global_edge_property_kv_sz_gb);
-    vp_store_ = new MVCCValueStore(nullptr, vp_sz / (MEM_ITEM_SIZE + sizeof(OffsetT)), nthreads_);
-    ep_store_ = new MVCCValueStore(nullptr, ep_sz / (MEM_ITEM_SIZE + sizeof(OffsetT)), nthreads_);
+    vp_store_ = new MVCCValueStore(nullptr, vp_sz / (MEM_ITEM_SIZE + sizeof(OffsetT)), nthreads_,
+                                   config_->global_enable_mem_pool_utilization_record);
+    ep_store_ = new MVCCValueStore(nullptr, ep_sz / (MEM_ITEM_SIZE + sizeof(OffsetT)), nthreads_,
+                                   config_->global_enable_mem_pool_utilization_record);
     PropertyRowList<VertexPropertyRow>::SetGlobalValueStore(vp_store_);
     PropertyRowList<EdgePropertyRow>::SetGlobalValueStore(ep_store_);
     VPropertyMVCCItem::SetGlobalValueStore(vp_store_);
@@ -138,15 +147,10 @@ void DataStorage::FillVertexContainer() {
 
     num_of_vertex_ = (max_vid - worker_rank_) / worker_size_;
 
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
-    node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
     node_.LocalSequentialDebugPrint("vp_row_pool_: " + vp_row_pool_->UsageString());
     node_.LocalSequentialDebugPrint("vp_mvcc_pool_: " + vp_mvcc_pool_->UsageString());
     node_.LocalSequentialDebugPrint("vertex_mvcc_pool_: " + vertex_mvcc_pool_->UsageString());
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
-    #ifdef MVCC_VALUE_STORE_DEBUG
     node_.LocalSequentialDebugPrint("vp_store_: " + vp_store_->UsageString());
-    #endif  // MVCC_VALUE_STORE_DEBUG
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillVertexContainer() finished\n");
 }
@@ -212,14 +216,11 @@ void DataStorage::FillEdgeContainer() {
         in_e_accessor->second.mvcc_list = mvcc_list;
     }
 
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
+    node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
     node_.LocalSequentialDebugPrint("ep_row_pool_: " + ep_row_pool_->UsageString());
     node_.LocalSequentialDebugPrint("ep_mvcc_pool_: " + ep_mvcc_pool_->UsageString());
     node_.LocalSequentialDebugPrint("edge_mvcc_pool_: " + edge_mvcc_pool_->UsageString());
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
-    #ifdef MVCC_VALUE_STORE_DEBUG
     node_.LocalSequentialDebugPrint("ep_store_: " + ep_store_->UsageString());
-    #endif  // MVCC_VALUE_STORE_DEBUG
 
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillEdgeContainer() finished\n");
 }

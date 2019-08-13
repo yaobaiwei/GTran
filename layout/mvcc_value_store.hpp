@@ -23,8 +23,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "base/type.hpp"
 
-#define MVCC_VALUE_STORE_DEBUG
-
 #define OffsetT uint32_t
 #define MEM_ITEM_SIZE 8
 static_assert(MEM_ITEM_SIZE % 8 == 0, "mvcc_value_store.hpp, MEM_ITEM_SIZE % 8 != 0");
@@ -48,10 +46,9 @@ class MVCCValueStore {
     char* attached_mem_ __attribute__((aligned(16))) = nullptr;
     OffsetT* next_offset_ __attribute__((aligned(32))) = nullptr;
 
-    #ifdef MVCC_VALUE_STORE_DEBUG
     OffsetT item_count_;
-    OffsetT get_counter_, free_counter_;
-    #endif  // MVCC_VALUE_STORE_DEBUG
+    int nthreads_;
+    bool utilization_record_;
 
     OffsetT head_ __attribute__((aligned(64)));
     OffsetT tail_ __attribute__((aligned(64)));
@@ -63,6 +60,7 @@ class MVCCValueStore {
         OffsetT block_head __attribute__((aligned(16)));
         OffsetT block_tail __attribute__((aligned(16)));
         OffsetT free_cell_count __attribute__((aligned(16)));
+        OffsetT get_counter, free_counter;
     } __attribute__((aligned(64)));
 
     static_assert(sizeof(ThreadStat) % 64 == 0, "concurrent_mem_pool.hpp, sizeof(ThreadStat) % 64 != 0");
@@ -73,7 +71,7 @@ class MVCCValueStore {
     void Free(const OffsetT& offset, const OffsetT& count, int tid);
     char* GetItemPtr(const OffsetT& offset);
 
-    void Init(char* mem, OffsetT item_count, int nthreads);
+    void Init(char* mem, OffsetT item_count, int nthreads, bool utilization_record);
 
  public:
     // Insert a value_t to the MVCCValueStore, returns a ValueHeader used to fetch and free this value_t
@@ -89,11 +87,10 @@ class MVCCValueStore {
     /* In the constructor, nthreads thread local blocks will be allocated, which means that
      * the concurrency of MVCCValueStore is nthreads at most (InsertValue and FreeValue).
      */
-    MVCCValueStore(char* mem, OffsetT item_count, int nthreads);
+    MVCCValueStore(char* mem, OffsetT item_count, int nthreads, bool utilization_record);
 
     static constexpr int BLOCK_SIZE = 1024;
 
-    #ifdef MVCC_VALUE_STORE_DEBUG
     std::string UsageString();
-    #endif  // MVCC_VALUE_STORE_DEBUG
+    std::pair<OffsetT, OffsetT> GetUsage();
 };

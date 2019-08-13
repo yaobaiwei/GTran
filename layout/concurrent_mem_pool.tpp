@@ -12,7 +12,8 @@ ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::~ConcurrentMemPool() {
 }
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
-void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT element_count, int nthreads) {
+void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT element_count,
+                                                         int nthreads, bool utilization_record) {
     assert(element_count > nthreads * (BLOCK_SIZE + 2));
 
     if (mem != nullptr) {
@@ -49,15 +50,15 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, OffsetT ele
             }
             head_ = tmp_head;
         }
+        local_stat.get_counter = 0;
+        local_stat.free_counter = 0;
     }
 
     pthread_spin_init(&lock_, 0);
 
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
     element_count_ = element_count;
-    get_counter_ = 0;
-    free_counter_ = 0;
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
+    nthreads_ = nthreads;
+    utilization_record_ = utilization_record;
 }
 
 template<class ItemT, class OffsetT, int BLOCK_SIZE>
@@ -84,9 +85,9 @@ ItemT* ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Get(int tid) {
     local_stat.block_head = next_offset_[local_stat.block_head];
     local_stat.free_cell_count--;
 
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
-    get_counter_++;
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
+    if (utilization_record_)
+        local_stat.get_counter++;
+
     return ret;
 }
 
@@ -113,17 +114,32 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Free(ItemT* element, int tid
         pthread_spin_unlock(&lock_);
     }
 
-    #ifdef OFFSET_MEMORY_POOL_DEBUG
-    free_counter_++;
-    #endif  // OFFSET_MEMORY_POOL_DEBUG
+    if (utilization_record_)
+        local_stat.free_counter++;
 }
 
-#ifdef OFFSET_MEMORY_POOL_DEBUG
-template<class ItemT, class OffsetT, int BLOCK_SIZE>
-std::string ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::UsageString() {
-    int get_counter = get_counter_;
-    int free_counter = free_counter_;
+template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>
+std::string ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::UsageString() {
+    OffsetT get_counter = 0;
+    OffsetT free_counter = 0;
+    for (int tid = 0; tid < nthreads_; tid++) {
+        get_counter += thread_stat_[tid].get_counter;
+        free_counter += thread_stat_[tid].free_counter;
+    }
+    OffsetT cell_avail = element_count_ - get_counter + free_counter - 2;
+
     return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter)
-           + ", Total: " + std::to_string(element_count_);
+           + ", Total: " + std::to_string(element_count_) + ", Avail: " + std::to_string(cell_avail);
 }
-#endif  // OFFSET_MEMORY_POOL_DEBUG
+
+template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>
+std::pair<OffsetT, OffsetT> ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::GetUsage() {
+    OffsetT get_counter = 0;
+    OffsetT free_counter = 0;
+    for (int tid = 0; tid < nthreads_; tid++) {
+        get_counter += thread_stat_[tid].get_counter;
+        free_counter += thread_stat_[tid].free_counter;
+    }
+
+    return std::make_pair(get_counter, free_counter);
+}

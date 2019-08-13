@@ -72,6 +72,9 @@ class Config{
     int global_vp_mvcc_pool_size;
     int global_ep_mvcc_pool_size;
 
+    // enable recording the utilization of memory pool
+    bool global_enable_mem_pool_utilization_record;
+
 
     // send_buffer_sz should be equal or less than recv_buffer_sz
     // per send buffer should be exactly ONE msg size
@@ -435,6 +438,14 @@ class Config{
             global_use_rdma = val;
         } else {
             fprintf(stderr, "must enter the USE_RDMA. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getboolean(ini, "SYSTEM:ENABLE_MEM_POOL_UTILIZATION_RECORD", val_not_found);
+        if (val != val_not_found) {
+            global_enable_mem_pool_utilization_record = val;
+        } else {
+            fprintf(stderr, "must enter the ENABLE_MEM_POOL_UTILIZATION_RECORD. exits.\n");
             exit(-1);
         }
 
