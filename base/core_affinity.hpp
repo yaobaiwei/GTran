@@ -85,33 +85,6 @@ class CoreAffinity {
         CPU_SET(core, &mask);
         if (sched_setaffinity(0, sizeof(mask), &mask) != 0) {
             cout << "Failed to set affinity (core: " << core << ")" << endl;
-        } else {
-            int global_core = cpuinfo_->GetCoreInGlobalMappingVector(core);
-
-            CoreCounterAccessor accessor;
-            core_usage_counter_.find(accessor, core);
-
-            int counter_sz = accessor->second.size();
-
-            // if you are worry that "two thread on the same physical core" reduces the performance,
-            // you can uncomment the code below
-            // if(counter_sz != 0)
-            // {
-            //     if(node_.get_local_rank() == 0)
-            //     {
-            //         printf("core %d already binded, with tid cnt = %d, tid[0] = %d\n",
-            //              global_core, counter_sz, counter[0]);
-            //     }
-            // }
-            // else
-            // {
-            //     if(node_.get_local_rank() == 0)
-            //     {
-            //         printf("bind fine, t = %d, c = %d\n", core, global_core);
-            //     }
-            // }
-
-            accessor->second.push_back(core);
         }
     }
 
@@ -191,10 +164,6 @@ class CoreAffinity {
     map<int, int> core_to_thread_map;
     map<int, int> thread_to_core_map;
 
-    // this is implemented in case of bad affinity implementation
-    tbb::concurrent_hash_map<int, vector<int>> core_usage_counter_;
-    typedef tbb::concurrent_hash_map<int, vector<int>>::accessor CoreCounterAccessor;
-
     // to do:
     //    to consider NUMA when assigning cores
     //    thread level assignment if core count is insufficient
@@ -223,11 +192,6 @@ class CoreAffinity {
                 mapped_core_id_in_socket = 0;
                 numa_node_to_be_mapped++;
             }
-        }
-
-        for (int i = 0; i < physical_core_cnt; i++) {
-            CoreCounterAccessor accessor;
-            core_usage_counter_.insert(accessor, i);
         }
 
         // init potential pool via cpuinfo
