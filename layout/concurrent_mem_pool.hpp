@@ -30,7 +30,7 @@ class ConcurrentMemPool {
     ConcurrentMemPool(const ConcurrentMemPool&);
     ~ConcurrentMemPool();
 
-    void Init(ItemT* mem, OffsetT element_count, int nthreads, bool utilization_record);
+    void Init(ItemT* mem, size_t element_count, int nthreads, bool utilization_record);
 
     bool mem_allocated_ __attribute__((aligned(16))) = false;
     ItemT* attached_mem_ __attribute__((aligned(16))) = nullptr;
@@ -61,7 +61,7 @@ class ConcurrentMemPool {
     ThreadStat* thread_stat_ __attribute__((aligned(64)));
 
  public:
-    static ConcurrentMemPool* GetInstance(ItemT* mem, OffsetT element_count,
+    static ConcurrentMemPool* GetInstance(ItemT* mem, size_t element_count,
                                           int nthreads, bool utilization_record) {
         static ConcurrentMemPool* p = nullptr;
 
