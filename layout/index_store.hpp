@@ -38,6 +38,7 @@ class IndexStore {
     IndexStore() {
         config_ = Config::GetInstance();
         data_storage_ = DataStorage::GetInstance();
+        srand(time(NULL));
     }
 
     static IndexStore* GetInstance() {
@@ -107,7 +108,8 @@ class IndexStore {
     void ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time, const bool & read_only, vector<vid_t> & data);
     void ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time, const bool & read_only, vector<eid_t> & data);
     void ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data);  // For Prop
-    bool GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str);
+    bool GetRandomValue(Element_T type, int pid, string& value_str, const bool& is_update);
+    void CleanRandomCount();
 
     // GC:
     //  For each update_element,
@@ -156,6 +158,10 @@ class IndexStore {
     vector<eid_t> topo_edge_data;
     unordered_map<int, index_> vtx_prop_index;  // key: PropertyKey
     unordered_map<int, index_> edge_prop_index;  // key: PropertyKey
+
+    // random count for each pid
+    unordered_map<int, unordered_set<int>> vtx_rand_count;
+    unordered_map<int, unordered_set<int>> edge_rand_count;
 
     // Updata region
     tbb::concurrent_vector<update_element> vtx_update_list;

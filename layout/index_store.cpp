@@ -142,15 +142,18 @@ void IndexStore::ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>
     }
 }
 
-bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str) {
+bool IndexStore::GetRandomValue(Element_T type, int pid, string& value_str, const bool& is_update) {
     WritePriorRWLock * rw_lock;
     unordered_map<int, index_>* m;
+    unordered_map<int, unordered_set<int>>* r_map;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
         rw_lock = &vtx_prop_gc_rwlock_;
+        r_map = &vtx_rand_count;
     } else {
         m = &edge_prop_index;
         rw_lock = &edge_prop_gc_rwlock_;
+        r_map = &edge_rand_count;
     }
     ReaderLockGuard reader_guard_lock(*rw_lock);
 
@@ -165,11 +168,37 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& 
         return false;
     }
 
+    auto r_itr = r_map->emplace(pid, unordered_set<int>()).first;
+    unordered_set<int>& r_count = r_itr->second;
+
+    int rand_index;
+    while (true) {
+        rand_index = rand() % size;
+        if (!is_update) { break; }
+
+        if (r_count.find(rand_index) == r_count.end()) {
+            r_count.emplace(rand_index);
+            break;
+        }
+    }
+
     // get value string
-    value_t v = *idx.values[rand_seed % size];
+    value_t v = *idx.values[rand_index];
     value_str = Tool::DebugString(v);
     return true;
 }
+
+void IndexStore::CleanRandomCount() {
+    for (auto & pair : vtx_rand_count) {
+        pair.second.clear();
+    }
+    vtx_rand_count.clear();
+
+    for (auto & pair : edge_rand_count) {
+        pair.second.clear();
+    }
+    edge_rand_count.clear();
+} 
 
 void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
     WriterLockGuard writer_lock_guard(vtx_topo_gc_rwlock_);

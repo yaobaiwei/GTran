@@ -224,6 +224,7 @@ class Worker {
             // pick read or write transaction
             EmuTrxString emu_trx_string;
             int r = rand() % 100;
+            bool is_update = false;
             if (r < r_ratio) {
                 // Read-Only Transaction
                 // READ, MIX
@@ -238,6 +239,7 @@ class Worker {
                     emu_trx_string = trx_map.at("MIX").at(inner_r - trx_count_map.at("READ"));
                 }
             } else {
+                is_update = true;
                 // Update Transaction
                 // INSERT, UPDATE, DROP
                 int total_trx_number = trx_count_map.at("INSERT") + trx_count_map.at("UPDATE") + trx_count_map.at("DROP");
@@ -260,7 +262,7 @@ class Worker {
                 vector<string> rand_values;
                 for (int i = 0; i < emu_trx_string.pkeys.size(); i++) {
                     string r_val;
-                    if (!index_store_->GetRandomValue(emu_trx_string.types.at(i), emu_trx_string.pkeys.at(i), rand(), r_val)) {
+                    if (!index_store_->GetRandomValue(emu_trx_string.types.at(i), emu_trx_string.pkeys.at(i), r_val, is_update)) {
                         cout << "not values for property " << emu_trx_string.pkeys.at(i) << " stored in node " << my_node_.get_local_rank() << endl;
                         break;
                     }
@@ -338,6 +340,8 @@ class Worker {
             ofs << trx << endl;
         }
 
+        index_store_->CleanRandomCount();
+
         is_emu_mode_ = false;
 
         // send reply to client
@@ -370,7 +374,7 @@ class Worker {
                 type = Element_T::VERTEX;
                 trx_string.types.emplace_back(type);
             } else if (cur_type == "E") {
-                type = Element_T::VERTEX;
+                type = Element_T::EDGE;
                 trx_string.types.emplace_back(type);
             } else {
                 if (is_main_worker) {
@@ -413,7 +417,7 @@ class Worker {
         coordinator_->RegisterTrx(trxid);
 
         TrxPlan plan(trxid, client_host);
-        thpt_monitor_->RecordStart(trxid, trx_type);
+        if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type); }
 
         string error_msg;
         bool success = parser_->Parse(query, plan, error_msg);
@@ -535,8 +539,8 @@ class Worker {
         snprintf(addr, sizeof(addr), "tcp://%s:%d", plan.client_host.c_str(),
                 workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
         sender.connect(addr);
-        cout << "worker_node" << my_node_.get_local_rank()
-                << " sends the results to Client " << plan.client_host << endl;
+        // cout << "worker_node" << my_node_.get_local_rank()
+        //         << " sends the results to Client " << plan.client_host << endl;
         sender.send(msg);
         monitor_->IncreaseCounter(1);
     }
@@ -883,7 +887,7 @@ class Worker {
                 // Reply to client when transaction is finished
                 if (!is_emu_mode_) { ReplyClient(plan); }  // If Running EMU, do NOT send result back
 
-                thpt_monitor_->RecordEnd(qid.trxid, plan.isAbort());
+                if (is_emu_mode_) { thpt_monitor_->RecordEnd(qid.trxid, plan.isAbort()); }
                 NotifyTrxFinished(qid.trxid, plan.GetStartTime());
                 // if not readonly, abtain its finished time
                 if (plan.GetTrxType() != TRX_READONLY) {
