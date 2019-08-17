@@ -76,8 +76,6 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
                 tail_->next_ = new_row;
                 tail_ = tail_->next_;
             }
-            tail_->next_ = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
-            tail_ = tail_->next_;
         }
 
         tail_->cells_[cell_id_in_row].pid = pid;
@@ -90,7 +88,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
             if (cell_map_ == nullptr) {
                 cell_map_ = new CellMap;
                 PropertyRow* current_row = head_;
-                for (int i = 0; i < property_count_snapshot + 1; property_count_snapshot++) {
+                for (int i = 0; i < property_count_snapshot + 1; i++) {
                     int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
                     if (i > 0 && cell_id_in_row == 0) {
                         current_row = current_row->next_;

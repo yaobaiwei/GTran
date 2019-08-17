@@ -95,7 +95,7 @@ class PropertyActor : public AbstractActor {
 
             msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
         } else {
-            string abort_info = "Abort with [Processing][DropActor::process]" + abort_reason_map[process_stat];
+            string abort_info = "Abort with [Processing][PropertyActor::process]" + abort_reason_map[process_stat];
             msg.CreateAbortMsg(qplan.actors, msg_vec, abort_info);
         }
 
