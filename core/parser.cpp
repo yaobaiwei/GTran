@@ -352,7 +352,7 @@ void Parser::ParseSetConfig(const string& param) {
         || params[2][0] == 'f') {
             enable = false;
             actor.AddParam(enable);
-    } else if (Tool::checktype(params[2]) == 1) {
+    } else if (Tool::checktype(params[2]) == 1 || Tool::checktype(params[2]) == 4) {
         v.content.clear();
         Tool::str2int(params[2], v);
         actor.params.push_back(v);

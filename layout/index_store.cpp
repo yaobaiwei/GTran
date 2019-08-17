@@ -172,19 +172,45 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, string& value_str, cons
     unordered_set<int>& r_count = r_itr->second;
 
     int rand_index;
+    uint64_t start_time = timer::get_usec();
     while (true) {
         rand_index = rand() % size;
-        if (!is_update) { break; }
+        if (!is_update) {
+            // get value string
+            value_t v = *idx.values[rand_index];
+            value_str = Tool::DebugString(v);
+            if (value_str.find(";") != string::npos ||
+                value_str.find("=") != string::npos ||
+                value_str.find("(") != string::npos ||
+                value_str.find(")") != string::npos) {
+                continue;
+            }
+
+            break;
+        }
 
         if (r_count.find(rand_index) == r_count.end()) {
             r_count.emplace(rand_index);
+
+            // get value string
+            value_t v = *idx.values[rand_index];
+            value_str = Tool::DebugString(v);
+            if (value_str.find(";") != string::npos ||
+                value_str.find("=") != string::npos ||
+                value_str.find("(") != string::npos ||
+                value_str.find(")") != string::npos) {
+                continue;
+            }
+
             break;
+        } else {
+            uint64_t end_time = timer::get_usec();
+            if (start_time - end_time > TIMEOUT) {
+                r_count.clear();
+            }
         }
     }
 
-    // get value string
-    value_t v = *idx.values[rand_index];
-    value_str = Tool::DebugString(v);
     return true;
 }
 

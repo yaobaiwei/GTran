@@ -20,6 +20,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "layout/data_storage.hpp"
 #include "utils/config.hpp"
 #include "utils/tool.hpp"
+#include "utils/timer.hpp"
 #include "utils/write_prior_rwlock.hpp"
 
 #pragma once
@@ -207,6 +208,9 @@ class IndexStore {
     void build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred, vector<value_t>& vec, int& num_set);
 
     void modify_index(index_ * idx, value_t& id_value_t, value_t& val_value_t, bool isAdd);
+
+    // Timeout for GetRandomValue (\us)
+    int TIMEOUT = 100000;
 };
 
 #include "index_store.tpp"
