@@ -79,7 +79,12 @@ class CoreAffinity {
         //    if (config_->global_enable_core_binding) {
         //        core_affinity_->BindToCore(tid);
 
-        size_t core = (size_t)thread_to_core_map[tid];
+        size_t core;
+        if (config_->global_enable_actor_division)
+            core = (size_t)thread_to_core_map[tid];
+        else
+            core = tid % cpuinfo_->GetTotalThreadCount();
+
         cpu_set_t mask;
         CPU_ZERO(&mask);
         CPU_SET(core, &mask);
