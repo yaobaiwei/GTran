@@ -130,6 +130,7 @@ class ActorAdapter {
 
     void execute(int tid, Message & msg) {
         Meta & m = msg.meta;
+
         if (m.msg_type == MSG_T::INIT) {
             // acquire write lock for insert
             accessor ac;
@@ -158,19 +159,6 @@ class ActorAdapter {
         const_accessor ac;
         // qid not found
         if (!msg_logic_table_.find(ac, m.qid)) {
-            // First check if transaction aborted
-            TRX_STAT status;
-            trx_table_stub_->read_status(m.qid & _56HFLAG, status);
-            if (status == TRX_STAT::ABORT) {
-                vector<Message> msg_vec;
-                string abort_info = "Abort with [ActorAdapter::execute][msg_logic_table_.find(ac, m.qid)][TRX_STAT::ABORT]";
-                msg.CreateAbortMsg(ac->second.actors, msg_vec, abort_info);
-                for (auto& msg : msg_vec) {
-                    mailbox_->Send(tid, msg);
-                }
-                return;
-            }
-
             // throw msg to the same thread as init msg
             msg.meta.recver_tid = msg.meta.parent_tid;
             mailbox_->Send(tid, msg);
