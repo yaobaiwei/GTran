@@ -14,6 +14,7 @@ Authors: Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "glog/logging.h"
 
 #include "actor/abstract_actor.hpp"
+#include "actor/actor_validation_object.hpp"
 #include "core/message.hpp"
 #include "core/abstract_mailbox.hpp"
 #include "core/result_collector.hpp"
@@ -60,6 +61,10 @@ class InitActor : public AbstractActor {
             InitWithoutIndex(tid, qplan, init_data, msg, next_count);
         } else {
             InitWithIndex(tid, qplan.actors, init_data, msg, next_count);
+            if (qplan.trx_type != TRX_READONLY && config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
+                Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
+                v_obj.RecordInputSetValueT(qplan.trxid, 0, inType, init_data.at(0).second, false);
+            }
         }
 
         vector<Message> msg_vec;
@@ -74,6 +79,7 @@ class InitActor : public AbstractActor {
         // However, it's unnecessary to record input set since there are only 2 situations:
         // 1) g.V() --> All;
         // 2) g.V(A) --> No Need to Validate;
+        // 3) g.V().has() with index --> Check data from Index;
         for (auto & actor_obj : actor_list) {
             assert(actor_obj->actor_type == ACTOR_T::INIT);
             vector<uint64_t> local_check_set;
@@ -84,9 +90,34 @@ class InitActor : public AbstractActor {
             bool with_input = Tool::value_t2int(actor_obj->params[1]);
 
             if (!with_input) {
-                for (auto & val : check_set) {
-                    if (get<2>(val) == inType) {
-                        return false;  // Once find one --> Abort
+                if (actor_obj->params.size() == 2) {
+                    // Scenario 1)
+                    for (auto & val : check_set) {
+                        if (get<2>(val) == inType) {
+                            return false;  // Once find one --> Abort
+                        }
+                    }
+                } else {
+                    // Scenario 3)
+                    set<int> plist;
+                    int numParamsGroup = (actor_obj->params.size() - 2) / 3;
+
+                    for (int i = 0; i < numParamsGroup; i++) {
+                        int pos = i * 3 + 2;
+                        // Get predicate params
+                        plist.emplace(Tool::value_t2int(actor_obj->params.at(pos)));
+                    }
+
+                    for (auto & val : check_set) {
+                        if (plist.find(get<1>(val)) != plist.end() && get<2>(val) == inType) {
+                            local_check_set.emplace_back(get<0>(val));
+                        }
+                    }
+
+                    if (local_check_set.size() != 0) {
+                        if (!v_obj.Validate(TrxID, 0, local_check_set)) {
+                            return false; 
+                        }
                     }
                 }
             }
@@ -110,6 +141,9 @@ class InitActor : public AbstractActor {
 
     // Pointer of index store
     IndexStore * index_store_;
+
+    // Validation Store
+    ActorValidationObject v_obj;
 
     /* =============OLAP Impl=============== */
     // Ensure only one thread ever runs the actor
