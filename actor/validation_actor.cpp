@@ -49,6 +49,7 @@ void ValidationActor::process(const QueryPlan & qplan, Message & msg) {
     set<uint64_t> homo_dep_read;
     set<uint64_t> hetero_dep_read;
     data_storage_->GetDepReadTrxList(qplan.trxid, homo_dep_read, hetero_dep_read);
+
     if (qplan.trx_type == TRX_READONLY) {
         // Read-Only Trx only need to check HomoPreRead
         valid_optimistic_read(homo_dep_read, isAbort);
@@ -229,7 +230,7 @@ bool ValidationActor::valid_dependency_read(uint64_t trxID, set<uint64_t> & homo
         if (stat == TRX_STAT::COMMITTED) {
             return false;
         } else if (stat == TRX_STAT::ABORT) {
-            itr = homo_dep_read.erase(itr);
+            itr = hetero_dep_read.erase(itr);
             continue;
         }
         itr++;

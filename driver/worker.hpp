@@ -259,7 +259,6 @@ class Worker {
 
         thpt_monitor_->StartEmu();
         if (is_main_worker) { cout << "RunEmu Starts" << endl; }
-        emu_trx_end_count = 0;
         uint64_t start = timer::get_usec();
         int first_name_idx_count = 0;
         int brand_idx_count = 0;
@@ -295,7 +294,7 @@ class Worker {
                 if (inner_r < trx_count_map.at("INSERT")) {
                     // INSERT
                     emu_trx_string = trx_map.at("INSERT").at(inner_r);
-                } else if (inner_r >= trx_count_map.at("INSERT") && inner_r < trx_count_map.at("UPDATE")) {
+                } else if (inner_r >= trx_count_map.at("INSERT") && inner_r < (trx_count_map.at("UPDATE") + trx_count_map.at("INSERT"))) {
                     // UPDATE
                     emu_trx_string = trx_map.at("UPDATE").at(inner_r - trx_count_map.at("INSERT"));
                 } else {
@@ -367,8 +366,6 @@ class Worker {
                 }
             }
 
-            cout << trx_tmp << endl;
-
             ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
 
@@ -381,7 +378,6 @@ class Worker {
         while (thpt_monitor_->WorksRemaining() != 0) {
             cout << "Node " << my_node_.get_local_rank() << " still has " << thpt_monitor_->WorksRemaining() << "queries" << endl;
 
-            if (thpt_monitor_->WorksRemaining() <= paralellfactor) { break; }
             usleep(500000);
         }
 
@@ -484,7 +480,6 @@ class Worker {
             string cur_type, cur_pkey;
             iss >> cur_type >> cur_pkey;
             Element_T type;
-            cout << "Type: " << cur_type << " PKey: " << cur_pkey << endl;
             // get Type
             if (cur_type == "V") {
                 type = Element_T::VERTEX;
@@ -1006,10 +1001,7 @@ class Worker {
                 continue;
             } else if (re.reply_type == ReplyType::RESULT_ABORT) {
                 // For Run Emu Dubeg
-                if (emu_abort_debug_count < 10 && my_node_.get_local_rank() == 0) {
-                    cout << Tool::DebugString(re.results[0]) << endl;
-                    emu_abort_debug_count++;
-                }
+                // cout << Tool::DebugString(re.results[0]) << endl;
                 plan.FillResult(qid.id, re.results);
             } else if (re.reply_type == ReplyType::RESULT_NORMAL) {
                 if (!plan.FillResult(qid.id, re.results)) {
@@ -1026,9 +1018,10 @@ class Worker {
                 }
 
                 if (is_emu_mode_) { 
-                    emu_trx_end_count++;
-                    // cout << "Trx End: " << emu_trx_end_count << endl;
-                    thpt_monitor_->RecordEnd(qid.trxid, plan.isAbort());
+                    TRX_STAT trx_stat;
+                    trx_table_stub_->read_status(plan.trxid, trx_stat);
+
+                    thpt_monitor_->RecordEnd(qid.trxid, trx_stat == TRX_STAT::ABORT);
                 }
                 NotifyTrxFinished(qid.trxid, plan.GetStartTime());
                 // if not readonly, abtain its finished time
@@ -1102,8 +1095,5 @@ class Worker {
 
     Coordinator* coordinator_;
     RunningTrxList* running_trx_list_;
-
-    int emu_abort_debug_count = 0;
-    int emu_trx_end_count = 0;
 };
 #endif /* WORKER_HPP_ */
