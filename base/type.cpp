@@ -104,7 +104,7 @@ uint32_t vid_t2uint(const vid_t & vid) {
 }
 
 void uint2vid_t(uint32_t v, vid_t & vid) {
-    vid.vid = (v & _28LFLAG);
+    vid.vid = v;
 }
 
 bool operator == (const vid_t &p1, const vid_t &p2) {
@@ -136,8 +136,8 @@ uint64_t eid_t2uint(const eid_t & eid) {
 }
 
 void uint2eid_t(uint64_t v, eid_t & eid) {
-    eid.out_v = (v & _28LFLAG);
-    eid.in_v = ((v >> VID_BITS) & _28LFLAG);
+    eid.in_v = v >> VID_BITS;
+    eid.out_v = v - (eid.in_v << VID_BITS);
 }
 
 bool operator == (const eid_t &p1, const eid_t &p2) {
@@ -170,10 +170,8 @@ uint64_t vpid_t2uint(const vpid_t & vp) {
 }
 
 void uint2vpid_t(uint64_t v, vpid_t & vp) {
-    vp.pid = (v & _12LFLAG);
-    v >>= PID_BITS;
-    v >>= VID_BITS;
-    vp.vid = (v & _28LFLAG);
+    vp.vid = v >> PID_BITS >> VID_BITS;
+    vp.pid = v - (vp.vid << PID_BITS << VID_BITS);
 }
 
 bool operator ==(const vpid_t &p1, const vpid_t &p2) {
@@ -207,11 +205,9 @@ uint64_t epid_t2uint(const epid_t & ep) {
 }
 
 void uint2epid_t(uint64_t v, epid_t & ep) {
-    ep.pid = (v & _12LFLAG);
-    v >>= PID_BITS;
-    ep.out_vid = (v & _28LFLAG);
-    v >>= VID_BITS;
-    ep.in_vid = (v & _28LFLAG);
+    ep.in_vid = v >> PID_BITS >> VID_BITS;
+    ep.out_vid = (v >> PID_BITS) - (ep.in_vid << VID_BITS);
+    ep.pid = v - (v >> PID_BITS << PID_BITS);
 }
 
 bool operator ==(const epid_t &p1, const epid_t &p2) {
