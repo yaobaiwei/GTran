@@ -6,11 +6,16 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 template <class PropertyRow>
 void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<PropertyRow> * prop_row_list) {
     if (prop_row_list == nullptr) { return; }
-    PropertyRow* row_ptr = prop_row_list->head_;
-    if (row_ptr == nullptr)
-        return;
+    ReaderLockGuard gc_reader_lock_guard(prop_row_list->gc_rwlock_);
 
-    int property_count_snapshot = prop_row_list->property_count_;
+    PropertyRow* row_ptr;
+    int property_count_snapshot;
+    {
+        ReaderLockGuard reader_lock_guard(prop_row_list->rwlock_);
+        row_ptr = prop_row_list->head_;
+        if (row_ptr == nullptr) { return; }
+        property_count_snapshot = prop_row_list->property_count_;
+    }
 
     int gcable_cell_counter = 0;
     typename PropertyRowList<PropertyRow>::MVCCListType* cur_mvcc_list_ptr;

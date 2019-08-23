@@ -35,7 +35,7 @@ struct VPHeader {
 /* Use constexpr function InferElementCount to get row capacity during compilation
  * Similarly hereinafter.
  */
-#define VP_ROW_ITEM_COUNT InferElementCount<VPHeader>(256, sizeof(void*))
+#define VP_ROW_ITEM_COUNT InferElementCount<VPHeader>(128, sizeof(void*))
 
 
 struct EPHeader {
@@ -53,7 +53,7 @@ struct EPHeader {
     typedef EPropertyMVCCItem MVCCItemType;
 };
 
-#define EP_ROW_ITEM_COUNT InferElementCount<EPHeader>(256, sizeof(void*))
+#define EP_ROW_ITEM_COUNT InferElementCount<EPHeader>(64, sizeof(void*))
 
 
 struct EdgeHeader {
@@ -70,7 +70,7 @@ struct EdgeHeader {
     }
 };
 
-#define VE_ROW_ITEM_COUNT InferElementCount<EdgeHeader>(256, sizeof(void*))
+#define VE_ROW_ITEM_COUNT InferElementCount<EdgeHeader>(128, sizeof(void*))
 
 
 // always fetch rows from memory pools

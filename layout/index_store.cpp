@@ -142,15 +142,18 @@ void IndexStore::ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>
     }
 }
 
-bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str) {
+bool IndexStore::GetRandomValue(Element_T type, int pid, string& value_str, const bool& is_update) {
     WritePriorRWLock * rw_lock;
     unordered_map<int, index_>* m;
+    unordered_map<int, unordered_set<int>>* r_map;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
         rw_lock = &vtx_prop_gc_rwlock_;
+        r_map = &vtx_rand_count;
     } else {
         m = &edge_prop_index;
         rw_lock = &edge_prop_gc_rwlock_;
+        r_map = &edge_rand_count;
     }
     ReaderLockGuard reader_guard_lock(*rw_lock);
 
@@ -165,11 +168,63 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, int rand_seed, string& 
         return false;
     }
 
-    // get value string
-    value_t v = *idx.values[rand_seed % size];
-    value_str = Tool::DebugString(v);
+    auto r_itr = r_map->emplace(pid, unordered_set<int>()).first;
+    unordered_set<int>& r_count = r_itr->second;
+
+    int rand_index;
+    uint64_t start_time = timer::get_usec();
+    while (true) {
+        rand_index = rand() % size;
+        if (!is_update) {
+            // get value string
+            value_t v = *idx.values[rand_index];
+            value_str = Tool::DebugString(v);
+            if (value_str.find(";") != string::npos ||
+                value_str.find("=") != string::npos ||
+                value_str.find("(") != string::npos ||
+                value_str.find(")") != string::npos) {
+                continue;
+            }
+
+            break;
+        }
+
+        if (r_count.find(rand_index) == r_count.end()) {
+            r_count.emplace(rand_index);
+
+            // get value string
+            value_t v = *idx.values[rand_index];
+            value_str = Tool::DebugString(v);
+            if (value_str.find(";") != string::npos ||
+                value_str.find("=") != string::npos ||
+                value_str.find("(") != string::npos ||
+                value_str.find(")") != string::npos) {
+                continue;
+            }
+
+            break;
+        } else {
+            uint64_t end_time = timer::get_usec();
+            if (start_time - end_time > TIMEOUT) {
+                r_count.clear();
+            }
+        }
+    }
+
     return true;
 }
+
+void IndexStore::CleanRandomCount() {
+    for (auto & pair : vtx_rand_count) {
+        pair.second.clear();
+    }
+    vtx_rand_count.clear();
+
+    for (auto & pair : edge_rand_count) {
+        pair.second.clear();
+    }
+    edge_rand_count.clear();
+} 
 
 void IndexStore::VtxSelfGarbageCollect(const uint64_t& threshold) {
     WriterLockGuard writer_lock_guard(vtx_topo_gc_rwlock_);
@@ -447,14 +502,15 @@ void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t 
 }
 
 void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t & ct) {
-    up_buf_const_accessor cac;
+    up_buf_accessor ac;
     // VP
-    if (vp_update_buffers.find(cac, trx_id)) {
+    if (vp_update_buffers.find(ac, trx_id)) {
         prop_up_map_accessor pac;
-        for (auto & up_elem : cac->second) {
+        for (auto & up_elem : ac->second) {
             uint64_t vid = up_elem.element_id >> PID_BITS;
             uint64_t pid = up_elem.element_id - (vid << PID_BITS);
             up_elem.set_ct(ct);
+            up_elem.element_id = vid;
 
             vp_update_map.insert(pac, pid);
 
@@ -464,16 +520,17 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
                 pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
             }
         }
-        vp_update_buffers.erase(cac);
+        vp_update_buffers.erase(ac);
     }
 
     // EP
-    if (ep_update_buffers.find(cac, trx_id)) {
+    if (ep_update_buffers.find(ac, trx_id)) {
         prop_up_map_accessor pac;
-        for (auto & up_elem : cac->second) {
+        for (auto & up_elem : ac->second) {
             uint64_t eid = up_elem.element_id >> PID_BITS;
             uint64_t pid = up_elem.element_id - (eid << PID_BITS);
             up_elem.set_ct(ct);
+            up_elem.element_id = eid;
 
             ep_update_map.insert(pac, pid);
 
@@ -483,7 +540,7 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
                 pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
             }
         }
-        ep_update_buffers.erase(cac);
+        ep_update_buffers.erase(ac);
     }
 }
 

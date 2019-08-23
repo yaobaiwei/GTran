@@ -534,6 +534,9 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
         mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
     }
 
+    head_ = nullptr;
+    tail_ = nullptr;
+
     delete[] row_ptrs;
     if (cell_map_ != nullptr)
         delete cell_map_;
@@ -619,6 +622,13 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     for (int i = row_count - 1; i > cur_row_count - 1; i--) {
         if (i-1 >= 0) { row_ptrs[i-1]->next_ = nullptr; }
         mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+    }
+
+    if (cur_row_count == 0) {
+        head_ = nullptr;
+        tail_ = nullptr;
+    } else {
+        tail_ = row_ptrs[cur_row_count - 1];
     }
 
     // new property count

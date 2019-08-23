@@ -390,8 +390,13 @@ void GCProducer::scan_vertex_map() {
         MVCCList<VertexMVCCItem>* mvcc_list = v_item.mvcc_list;
         if (mvcc_list == nullptr) { continue; }
 
+        SimpleSpinLockGuard lock_guard(&(mvcc_list->lock_));
+
         VertexMVCCItem* mvcc_item = mvcc_list->GetHead();
         if (mvcc_item == nullptr) { continue; }
+
+        // Uncommitted Version, ignore
+        if (mvcc_item->GetTransactionID() != 0) { continue; }
 
         // VertexMVCCList is different with other MVCCList since it only has at most
         // two versions and the second version must be deleted version
@@ -419,6 +424,9 @@ void GCProducer::scan_vertex_map() {
 }
 
 void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_list) {
+    if (topo_row_list == nullptr) { return; }
+    ReaderLockGuard reader_lock_guard(topo_row_list->gc_rwlock_);
+    pthread_spin_lock(&(topo_row_list->lock_));
     VertexEdgeRow* row_ptr = topo_row_list->head_;
 
     if (row_ptr == nullptr)
@@ -430,6 +438,7 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
     for (int i = 0; i < edge_count_snapshot; i++) {
         int cell_id_in_row = i % VE_ROW_ITEM_COUNT;
         if (i != 0 && cell_id_in_row == 0) {
+            CHECK(row_ptr->next_ != nullptr) << topo_row_list->edge_count_;
             row_ptr = row_ptr->next_;
         }
 
@@ -447,6 +456,8 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
     if (gcable_cell_count >= edge_count_snapshot % VE_ROW_ITEM_COUNT && gcable_cell_count != 0) {
         spawn_topo_row_list_defrag_gctask(topo_row_list, vid, gcable_cell_count);
     }
+
+    pthread_spin_unlock(&(topo_row_list->lock_));
 }
 
 void GCProducer::scan_topo_index_update_region() {

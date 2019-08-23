@@ -63,6 +63,17 @@ class ConfigActor : public AbstractActor {
             int i = Tool::value_t2int(actor_obj.params[1]);
             cout << i << endl;
             config_->max_data_size = i;
+        } else if (config_name == "iso_level") {
+            string new_level = Tool::value_t2string(actor_obj.params[1]);
+            if (new_level == "SERIALIZABLE") {
+                config_->isolation_level = ISOLATION_LEVEL::SERIALIZABLE;
+            } else if (new_level == "SNAPSHOT") {
+                config_->isolation_level = ISOLATION_LEVEL::SNAPSHOT;
+            } else {
+                s = "[Error] Failed! Unsupported isolation level. Should be:\n";
+                s += "1. SERIALIZABLE\n";
+                s += "2. SNAPSHOT\n";
+            }
         } else {
             s = "Config name should be: ";
             s += "1. caching\n";
@@ -82,6 +93,7 @@ class ConfigActor : public AbstractActor {
         s += "Indexing : " + string(config_->global_enable_indexing ? "True" : "False") + "\n";
         s += "Stealing : " + string(config_->global_enable_workstealing ? "True" : "False") + "\n";
         s += "Max Data Size: " + to_string(config_->max_data_size) + "\n";
+        s += "Isolation Level: " + string((config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) ? "SERIALIZABLE" : "SNAPSHOT") + "\n";
         if (m.recver_nid == m.parent_nid) {
             value_t v;
             Tool::str2str(s, v);

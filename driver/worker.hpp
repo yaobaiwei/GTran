@@ -11,6 +11,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <string>
 #include <utility>
 #include <vector>
+#include <bitset>
 
 #include "utils/zmq.hpp"
 #include "base/core_affinity.hpp"
@@ -176,8 +177,13 @@ class Worker {
         //  Key: INSERT, READ, UPDATE, MIX
         unordered_map<string, vector<EmuTrxString>> trx_map;
         unordered_map<string, int> trx_count_map;
+        vector<string> ldbc_person_ori_id_set;
+        vector<string> ldbc_first_name_set;
+        vector<string> amazon_brand_set;
         string cur_trx_type = "NULL";
         int trx_counter = 0;
+        bool read_ldbc_person_id = false;
+        bitset<3> read_file_flag(string("000"));  // 0: person_id, 1: first_name, 2: brand
         while (getline(query_ifs, query_line)) {
             if (query_line.at(0) == '#') {
                 continue;
@@ -189,7 +195,7 @@ class Worker {
                if (cur_trx_type == "NULL") { cout << "Wrong Query Type" << endl; return; }
 
                EmuTrxString cur_trx_string;
-               if (!CheckEmulationQuery(is_main_worker, query_line, emu_command_plan, cur_trx_string)) { return; }
+               if (!CheckEmulationQuery(is_main_worker, query_line, emu_command_plan, cur_trx_string, read_file_flag)) { return; }
 
                cur_trx_string.trx_type = trx_counter;
                trx_counter++;
@@ -199,9 +205,46 @@ class Worker {
             }
         }
 
+        if (read_file_flag.test(0)) {
+            string fn = "/data/aaron/oltp/person_ori_id/all_person_ori_id_" + to_string(my_node_.get_local_rank()) + "_of_" + to_string(my_node_.get_local_size()) + ".txt";
+
+            ifstream ifs(fn);
+            if (!ifs.good()) { cout << "person_ori_id file not good" << endl; return; }
+            string person_ori_id;
+            while (getline(ifs, person_ori_id)) {
+                ldbc_person_ori_id_set.emplace_back(person_ori_id);
+            }
+        }
+
+        if (read_file_flag.test(1)) {
+            string fn = "/data/aaron/oltp/first_name/first_name_" + to_string(my_node_.get_local_rank()) + "_of_" + to_string(my_node_.get_local_size()) + ".txt";
+
+            ifstream ifs(fn);
+            if (!ifs.good()) { cout << "first_name file not good" << endl; return; }
+            string first_name;
+            while (getline(ifs, first_name)) {
+                ldbc_first_name_set.emplace_back(first_name);
+            }
+        }
+
+        if (read_file_flag.test(2)) {
+            string fn = "/data/aaron/oltp/amazon_brand/amazon_brand_" + to_string(my_node_.get_local_rank()) + "_of_" + to_string(my_node_.get_local_size()) + ".txt";
+
+            ifstream ifs(fn);
+            if (!ifs.good()) { cout << "brand file not good" << endl; return; }
+            string brand;
+            while (getline(ifs, brand)) {
+                amazon_brand_set.emplace_back(brand);
+            }
+        }
+
+        int ldbc_person_ori_id_size = ldbc_person_ori_id_set.size();
+        int ldbc_first_name_size = ldbc_first_name_set.size();
+        int amazon_brand_size = amazon_brand_set.size();
+        unordered_set<int> person_id_count;
 
         // wait until all previous query done
-        while (thpt_monitor_->WorksRemaining() != 0) {}
+        while (thpt_monitor_->WorksRemaining() != 0) {cout << "waiting for remaining transactions." << endl; }
 
         is_emu_mode_ = true;
         srand(time(NULL));
@@ -215,7 +258,10 @@ class Worker {
         worker_barrier(my_node_);
 
         thpt_monitor_->StartEmu();
+        if (is_main_worker) { cout << "RunEmu Starts" << endl; }
         uint64_t start = timer::get_usec();
+        int first_name_idx_count = 0;
+        int brand_idx_count = 0;
         while (timer::get_usec() - start < test_time) {
             if (thpt_monitor_->WorksRemaining() > paralellfactor) {
                 continue;
@@ -224,6 +270,7 @@ class Worker {
             // pick read or write transaction
             EmuTrxString emu_trx_string;
             int r = rand() % 100;
+            bool is_update = false;
             if (r < r_ratio) {
                 // Read-Only Transaction
                 // READ, MIX
@@ -238,6 +285,7 @@ class Worker {
                     emu_trx_string = trx_map.at("MIX").at(inner_r - trx_count_map.at("READ"));
                 }
             } else {
+                is_update = true;
                 // Update Transaction
                 // INSERT, UPDATE, DROP
                 int total_trx_number = trx_count_map.at("INSERT") + trx_count_map.at("UPDATE") + trx_count_map.at("DROP");
@@ -246,7 +294,7 @@ class Worker {
                 if (inner_r < trx_count_map.at("INSERT")) {
                     // INSERT
                     emu_trx_string = trx_map.at("INSERT").at(inner_r);
-                } else if (inner_r >= trx_count_map.at("INSERT") && inner_r < trx_count_map.at("UPDATE")) {
+                } else if (inner_r >= trx_count_map.at("INSERT") && inner_r < (trx_count_map.at("UPDATE") + trx_count_map.at("INSERT"))) {
                     // UPDATE
                     emu_trx_string = trx_map.at("UPDATE").at(inner_r - trx_count_map.at("INSERT"));
                 } else {
@@ -256,21 +304,69 @@ class Worker {
             }
 
             string trx_tmp = emu_trx_string.query;
-            if (emu_trx_string.num_rand_values != 0) {
-                vector<string> rand_values;
-                for (int i = 0; i < emu_trx_string.pkeys.size(); i++) {
-                    string r_val;
-                    if (!index_store_->GetRandomValue(emu_trx_string.types.at(i), emu_trx_string.pkeys.at(i), rand(), r_val)) {
-                        cout << "not values for property " << emu_trx_string.pkeys.at(i) << " stored in node " << my_node_.get_local_rank() << endl;
-                        break;
+            if (trx_tmp.find("$READ") != string::npos) {
+                vector<string> rand_val;
+                if (trx_tmp.find("ori_id") != string::npos) {
+                    int person_idx;
+                    uint64_t start_time = timer::get_usec();
+                    while (true) {
+                        person_idx = rand() % ldbc_person_ori_id_size;
+                        if (person_id_count.find(person_idx) == person_id_count.end()) {
+                            person_id_count.emplace(person_idx);
+                            break;
+                        } else {
+                            uint64_t end_time = timer::get_usec(); 
+                            if (start_time - end_time > 10000) {  // 10ms
+                                person_id_count.clear();
+                            }
+                        }
                     }
-                    rand_values.emplace_back(r_val);
-                }
 
-                trx_tmp = Tool::my_regex_replace(trx_tmp, match, rand_values);
+                    rand_val.emplace_back(ldbc_person_ori_id_set.at(person_idx));
+                } else if (trx_tmp.find("firstName") != string::npos) {
+                    rand_val.emplace_back(ldbc_first_name_set.at(first_name_idx_count));
+                    first_name_idx_count++;
+
+                    if (first_name_idx_count >= ldbc_first_name_size) {
+                        first_name_idx_count = 0;
+                    }
+                } else if (trx_tmp.find("brand") != string::npos) {
+                    while (!CheckCandidateString(amazon_brand_set.at(brand_idx_count))) {
+                        brand_idx_count++;
+
+                        if (brand_idx_count >= amazon_brand_size) {
+                            brand_idx_count = 0;
+                        }
+                    }
+
+                    rand_val.emplace_back(amazon_brand_set.at(brand_idx_count));
+                    brand_idx_count++;
+
+                    if (brand_idx_count >= amazon_brand_size) {
+                        brand_idx_count = 0;
+                    }
+                } else {
+                    cout << "Wrong $READ for trx "  << trx_tmp << endl;
+                    return;
+                }
+                trx_tmp = Tool::my_regex_replace(trx_tmp, regex("\\$READ"), rand_val); 
+            } else {
+                if (emu_trx_string.num_rand_values != 0) {
+                    vector<string> rand_values;
+                    for (int i = 0; i < emu_trx_string.pkeys.size(); i++) {
+                        string r_val;
+                        if (!index_store_->GetRandomValue(emu_trx_string.types.at(i), emu_trx_string.pkeys.at(i), r_val, is_update)) {
+                            cout << "not values for property " << emu_trx_string.pkeys.at(i) << " stored in node " << my_node_.get_local_rank() << endl;
+                            break;
+                        }
+                        rand_values.emplace_back(r_val);
+                    }
+
+                    trx_tmp = Tool::my_regex_replace(trx_tmp, match, rand_values);
+                }
             }
 
-            ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type);
+            ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
 
             if (is_main_worker) {
@@ -281,6 +377,7 @@ class Worker {
 
         while (thpt_monitor_->WorksRemaining() != 0) {
             cout << "Node " << my_node_.get_local_rank() << " still has " << thpt_monitor_->WorksRemaining() << "queries" << endl;
+
             usleep(500000);
         }
 
@@ -338,6 +435,8 @@ class Worker {
             ofs << trx << endl;
         }
 
+        index_store_->CleanRandomCount();
+
         is_emu_mode_ = false;
 
         // send reply to client
@@ -352,11 +451,27 @@ class Worker {
         }
     }
 
-    bool CheckEmulationQuery(bool is_main_worker, string& emu_query_string, TrxPlan & plan, EmuTrxString & trx_string) {
+    bool CheckEmulationQuery(bool is_main_worker, string& emu_query_string, TrxPlan & plan, EmuTrxString & trx_string, bitset<3> & read_flag) {
         istringstream iss(emu_query_string);
         iss >> trx_string.query;
 
-        if (trx_string.query.find("$RAND") == 0) {
+        if (trx_string.query.find("$READ") != string::npos) {
+            string read_key;
+            iss >> read_key;
+            if (read_key == "ori_id") {
+                read_flag.set(0, 1);
+            } else if (read_key == "firstName") {
+                read_flag.set(1, 1);
+            } else if (read_key == "brand") {
+                read_flag.set(2, 1);
+            } else {
+                cout << "Unexpected read key :" << read_key << endl;
+                return false;
+            }
+            return true;
+        }
+
+        if (trx_string.query.find("$RAND") == string::npos) {
             return true;
         }
 
@@ -370,7 +485,7 @@ class Worker {
                 type = Element_T::VERTEX;
                 trx_string.types.emplace_back(type);
             } else if (cur_type == "E") {
-                type = Element_T::VERTEX;
+                type = Element_T::EDGE;
                 trx_string.types.emplace_back(type);
             } else {
                 if (is_main_worker) {
@@ -405,15 +520,26 @@ class Worker {
         return true;
     }
 
+    bool CheckCandidateString(string& str) {
+        if (str.find(";") != string::npos ||
+            str.find("=") != string::npos ||
+            str.find("(") != string::npos ||
+            str.find(")") != string::npos) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Parse the query string into TrxPlan
      */
-    void ParseTransaction(string query, string client_host, int trx_type = -1) {
+    void ParseTransaction(string query, string client_host, int trx_type = -1, bool is_emu_mode = false) {
         uint64_t trxid;
         coordinator_->RegisterTrx(trxid);
 
         TrxPlan plan(trxid, client_host);
-        thpt_monitor_->RecordStart(trxid, trx_type);
+        if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type); }
 
         string error_msg;
         bool success = parser_->Parse(query, plan, error_msg);
@@ -428,11 +554,15 @@ class Worker {
             pending_timestamp_request_.Push(req);
         } else {
   ERROR:
-            value_t v;
-            Tool::str2str(error_msg, v);
-            vector<value_t> vec = {v};
-            plan.FillResult(-1, vec);
-            ReplyClient(plan);
+            if (is_emu_mode) {
+                cout << "[" << client_host <<  "] Parser Failed: " << query << endl;
+            } else {
+                value_t v;
+                Tool::str2str(error_msg, v);
+                vector<value_t> vec = {v};
+                plan.FillResult(-1, vec);
+                ReplyClient(plan);
+            }
         }
     }
 
@@ -535,8 +665,8 @@ class Worker {
         snprintf(addr, sizeof(addr), "tcp://%s:%d", plan.client_host.c_str(),
                 workers_[my_node_.get_local_rank()].tcp_port + my_node_.get_world_rank());
         sender.connect(addr);
-        cout << "worker_node" << my_node_.get_local_rank()
-                << " sends the results to Client " << plan.client_host << endl;
+        // cout << "worker_node" << my_node_.get_local_rank()
+        //         << " sends the results to Client " << plan.client_host << endl;
         sender.send(msg);
         monitor_->IncreaseCounter(1);
     }
@@ -870,6 +1000,8 @@ class Worker {
                 plan.Abort();
                 continue;
             } else if (re.reply_type == ReplyType::RESULT_ABORT) {
+                // For Run Emu Dubeg
+                // cout << Tool::DebugString(re.results[0]) << endl;
                 plan.FillResult(qid.id, re.results);
             } else if (re.reply_type == ReplyType::RESULT_NORMAL) {
                 if (!plan.FillResult(qid.id, re.results)) {
@@ -881,9 +1013,16 @@ class Worker {
 
             if (!RegisterQuery(plan)) {
                 // Reply to client when transaction is finished
-                if (!is_emu_mode_) { ReplyClient(plan); }  // If Running EMU, do NOT send result back
+                if (!is_emu_mode_) { // If Running EMU, do NOT send result back
+                    ReplyClient(plan);
+                }
 
-                thpt_monitor_->RecordEnd(qid.trxid, plan.isAbort());
+                if (is_emu_mode_) { 
+                    TRX_STAT trx_stat;
+                    trx_table_stub_->read_status(plan.trxid, trx_stat);
+
+                    thpt_monitor_->RecordEnd(qid.trxid, trx_stat == TRX_STAT::ABORT);
+                }
                 NotifyTrxFinished(qid.trxid, plan.GetStartTime());
                 // if not readonly, abtain its finished time
                 if (plan.GetTrxType() != TRX_READONLY) {

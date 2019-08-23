@@ -20,6 +20,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include "layout/data_storage.hpp"
 #include "utils/config.hpp"
 #include "utils/tool.hpp"
+#include "utils/timer.hpp"
 #include "utils/write_prior_rwlock.hpp"
 
 #pragma once
@@ -38,6 +39,7 @@ class IndexStore {
     IndexStore() {
         config_ = Config::GetInstance();
         data_storage_ = DataStorage::GetInstance();
+        srand(time(NULL));
     }
 
     static IndexStore* GetInstance() {
@@ -107,7 +109,8 @@ class IndexStore {
     void ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time, const bool & read_only, vector<vid_t> & data);
     void ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & begin_time, const bool & read_only, vector<eid_t> & data);
     void ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data);  // For Prop
-    bool GetRandomValue(Element_T type, int pid, int rand_seed, string& value_str);
+    bool GetRandomValue(Element_T type, int pid, string& value_str, const bool& is_update);
+    void CleanRandomCount();
 
     // GC:
     //  For each update_element,
@@ -157,6 +160,10 @@ class IndexStore {
     unordered_map<int, index_> vtx_prop_index;  // key: PropertyKey
     unordered_map<int, index_> edge_prop_index;  // key: PropertyKey
 
+    // random count for each pid
+    unordered_map<int, unordered_set<int>> vtx_rand_count;
+    unordered_map<int, unordered_set<int>> edge_rand_count;
+
     // Updata region
     tbb::concurrent_vector<update_element> vtx_update_list;
     tbb::concurrent_vector<update_element> edge_update_list;
@@ -201,6 +208,9 @@ class IndexStore {
     void build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred, vector<value_t>& vec, int& num_set);
 
     void modify_index(index_ * idx, value_t& id_value_t, value_t& val_value_t, bool isAdd);
+
+    // Timeout for GetRandomValue (\us)
+    int TIMEOUT = 100000;
 };
 
 #include "index_store.tpp"

@@ -202,6 +202,9 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
         mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
     }
 
+    head_ = nullptr;
+    tail_ = nullptr;
+
     delete[] row_ptrs;
 }
 
@@ -306,4 +309,10 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
 
     // new property count
     edge_count_ = cur_edge_count;
+    if (cur_row_count == 0) {
+        head_ = nullptr;
+        tail_ = nullptr;
+    } else {
+        tail_ = row_ptrs[cur_row_count - 1];
+    }
 }
