@@ -120,10 +120,10 @@ void GCConsumer::ExecuteEraseOutEJob(EraseOutEJob * job) {
         if (t == nullptr || t->task_status_ != TaskStatus::ACTIVE) { continue; }
 
         uint64_t eid_value = static_cast<EraseOutETask*>(t)->target.value();
-        DataStorage::OutEdgeAccessor ac;
-        if (data_storage_->out_edge_map_.Find(ac, eid_value)) {
+        DataStorage::OutEdgeIterator out_e_iterator = data_storage_->out_edge_map_.find(eid_value);
+        if (out_e_iterator != data_storage_->out_edge_map_.end()) {
             // Erase mvcc_list linked on the edge
-            MVCCList<EdgeMVCCItem>* mvcc_list = ac->second.mvcc_list;
+            MVCCList<EdgeMVCCItem>* mvcc_list = out_e_iterator->second.mvcc_list;
             if (mvcc_list->head_ == nullptr) { continue; }
             CHECK(mvcc_list == nullptr);
             delete mvcc_list;
@@ -140,10 +140,10 @@ void GCConsumer::ExecuteEraseInEJob(EraseInEJob * job) {
         if (t == nullptr || t->task_status_ != TaskStatus::ACTIVE) { continue; }
 
         uint64_t eid_value = static_cast<EraseInETask*>(t)->target.value();
-        DataStorage::InEdgeAccessor ac;
-        if (data_storage_->in_edge_map_.Find(ac, eid_value)) {
+        DataStorage::InEdgeIterator in_e_iterator = data_storage_->in_edge_map_.find(eid_value);
+        if (in_e_iterator != data_storage_->in_edge_map_.end()) {
             // Erase mvcc_list linked on the edge
-            MVCCList<EdgeMVCCItem>* mvcc_list = ac->second.mvcc_list;
+            MVCCList<EdgeMVCCItem>* mvcc_list = in_e_iterator->second.mvcc_list;
             if (mvcc_list->head_ == nullptr) { continue; }
             CHECK(mvcc_list == nullptr);
             delete mvcc_list;

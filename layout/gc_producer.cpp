@@ -428,11 +428,13 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
     ReaderLockGuard reader_lock_guard(topo_row_list->gc_rwlock_);
     pthread_spin_lock(&(topo_row_list->lock_));
     VertexEdgeRow* row_ptr = topo_row_list->head_;
-
-    if (row_ptr == nullptr)
+    if (row_ptr == nullptr) {
+        pthread_spin_unlock(&(topo_row_list->lock_));
         return;
+    }
 
     int edge_count_snapshot = topo_row_list->edge_count_;
+    pthread_spin_unlock(&(topo_row_list->lock_));
 
     int gcable_cell_count = 0;
     for (int i = 0; i < edge_count_snapshot; i++) {
@@ -456,8 +458,6 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
     if (gcable_cell_count >= edge_count_snapshot % VE_ROW_ITEM_COUNT && gcable_cell_count != 0) {
         spawn_topo_row_list_defrag_gctask(topo_row_list, vid, gcable_cell_count);
     }
-
-    pthread_spin_unlock(&(topo_row_list->lock_));
 }
 
 void GCProducer::scan_topo_index_update_region() {
