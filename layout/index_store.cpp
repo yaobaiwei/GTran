@@ -507,12 +507,12 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
     if (vp_update_buffers.find(ac, trx_id)) {
         prop_up_map_accessor pac;
         for (auto & up_elem : ac->second) {
-            uint64_t vid = up_elem.element_id >> PID_BITS;
-            uint64_t pid = up_elem.element_id - (vid << PID_BITS);
+            vpid_t vpid;
+            uint2vpid_t(up_elem.element_id, vpid);
             up_elem.set_ct(ct);
-            up_elem.element_id = vid;
+            up_elem.element_id = vpid.vid;
 
-            vp_update_map.insert(pac, pid);
+            vp_update_map.insert(pac, vpid.pid);
 
             if (pac->second.find(up_elem.value) != pac->second.end()) {
                 pac->second.at(up_elem.value).emplace_back(up_elem);

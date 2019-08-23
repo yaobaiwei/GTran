@@ -120,28 +120,29 @@ void DataStorage::FillVertexContainer() {
     int max_vid = worker_rank_;
 
     for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
-        VertexAccessor v_accessor;
-        vertex_map_.Insert(v_accessor, vtx.id.value());
+        // std::pair<VertexIterator iterator_to_inserted_item, bool insert_success>
+        auto insert_result = vertex_map_.insert(pair<uint32_t, Vertex>(vtx.id.value(), Vertex()));
+        VertexIterator v_itr = insert_result.first;
 
         if (max_vid < vtx.id.value())
             max_vid = vtx.id.value();
 
-        v_accessor->second.label = vtx.label;
+        v_itr->second.label = vtx.label;
         // create containers that attached to a Vertex
-        v_accessor->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
-        v_accessor->second.ve_row_list = new TopologyRowList;
+        v_itr->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
+        v_itr->second.ve_row_list = new TopologyRowList;
 
-        v_accessor->second.vp_row_list->Init();
-        v_accessor->second.ve_row_list->Init(vtx.id);
+        v_itr->second.vp_row_list->Init();
+        v_itr->second.ve_row_list->Init(vtx.id);
 
-        v_accessor->second.mvcc_list = new MVCCList<VertexMVCCItem>;
-        v_accessor->second.mvcc_list->AppendInitialVersion()[0] = true;
+        v_itr->second.mvcc_list = new MVCCList<VertexMVCCItem>;
+        v_itr->second.mvcc_list->AppendInitialVersion()[0] = true;
         // true means that the Vertex is visible
 
         // Insert vertex properties
         for (int i = 0; i < vtx.vp_label_list.size(); i++) {
-            v_accessor->second.vp_row_list->InsertInitialCell(vpid_t(vtx.id, vtx.vp_label_list[i]),
-                                                                 vtx.vp_value_list[i]);
+            v_itr->second.vp_row_list->InsertInitialCell(vpid_t(vtx.id, vtx.vp_label_list[i]),
+                                                                vtx.vp_value_list[i]);
         }
     }
 
@@ -159,22 +160,21 @@ void DataStorage::FillVertexContainer() {
 void DataStorage::FillEdgeContainer() {
     // Insert edge properties and outE
     for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
-        OutEdgeAccessor out_e_accessor;
-        out_edge_map_.Insert(out_e_accessor, edge.id.value());
+        auto insert_result = out_edge_map_.insert(pair<uint64_t, OutEdge>(edge.id.value(), OutEdge()));
+        OutEdgeIterator out_e_itr = insert_result.first;
 
-        VertexAccessor v_accessor;
-        vertex_map_.Find(v_accessor, edge.id.out_v);
+        VertexIterator v_itr = vertex_map_.find(edge.id.out_v);
 
         auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
         ep_row_list->Init();
 
         // "true" means that is_out = true, as this edge is an outE to the Vertex
-        auto* mvcc_list = v_accessor->second.ve_row_list
+        auto* mvcc_list = v_itr->second.ve_row_list
                           ->InsertInitialCell(true, edge.id.in_v, edge.label, ep_row_list);
-        out_e_accessor->second.mvcc_list = mvcc_list;
+        out_e_itr->second.mvcc_list = mvcc_list;
 
         EdgeVersion edge_version;
-        out_e_accessor->second.mvcc_list->GetVisibleVersion(0, 0, true, edge_version);
+        out_e_itr->second.mvcc_list->GetVisibleVersion(0, 0, true, edge_version);
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
             edge_version.ep_row_list->InsertInitialCell(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
@@ -186,34 +186,32 @@ void DataStorage::FillEdgeContainer() {
     for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
         // check if the dst_v on this node
         if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
-            InEdgeAccessor in_e_accessor;
-            in_edge_map_.Insert(in_e_accessor, edge.id.value());
+            auto insert_result = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge()));
+            InEdgeIterator in_e_itr = insert_result.first;
 
-            VertexAccessor v_accessor;
-            vertex_map_.Find(v_accessor, edge.id.in_v);
+            VertexIterator v_itr = vertex_map_.find(edge.id.in_v);
 
             // "false" means that is_out = false, as this edge is an inE to the Vertex
-            auto* mvcc_list = v_accessor->second.ve_row_list
+            auto* mvcc_list = v_itr->second.ve_row_list
                               ->InsertInitialCell(false, edge.id.out_v, edge.label, nullptr);
 
             // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
-            in_e_accessor->second.mvcc_list = mvcc_list;
+            in_e_itr->second.mvcc_list = mvcc_list;
         }
     }
 
     for (auto edge : hdfs_data_loader_->shuffled_in_edge_) {
-        InEdgeAccessor in_e_accessor;
-        in_edge_map_.Insert(in_e_accessor, edge.id.value());
+        auto insert_result = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge()));
+        InEdgeIterator in_e_itr = insert_result.first;
 
-        VertexAccessor v_accessor;
-        vertex_map_.Find(v_accessor, edge.id.in_v);
+        VertexIterator v_itr = vertex_map_.find(edge.id.in_v);
 
         // "false" means that is_out = false, as this edge is an inE to the Vertex
-        auto* mvcc_list = v_accessor->second.ve_row_list
+        auto* mvcc_list = v_itr->second.ve_row_list
                           ->InsertInitialCell(false, edge.id.out_v, edge.label, nullptr);
 
         // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
-        in_e_accessor->second.mvcc_list = mvcc_list;
+        in_e_itr->second.mvcc_list = mvcc_list;
     }
 
     node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
@@ -225,18 +223,19 @@ void DataStorage::FillEdgeContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillEdgeContainer() finished\n");
 }
 
-READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid,
+READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstIterator& out_e_iterator, const eid_t& eid,
                                       const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, EdgeVersion& item_ref) {
     ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
-    bool found = out_edge_map_.Find(out_e_accessor, eid.value());
 
-    if (!found) {
+    out_e_iterator = out_edge_map_.find(eid.value());
+
+    if (out_e_iterator == out_edge_map_.end()) {   // Not Found
         printf("Impossible branch in DataStorage::GetOutEdgeItem\n");
         CHECK(false) << "[DataStorage] Src: " << to_string(eid.out_v) << " Dst: " << to_string(eid.in_v) << endl;;
     }
 
-    pair<bool, bool> is_visible = out_e_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, item_ref);
+    pair<bool, bool> is_visible = out_e_iterator->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, item_ref);
 
     if (!is_visible.first)
         return READ_STAT::ABORT;
@@ -246,11 +245,12 @@ READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, cons
     return READ_STAT::SUCCESS;
 }
 
-READ_STAT DataStorage::CheckVertexVisibility(const VertexConstAccessor& v_accessor, const uint64_t& trx_id,
+READ_STAT DataStorage::CheckVertexVisibility(const VertexConstIterator& v_iterator, const uint64_t& trx_id,
                                              const uint64_t& begin_time, const bool& read_only) {
     VertexMVCCItem* visible_version;
     bool exists;
-    pair<bool, bool> is_visible = v_accessor->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
+    pair<bool, bool> is_visible = v_iterator->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, exists);
+
     if (!is_visible.first)
         return READ_STAT::ABORT;
     // How to deal with "not found" is determined by the function calling it
@@ -266,10 +266,9 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     vid_t vid = pid.vid;
 
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetVPByPKey\n");
         CHECK(false);
     }
@@ -278,7 +277,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
      * of this transaction has been modified.
      * Similarly hereinafter.
      */
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         /* Update the global status of this transaction to ABORT.
          * Similarly hereinafter.
          */
@@ -286,7 +285,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+    auto stat = v_iterator->second.vp_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -297,20 +296,19 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
 READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetAllVP\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+    auto stat = v_iterator->second.vp_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -322,20 +320,19 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetVPByPKeyList\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+    auto stat = v_iterator->second.vp_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -346,20 +343,19 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
 READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<vpid_t>& ret) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetVPidList\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+    auto stat = v_iterator->second.vp_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -370,20 +366,19 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
 READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetVL\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    ret = v_accessor->second.label;
+    ret = v_iterator->second.label;
 
     return READ_STAT::SUCCESS;
 }
@@ -392,9 +387,9 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
                                    const bool& read_only, value_t& ret) {
     eid_t eid = eid_t(pid.in_vid, pid.out_vid);
 
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
@@ -419,9 +414,9 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
 
 READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
@@ -443,9 +438,9 @@ READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const 
 READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
@@ -466,9 +461,9 @@ READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& 
 
 READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<epid_t>& ret) {
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
@@ -489,9 +484,9 @@ READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, con
 
 READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
@@ -510,20 +505,19 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
                                               const uint64_t& trx_id, const uint64_t& begin_time,
                                               const bool& read_only, vector<vid_t>& ret) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetConnectedVertexList\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.ve_row_list->ReadConnectedVertex(direction, edge_label,
+    auto stat = v_iterator->second.ve_row_list->ReadConnectedVertex(direction, edge_label,
                                                                     trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
@@ -536,20 +530,19 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
                                             const uint64_t& trx_id, const uint64_t& begin_time,
                                             const bool& read_only, vector<eid_t>& ret) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::GetConnectedEdgeList\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return READ_STAT::ABORT;
     }
 
-    auto stat = v_accessor->second.ve_row_list->ReadConnectedEdge(direction, edge_label,
+    auto stat = v_iterator->second.ve_row_list->ReadConnectedEdge(direction, edge_label,
                                                                   trx_id, begin_time, read_only, ret);
 
     if (stat == READ_STAT::ABORT)
@@ -625,14 +618,13 @@ bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& 
                                         const bool& read_only, vid_t& vid) {
     // Check visibility of the vertex
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         return false;
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
         // Invisible
         return false;
     }
@@ -642,9 +634,9 @@ bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& 
 bool DataStorage::CheckEdgeVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, eid_t& eid) {
     // Check visibility of the edge
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
         // Invisible
         return false;
@@ -807,27 +799,29 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     vid_t vid = AssignVID();
 
-    VertexAccessor v_accessor;
-    vertex_map_.Insert(v_accessor, vid.value());
+    // std::pair<VertexIterator iterator, bool insert_success>
+    auto insert_result = vertex_map_.insert(pair<uint32_t, Vertex>(vid.value(), Vertex()));
+    VertexIterator v_iterator = insert_result.first;
+    CHECK(insert_result.second) << "Vid " << to_string(vid.value()) << " already exist in vertex_map_";
 
-    v_accessor->second.label = label;
-    v_accessor->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
-    v_accessor->second.ve_row_list = new TopologyRowList;
+    v_iterator->second.label = label;
+    v_iterator->second.vp_row_list = new PropertyRowList<VertexPropertyRow>;
+    v_iterator->second.ve_row_list = new TopologyRowList;
 
-    v_accessor->second.ve_row_list->Init(vid);
-    v_accessor->second.vp_row_list->Init();
+    v_iterator->second.ve_row_list->Init(vid);
+    v_iterator->second.vp_row_list->Init();
 
     auto* mvcc_list = new MVCCList<VertexMVCCItem>;
 
     // this won't fail as it's the first version in the list
     mvcc_list->AppendVersion(trx_id, begin_time)[0] = true;
 
-    v_accessor->second.mvcc_list = mvcc_list;
+    v_iterator->second.mvcc_list = mvcc_list;
 
     /* The only usage of InsertTrxHistoryMapAddV in the project,
      * since vid is needed when aborting AddV.
      */
-    InsertTrxHistoryMapAddV(trx_id, v_accessor->second.mvcc_list, v_accessor->first);
+    InsertTrxHistoryMapAddV(trx_id, v_iterator->second.mvcc_list, v_iterator->first);
 
     return vid;
 }
@@ -835,10 +829,9 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id, const uint64_t& begin_time,
                                        vector<eid_t>& in_eids, vector<eid_t>& out_eids) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::ProcessDropV\n");
         CHECK(false);
     }
@@ -851,7 +844,7 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
         return PROCESS_STAT::ABORT_DROP_V_GET_CONN_E;
     }
 
-    bool* mvcc_value_ptr = v_accessor->second.mvcc_list->AppendVersion(trx_id, begin_time);
+    bool* mvcc_value_ptr = v_iterator->second.mvcc_list->AppendVersion(trx_id, begin_time);
 
     /* If AppendVersion returns nullptr, the transaction should be aborted.
      * Similarly hereinafter.
@@ -864,7 +857,7 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
     // false means invisible
     mvcc_value_ptr[0] = false;
 
-    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_V, v_accessor->second.mvcc_list);
+    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_V, v_iterator->second.mvcc_list);
 
     // return connected edges via references of vectors (out_eids and in_eids)
     for (auto eid : all_connected_edge) {
@@ -892,8 +885,8 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
     WritePriorRWLock* erase_rwlock_;
 
-    InEdgeAccessor in_e_accessor;
-    OutEdgeAccessor out_e_accessor;
+    InEdgeIterator in_e_iterator;
+    OutEdgeIterator out_e_iterator;
     bool is_new;
     vid_t src_vid = eid.out_v, dst_vid = eid.in_v;
     vid_t conn_vid, local_vid;
@@ -914,23 +907,27 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     ReaderLockGuard edge_map_rlock_guard(*erase_rwlock_);
 
     // anyway, need to check if the vertex exists or not
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, local_vid.value());
+    VertexConstIterator v_iterator = vertex_map_.find(local_vid.value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::ProcessAddE\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return PROCESS_STAT::ABORT_ADD_E_INVISIBLE_V;
     }
 
     if (is_out) {
-        is_new = out_edge_map_.Insert(out_e_accessor, eid.value());
+        // std::pair<OutEdgeIterator itr, bool insert_occurred>
+        auto insert_result = out_edge_map_.insert(pair<uint64_t, OutEdge>(eid.value(), OutEdge()));
+        out_e_iterator = insert_result.first; 
+        is_new = insert_result.second;
     } else {
-        is_new = in_edge_map_.Insert(in_e_accessor, eid.value());
+        auto insert_result = in_edge_map_.insert(pair<uint64_t, InEdge>(eid.value(), InEdge()));
+        in_e_iterator = insert_result.first; 
+        is_new = insert_result.second;
     }
 
     MVCCList<EdgeMVCCItem>* mvcc_list;
@@ -945,19 +942,19 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
         } else {
             ep_row_list = nullptr;
         }
-        mvcc_list = v_accessor->second.ve_row_list
+        mvcc_list = v_iterator->second.ve_row_list
                     ->ProcessAddEdge(is_out, conn_vid, label, ep_row_list, trx_id, begin_time);
         if (is_out) {
-            out_e_accessor->second.mvcc_list = mvcc_list;
+            out_e_iterator->second.mvcc_list = mvcc_list;
         } else {
-            in_e_accessor->second.mvcc_list = mvcc_list;
+            in_e_iterator->second.mvcc_list = mvcc_list;
         }
     } else {
         // do not need to access VertexEdgeRow
         if (is_out) {
-            mvcc_list = out_e_accessor->second.mvcc_list;
+            mvcc_list = out_e_iterator->second.mvcc_list;
         } else {
-            mvcc_list = in_e_accessor->second.mvcc_list;
+            mvcc_list = in_e_iterator->second.mvcc_list;
         }
         EdgeVersion* e_item = mvcc_list->AppendVersion(trx_id, begin_time);
 
@@ -989,8 +986,8 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
 
     WritePriorRWLock* erase_rwlock_;
-    InEdgeConstAccessor in_e_accessor;
-    OutEdgeConstAccessor out_e_accessor;
+    InEdgeConstIterator in_e_iterator;
+    OutEdgeConstIterator out_e_iterator;
     bool found;
     vid_t src_vid = eid.out_v, dst_vid = eid.in_v;
     vid_t conn_vid;
@@ -1000,11 +997,13 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
      */
     if (is_out) {
         erase_rwlock_ = &out_edge_erase_rwlock_;
-        found = out_edge_map_.Find(out_e_accessor, eid.value());
+        out_e_iterator = out_edge_map_.find(eid.value());
+        found = (out_e_iterator != out_edge_map_.end());
         conn_vid = dst_vid;
     } else {
         erase_rwlock_ = &in_edge_erase_rwlock_;
-        found = in_edge_map_.Find(in_e_accessor, eid.value());
+        in_e_iterator = in_edge_map_.find(eid.value());
+        found = (in_e_iterator != in_edge_map_.end());
         conn_vid = src_vid;
     }
 
@@ -1017,9 +1016,9 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     MVCCList<EdgeMVCCItem>* mvcc_list;
 
     if (is_out) {
-        mvcc_list = out_e_accessor->second.mvcc_list;
+        mvcc_list = out_e_iterator->second.mvcc_list;
     } else {
-        mvcc_list = in_e_accessor->second.mvcc_list;
+        mvcc_list = in_e_iterator->second.mvcc_list;
     }
     EdgeVersion* e_item = mvcc_list->AppendVersion(trx_id, begin_time);
 
@@ -1041,21 +1040,20 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
 PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& value, value_t& old_value,
                                           const uint64_t& trx_id, const uint64_t& begin_time) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid_t(pid.vid).value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid_t(pid.vid).value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::ProcessModifyVP\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return PROCESS_STAT::ABORT_MODIFY_VP_INVISIBLE_V;
     }
 
     // Modify the property in vp_row_list
-    auto ret = v_accessor->second.vp_row_list->ProcessModifyProperty(pid, value, old_value, trx_id, begin_time);
+    auto ret = v_iterator->second.vp_row_list->ProcessModifyProperty(pid, value, old_value, trx_id, begin_time);
 
     // ret.second: pointer of MVCCList<VP>
     if (ret.second == nullptr) {
@@ -1077,9 +1075,9 @@ PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& valu
 
 PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value,
                                           const uint64_t& trx_id, const uint64_t& begin_time) {
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -1114,21 +1112,20 @@ PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& valu
 
 PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-    VertexConstAccessor v_accessor;
-    bool found = vertex_map_.Find(v_accessor, vid_t(pid.vid).value());
+    VertexConstIterator v_iterator = vertex_map_.find(vid_t(pid.vid).value());
 
-    if (!found) {
+    if (v_iterator == vertex_map_.end()) {
         printf("Impossible branch in DataStorage::ProcessDropVP\n");
         CHECK(false);
     }
 
-    if (CheckVertexVisibility(v_accessor, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
+    if (CheckVertexVisibility(v_iterator, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return PROCESS_STAT::ABORT_DROP_VP_INVISIBLE_V;
     }
 
     // ret: pointer of MVCCList<VP>
-    auto ret = v_accessor->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time, old_value);
+    auto ret = v_iterator->second.vp_row_list->ProcessDropProperty(pid, trx_id, begin_time, old_value);
 
     if (ret == nullptr) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -1141,9 +1138,9 @@ PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_i
 }
 
 PROCESS_STAT DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
-    OutEdgeConstAccessor out_e_accessor;
+    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeItem(out_e_accessor, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
+    auto read_stat = GetOutEdgeItem(out_e_iterator, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -1267,23 +1264,26 @@ void DataStorage::Abort(const uint64_t& trx_id) {
             if (process_item.type == TrxProcessHistory::PROCESS_ADD_V) {
                 // access the item in the v_map
                 ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-                VertexAccessor v_accessor;
-                vertex_map_.Find(v_accessor, vid_map_ref[v_mvcc_list]);
+                VertexIterator v_iterator = vertex_map_.find(vid_map_ref[v_mvcc_list]);
+
+                if (v_iterator == vertex_map_.end()) {
+                    CHECK(false) << "[DataStorage] Cannot find vertex when aborting";
+                }
 
                 // Attached eid need to be deleted; GC will handle it
                 vector<pair<eid_t, bool>> * deletable_eids = new vector<pair<eid_t, bool>>();
                 vid_t vid;
                 uint2vid_t(vid_map_ref[v_mvcc_list], vid);
-                v_accessor->second.ve_row_list->SelfGarbageCollect(vid, deletable_eids);
+                v_iterator->second.ve_row_list->SelfGarbageCollect(vid, deletable_eids);
                 garbage_collector_->PushGCAbleEidToQueue(deletable_eids);
 
-                delete v_accessor->second.ve_row_list;
-                v_accessor->second.ve_row_list = nullptr;
-                v_accessor->second.vp_row_list->SelfGarbageCollect();
-                delete v_accessor->second.vp_row_list;
-                v_accessor->second.vp_row_list = nullptr;
-                v_accessor->second.mvcc_list->SelfGarbageCollect();
-                // do not delete v_accessor->second.mvcc_list
+                delete v_iterator->second.ve_row_list;
+                v_iterator->second.ve_row_list = nullptr;
+                v_iterator->second.vp_row_list->SelfGarbageCollect();
+                delete v_iterator->second.vp_row_list;
+                v_iterator->second.vp_row_list = nullptr;
+                v_iterator->second.mvcc_list->SelfGarbageCollect();
+                // do not delete v_iterator->second.mvcc_list
             }
         } else if (process_item.type == TrxProcessHistory::PROCESS_ADD_E ||
                    process_item.type == TrxProcessHistory::PROCESS_DROP_E) {

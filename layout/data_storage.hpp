@@ -12,6 +12,8 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <unordered_set>
 #include <vector>
 
+#include "tbb/concurrent_unordered_map.h"
+
 #include "core/factory.hpp"
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
@@ -21,7 +23,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/property_row_list.hpp"
 #include "layout/row_definition.hpp"
 #include "layout/topology_row_list.hpp"
-#include "utils/concurrent_unordered_map.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
 #include "utils/tid_mapper.hpp"
@@ -93,22 +94,22 @@ class DataStorage {
     /* the MVCCList<EdgeMVCCItem>* pointer will be the same in the EdgeHeader in
      * corresponding Vertex's ve_row_list
      */
-    ConcurrentUnorderedMap<uint64_t, OutEdge> out_edge_map_;
-    ConcurrentUnorderedMap<uint64_t, InEdge> in_edge_map_;
+    tbb::concurrent_unordered_map<uint64_t, OutEdge> out_edge_map_;
+    tbb::concurrent_unordered_map<uint64_t, InEdge> in_edge_map_;
     // since edge properties are attached to out_e, the in_e instance does not record any properties
-    typedef ConcurrentUnorderedMap<uint64_t, OutEdge>::accessor OutEdgeAccessor;
-    typedef ConcurrentUnorderedMap<uint64_t, OutEdge>::const_accessor OutEdgeConstAccessor;
-    typedef ConcurrentUnorderedMap<uint64_t, InEdge>::accessor InEdgeAccessor;
-    typedef ConcurrentUnorderedMap<uint64_t, InEdge>::const_accessor InEdgeConstAccessor;
+    typedef tbb::concurrent_unordered_map<uint64_t, OutEdge>::iterator OutEdgeIterator;
+    typedef tbb::concurrent_unordered_map<uint64_t, OutEdge>::const_iterator OutEdgeConstIterator;
+    typedef tbb::concurrent_unordered_map<uint64_t, InEdge>::iterator InEdgeIterator;
+    typedef tbb::concurrent_unordered_map<uint64_t, InEdge>::const_iterator InEdgeConstIterator;
     // the vid of Vertex is unique
-    ConcurrentUnorderedMap<uint32_t, Vertex> vertex_map_;
-    typedef ConcurrentUnorderedMap<uint32_t, Vertex>::accessor VertexAccessor;
-    typedef ConcurrentUnorderedMap<uint32_t, Vertex>::const_accessor VertexConstAccessor;
+    tbb::concurrent_unordered_map<uint32_t, Vertex> vertex_map_;
+    typedef tbb::concurrent_unordered_map<uint32_t, Vertex>::iterator VertexIterator;
+    typedef tbb::concurrent_unordered_map<uint32_t, Vertex>::const_iterator VertexConstIterator;
     // These three locks are only used to avoid conflict between
     // erase operator (always batch erase) and others (insert, find);
     // write_lock -> erase
     // read_lock -> others
-    // concurrency for others is guaranteed by ConcurrentUnorderedMap
+    // concurrency for others is guaranteed by concurrent_unordered_map
     WritePriorRWLock vertex_map_erase_rwlock_;
     WritePriorRWLock out_edge_erase_rwlock_;
     WritePriorRWLock in_edge_erase_rwlock_;
@@ -156,10 +157,10 @@ class DataStorage {
     TrxTableStub * trx_table_stub_ = nullptr;
 
     // e_accessor and item_ref will be modified
-    READ_STAT GetOutEdgeItem(OutEdgeConstAccessor& out_e_accessor, const eid_t& eid, const uint64_t& trx_id,
+    READ_STAT GetOutEdgeItem(OutEdgeConstIterator& out_e_iterator, const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, EdgeVersion& item_ref);
 
-    READ_STAT CheckVertexVisibility(const VertexConstAccessor& v_accessor, const uint64_t& trx_id,
+    READ_STAT CheckVertexVisibility(const VertexConstIterator& v_iterator, const uint64_t& trx_id,
                                     const uint64_t& begin_time, const bool& read_only);
 
     friend class GCProducer;
