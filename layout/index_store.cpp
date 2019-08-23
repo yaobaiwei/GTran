@@ -502,14 +502,15 @@ void IndexStore::MoveTopoBufferToRegion(const uint64_t & trx_id, const uint64_t 
 }
 
 void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t & ct) {
-    up_buf_const_accessor cac;
+    up_buf_accessor ac;
     // VP
-    if (vp_update_buffers.find(cac, trx_id)) {
+    if (vp_update_buffers.find(ac, trx_id)) {
         prop_up_map_accessor pac;
-        for (auto & up_elem : cac->second) {
+        for (auto & up_elem : ac->second) {
             uint64_t vid = up_elem.element_id >> PID_BITS;
             uint64_t pid = up_elem.element_id - (vid << PID_BITS);
             up_elem.set_ct(ct);
+            up_elem.element_id = vid;
 
             vp_update_map.insert(pac, pid);
 
@@ -519,16 +520,17 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
                 pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
             }
         }
-        vp_update_buffers.erase(cac);
+        vp_update_buffers.erase(ac);
     }
 
     // EP
-    if (ep_update_buffers.find(cac, trx_id)) {
+    if (ep_update_buffers.find(ac, trx_id)) {
         prop_up_map_accessor pac;
-        for (auto & up_elem : cac->second) {
+        for (auto & up_elem : ac->second) {
             uint64_t eid = up_elem.element_id >> PID_BITS;
             uint64_t pid = up_elem.element_id - (eid << PID_BITS);
             up_elem.set_ct(ct);
+            up_elem.element_id = eid;
 
             ep_update_map.insert(pac, pid);
 
@@ -538,7 +540,7 @@ void IndexStore::MovePropBufferToRegion(const uint64_t & trx_id, const uint64_t 
                 pac->second.emplace(up_elem.value, vector<update_element>{up_elem});
             }
         }
-        ep_update_buffers.erase(cac);
+        ep_update_buffers.erase(ac);
     }
 }
 
