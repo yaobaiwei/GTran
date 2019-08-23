@@ -378,10 +378,11 @@ void IndexStore::PropSelfGarbageCollect(const uint64_t& threshold, const int& pi
         auto up_elem_itr = pair.second.begin();
         while (up_elem_itr != pair.second.end()) {
             if (up_elem_itr->ct < threshold && up_elem_itr->ct != 0) {
-                epid_t epid; value_t eid_value_t;
-                uint2epid_t(up_elem_itr->element_id, epid);
-
-                eid_t eid(epid.in_vid, epid.out_vid);
+                // epid_t epid;
+                eid_t eid;
+                value_t eid_value_t;
+                uint2eid_t(up_elem_itr->element_id, eid);
+                // eid_t eid(epid.in_vid, epid.out_vid);
                 Tool::uint64_t2value_t(eid.value(), eid_value_t);
 
                 if (up_elem_itr->update_type == PropertyUpdateT::ADD) {
