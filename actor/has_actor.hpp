@@ -166,6 +166,8 @@ class HasActor : public AbstractActor {
             if (read_status == READ_STAT::ABORT) {
                 read_success = false;
                 return false;
+            } else if (read_status == READ_STAT::NOTFOUND) {
+                return true;  // Erase
             }
 
             for (auto & pred_pair : pred_chain) {
@@ -232,6 +234,8 @@ class HasActor : public AbstractActor {
             if (read_status == READ_STAT::ABORT) {
                 read_success = false;
                 return false;
+            } else if (read_status == READ_STAT::NOTFOUND) {
+                return true;  // Erase
             }
 
             for (auto & pred_pair : pred_chain) {

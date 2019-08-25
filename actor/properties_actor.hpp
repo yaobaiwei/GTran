@@ -143,6 +143,8 @@ class PropertiesActor : public AbstractActor {
 
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto vp_kv_pair : vp_kv_pair_list) {
@@ -182,6 +184,8 @@ class PropertiesActor : public AbstractActor {
 
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto ep_kv_pair : ep_kv_pair_list) {

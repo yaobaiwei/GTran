@@ -158,6 +158,8 @@ class TraversalActor : public AbstractActor {
                                         GetConnectedVertexList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, v_nbs);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto & neighbor : v_nbs) {
@@ -186,6 +188,8 @@ class TraversalActor : public AbstractActor {
                                         GetConnectedEdgeList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, e_nbs);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto & neighbor : e_nbs) {
