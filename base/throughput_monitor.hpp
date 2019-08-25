@@ -6,6 +6,8 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #ifndef BASE_THROUGHPUT_MONITOR_HPP_
 #define BASE_THROUGHPUT_MONITOR_HPP_
 
+#include <stdio.h>
+
 #include <algorithm>
 #include <map>
 #include <vector>
@@ -31,6 +33,8 @@ class ThroughputMonitor {
         last_cnt_ = 0;
         start_time_ = last_time_ = timer::get_usec();
         is_emu_ = true;
+
+        thpt_info = "";
     }
 
     void StopEmu() {
@@ -153,14 +157,26 @@ class ThroughputMonitor {
     }
 
     // print the throughput of a fixed interval
-    void PrintThroughput() {
+    void PrintThroughput(int node_id) {
         uint64_t now = timer::get_usec();
         // periodically print timely throughput
         if ((now - last_time_) > interval) {
             double cur_thpt = 1000.0 * (num_completed_ - last_cnt_) / (now - last_time_);
-            cout << "Throughput: " << cur_thpt << "K queries/sec with abort rate: " << (double) num_aborted_ * 100 / num_completed_ << "%" << endl;
+            string info = "Throughput: " + to_string(cur_thpt) + "K queries/sec with abort rate: " + to_string((double) num_aborted_ * 100 / num_completed_) + "%\n";
+            if(node_id == 0) { cout << info; }
+
+            thpt_info += info;
+
             last_time_ = now;
             last_cnt_ = num_completed_;
+        }
+    }
+
+    void PrintThptToFile(int node_id) {
+        if (thpt_info != "") {
+            string ofname = "Thpt_Record_" + to_string(node_id) + ".txt";
+            ofstream ofs(ofname, ofstream::out);
+            ofs << thpt_info;
         }
     }
 
@@ -170,6 +186,8 @@ class ThroughputMonitor {
     uint64_t num_aborted_;
     bool is_emu_;
     mutex thread_mutex_;
+
+    string thpt_info;
 
     // timer related
     uint64_t last_cnt_;

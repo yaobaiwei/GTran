@@ -369,9 +369,7 @@ class Worker {
             ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
 
-            if (is_main_worker) {
-                thpt_monitor_->PrintThroughput();
-            }
+            thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
         }
         thpt_monitor_->StopEmu();
 
@@ -426,6 +424,8 @@ class Worker {
             slave_gather(my_node_, false, num_completed_trx);
             slave_gather(my_node_, false, num_aborted_trx);
         }
+
+        thpt_monitor_->PrintThptToFile(my_node_.get_local_rank());
 
         // output all commited_queries to file
         string ofname = "Thpt_Queries_" + to_string(my_node_.get_local_rank()) + ".txt";
