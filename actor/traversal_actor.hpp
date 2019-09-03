@@ -62,6 +62,7 @@ class TraversalActor : public AbstractActor {
             // Record Input Set
             for (auto & data_pair : msg.data) {
                 v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
+                PushToRWRecord(qplan.trxid, data_pair.second.size(), true);
             }
         }
 

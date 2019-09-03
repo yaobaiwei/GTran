@@ -127,6 +127,7 @@ class PropertiesActor : public AbstractActor {
     bool get_properties_for_vertex(const QueryPlan & qplan, int tid, const vector<label_t> & key_list,
                                    vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
+            PushToRWRecord(qplan.trxid, pair.second.size(), true);
             vector<std::pair<uint64_t, string>> result;
             vector<value_t> newData;
 
@@ -166,6 +167,7 @@ class PropertiesActor : public AbstractActor {
     bool get_properties_for_edge(const QueryPlan & qplan, int tid, const vector<label_t> & key_list,
                                  vector<pair<history_t, vector<value_t>>>& data) {
         for (auto & pair : data) {
+            PushToRWRecord(qplan.trxid, pair.second.size(), true);
             vector<std::pair<uint64_t, string>> result;
             vector<value_t> newData;
 

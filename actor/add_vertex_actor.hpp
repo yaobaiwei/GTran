@@ -79,6 +79,9 @@ class AddVertexActor : public AbstractActor {
             vector<value_t> newData;
             // The number of vertices to be added is the number of result from last step.
             //  If addV is the first step, the default value should be one.
+
+            // Record w_set
+            PushToRWRecord(qplan.trxid, pair.second.size(), false);
             for (auto & vertex : pair.second) {
                 vid_t new_v_id = data_storage_->ProcessAddV(label_id, qplan.trxid, qplan.st);
                 value_t new_val;

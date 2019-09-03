@@ -20,6 +20,9 @@ void AddEdgeActor::process(const QueryPlan & qplan, Message & msg) {
 
     string abort_info;
     for (auto & pair : msg.data) {
+        // Record Write Set
+        PushToRWRecord(qplan.trxid, pair.second.size(), false);
+
         vector<value_t>::iterator itr = pair.second.begin();
         do {
             eid_t e_id;
