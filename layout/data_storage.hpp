@@ -72,6 +72,7 @@ struct TrxProcessHistory {
 class GCProducer;
 class GCConsumer;
 class GarbageCollector;
+class ThroughputMonitor;
 
 class DataStorage {
  private:
@@ -165,6 +166,7 @@ class DataStorage {
 
     friend class GCProducer;
     friend class GCConsumer;
+    friend class ThroughputMonitor;
 
  public:
     // data access of vertices

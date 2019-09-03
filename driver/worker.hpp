@@ -427,6 +427,15 @@ class Worker {
 
         thpt_monitor_->PrintThptToFile(my_node_.get_local_rank());
 
+        // Write RW set to file
+        string rw_fn = "Read_Write_Set_" + to_string(my_node_.get_local_rank()) + ".txt"; 
+        ofstream rw_ofs(rw_fn, ofstream::out);
+
+        ReadWriteRecord rw_rec;
+        while (RW_SET_RECORD_QUEUE.try_pop(rw_rec)) {
+            rw_ofs << rw_rec.DebugString();
+        }
+
         // output all commited_queries to file
         string ofname = "Thpt_Queries_" + to_string(my_node_.get_local_rank()) + ".txt";
         ofstream ofs(ofname, ofstream::out);
@@ -555,7 +564,7 @@ class Worker {
         } else {
   ERROR:
             if (is_emu_mode) {
-                cout << "[" << client_host <<  "] Parser Failed: " << query << endl;
+                cout << "[" << client_host <<  "] Parser Failed: " << query << " with error " << error_msg << endl;
             } else {
                 value_t v;
                 Tool::str2str(error_msg, v);
