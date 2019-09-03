@@ -67,6 +67,8 @@ class InitActor : public AbstractActor {
             }
         }
 
+        PushToRWRecord(qplan.trxid, init_data.size(), true);
+
         vector<Message> msg_vec;
         msg.CreateNextMsg(qplan.actors, init_data, num_thread_, core_affinity_, msg_vec);
         for (auto & msg_ : msg_vec) {

@@ -369,9 +369,7 @@ class Worker {
             ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
 
-            if (is_main_worker) {
-                thpt_monitor_->PrintThroughput();
-            }
+            thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
         }
         thpt_monitor_->StopEmu();
 
@@ -425,6 +423,17 @@ class Worker {
             slave_gather(my_node_, false, latency_map);
             slave_gather(my_node_, false, num_completed_trx);
             slave_gather(my_node_, false, num_aborted_trx);
+        }
+
+        thpt_monitor_->PrintThptToFile(my_node_.get_local_rank());
+
+        // Write RW set to file
+        string rw_fn = "Read_Write_Set_" + to_string(my_node_.get_local_rank()) + ".txt"; 
+        ofstream rw_ofs(rw_fn, ofstream::out);
+
+        ReadWriteRecord rw_rec;
+        while (RW_SET_RECORD_QUEUE.try_pop(rw_rec)) {
+            rw_ofs << rw_rec.DebugString();
         }
 
         // output all commited_queries to file
@@ -555,7 +564,7 @@ class Worker {
         } else {
   ERROR:
             if (is_emu_mode) {
-                cout << "[" << client_host <<  "] Parser Failed: " << query << endl;
+                cout << "[" << client_host <<  "] Parser Failed: " << query << " with error " << error_msg << endl;
             } else {
                 value_t v;
                 Tool::str2str(error_msg, v);

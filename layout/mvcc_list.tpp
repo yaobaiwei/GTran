@@ -33,6 +33,8 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
      *   case 6. Abort ---> Ignore
      */
 
+    if (!config_->global_enable_opt_preread) { return make_pair(false, false); }
+
     uint64_t tail_trx_id = tail_->GetTransactionID();
     assert(tail_trx_id != 0);
 

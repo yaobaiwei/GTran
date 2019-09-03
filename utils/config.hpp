@@ -96,6 +96,8 @@ class Config{
     bool global_enable_indexing;
     bool global_enable_workstealing;
     bool global_enable_garbage_collect;
+    bool global_enable_opt_preread;
+    bool global_enable_opt_validation;
 
 
     int max_data_size;
@@ -502,6 +504,22 @@ class Config{
             global_enable_garbage_collect = val;
         } else {
             fprintf(stderr, "must enter the ENABLE_GARBAGE_COLLECT. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getboolean(ini, "SYSTEM:ENABLE_OPT_PREREAD", val_not_found);
+        if (val != val_not_found) {
+            global_enable_opt_preread = val;
+        } else {
+            fprintf(stderr, "must enter the ENABLE_OPT_PREREAD. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getboolean(ini, "SYSTEM:ENABLE_OPT_VALIDATION", val_not_found);
+        if (val != val_not_found) {
+            global_enable_opt_validation = val;
+        } else {
+            fprintf(stderr, "must enter the ENABLE_OPT_VALIDATION. exits.\n");
             exit(-1);
         }
 

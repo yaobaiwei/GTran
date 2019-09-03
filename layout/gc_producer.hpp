@@ -17,6 +17,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/index_store.hpp"
 #include "utils/config.hpp"
 #include "utils/simple_spinlock_guard.hpp"
+#include "utils/timer.hpp"
 
 /* GCProducer encapsulates methods to scan the whole data layout and generate garbage collection tasks to
  * free memory allocated for those objects that are invisible to all transactions in the system.

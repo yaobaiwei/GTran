@@ -78,6 +78,7 @@ class ConcurrentMemPool {
     void Free(ItemT* element, int tid = 0);
 
     std::string UsageString();
+    std::pair<uint64_t, uint64_t> UsageStatistic(uint64_t unit_size);  // <get_counter, free_counter>
     std::pair<OffsetT, OffsetT> GetUsage();  // <get_counter, free_counter>
 };
 

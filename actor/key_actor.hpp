@@ -131,6 +131,8 @@ class KeyActor : public AbstractActor {
                 READ_STAT read_status = data_storage_->GetVPidList(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vp_list);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto & pkey : vp_list) {
@@ -158,6 +160,8 @@ class KeyActor : public AbstractActor {
                 READ_STAT read_status = data_storage_->GetEPidList(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, ep_list);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto & pkey : ep_list) {

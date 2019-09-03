@@ -95,6 +95,8 @@ class LabelActor : public AbstractActor {
                 READ_STAT read_status = data_storage_->GetVL(v_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
                 string keyStr;
                 data_storage_->GetNameFromIndex(Index_T::V_LABEL, label, keyStr);
@@ -120,6 +122,8 @@ class LabelActor : public AbstractActor {
                 READ_STAT read_status = data_storage_->GetEL(e_id, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
                 string keyStr;
                 data_storage_->GetNameFromIndex(Index_T::E_LABEL, label, keyStr);

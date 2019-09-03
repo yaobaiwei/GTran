@@ -16,13 +16,33 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <string>
 #include <utility>
 
+#include "tbb/concurrent_queue.h"
+
 #include "base/node.hpp"
+#include "base/thread_safe_queue.hpp"
 
 enum MSG {
     START = 0,
     TERMINATE = 1,
     REPORT = 2,
     DONE = 3
+};
+
+struct ReadWriteRecord {
+    uint64_t trxid;
+    bool isRead;  // 0 for write_set, 1 for read_set
+    int size;
+
+
+    void record(uint64_t trxid_, int size_, bool isRead_) {
+        trxid = trxid_;
+        size = size_;
+        isRead = isRead_;
+    }
+
+    string DebugString() {
+        return to_string(trxid) + "\t" + (isRead ? "0" : "1") + "\t" + to_string(size) + "\n";
+    }
 };
 
 #define MASTER_RANK 0
@@ -33,6 +53,10 @@ const int MSCOMMUN_CHANNEL = 202;
 const int MINBT_REQUEST_CHANNEL = 203;
 const int MINBT_REPLY_CHANNEL = 204;
 const int COMMUN_TIME = 1;
+
+// ============================
+extern tbb::concurrent_queue<ReadWriteRecord> RW_SET_RECORD_QUEUE;
+void PushToRWRecord(uint64_t trxid, int size, bool is_read);
 
 // ============================
 

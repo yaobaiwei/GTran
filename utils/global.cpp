@@ -5,6 +5,15 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 #include "utils/global.hpp"
 
+tbb::concurrent_queue<ReadWriteRecord> RW_SET_RECORD_QUEUE;
+
+void PushToRWRecord(uint64_t trxid, int size, bool is_read) {
+    ReadWriteRecord rw_record;
+    rw_record.record(trxid, size, is_read);
+
+    RW_SET_RECORD_QUEUE.push(rw_record);
+}
+
 void InitMPIComm(int* argc, char*** argv, Node & node) {
     int provided;
     MPI_Init_thread(argc, argv, MPI_THREAD_MULTIPLE, &provided);

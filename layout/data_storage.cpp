@@ -231,8 +231,7 @@ READ_STAT DataStorage::GetOutEdgeItem(OutEdgeConstIterator& out_e_iterator, cons
     out_e_iterator = out_edge_map_.find(eid.value());
 
     if (out_e_iterator == out_edge_map_.end()) {   // Not Found
-        printf("Impossible branch in DataStorage::GetOutEdgeItem\n");
-        CHECK(false) << "[DataStorage] Src: " << to_string(eid.out_v) << " Dst: " << to_string(eid.in_v) << endl;;
+        return READ_STAT::NOTFOUND;
     }
 
     pair<bool, bool> is_visible = out_e_iterator->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, item_ref);
@@ -269,8 +268,7 @@ READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, co
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetVPByPKey\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     /* Check if the vertex with given vid is invisible, which means that the read dependency (vertex)
@@ -299,8 +297,7 @@ READ_STAT DataStorage::GetAllVP(const vid_t& vid, const uint64_t& trx_id, const 
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetAllVP\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -323,8 +320,7 @@ READ_STAT DataStorage::GetVPByPKeyList(const vid_t& vid, const vector<label_t>& 
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetVPByPKeyList\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -346,8 +342,7 @@ READ_STAT DataStorage::GetVPidList(const vid_t& vid, const uint64_t& trx_id, con
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetVPidList\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -369,8 +364,7 @@ READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetVL\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -508,8 +502,7 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetConnectedVertexList\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -533,8 +526,7 @@ READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edg
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::GetConnectedEdgeList\n");
-        CHECK(false);
+        return READ_STAT::NOTFOUND;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, read_only) != READ_STAT::SUCCESS) {
@@ -832,14 +824,13 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::ProcessDropV\n");
-        CHECK(false);
+        return PROCESS_STAT::SUCCESS;
     }
 
     vector<eid_t> all_connected_edge;
     auto read_stat = GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge);
 
-    if (read_stat == READ_STAT::ABORT) {
+    if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return PROCESS_STAT::ABORT_DROP_V_GET_CONN_E;
     }
@@ -910,8 +901,8 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     VertexConstIterator v_iterator = vertex_map_.find(local_vid.value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::ProcessAddE\n");
-        CHECK(false);
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+        return PROCESS_STAT::ABORT_ADD_E_INVISIBLE_V;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
@@ -1043,8 +1034,8 @@ PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& valu
     VertexConstIterator v_iterator = vertex_map_.find(vid_t(pid.vid).value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::ProcessModifyVP\n");
-        CHECK(false);
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+        return PROCESS_STAT::ABORT_MODIFY_VP_INVISIBLE_V;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, false) != READ_STAT::SUCCESS) {
@@ -1115,8 +1106,8 @@ PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_i
     VertexConstIterator v_iterator = vertex_map_.find(vid_t(pid.vid).value());
 
     if (v_iterator == vertex_map_.end()) {
-        printf("Impossible branch in DataStorage::ProcessDropVP\n");
-        CHECK(false);
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+        return PROCESS_STAT::ABORT_DROP_VP_INVISIBLE_V;
     }
 
     if (CheckVertexVisibility(v_iterator, trx_id, begin_time, false) != READ_STAT::SUCCESS) {

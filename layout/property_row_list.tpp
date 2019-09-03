@@ -572,6 +572,11 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
         auto& cell_ref = current_row->cells_[cell_id_in_row];
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
+        if (mvcc_list == nullptr) {
+            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_ITEM_COUNT), cell_id_in_row);
+            continue;
+        }
+
         if (mvcc_list->GetHead() == nullptr) {
             // gc cell, record to empty cell
             empty_cell_queue.emplace((int) (i / PropertyRow::ROW_ITEM_COUNT), cell_id_in_row);
@@ -604,6 +609,10 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
 
         auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
+
+        if (mvcc_list == nullptr) {
+            continue;
+        }
 
         if (mvcc_list->GetHead() != nullptr) {
             num_movable_cell--;

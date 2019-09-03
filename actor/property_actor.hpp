@@ -129,6 +129,7 @@ class PropertyActor : public AbstractActor {
             int propertyId, value_t new_val, vector<pair<uint64_t, value_t>> & update_data) {
         PROCESS_STAT process_stat;
         for (auto & pair : data) {
+            PushToRWRecord(qplan.trxid, pair.second.size(), false);
             for (auto & val : pair.second) {
                 vpid_t vpid(Tool::value_t2int(val), propertyId);
                 value_t old_val = value_t();
@@ -147,6 +148,7 @@ class PropertyActor : public AbstractActor {
             int propertyId, value_t new_val, vector<pair<uint64_t, value_t>> & update_data) {
         PROCESS_STAT process_stat;
         for (auto & pair : data) {
+            PushToRWRecord(qplan.trxid, pair.second.size(), false);
             for (auto & val : pair.second) {
                 eid_t eid;
                 uint2eid_t(Tool::value_t2uint64_t(val), eid);

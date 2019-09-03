@@ -62,6 +62,7 @@ class TraversalActor : public AbstractActor {
             // Record Input Set
             for (auto & data_pair : msg.data) {
                 v_obj.RecordInputSetValueT(qplan.trxid, actor_obj.index, inType, data_pair.second, m.step == 1 ? true : false);
+                PushToRWRecord(qplan.trxid, data_pair.second.size(), true);
             }
         }
 
@@ -158,6 +159,8 @@ class TraversalActor : public AbstractActor {
                                         GetConnectedVertexList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, v_nbs);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto & neighbor : v_nbs) {
@@ -186,6 +189,8 @@ class TraversalActor : public AbstractActor {
                                         GetConnectedEdgeList(cur_vtx_id, lid, dir, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, e_nbs);
                 if (read_status == READ_STAT::ABORT) {
                     return false;
+                } else if (read_status == READ_STAT::NOTFOUND) {
+                    continue;
                 }
 
                 for (auto & neighbor : e_nbs) {

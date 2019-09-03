@@ -61,6 +61,7 @@ PROCESS_STAT DropActor::processDrop(const QueryPlan & qplan, vector<pair<history
     vector<value_t> newData;  // For dropV, store connected edge
     PROCESS_STAT process_stat;
     for (auto & pair : data) {
+        PushToRWRecord(qplan.trxid, pair.second.size(), false);
         for (auto & val : pair.second) {
             if (elem_type == Element_T::VERTEX) {
                 if (isProperty) {
