@@ -87,18 +87,24 @@ bool GCTaskDAG::InsertTopoRowListGCTask(TopoRowListGCTask* task) {
 
         // Delete all downstream task
         for (auto task_ptr : self->downstream_tasks_) {
-            if (typeid(*task_ptr) == typeid(TopoRowListDefragTask)) {
-                if (!gc_producer_->topo_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
-                    task->blocked_count_ += 1;
-                    task->task_status_ = TaskStatus::BLOCKED;
-                }
-            } else if (typeid(*task_ptr) == typeid(EPRowListDefragTask)) {
-                if (!gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
-                    task->blocked_count_ += 1;
-                    task->task_status_ = TaskStatus::BLOCKED;
-                }
-            } else {
-                cout << "[GCProducer] Unexpected type for downstream task store in InsertTopoRowListGCTask" << endl;
+            bool success_for_topo = false;
+            bool success_for_ep = false;
+            if (gc_producer_->topo_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
+                success_for_topo = true;
+            }
+
+            if (gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
+                success_for_ep = true;
+            }
+
+            // Impossible success in both
+            CHECK(!(success_for_ep && success_for_topo));
+
+            // Both failed, blocked
+            if (!(success_for_topo || success_for_ep)) {
+                // NotFound in both or been pushed in at least one 
+                task->blocked_count_ += 1;
+                task->task_status_ = TaskStatus::BLOCKED;
             }
         }
 
@@ -153,7 +159,6 @@ bool GCTaskDAG::InsertEPRowListGCTask(EPRowListGCTask* task) {
 
         // Delete all downstream task
         for (auto task_ptr : self->downstream_tasks_) {
-            CHECK(typeid(*task_ptr) == typeid(EPRowListDefragTask));
             if (!gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
                 task->blocked_count_ += 1;
                 task->task_status_ = TaskStatus::BLOCKED;
@@ -195,7 +200,7 @@ bool GCTaskDAG::InsertEPRowListDefragTask(EPRowListDefragTask* task) {
     if (ep_row_dep_exist) {
         EPRowListGCTask* ep_dep_task = ep_row_list_gc_tasks_map.at(task->id);
         if (ep_dep_task->task_status_ == TaskStatus::EMPTY) {
-            ep_row_dep_empty = false;
+            ep_row_dep_empty = true;
         } else {
             return false;
         }
@@ -359,6 +364,7 @@ void GCProducer::Stop() {
 void GCProducer::Execute() {
     while (true) {
         // Do Scan with DFS for whole datastorage
+        uint64_t start_time = timer::get_usec();
         scan_vertex_map();
 
         // Scan Index Store
@@ -367,6 +373,10 @@ void GCProducer::Execute() {
 
         // Scan RCT
         scan_rct();
+
+        uint64_t end_time = timer::get_usec();
+
+        cout << "[GCProducer] Scan Time: " << ((end_time - start_time) / 1000) << "ms" << endl;
 
         // Currently, sleep for a while and the do next scan
         sleep(SCAN_PERIOD);

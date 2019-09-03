@@ -345,6 +345,12 @@ bool ValidationActor::do_step_validation(uint64_t cur_trxID, step2TrxRct_map_t_ 
             // Get related Actor Object and invoke valid()
             if (!actors_->at(static_cast<ACTOR_T>(each_step.first.actor_type))->
                     valid(cur_trxID, step_aobj_map.at(each_step.first), each_rct_trx.second)) {
+                // Conflict, if no opt_validation, abort
+                if (!config_->global_enable_opt_validation) {
+                    trx_table_stub_->update_status(cur_trxID, TRX_STAT::ABORT);
+                    return true;
+                }
+
                 // Failed, there is conflict, check rct_trx status
                 TRX_STAT cur_stat;
                 trx_table_stub_->read_status(each_rct_trx.first, cur_stat);

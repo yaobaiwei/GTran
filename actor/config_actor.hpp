@@ -74,6 +74,10 @@ class ConfigActor : public AbstractActor {
                 s += "1. SERIALIZABLE\n";
                 s += "2. SNAPSHOT\n";
             }
+        } else if (config_name == "opt_preread") {
+            config_->global_enable_opt_preread = enable;
+        } else if (config_name == "opt_validation") {
+            config_->global_enable_opt_validation = enable;
         } else {
             s = "Config name should be: ";
             s += "1. caching\n";
@@ -83,6 +87,9 @@ class ConfigActor : public AbstractActor {
             s += "5. indexing\n";
             s += "6. stealing\n";
             s += "7. data_size\n";
+            s += "8. opt_preread\n";
+            s += "9. opt_validation\n";
+            s += "10. iso_level(Not Support Yet)\n";
         }
 
         s += "\n";
@@ -93,7 +100,10 @@ class ConfigActor : public AbstractActor {
         s += "Indexing : " + string(config_->global_enable_indexing ? "True" : "False") + "\n";
         s += "Stealing : " + string(config_->global_enable_workstealing ? "True" : "False") + "\n";
         s += "Max Data Size: " + to_string(config_->max_data_size) + "\n";
+        s += "OptPreread : " + string(config_->global_enable_opt_preread ? "True" : "False") + "\n";
+        s += "OptValidation : " + string(config_->global_enable_opt_validation ? "True" : "False") + "\n";
         s += "Isolation Level: " + string((config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) ? "SERIALIZABLE" : "SNAPSHOT") + "\n";
+
         if (m.recver_nid == m.parent_nid) {
             value_t v;
             Tool::str2str(s, v);
