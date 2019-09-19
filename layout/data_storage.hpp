@@ -79,10 +79,7 @@ class DataStorage {
     DataStorage() {}
     DataStorage(const DataStorage&);
 
-    bool ReadSnapshot();  // atomic, all or nothing
-    void WriteSnapshot();
     void CreateContainer();
-    // since MVCC is used, the initial data will be treated as the first version
     void FillVertexContainer();
     void FillEdgeContainer();
 
@@ -102,7 +99,7 @@ class DataStorage {
     typedef tbb::concurrent_unordered_map<uint64_t, OutEdge>::const_iterator OutEdgeConstIterator;
     typedef tbb::concurrent_unordered_map<uint64_t, InEdge>::iterator InEdgeIterator;
     typedef tbb::concurrent_unordered_map<uint64_t, InEdge>::const_iterator InEdgeConstIterator;
-    // the vid of Vertex is unique
+
     tbb::concurrent_unordered_map<uint32_t, Vertex> vertex_map_;
     typedef tbb::concurrent_unordered_map<uint32_t, Vertex>::iterator VertexIterator;
     typedef tbb::concurrent_unordered_map<uint32_t, Vertex>::const_iterator VertexConstIterator;
@@ -194,9 +191,7 @@ class DataStorage {
     READ_STAT GetEL(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                     const bool& read_only, label_t& ret);
 
-    /* do not need to implement GetInV and GetOutV of EdgeVersion since eid_t contains in_v and out_v
-     * if edge_label == 0, then do not filter by edge_label
-     */
+    // if edge_label == 0, do not filter by edge_label
     READ_STAT GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                      const uint64_t& trx_id, const uint64_t& begin_time,
                                      const bool& read_only, vector<vid_t>& ret);
@@ -204,7 +199,6 @@ class DataStorage {
                                    const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<eid_t>& ret);
 
-    // TODO(entityless): Figure out how to run two functions efficiently
     READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
                              const bool& read_only, vector<vid_t>& ret);
     READ_STAT GetAllEdges(const uint64_t& trx_id, const uint64_t& begin_time,
@@ -247,7 +241,6 @@ class DataStorage {
     }
 
     // aggregated data related
-    // TODO(entityless): Optimize this, as these implementations are extremely inefficient
     void InsertAggData(agg_t key, vector<value_t> & data);
     void GetAggData(agg_t key, vector<value_t> & data);
     void DeleteAggData(uint64_t qid);
