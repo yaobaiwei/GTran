@@ -7,6 +7,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include <cstdio>
 
+#include "core/common.hpp"
 #include "layout/mvcc_value_store.hpp"
 #include "layout/layout_type.hpp"
 #include "utils/tid_mapper.hpp"
@@ -26,17 +27,17 @@ struct AbstractMVCCItem {
      */
     uint64_t begin_time;
     uint64_t end_time;
+    AbstractMVCCItem* next;
     /* MVCCList is not the friend class of AbstractMVCCItem, which means that
      * variable begin_time and end_time cannot be directly modified.
      */
 
  protected:
-    AbstractMVCCItem* next;
-
     // if begin_time field is not a transaction id, return 0. else, return trx_id starts from 1 | 0x8000000000000000.
-    uint64_t GetTransactionID() const {return (begin_time >> 63) * begin_time;}
+    uint64_t GetTransactionID() const {return IS_VALID_TRX_ID(begin_time) ? begin_time : 0;}
     uint64_t GetEndTime() const {return GetTransactionID() > 0 ? MIN_TIME : end_time;}
     uint64_t GetBeginTime() const {return begin_time;}
+    bool NextIsUncommitted() const {return IS_VALID_TRX_ID(end_time);}
 
     /* Init the begin_time and end_time after creating MVCCItem.
      *   Case 1. Called by AppendInitialVersion:
@@ -49,6 +50,17 @@ struct AbstractMVCCItem {
     uint64_t Init(const uint64_t& _trx_id, const uint64_t& _begin_time) {
         begin_time = _trx_id;
         end_time = _begin_time;  // notice that this is not commit time
+        next = nullptr;
+    }
+
+    void AppendNextVersion(AbstractMVCCItem* new_version) {
+        next = new_version;
+        end_time = new_version->begin_time;  // TrxID of the new_version
+    }
+
+    void AbortNextVersion() {
+        next = nullptr;
+        end_time = MAX_TIME;
     }
 
     /* During commit stage, not only the current MVCCItem need to be modified.

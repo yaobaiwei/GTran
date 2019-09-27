@@ -135,14 +135,13 @@ pair<bool, bool> MVCCList<Item>::SerializableLevelGetVisibleVersion(const uint64
 
         assert(version != tail_);
 
-        version = static_cast<Item*>(version->next);
+        version = static_cast<Item*>(version->GetNext());
     }
 
-    if (version->next == tail_ && tail_->GetTransactionID() != 0) {
+    if (version->NextIsUncommitted()) {
         pair<bool, bool> preread_visible = TryPreReadUncommittedTail(trx_id, begin_time, read_only);
         if (!preread_visible.first)
             return make_pair(false, false);
-
         if (preread_visible.second) {
             ret = tail_->val;
             return make_pair(true, true);
@@ -153,7 +152,7 @@ pair<bool, bool> MVCCList<Item>::SerializableLevelGetVisibleVersion(const uint64
     }
 
     // Non-readonly, and visible_version->next is committed
-    if (!read_only && version->next != nullptr)
+    if (!read_only && version->GetNext() != nullptr)
         return make_pair(false, false);
 
     ret = version->val;
@@ -190,7 +189,7 @@ bool MVCCList<Item>::SnapshotLevelGetVisibleVersion(const uint64_t& trx_id, cons
 
         assert(version != tail_);
 
-        version = static_cast<Item*>(version->next);
+        version = static_cast<Item*>(version->GetNext());
     }
 
     ret = version->val;
@@ -206,7 +205,6 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
         Item* head_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
         head_mvcc->Init(trx_id, begin_time);
-        head_mvcc->next = nullptr;
 
         head_ = head_mvcc;
         tail_ = head_mvcc;
@@ -238,10 +236,9 @@ decltype(Item::val)* MVCCList<Item>::AppendVersion(const uint64_t& trx_id, const
     Item* new_version = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     new_version->Init(trx_id, begin_time);
-    new_version->next = nullptr;
 
     // Append a new version
-    tail_->next = new_version;
+    tail_->AppendNextVersion(new_version);
     // Stores the original pre_tail, will be used in AbortVersion.
     tmp_pre_tail_ = pre_tail_;
 
@@ -263,7 +260,6 @@ decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
     Item* initial_mvcc = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
 
     initial_mvcc->Init(Item::MIN_TIME, Item::MAX_TIME);
-    initial_mvcc->next = nullptr;
 
     head_ = initial_mvcc;
     tail_ = initial_mvcc;
@@ -298,7 +294,7 @@ void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
 
     // More than one version in MVCCList
     if (tail_ != pre_tail_) {
-        pre_tail_->next = nullptr;
+        pre_tail_->AbortNextVersion();
 
         tail_ = pre_tail_;
         pre_tail_ = tmp_pre_tail_;
@@ -316,7 +312,7 @@ void MVCCList<Item>::SelfGarbageCollect() {
     while (head_ != nullptr) {
         if (head_->NeedGC())
             head_->ValueGC();
-        Item* tmp_next = head_->next;
+        Item* tmp_next = head_->GetNext();
         mem_pool_->Free(head_, TidMapper::GetInstance()->GetTidUnique());
         head_ = tmp_next;
     }
