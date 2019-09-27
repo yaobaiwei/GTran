@@ -179,11 +179,7 @@ void DataStorage::FillEdgeContainer() {
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
             edge_version.ep_row_list->InsertInitialCell(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
         }
-    }
 
-    // Insert inE
-
-    for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
         // check if the dst_v on this node
         if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
             auto insert_result = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge()));
