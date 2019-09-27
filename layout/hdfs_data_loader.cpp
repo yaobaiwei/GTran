@@ -351,7 +351,12 @@ void HDFSDataLoader::ToEP(char* line) {
 }
 
 void HDFSDataLoader::LoadVertexData() {
-    if (!ReadVertexSnapshot()) {
+    bool success = ReadVertexSnapshot();
+
+    // Make sure that all workers have successfully read the snapshot
+    MPI_Allreduce(MPI_IN_PLACE, &success, 1, MPI_C_BOOL, MPI_LAND, node_.local_comm);
+
+    if (!success) {
         node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadVertexSnapshot()\n");
         vector<TMPVertex>().swap(shuffled_vtx_);
         GetVertices();
@@ -363,7 +368,12 @@ void HDFSDataLoader::LoadVertexData() {
 }
 
 void HDFSDataLoader::LoadEdgeData() {
-    if (!ReadEdgeSnapshot()) {
+    bool success = ReadEdgeSnapshot();
+
+    // Make sure that all workers have successfully read the snapshot
+    MPI_Allreduce(MPI_IN_PLACE, &success, 1, MPI_C_BOOL, MPI_LAND, node_.local_comm);
+
+    if (!success) {
         node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadEdgeSnapshot()\n");
         vector<TMPOutEdge>().swap(shuffled_out_edge_);
         vector<TMPInEdge>().swap(shuffled_in_edge_);
@@ -378,7 +388,6 @@ bool HDFSDataLoader::ReadVertexSnapshot() {
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, ReadBySerialization))
         return false;
 
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ReadVertexSnapshot() finished\n");
     return true;
 }
 
@@ -388,7 +397,6 @@ bool HDFSDataLoader::ReadEdgeSnapshot() {
     if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, ReadBySerialization))
         return false;
 
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ReadEdgeSnapshot() finished\n");
     return true;
 }
 
