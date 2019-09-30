@@ -750,16 +750,16 @@ vid_t DataStorage::AssignVID() {
     return vid_t(vid_local * worker_size_ + worker_rank_);
 }
 
-/* For each Process function, a MVCCList instance will be modified. InsertTrxHistoryMap will record the pointer
+/* For each Process function, a MVCCList instance will be modified. InsertTrxProcessHistory will record the pointer
  * of MVCCList in corresponding trx's TrxProcessHistory, which will be necessary when calling Abort or Commit.
  */
-void DataStorage::InsertTrxHistoryMap(const uint64_t& trx_id, const TrxProcessHistory::ProcessType& type,
+void DataStorage::InsertTrxProcessHistory(const uint64_t& trx_id, const TrxProcessHistory::ProcessType& type,
                                          void* mvcc_list) {
     CHECK(type != TrxProcessHistory::PROCESS_ADD_V);
     TransactionAccessor t_accessor;
-    transaction_history_map_.insert(t_accessor, trx_id);
+    transaction_process_history_map_.insert(t_accessor, trx_id);
 
-    TrxProcessHistory::ProcessItem q_item;
+    TrxProcessHistory::ProcessRecord q_item;
     q_item.type = type;
     q_item.mvcc_list = mvcc_list;
 
@@ -767,21 +767,21 @@ void DataStorage::InsertTrxHistoryMap(const uint64_t& trx_id, const TrxProcessHi
 }
 
 /* However, if we want to abort AddV, the pointer of MVCCList is not enough, since we need to free vp_row_list
- * and ve_row_list attached to the Vertex added. InsertTrxHistoryMapAddV requires one more parameter (vid) than
- * InsertTrxHistoryMap, dedicated for ProcessAddV.
+ * and ve_row_list attached to the Vertex added. InsertTrxAddVHistory requires one more parameter (vid) than
+ * InsertTrxProcessHistory, dedicated for ProcessAddV.
  */
-void DataStorage::InsertTrxHistoryMapAddV(const uint64_t& trx_id, void* mvcc_list, vid_t vid) {
+void DataStorage::InsertTrxAddVHistory(const uint64_t& trx_id, void* mvcc_list, vid_t vid) {
     TransactionAccessor t_accessor;
-    transaction_history_map_.insert(t_accessor, trx_id);
+    transaction_process_history_map_.insert(t_accessor, trx_id);
 
-    TrxProcessHistory::ProcessItem q_item;
+    TrxProcessHistory::ProcessRecord q_item;
     q_item.type = TrxProcessHistory::PROCESS_ADD_V;
     q_item.mvcc_list = mvcc_list;
 
     t_accessor->second.process_vector.emplace_back(q_item);
 
     // this map will be used when the trx is aborted
-    t_accessor->second.addv_map[mvcc_list] = vid.value();
+    t_accessor->second.mvcclist_to_vid_map[mvcc_list] = vid.value();
 }
 
 vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time) {
@@ -810,10 +810,10 @@ vid_t DataStorage::ProcessAddV(const label_t& label, const uint64_t& trx_id, con
 
     v_iterator->second.mvcc_list = mvcc_list;
 
-    /* The only usage of InsertTrxHistoryMapAddV in the project,
+    /* The only usage of InsertTrxAddVHistory in the project,
      * since vid is needed when aborting AddV.
      */
-    InsertTrxHistoryMapAddV(trx_id, v_iterator->second.mvcc_list, v_iterator->first);
+    InsertTrxAddVHistory(trx_id, v_iterator->second.mvcc_list, v_iterator->first);
 
     return vid;
 }
@@ -848,7 +848,7 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
     // false means invisible
     mvcc_value_ptr[0] = false;
 
-    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_V, v_iterator->second.mvcc_list);
+    InsertTrxProcessHistory(trx_id, TrxProcessHistory::PROCESS_DROP_V, v_iterator->second.mvcc_list);
 
     // return connected edges via references of vectors (out_eids and in_eids)
     for (auto eid : all_connected_edge) {
@@ -966,7 +966,7 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
         e_item->ep_row_list = ep_row_list;
     }
 
-    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_ADD_E, mvcc_list);
+    InsertTrxProcessHistory(trx_id, TrxProcessHistory::PROCESS_ADD_E, mvcc_list);
 
     return PROCESS_STAT::SUCCESS;
 }
@@ -1023,7 +1023,7 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     e_item->ep_row_list = nullptr;
 
 
-    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_E, mvcc_list);
+    InsertTrxProcessHistory(trx_id, TrxProcessHistory::PROCESS_DROP_E, mvcc_list);
 
     return PROCESS_STAT::SUCCESS;
 }
@@ -1059,7 +1059,7 @@ PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& valu
     else
         process_type = TrxProcessHistory::PROCESS_ADD_VP;
 
-    InsertTrxHistoryMap(trx_id, process_type, ret.second);
+    InsertTrxProcessHistory(trx_id, process_type, ret.second);
 
     return PROCESS_STAT::SUCCESS;
 }
@@ -1096,7 +1096,7 @@ PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& valu
     else
         process_type = TrxProcessHistory::PROCESS_ADD_EP;
 
-    InsertTrxHistoryMap(trx_id, process_type, ret.second);
+    InsertTrxProcessHistory(trx_id, process_type, ret.second);
 
     return PROCESS_STAT::SUCCESS;
 }
@@ -1123,7 +1123,7 @@ PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_i
         return PROCESS_STAT::ABORT_DROP_VP_DROP;
     }
 
-    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_VP, ret);
+    InsertTrxProcessHistory(trx_id, TrxProcessHistory::PROCESS_DROP_VP, ret);
 
     return PROCESS_STAT::SUCCESS;
 }
@@ -1151,33 +1151,35 @@ PROCESS_STAT DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_i
         return PROCESS_STAT::ABORT_DROP_EP_DROP;
     }
 
-    InsertTrxHistoryMap(trx_id, TrxProcessHistory::PROCESS_DROP_EP, ret);
+    InsertTrxProcessHistory(trx_id, TrxProcessHistory::PROCESS_DROP_EP, ret);
 
     return PROCESS_STAT::SUCCESS;
 }
 
-/* Commit the transaction on this worker.
- * Operates on the MVCCList modified by the transaction:
- *      make the last version of the MVCCList visible to transactions that
- *      begin after the commit_time
+/* Commit the transaction with trx_id on this worker.
+ * For each MVCCList altered by the transaction:
+ *      Makes the last version of the MVCCList visible to transactions with begin_time > commit_time.
  */
 void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
     TransactionAccessor t_accessor;
-    if (!transaction_history_map_.find(t_accessor, trx_id)) {
+    if (!transaction_process_history_map_.find(t_accessor, trx_id)) {
         return;
     }
 
-    auto& process_vec_ref = t_accessor->second.process_vector;
+    auto& process_vector = t_accessor->second.process_vector;
 
-    // One MVCCList may be modified for multiple times in one transaction
-    // Use set to make sure that any MVCCList will only be commited once
-    unordered_set<TrxProcessHistory::ProcessItem, TrxProcessHistory::ProcessItemHash> process_set;
+    // One MVCCList could be modified for multiple times and repeadedly occur in the process_vector.
+    // However, each MVCCList just needs to be committed/aborted only once in the Commit/Abort Phase,
+    //      even if it was modified for multiple times.
+    // Thus, the set below is introduced to guarantee this.
+    unordered_set<TrxProcessHistory::ProcessRecord, TrxProcessHistory::ProcessRecordHash> touched_mvcclist_set;
 
-    for (int i = 0; i < process_vec_ref.size(); i++) {
-        auto& process_item = process_vec_ref[i];
-        if (process_set.count(process_item) > 0)
+    for (int i = 0; i < process_vector.size(); i++) {
+        auto& process_item = process_vector[i];
+        if (touched_mvcclist_set.count(process_item) > 0)
             continue;
-        process_set.emplace(process_item);
+        touched_mvcclist_set.emplace(process_item);
+
         if (process_item.type == TrxProcessHistory::PROCESS_MODIFY_VP ||
             process_item.type == TrxProcessHistory::PROCESS_ADD_VP ||
             process_item.type == TrxProcessHistory::PROCESS_DROP_VP) {
@@ -1203,23 +1205,25 @@ void DataStorage::Commit(const uint64_t& trx_id, const uint64_t& commit_time) {
         }
     }
 
-    transaction_history_map_.erase(t_accessor);
+    transaction_process_history_map_.erase(t_accessor);
 }
 
-/* Abort the transaction on this worker.
- * Operates on the MVCCList modified by the transaction:
- *      remove the version appended by the transaction.
- * For aborting AddV, ep_row_list and ve_row_list on Vertex will be freed.
+/* Abort the transaction with trx_id on this worker.
+ * For each MVCCList altered by the transaction:
+ *      Removes the last version of the MVCCList.
+ * Specifically, for aborting AddV, ep_row_list and ve_row_list on the Vertex will be freed.
  */
 void DataStorage::Abort(const uint64_t& trx_id) {
     TransactionAccessor t_accessor;
-    if (!transaction_history_map_.find(t_accessor, trx_id)) {
+    if (!transaction_process_history_map_.find(t_accessor, trx_id)) {
         return;
     }
 
-    auto& process_vec_ref = t_accessor->second.process_vector;
-    auto& vid_map_ref = t_accessor->second.addv_map;
-    unordered_set<TrxProcessHistory::ProcessItem, TrxProcessHistory::ProcessItemHash> process_set;
+    auto& process_vector = t_accessor->second.process_vector;
+
+    auto& mvcclist_to_vid_map = t_accessor->second.mvcclist_to_vid_map;
+
+    unordered_set<TrxProcessHistory::ProcessRecord, TrxProcessHistory::ProcessRecordHash> touched_mvcclist_set;
 
     /* Reverse abort.
      * Considering a special case: (Q1). Add vertex V1; (Q2). Add property VP1 on V1;
@@ -1228,12 +1232,12 @@ void DataStorage::Abort(const uint64_t& trx_id) {
      *   aborting (Q2), which will causes undefined behavior.
      *   Thus, we need to abort (Q2) before aborting (Q1).
      */
-    for (int i = process_vec_ref.size() - 1; i >= 0; i--) {
-        auto& process_item = process_vec_ref[i];
-        if (process_set.count(process_item) > 0)
+    for (int i = process_vector.size() - 1; i >= 0; i--) {
+        auto& process_item = process_vector[i];
+        if (touched_mvcclist_set.count(process_item) > 0)
             continue;
-        process_set.emplace(process_item);
-        // Pointer of MVCCList will be unique in process_set
+        touched_mvcclist_set.emplace(process_item);
+
         if (process_item.type == TrxProcessHistory::PROCESS_MODIFY_VP ||
             process_item.type == TrxProcessHistory::PROCESS_ADD_VP ||
             process_item.type == TrxProcessHistory::PROCESS_DROP_VP) {
@@ -1249,13 +1253,13 @@ void DataStorage::Abort(const uint64_t& trx_id) {
         } else if (process_item.type == TrxProcessHistory::PROCESS_DROP_V ||
                    process_item.type == TrxProcessHistory::PROCESS_ADD_V) {
             // V related
-            // New item in vertex_map will not deallocated here
+            // Notice that the erasure of vertex_map will be done by GC.
             MVCCList<VertexMVCCItem>* v_mvcc_list = process_item.mvcc_list;
             v_mvcc_list->AbortVersion(trx_id);
             if (process_item.type == TrxProcessHistory::PROCESS_ADD_V) {
                 // access the item in the v_map
                 ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
-                VertexIterator v_iterator = vertex_map_.find(vid_map_ref[v_mvcc_list]);
+                VertexIterator v_iterator = vertex_map_.find(mvcclist_to_vid_map[v_mvcc_list]);
 
                 if (v_iterator == vertex_map_.end()) {
                     CHECK(false) << "[DataStorage] Cannot find vertex when aborting";
@@ -1264,7 +1268,7 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 // Attached eid need to be deleted; GC will handle it
                 vector<pair<eid_t, bool>> * deletable_eids = new vector<pair<eid_t, bool>>();
                 vid_t vid;
-                uint2vid_t(vid_map_ref[v_mvcc_list], vid);
+                uint2vid_t(mvcclist_to_vid_map[v_mvcc_list], vid);
                 v_iterator->second.ve_row_list->SelfGarbageCollect(vid, deletable_eids);
                 garbage_collector_->PushGCAbleEidToQueue(deletable_eids);
 
@@ -1274,18 +1278,16 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 delete v_iterator->second.vp_row_list;
                 v_iterator->second.vp_row_list = nullptr;
                 v_iterator->second.mvcc_list->SelfGarbageCollect();
-                // do not delete v_iterator->second.mvcc_list
+                // Do not delete v_iterator->second.mvcc_list, since it will still be referred.
             }
         } else if (process_item.type == TrxProcessHistory::PROCESS_ADD_E ||
                    process_item.type == TrxProcessHistory::PROCESS_DROP_E) {
             // E related
-            /* If the trx allocates new item in edge_map,
-             * the item in the map will not be deallocated here.
-            */
+            // Notice that the erasure of in_edge_map and out_edge_map will be done by GC.
             MVCCList<EdgeMVCCItem>* e_mvcc_list = process_item.mvcc_list;
             e_mvcc_list->AbortVersion(trx_id);
         }
     }
 
-    transaction_history_map_.erase(t_accessor);
+    transaction_process_history_map_.erase(t_accessor);
 }

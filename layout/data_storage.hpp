@@ -28,6 +28,15 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/tid_mapper.hpp"
 #include "utils/write_prior_rwlock.hpp"
 
+/* For non-readonly transaction, arbitrary MVCCLists can be modified during the Processing Phase.
+ * In the Commit/Abort Phase, to commit or rollback the transaction, we just need pointers of modified MVCCLists.
+ *
+ * Specifically, due to the implementation, to rollback AddV operation, vid is needed beside MVCCList*.
+ *
+ * On each worker, one TrxProcessHistory object corresponds to one non-readonly transaction, and contains
+ *      all MVCCLists* and vids to be used in the Commit/Abort phase.
+ */
+
 struct TrxProcessHistory {
     enum ProcessType {
         PROCESS_ADD_V,
@@ -42,31 +51,30 @@ struct TrxProcessHistory {
         PROCESS_MODIFY_EP
     };
 
-    struct ProcessItem {
+    struct ProcessRecord {
         ProcessType type;
         void* mvcc_list;
-        ProcessItem() {}
+        ProcessRecord() {}
 
-        bool operator== (const ProcessItem& right_item) const {
+        bool operator== (const ProcessRecord& right_item) const {
             return mvcc_list == right_item.mvcc_list;
         }
     };
 
-    struct ProcessItemHash {
-        size_t operator()(const ProcessItem& _r) const {
+    struct ProcessRecordHash {
+        size_t operator()(const ProcessRecord& _r) const {
             return mymath::hash_u64((uint64_t)_r.mvcc_list);
         }
     };
 
-    std::vector<ProcessItem> process_vector;
+    std::vector<ProcessRecord> process_vector;
 
-    /* When we want to abort AddV,
-     * we need to find the Vertex in the vertex_map_,
-     * and free all elements attached to the Vertex.
-     * Thus, addv_map is used to map from mvcc_list pointer to vid,
-     * as this map will be modified in ProcessAddV function.
+    /* Mapping from MVCCList* to vid.
+     * Introduced here since aborting AddV needs both MVCCList* and vid, while ProcessRecord only records MVCCList*.
+     * Modified in DataStorage::InsertTrxAddVHistory.
+     * Used in DataStorage::Abort.
      */
-    std::unordered_map<void*, uint32_t> addv_map;
+    std::unordered_map<void*, uint32_t> mvcclist_to_vid_map;
 };
 
 class GCProducer;
@@ -133,19 +141,15 @@ class DataStorage {
     int worker_rank_, worker_size_;
     vid_t AssignVID();
 
-    /* Records the process history of a transaction in Process phase, used in Abort or Commit
-     *     uint64_t          : trx_id
-     *     TrxProcessHistory : process history
-     */
-    tbb::concurrent_hash_map<uint64_t, TrxProcessHistory> transaction_history_map_;
+    // Map of TrxProcessHistory indexed with trx_id.
+    tbb::concurrent_hash_map<uint64_t, TrxProcessHistory> transaction_process_history_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TrxProcessHistory>::accessor TransactionAccessor;
     typedef tbb::concurrent_hash_map<uint64_t, TrxProcessHistory>::const_accessor TransactionConstAccessor;
 
-    // Record process type and pointer of MVCCList.
-    // Should be called in each ProcessXXX function except ProcessAddV
-    void InsertTrxHistoryMap(const uint64_t& trx_id, const TrxProcessHistory::ProcessType& type, void* mvcc_list);
-    // Alternative of InsertTrxHistoryMap for ProcessAddV
-    void InsertTrxHistoryMapAddV(const uint64_t& trx_id, void* mvcc_list, vid_t vid);
+    // Record process type and pointer of MVCCList for non-readonly transaction.
+    void InsertTrxProcessHistory(const uint64_t& trx_id, const TrxProcessHistory::ProcessType& type, void* mvcc_list);
+    // Specifically, for AddV operation, vid need to be recorded in addition
+    void InsertTrxAddVHistory(const uint64_t& trx_id, void* mvcc_list, vid_t vid);
 
     // aggregated data related
     unordered_map<agg_t, vector<value_t>> agg_data_table;
