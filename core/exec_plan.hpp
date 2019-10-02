@@ -33,8 +33,6 @@ ibinstream& operator<<(ibinstream& m, const QueryPlan& plan);
 
 obinstream& operator>>(obinstream& m, QueryPlan& plan);
 
-class Parser;
-
 #define TRX_READONLY 0
 #define TRX_UPDATE   1
 #define TRX_ADD      2
@@ -119,7 +117,7 @@ class TrxPlan {
     // Ids of queries to wait before releasing the query of abort statement
     unordered_set<uint8_t> remaining_qids_;
 
-    friend Parser;
+    friend class ParserObject;
 };
 
 inline bool isTrxReadOnly(uint8_t trx_type) { return trx_type == TRX_READONLY; }
