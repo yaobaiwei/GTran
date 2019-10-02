@@ -118,7 +118,7 @@ class Coordinator {
     void ProcessTCPTrxReads();
 
  private:
-    uint64_t next_trx_id_;
+    atomic<uint64_t> next_trx_id_;
     Node* node_;
     int comm_sz_, my_rank_;  // in node_->local_comm
     DistributedClock* distributed_clock_;

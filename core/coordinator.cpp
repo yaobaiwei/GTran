@@ -48,8 +48,7 @@ void Coordinator::Init(Node* node) {
 
 // get trx id
 void Coordinator::RegisterTrx(uint64_t& trx_id) {
-    trx_id = 0x8000000000000000 | (((next_trx_id_) * comm_sz_ + my_rank_) << QID_BITS);
-    next_trx_id_++;
+    trx_id = 0x8000000000000000 | (((next_trx_id_++) * comm_sz_ + my_rank_) << QID_BITS);
 }
 
 int Coordinator::GetWorkerFromTrxID(const uint64_t& trx_id) {
