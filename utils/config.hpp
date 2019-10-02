@@ -58,6 +58,7 @@ class Config{
     int global_num_workers;
     int global_num_threads;
     int num_gc_consumer;
+    int num_parser_threads;
 
 
     int global_vertex_property_kv_sz_gb;
@@ -336,6 +337,14 @@ class Config{
             num_gc_consumer = val;
         } else {
             fprintf(stderr, "must enter the NUM_GC_CONSUMER. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getint(ini, "SYSTEM:NUM_PARSER_THREADS", val_not_found);
+        if (val != val_not_found) {
+            num_parser_threads = val;
+        } else {
+            fprintf(stderr, "must enter the NUM_PARSER_THREADS. exits.\n");
             exit(-1);
         }
 
