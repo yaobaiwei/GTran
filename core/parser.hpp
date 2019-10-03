@@ -27,7 +27,6 @@ class Parser {
     IndexStore * index_store;
     string_index * indexes;
 
-    // after the above 4 key map, a vector of keys will be implemented.
     vector<string> vpks, vlks, epks, elks;
 
     string vpks_str, vlks_str, epks_str, elks_str;

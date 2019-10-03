@@ -30,6 +30,8 @@ enum { NBITS_SIZE = 28 };
 enum { NBITS_PTR = 36 };
 
 #define QID_BITS sizeof(uint8_t)*8
+#define TRX_ID_MASK 0x8000000000000000
+#define MAX_TIMESTAMP 0x7FFFFFFFFFFFFFFF
 
 static uint64_t _56HFLAG = 0xFFFFFFFFFFFFFF00;
 static uint64_t _56LFLAG = 0xFFFFFFFFFFFFFF;

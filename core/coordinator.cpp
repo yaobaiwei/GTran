@@ -48,12 +48,12 @@ void Coordinator::Init(Node* node) {
 
 // get trx id
 void Coordinator::RegisterTrx(uint64_t& trx_id) {
-    trx_id = 0x8000000000000000 | (((next_trx_id_++) * comm_sz_ + my_rank_) << QID_BITS);
+    trx_id = TRX_ID_MASK | (((next_trx_id_++) * comm_sz_ + my_rank_) << QID_BITS);
 }
 
 int Coordinator::GetWorkerFromTrxID(const uint64_t& trx_id) {
     CHECK(IS_VALID_TRX_ID(trx_id));
-    return ((trx_id ^ 0x8000000000000000) >> QID_BITS) % comm_sz_;
+    return ((trx_id ^ TRX_ID_MASK) >> QID_BITS) % comm_sz_;
 }
 
 void Coordinator::WaitForDistributedClockInit() {

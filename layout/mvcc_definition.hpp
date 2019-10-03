@@ -33,7 +33,7 @@ struct AbstractMVCCItem {
      */
 
  protected:
-    // if begin_time field is not a transaction id, return 0. else, return trx_id starts from 1 | 0x8000000000000000.
+    // if begin_time field is not a transaction id, return 0. else, return trx_id starts from 1 | TRX_ID_MASK.
     uint64_t GetTransactionID() const {return IS_VALID_TRX_ID(begin_time) ? begin_time : 0;}
     uint64_t GetEndTime() const {return GetTransactionID() > 0 ? MIN_TIME : end_time;}
     uint64_t GetBeginTime() const {return begin_time;}
@@ -77,7 +77,7 @@ struct AbstractMVCCItem {
     }
 
     static constexpr uint64_t MIN_TIME = 0;
-    static constexpr uint64_t MAX_TIME = 0x7FFFFFFFFFFFFFFF;
+    static constexpr uint64_t MAX_TIME = MAX_TIMESTAMP;
 
  public:
     AbstractMVCCItem* GetNext() const {return next;}
