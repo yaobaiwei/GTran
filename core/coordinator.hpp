@@ -103,10 +103,10 @@ class Coordinator {
     // Wait until DistributedClock have finished calibration
     void WaitForDistributedClockInit();
 
-    //// Threads:
+    //// Threads spawned in Worker::Start():
     // Obtains the timestamp
-    void ProcessObtainingTimestamp();
-    // Performs calibration of global clocl
+    void ProcessTimestampRequest();
+    // Performs calibration of global clock
     void PerformCalibration();
     // Handles RCT query request for remote workers
     void ProcessQueryRCTRequest();
@@ -134,7 +134,7 @@ class Coordinator {
     Uint64CLineWithTag* ts_cline_;  // The same pointer as rdma_mem_
     uint64_t rdma_mem_offset_;  // RDMA mem offset used for RDMAWrite
 
-    // queues in Worker
+    // Pointer of queues in Worker
     ThreadSafeQueue<TimestampRequest>* pending_timestamp_request_;
     ThreadSafeQueue<AllocatedTimestamp>* pending_allocated_timestamp_;
     ThreadSafeQueue<UpdateTrxStatusReq>* pending_trx_updates_;
@@ -150,7 +150,7 @@ class Coordinator {
     zmq::socket_t* trx_read_recv_socket_;
     vector<zmq::socket_t*> trx_read_rep_sockets_;
 
-    // Only called in PerformCalibration
+    // For calibration usage. Only called in PerformCalibration
     void WriteTimestampToWorker(int worker_id, uint64_t ts, uint64_t tag);
     uint64_t ReadTimestampFromRDMAMem(uint64_t tag);
 

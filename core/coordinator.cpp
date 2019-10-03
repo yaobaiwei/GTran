@@ -65,7 +65,7 @@ void Coordinator::WaitForDistributedClockInit() {
     }
 }
 
-void Coordinator::ProcessObtainingTimestamp() {
+void Coordinator::ProcessTimestampRequest() {
     // To ensure rdtsc works
     DistributedClock::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
 

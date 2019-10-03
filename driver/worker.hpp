@@ -634,9 +634,15 @@ class Worker {
         }
     }
 
-    /**
-     * To split one query (one line) from the current TrxPlan,
-     * to form a package after assigning the qid
+    /* Get all queries without dependency from the given TrxPlan.
+     * For each query, pack it into a Pack with its query_index.
+     *
+     * For non-validation query, just push the Pack to the queue of queries to be executed.
+     * For validation query:
+     *      Trx is readonly:
+     *          Update status in trx_table, and push the Pack to the queue.
+     *      Trx is not readonly:
+     *          Store the Pack in a map, and push request for CT to another queue.
      */
     bool RegisterQuery(TrxPlan& plan) {
         vector<QueryPlan> qplans;
@@ -659,7 +665,7 @@ class Worker {
                         ValidationQueryPack v_pkg;
                         v_pkg.pack = move(pkg);
 
-                        // Until obtaining CT and quering RCT, the qplan cannot be executed.
+                        // Before obtaining CT and quering RCT, the qplan cannot be executed.
                         accessor->second = move(v_pkg);
 
                         // Request commit time
@@ -683,7 +689,7 @@ class Worker {
     }
 
     /**
-     * Send the results of Tran back to the Client
+     * Send the results of Transaction back to the Client
      */
     void ReplyClient(TrxPlan& plan) {
         ibinstream m;
@@ -782,7 +788,7 @@ class Worker {
 
     void ProcessAllocatedTimestamp() {
         while (true) {
-            // The timestamp is allocated in Coordinator::ProcessObtainingTimestamp
+            // The timestamp is allocated in Coordinator::ProcessTimestampRequest
             AllocatedTimestamp allocated_ts;
             pending_allocated_timestamp_.WaitAndPop(allocated_ts);
             uint64_t trx_id = allocated_ts.trx_id;
@@ -967,7 +973,7 @@ class Worker {
         coordinator_->PrepareSockets();
 
         // =================Timestamp generator thread=================
-        thread timestamp_generator(&Coordinator::ProcessObtainingTimestamp, coordinator_);
+        thread timestamp_generator(&Coordinator::ProcessTimestampRequest, coordinator_);
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << "Waiting for init of timestamp generator" << endl;
         coordinator_->WaitForDistributedClockInit();
 
