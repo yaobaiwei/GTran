@@ -57,11 +57,6 @@ struct ValidationQueryPack {
     Pack pack;
 };
 
-struct QueryRCTResult {
-    uint64_t trx_id;
-    vector<uint64_t> trx_id_list;
-};
-
 struct EmuTrxString {
     int num_rand_values = 0;
     int trx_type = -1;
@@ -732,14 +727,10 @@ class Worker {
             if (notification_type == (int)(NOTIFICATION_TYPE::RCT_TIDS)) {
                 // RCT query result from remote workers
                 vector<uint64_t> trx_id_list;
-                uint64_t trxid;
-                out >> trxid >> trx_id_list;
+                uint64_t trx_id;
+                out >> trx_id >> trx_id_list;
 
-                QueryRCTResult query_result;
-                query_result.trx_id = trxid;
-                query_result.trx_id_list.swap(trx_id_list);
-
-                pending_rct_query_result_.Push(query_result);
+                InsertQueryRCTResult(trx_id, trx_id_list);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
                 int n_id;
                 uint64_t trx_id;
@@ -810,12 +801,9 @@ class Worker {
                 uint64_t bt = plan.GetStartTime();
 
                 // Firstly, query the local RCT
-                std::vector<uint64_t> trx_ids;
-                rct_->query_trx(bt, ct - 1, trx_ids);
-                QueryRCTResult query_result;
-                query_result.trx_id = trx_id;
-                query_result.trx_id_list.swap(trx_ids);
-                pending_rct_query_result_.Push(query_result);
+                std::vector<uint64_t> trx_id_list;
+                rct_->query_trx(bt, ct - 1, trx_id_list);
+                InsertQueryRCTResult(trx_id, trx_id_list);
 
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
@@ -862,34 +850,28 @@ class Worker {
         }
     }
 
-    // Fill RCT query result.
-    void ProcessQueryRCTResult() {
-        while (true) {
-            QueryRCTResult rct_query_result;
-            pending_rct_query_result_.WaitAndPop(rct_query_result);
+    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list) {
+        VPackAccessor accessor;
+        validaton_query_pkgs_.find(accessor, trx_id);
 
-            VPackAccessor accessor;
-            validaton_query_pkgs_.find(accessor, rct_query_result.trx_id);
+        ValidationQueryPack& v_pkg = accessor->second;
 
-            ValidationQueryPack& v_pkg = accessor->second;
+        v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), trx_id_list.begin(), trx_id_list.end());
+        v_pkg.collected_count++;
 
-            v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), rct_query_result.trx_id_list.begin(), rct_query_result.trx_id_list.end());
-            v_pkg.collected_count++;
+        if (v_pkg.collected_count == config_->global_num_workers) {
+            // RCT trx_id_list on all workers are collected.
 
-            if (v_pkg.collected_count == config_->global_num_workers) {
-                // RCT trx_id_list on all workers are collected.
-
-                for (auto & trxID : v_pkg.trx_id_list) {
-                    value_t v;
-                    Tool::uint64_t2value_t(trxID, v);
-                    v_pkg.pack.qplan.actors[0].params.emplace_back(v);
-                }
-
-                // Release the validation query.
-                queue_.Push(v_pkg.pack);
-
-                validaton_query_pkgs_.erase(accessor);
+            for (auto & trxID : v_pkg.trx_id_list) {
+                value_t v;
+                Tool::uint64_t2value_t(trxID, v);
+                v_pkg.pack.qplan.actors[0].params.emplace_back(v);
             }
+
+            // Release the validation query.
+            queue_.Push(v_pkg.pack);
+
+            validaton_query_pkgs_.erase(accessor);
         }
     }
 
@@ -985,8 +967,6 @@ class Worker {
         thread recvnotification(&Worker::RecvNotification, this);
         // Deal with allocated timestamps
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
-        // Process RCT query result from remote workers
-        thread process_rct_query_result(&Worker::ProcessQueryRCTResult, this);
         // Send RCT query request to remote workers
         thread process_rct_query_request(&Coordinator::ProcessQueryRCTRequest, coordinator_);
         // Execute TrxTable modification request from update_status
@@ -1092,7 +1072,6 @@ class Worker {
         timestamp_generator.join();
         timestamp_consumer.join();
         process_rct_query_request.join();
-        process_rct_query_result.join();
         if (!config_->global_use_rdma) {
             trx_table_tcp_read_listener->join();
             trx_table_tcp_read_executor->join();
@@ -1140,7 +1119,6 @@ class Worker {
     ThreadSafeQueue<TimestampRequest> pending_timestamp_request_;
     ThreadSafeQueue<AllocatedTimestamp> pending_allocated_timestamp_;
     ThreadSafeQueue<QueryRCTRequest> pending_rct_query_request_;
-    ThreadSafeQueue<QueryRCTResult> pending_rct_query_result_;
     ThreadSafeQueue<ParseTrxReq> pending_parse_trx_req_;
 
     Coordinator* coordinator_;
