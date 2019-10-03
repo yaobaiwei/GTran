@@ -80,6 +80,17 @@ struct EmuTrxString {
     }
 };
 
+struct ParseTrxReq {
+    string trx_str;
+    string client_host;
+    int trx_type;
+    bool is_emu_mode;
+
+    ParseTrxReq() {}
+    ParseTrxReq(string _trx_str, string _client_host, int _trx_type, bool _is_emu_mode) :
+        trx_str(_trx_str), client_host(_client_host), trx_type(_trx_type), is_emu_mode(_is_emu_mode) {}
+};
+
 class Worker {
  public:
     Worker(Node & my_node, vector<Node> & workers) :
@@ -366,7 +377,7 @@ class Worker {
                 }
             }
 
-            ParseTransaction(trx_tmp, client_host, emu_trx_string.trx_type, true);
+            RequestParsingTrx(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
 
             thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
@@ -541,9 +552,26 @@ class Worker {
     }
 
     /**
-     * Parse the query string into TrxPlan
+     *  Submit a request of parsing transaction string to a thread safe queue.
      */
-    void ParseTransaction(string query, string client_host, int trx_type = -1, bool is_emu_mode = false) {
+    void RequestParsingTrx(string trx_str, string client_host, int trx_type = -1, bool is_emu_mode = false) {
+        ParseTrxReq req(trx_str, client_host, trx_type, is_emu_mode);
+        pending_parse_trx_req_.Push(req);
+    }
+
+    void ProcessingParseTrxReq() {
+        while (true) {
+            ParseTrxReq req;
+            pending_parse_trx_req_.WaitAndPop(req);
+            // Parse the transaction, and push the transaction to be executed
+            ParseTransaction(req.trx_str, req.client_host, req.trx_type, req.is_emu_mode);
+        }
+    }
+
+    /**
+     *  Parse the transaction string into TrxPlan
+     */
+    void ParseTransaction(string trx_str, string client_host, int trx_type, bool is_emu_mode) {
         uint64_t trxid;
         coordinator_->RegisterTrx(trxid);
 
@@ -551,7 +579,7 @@ class Worker {
         if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type); }
 
         string error_msg;
-        bool success = parser_->Parse(query, plan, error_msg);
+        bool success = parser_->Parse(trx_str, plan, error_msg);
 
         if (success) {
             TrxPlanAccessor accessor;
@@ -564,7 +592,7 @@ class Worker {
         } else {
   ERROR:
             if (is_emu_mode) {
-                cout << "[" << client_host <<  "] Parser Failed: " << query << " with error " << error_msg << endl;
+                cout << "[" << client_host <<  "] Parser Failed: " << trx_str << " with error " << error_msg << endl;
             } else {
                 value_t v;
                 Tool::str2str(error_msg, v);
@@ -601,7 +629,7 @@ class Worker {
                 RunEMU(query, client_host);
             } else {
                 // parse and insert into plans_
-                ParseTransaction(query, client_host);
+                RequestParsingTrx(query, client_host);
             }
         }
     }
@@ -959,6 +987,10 @@ class Worker {
         thread trx_table_write_executor(&Coordinator::ProcessTrxTableWriteReqs, coordinator_);
         // Perform clock calibration
         thread timestamp_calibration(&Coordinator::PerformCalibration, coordinator_);
+        // Parse transaction
+        vector<thread> parser_threads;
+        for (int i = 0; i < config_->num_parser_threads; i++)
+            parser_threads.emplace_back(&Worker::ProcessingParseTrxReq, this);
 
         // For non-rdma configuration
         thread *trx_table_tcp_read_listener, *trx_table_tcp_read_executor, *running_trx_min_bt_listener;
@@ -1061,6 +1093,8 @@ class Worker {
             running_trx_min_bt_listener->join();
         }
         timestamp_calibration.join();
+        for (auto& parser_thread : parser_threads)
+            parser_thread.join();
     }
 
  private:
@@ -1101,6 +1135,7 @@ class Worker {
     ThreadSafeQueue<AllocatedTimestamp> pending_allocated_timestamp_;
     ThreadSafeQueue<QueryRCTRequest> pending_rct_query_request_;
     ThreadSafeQueue<QueryRCTResult> pending_rct_query_result_;
+    ThreadSafeQueue<ParseTrxReq> pending_parse_trx_req_;
 
     Coordinator* coordinator_;
     RunningTrxList* running_trx_list_;

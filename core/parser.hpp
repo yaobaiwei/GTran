@@ -20,11 +20,6 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 class Parser {
  private:
-    // for debug usage
-    string TokenToStr(pair<Step_T, string> token);
-    string TokensToStr(vector<pair<Step_T, string>> tokens);
-    string StepToStr(int step);
-
 /*-----------------Global members for all transactions--------------------------
 ------------------------------------------------------------------------------*/
 
@@ -32,19 +27,43 @@ class Parser {
     IndexStore * index_store;
     string_index * indexes;
 
+    vector<string> vpks, vlks, epks, elks;
+
+    string vpks_str, vlks_str, epks_str, elks_str;
+
+ public:
+    // Parse query string
+    bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);
+
+    Parser(IndexStore* index_store_): index_store(index_store_) {
+        config = Config::GetInstance();
+    }
+
+    int GetPid(Element_T type, string& property);
+
+    // load property and label mapping
+    void LoadMapping(DataStorage * data_storage);
+
+    friend class ParserObject;
+};
+
+
+/* One ParserObject is created specifically for the parsing of one transaction.
+ * ParserObject contains necessary local members for parsing one transaction or one query.
+ * It will only be created in Parser::Parse().
+ */
+class ParserObject {
+ private:
     enum IO_T { EDGE, VERTEX, VP, EP, INT, DOUBLE, CHAR, STRING, COLLECTION };
     static const char *IOType[];
     // str to enum
     static const map<string, Step_T> str2step;         // step type
     static const map<string, Predicate_T> str2pred;    // predicate type
 
-
-    // after the above 4 key map, a vector of keys will be implemented.
-    vector<string> vpks, vlks, epks, elks;
-
-    string vpks_str, vlks_str, epks_str, elks_str;
-
     static const int index_ratio = 3;
+
+    // Used to access global members for all transactions.
+    Parser* parser_;
 
 /*-----------------local members for one transaction----------------------------
 ------------------------------------------------------------------------------*/
@@ -65,6 +84,7 @@ class Parser {
     uint8_t side_effect_key;
 
     TrxPlan* trx_plan;
+
 /*-----------------local members for one line in trx----------------------------
 ------------------------------------------------------------------------------*/
     bool is_read_only_;
@@ -91,6 +111,7 @@ class Parser {
 
     // tmp actors store
     vector<Actor_Object> actors_;
+
 
 /*---------------------------------Functions------------------------------------
 ------------------------------------------------------------------------------*/
@@ -191,18 +212,9 @@ class Parser {
     // Add commit statement including validation & finish (Commit or Abort)
     void AddCommitStatement(TrxPlan& vec);
 
- public:
-    // Parse query string
+    ParserObject(Parser* parser) : parser_(parser) {}
+
     bool Parse(const string& trx_input, TrxPlan& vec, string& error_msg);
-
-    Parser(IndexStore* index_store_): index_store(index_store_) {
-        config = Config::GetInstance();
-    }
-
-    int GetPid(Element_T type, string& property);
-
-    // load property and label mapping
-    void LoadMapping(DataStorage * data_storage);
 
     // parsing exception
     struct ParserException {
@@ -211,4 +223,6 @@ class Parser {
         explicit ParserException(const std::string &message) : message(message) {}
         explicit ParserException(const char *message) : message(message) {}
     };
+
+    friend class Parser;
 };

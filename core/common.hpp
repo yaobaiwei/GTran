@@ -12,7 +12,7 @@
 #include "base/type.hpp"
 #include "glog/logging.h"
 
-#define IS_VALID_TRX_ID(trx_id) (trx_id & 0x8000000000000000)
+#define IS_VALID_TRX_ID(trx_id) (trx_id & TRX_ID_MASK)
 
 /*
  * trx_id : status : if empty

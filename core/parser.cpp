@@ -58,6 +58,16 @@ int Parser::GetPid(Element_T type, string& property) {
 }
 
 bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg) {
+    /* One ParserObject for one transaction, which guarantees thread safety.
+     * The pointer of the Parser ("this") is passed to ParserObject, allowing ParserObject to
+     *      access global members for all transactions.
+     */
+    ParserObject parser_object(this);
+
+    return parser_object.Parse(trx_input, plan, error_msg);
+}
+
+bool ParserObject::Parse(const string& trx_input, TrxPlan& plan, string& error_msg) {
     ClearTrx();
     vector<string> lines;
     Tool::split(trx_input, ";\n", lines);
@@ -94,7 +104,7 @@ bool Parser::Parse(const string& trx_input, TrxPlan& plan, string& error_msg) {
     return true;
 }
 
-bool Parser::ParseLine(const string& line, vector<Actor_Object>& vec, string& error_msg) {
+bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, string& error_msg) {
     ClearQuery();
     bool build_index = false;
     bool set_config = false;
@@ -169,7 +179,7 @@ bool Parser::ParseLine(const string& line, vector<Actor_Object>& vec, string& er
     return true;
 }
 
-void Parser::SplitParam(string& param, vector<string>& params) {
+void ParserObject::SplitParam(string& param, vector<string>& params) {
     param = Tool::trim(param, " ");
     int len = param.size();
     if (len > 0 && param[len - 1] == ',') {
@@ -196,7 +206,7 @@ void Parser::SplitParam(string& param, vector<string>& params) {
     return params;
 }
 
-void Parser::SplitPredicate(string& param, Predicate_T& pred_type, vector<string>& pred_params) {
+void ParserObject::SplitPredicate(string& param, Predicate_T& pred_type, vector<string>& pred_params) {
     param = Tool::trim(param, " ");
     vector<string> pred;
     Tool::splitWithEscape(param, "()", pred);
@@ -216,10 +226,10 @@ void Parser::SplitPredicate(string& param, Predicate_T& pred_type, vector<string
     return pred_params;
 }
 
-bool Parser::IsNumber() {
+bool ParserObject::IsNumber() {
     return (io_type_ == INT || io_type_ == DOUBLE);
 }
-bool Parser::IsValue(uint8_t& type) {
+bool ParserObject::IsValue(uint8_t& type) {
     switch (io_type_) {
       case IO_T::INT:
         type = 1;
@@ -239,7 +249,7 @@ bool Parser::IsValue(uint8_t& type) {
     return true;
 }
 
-bool Parser::IsElement() {
+bool ParserObject::IsElement() {
     switch (io_type_) {
       case IO_T::VERTEX:
       case IO_T::EDGE:
@@ -251,7 +261,7 @@ bool Parser::IsElement() {
     }
 }
 
-bool Parser::IsElement(Element_T& type) {
+bool ParserObject::IsElement(Element_T& type) {
     switch (io_type_) {
       case IO_T::VERTEX:
         type = Element_T::VERTEX;
@@ -263,7 +273,7 @@ bool Parser::IsElement(Element_T& type) {
         return false;
     }
 }
-Parser::IO_T Parser::Value2IO(uint8_t type) {
+ParserObject::IO_T ParserObject::Value2IO(uint8_t type) {
     switch (type) {
       case 1:
         return IO_T::INT;
@@ -278,7 +288,7 @@ Parser::IO_T Parser::Value2IO(uint8_t type) {
     }
 }
 
-void Parser::RegPlaceHolder(const string& var, int step, int param_index, IO_T type) {
+void ParserObject::RegPlaceHolder(const string& var, int step, int param_index, IO_T type) {
     auto itr = place_holder.find(var);
 
     if (itr == place_holder.end()) {
@@ -293,7 +303,7 @@ void Parser::RegPlaceHolder(const string& var, int step, int param_index, IO_T t
     trx_plan->RegPlaceHolder(p.first, line_index, step, param_index);
 }
 
-void Parser::ParseIndex(const string& param) {
+void ParserObject::ParseIndex(const string& param) {
     vector<string> params;
     Tool::splitWithEscape(param, ",() ", params);
     if (params.size() != 3) {
@@ -325,7 +335,7 @@ void Parser::ParseIndex(const string& param) {
     is_read_only_ = false;
 }
 
-void Parser::ParseSetConfig(const string& param) {
+void ParserObject::ParseSetConfig(const string& param) {
     vector<string> params;
     Tool::splitWithEscape(param, ",() ", params);
     if (params.size() != 3) {
@@ -364,7 +374,7 @@ void Parser::ParseSetConfig(const string& param) {
     is_read_only_ = false;
 }
 
-void Parser::ParseQuery(const string& query) {
+void ParserObject::ParseQuery(const string& query) {
     vector<pair<Step_T, string>> tokens;
     // extract steps from query
     GetSteps(query, tokens);
@@ -376,7 +386,7 @@ void Parser::ParseQuery(const string& query) {
     ParseSteps(tokens);
 }
 
-void Parser::ClearTrx() {
+void ParserObject::ClearTrx() {
     actor_index = 0;
     line_index = 0;
     side_effect_key = 0;
@@ -384,7 +394,7 @@ void Parser::ClearTrx() {
     place_holder.clear();
 }
 
-void Parser::ClearQuery() {
+void ParserObject::ClearQuery() {
     actors_.clear();
     index_count_.clear();
     str2ls_.clear();
@@ -395,18 +405,18 @@ void Parser::ClearQuery() {
     is_read_only_ = true;
 }
 
-void Parser::AppendActor(Actor_Object& actor) {
+void ParserObject::AppendActor(Actor_Object& actor) {
     actor.next_actor = actors_.size() + 1;
     actor.index = actor_index++;
     actors_.push_back(move(actor));
 }
 
-void Parser::RemoveLastActor() {
+void ParserObject::RemoveLastActor() {
     actors_.erase(actors_.end() - 1);
     actor_index--;
 }
 
-bool Parser::CheckLastActor(ACTOR_T type) {
+bool ParserObject::CheckLastActor(ACTOR_T type) {
     int current = actors_.size();
     int itr = actors_.size() - 1;
 
@@ -423,14 +433,14 @@ bool Parser::CheckLastActor(ACTOR_T type) {
     return actors_[itr].actor_type == type;
 }
 
-bool Parser::CheckIfQuery(const string& param) {
+bool ParserObject::CheckIfQuery(const string& param) {
     int pos = param.find("(");
     string step = param.substr(0, pos);
 
     return str2step.count(step) == 1;
 }
 
-int Parser::GetStepPriority(Step_T type) {
+int ParserObject::GetStepPriority(Step_T type) {
     switch (type) {
       case Step_T::IS:
       case Step_T::WHERE:
@@ -457,18 +467,18 @@ int Parser::GetStepPriority(Step_T type) {
     }
 }
 
-bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type) {
+bool ParserObject::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type) {
     unordered_map<string, label_t> *kmap;
     unordered_map<string, uint8_t> *vmap;
 
     key = Tool::trim(key, "\"\'");
 
     if (io_type_ == VERTEX) {
-        kmap = isLabel ? &(indexes->str2vl) : &(indexes->str2vpk);
-        vmap = &(indexes->str2vptype);
+        kmap = isLabel ? &(parser_->indexes->str2vl) : &(parser_->indexes->str2vpk);
+        vmap = &(parser_->indexes->str2vptype);
     } else if (io_type_ == EDGE) {
-        kmap = isLabel ? &(indexes->str2el) : &(indexes->str2epk);
-        vmap = &(indexes->str2eptype);
+        kmap = isLabel ? &(parser_->indexes->str2el) : &(parser_->indexes->str2epk);
+        vmap = &(parser_->indexes->str2eptype);
     } else {
         return false;
     }
@@ -484,27 +494,27 @@ bool Parser::ParseKeyId(string key, bool isLabel, int& id, uint8_t *type) {
     return true;
 }
 
-string Parser::ExpectedKey(bool isLabel) {
+string ParserObject::ExpectedKey(bool isLabel) {
     string ret;
 
     if (io_type_ == VERTEX) {
         if (isLabel)
-            ret = vlks_str;
+            ret = parser_->vlks_str;
         else
-            ret = vpks_str;
+            ret = parser_->vpks_str;
     } else if (io_type_ == EDGE) {
         if (isLabel)
-            ret = elks_str;
+            ret = parser_->elks_str;
         else
-            ret = epks_str;
+            ret = parser_->epks_str;
     } else {
-        ret = "Parser::ExpectedKey() no io_type";
+        ret = "ParserObject::ExpectedKey() no io_type";
     }
 
     return ret;
 }
 
-void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens) {
+void ParserObject::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens) {
     int lbpos = 0;    // pos of left bracket
     int pos = 0;
     int parentheses = 0;
@@ -557,8 +567,8 @@ void Parser::GetSteps(const string& query, vector<pair<Step_T, string>>& tokens)
     }
 }
 
-void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens) {
-    if (config->global_enable_step_reorder) {
+void ParserObject::ReOrderSteps(vector<pair<Step_T, string>>& tokens) {
+    if (parser_->config->global_enable_step_reorder) {
         for (int i = 1; i < tokens.size(); i ++) {
             int priority = GetStepPriority(tokens[i].first);
 
@@ -596,7 +606,7 @@ void Parser::ReOrderSteps(vector<pair<Step_T, string>>& tokens) {
     }
 }
 
-void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
+void ParserObject::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
     for (auto stepToken : tokens) {
         Step_T type = stepToken.first;
         vector<string> params;
@@ -692,7 +702,7 @@ void Parser::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
     }
 }
 
-void Parser::ParseSub(const vector<string>& params, int current, bool filterBranch) {
+void ParserObject::ParseSub(const vector<string>& params, int current, bool filterBranch) {
     int sub_step = actors_.size();
     IO_T current_type = io_type_;
     IO_T sub_type;
@@ -736,7 +746,7 @@ void Parser::ParseSub(const vector<string>& params, int current, bool filterBran
     first_in_sub_ = m_first_in_sub;
 }
 
-void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey) {
+void ParserObject::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey) {
     Predicate_T pred_type;
     value_t pred_param;
     vector<string> pred_params;
@@ -794,7 +804,7 @@ void Parser::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bo
     actor.params.push_back(pred_param);
 }
 
-void Parser::ParseInit(const string& line, string& var_name, string& query) {
+void ParserObject::ParseInit(const string& line, string& var_name, string& query) {
     // @InitActor params: (Element_T type, bool with_input, uint64_t [vids/eids] )
     // o_type = E/V
     Actor_Object actor(ACTOR_T::INIT);
@@ -858,7 +868,7 @@ void Parser::ParseInit(const string& line, string& var_name, string& query) {
     AppendActor(actor);
 }
 
-void Parser::ParseAddE(const vector<string>& params) {
+void ParserObject::ParseAddE(const vector<string>& params) {
     //@ AddEActor params: (int label, AddEdgeMethodType type, value_t labelKey/src_vid, AddEdgeMethodType type, value_t labelKey/dst_vid)
     //  i_type = Vertex, o_type = Edge
     Actor_Object actor(ACTOR_T::ADDE);
@@ -888,7 +898,7 @@ void Parser::ParseAddE(const vector<string>& params) {
     is_read_only_ = false;
 }
 
-void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
+void ParserObject::ParseFromTo(const vector<string>& params, Step_T type) {
     // Append params to AddE Actor
     if (!CheckLastActor(ACTOR_T::ADDE)) {
         throw ParserException("expect 'addE()' before from/to");
@@ -918,7 +928,7 @@ void Parser::ParseFromTo(const vector<string>& params, Step_T type) {
     actor.ModifyParam(labelKey, param_index + 1);
 }
 
-void Parser::ParseAddV(const vector<string>& params) {
+void ParserObject::ParseAddV(const vector<string>& params) {
     //@ AddVActor params: (int label)
     //  i_type = any, o_type = Vertex
     Actor_Object actor(ACTOR_T::ADDV);
@@ -938,7 +948,7 @@ void Parser::ParseAddV(const vector<string>& params) {
     is_read_only_ = false;
 }
 
-void Parser::ParseAggregate(const vector<string>& params) {
+void ParserObject::ParseAggregate(const vector<string>& params) {
     //@ AggregateActor params: (int side_effect_key)
     //  i_type = o_type = any
     Actor_Object actor(ACTOR_T::AGGREGATE);
@@ -957,7 +967,7 @@ void Parser::ParseAggregate(const vector<string>& params) {
     AppendActor(actor);
 }
 
-void Parser::ParseAs(const vector<string>& params) {
+void ParserObject::ParseAs(const vector<string>& params) {
     //@ AsActor params: (int label_step_key)
     //  i_type = o_type = any
     Actor_Object actor(ACTOR_T::AS);
@@ -980,7 +990,7 @@ void Parser::ParseAs(const vector<string>& params) {
     AppendActor(actor);
 }
 
-void Parser::ParseBranch(const vector<string>& params) {
+void ParserObject::ParseBranch(const vector<string>& params) {
     // @BranchActor params: (int sub_steps, ...)
     //  i_type = any, o_type = subquery->o_type
     Actor_Object actor(ACTOR_T::BRANCH);
@@ -995,7 +1005,7 @@ void Parser::ParseBranch(const vector<string>& params) {
     ParseSub(params, current, false);
 }
 
-void Parser::ParseBranchFilter(const vector<string>& params, Step_T type) {
+void ParserObject::ParseBranchFilter(const vector<string>& params, Step_T type) {
     // @BranchFilterActor params: (Filter_T filterType, int sub_steps, ...)
     //  i_type = o_type
     Actor_Object actor(ACTOR_T::BRANCHFILTER);
@@ -1019,7 +1029,7 @@ void Parser::ParseBranchFilter(const vector<string>& params, Step_T type) {
     ParseSub(params, current, true);
 }
 
-void Parser::ParseCap(const vector<string>& params) {
+void ParserObject::ParseCap(const vector<string>& params) {
     //@ CapsActor params: ([int side_effect_key, string side_effect_string]...)
     //  i_type = any, o_type = collection
     Actor_Object actor(ACTOR_T::CAP);
@@ -1040,7 +1050,7 @@ void Parser::ParseCap(const vector<string>& params) {
     io_type_ = COLLECTION;
 }
 
-void Parser::ParseCount(const vector<string>& params) {
+void ParserObject::ParseCount(const vector<string>& params) {
     //@ CountActor params: ()
     //  i_type = any, o_type = int
     Actor_Object actor(ACTOR_T::COUNT);
@@ -1052,7 +1062,7 @@ void Parser::ParseCount(const vector<string>& params) {
     io_type_ = IO_T::INT;
 }
 
-void Parser::ParseDedup(const vector<string>& params) {
+void ParserObject::ParseDedup(const vector<string>& params) {
     //@ DedupActor params: (int label_step_key...)
     //  i_type = o_type = any
     Actor_Object actor(ACTOR_T::DEDUP);
@@ -1068,7 +1078,7 @@ void Parser::ParseDedup(const vector<string>& params) {
     AppendActor(actor);
 }
 
-void Parser::ParseDrop(const vector<string>& params) {
+void ParserObject::ParseDrop(const vector<string>& params) {
     //@ DropActor params: (Element_T element_type, bool isProperty)
     if (params.size() != 0) {
         throw ParserException("expect no param in drop");
@@ -1100,7 +1110,7 @@ void Parser::ParseDrop(const vector<string>& params) {
     is_read_only_ = false;
 }
 
-void Parser::ParseGroup(const vector<string>& params, Step_T type) {
+void ParserObject::ParseGroup(const vector<string>& params, Step_T type) {
     //@ GroupActor params: (bool isCount, Element_T type, int label_step_key)
     //  i_type = any, o_type = collection
     Actor_Object actor(ACTOR_T::GROUP);
@@ -1138,7 +1148,7 @@ void Parser::ParseGroup(const vector<string>& params, Step_T type) {
     io_type_ = COLLECTION;
 }
 
-void Parser::ParseHas(const vector<string>& params, Step_T type) {
+void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
     //@ HasActor params: (Element_T type, [int pid, Predicate_T  p_type, vector values]...)
     //  i_type = o_type = VERTX/EDGE
     if (params.size() < 1) {
@@ -1240,7 +1250,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
         PredicateValue pred(pred_type, actor.params[size - 1]);
 
         uint64_t count = 0;
-        bool enabled = index_store->IsIndexEnabled(element_type, key, &pred, &count);
+        bool enabled = parser_->index_store->IsIndexEnabled(element_type, key, &pred, &count);
 
         if (enabled && count / index_ratio < min_count_) {
             Actor_Object &init_actor = actors_[0];
@@ -1280,7 +1290,7 @@ void Parser::ParseHas(const vector<string>& params, Step_T type) {
     }
 }
 
-void Parser::ParseHasLabel(const vector<string>& params) {
+void ParserObject::ParseHasLabel(const vector<string>& params) {
     //@ HasLabelActor params: (Element_T type, int lid...)
     //  i_type = o_type = VERTX/EDGE
     if (params.size() < 1) {
@@ -1316,7 +1326,7 @@ void Parser::ParseHasLabel(const vector<string>& params) {
         PredicateValue pred(pred_type, pred_params);
 
         uint64_t count = 0;
-        if (index_store->IsIndexEnabled(element_type, 0, &pred, &count)) {
+        if (parser_->index_store->IsIndexEnabled(element_type, 0, &pred, &count)) {
             RemoveLastActor();
 
             value_t v;
@@ -1330,7 +1340,7 @@ void Parser::ParseHasLabel(const vector<string>& params) {
     }
 }
 
-void Parser::ParseIs(const vector<string>& params) {
+void ParserObject::ParseIs(const vector<string>& params) {
     //@ IsActor params: ((Predicate_T  p_type, vector values)...)
     //  i_type = o_type = int/double/char/string
     if (params.size() != 1) {
@@ -1352,7 +1362,7 @@ void Parser::ParseIs(const vector<string>& params) {
     ParsePredicate(param, type, actor, false);
 }
 
-void Parser::ParseKey(const vector<string>& params) {
+void ParserObject::ParseKey(const vector<string>& params) {
     //@ KeyActor params: (Element_T type)
     //  i_type = VERTX/EDGE, o_type = string
     Actor_Object actor(ACTOR_T::KEY);
@@ -1370,7 +1380,7 @@ void Parser::ParseKey(const vector<string>& params) {
     io_type_ = IO_T::STRING;
 }
 
-void Parser::ParseLabel(const vector<string>& params) {
+void ParserObject::ParseLabel(const vector<string>& params) {
     //@ LabelActor params: (Element_T type)
     //  i_type = VERTX/EDGE, o_type = string
     Actor_Object actor(ACTOR_T::LABEL);
@@ -1388,7 +1398,7 @@ void Parser::ParseLabel(const vector<string>& params) {
     io_type_ = IO_T::STRING;
 }
 
-void Parser::ParseMath(const vector<string>& params, Step_T type) {
+void ParserObject::ParseMath(const vector<string>& params, Step_T type) {
     //@ LabelActor params: (Math_T mathType)
     //  i_type = NUMBER, o_type = DOUBLE
     Actor_Object actor(ACTOR_T::MATH);
@@ -1414,7 +1424,7 @@ void Parser::ParseMath(const vector<string>& params, Step_T type) {
     io_type_ = IO_T::DOUBLE;
 }
 
-void Parser::ParseOrder(const vector<string>& params) {
+void ParserObject::ParseOrder(const vector<string>& params) {
     //@ OrderActor params: (Element_T element_type, int label_step_key, Order_T order)
     //  i_type = o_type = any
 
@@ -1453,7 +1463,7 @@ void Parser::ParseOrder(const vector<string>& params) {
     AppendActor(actor);
 }
 
-void Parser::ParseProject(Element_T element_type, int key_id, int value_id) {
+void ParserObject::ParseProject(Element_T element_type, int key_id, int value_id) {
     //@ ProjectActor params: (Element_T type, int key_id, int value_id)
     // Project V/E to key value pair according to property id
     Actor_Object actor(ACTOR_T::PROJECT);
@@ -1463,7 +1473,7 @@ void Parser::ParseProject(Element_T element_type, int key_id, int value_id) {
     AppendActor(actor);
 }
 
-void Parser::ParseProperties(const vector<string>& params) {
+void ParserObject::ParseProperties(const vector<string>& params) {
     //@ PropertiesActor params: (Element_T type, int pid...)
     //  i_type = VERTX/EDGE, o_type = COLLECTION
     Actor_Object actor(ACTOR_T::PROPERTIES);
@@ -1487,7 +1497,7 @@ void Parser::ParseProperties(const vector<string>& params) {
     io_type_ = (element_type == Element_T::VERTEX) ? IO_T::VP : IO_T::EP;
 }
 
-void Parser::ParseProperty(const vector<string>& params) {
+void ParserObject::ParseProperty(const vector<string>& params) {
     //@ RangeActor params: (Element_T element_type, int pid, value_t value)
     //  i_type = o_type = Vertex/Edge
     Actor_Object actor(ACTOR_T::PROPERTY);
@@ -1519,7 +1529,7 @@ void Parser::ParseProperty(const vector<string>& params) {
     is_read_only_ = false;
 }
 
-void Parser::ParseRange(const vector<string>& params, Step_T type) {
+void ParserObject::ParseRange(const vector<string>& params, Step_T type) {
     //@ RangeActor params: (int start, int end)
     //  i_type = o_type = any
     Actor_Object actor(ACTOR_T::RANGE);
@@ -1563,7 +1573,7 @@ void Parser::ParseRange(const vector<string>& params, Step_T type) {
 }
 
 
-void Parser::ParseCoin(const vector<string>& params) {
+void ParserObject::ParseCoin(const vector<string>& params) {
     //@ CoinActor params: (double pass_rate)
     //  i_type = o_type = any
     Actor_Object actor(ACTOR_T::COIN);
@@ -1595,7 +1605,7 @@ void Parser::ParseCoin(const vector<string>& params) {
     AppendActor(actor);
 }
 
-void Parser::ParseRepeat(const vector<string>& params) {
+void ParserObject::ParseRepeat(const vector<string>& params) {
     // @ Act just as union
     Actor_Object actor(ACTOR_T::REPEAT);
     // Actor_Object actor(ACTOR_T::BRANCH);
@@ -1610,7 +1620,7 @@ void Parser::ParseRepeat(const vector<string>& params) {
     ParseSub(params, current, false);
 }
 
-void Parser::ParseSelect(const vector<string>& params) {
+void ParserObject::ParseSelect(const vector<string>& params) {
     //@ SelectActor params: ([int label_step_key, string label_step_string]..)
     //  i_type = any, o_type = COLLECTION / according step
     Actor_Object actor(ACTOR_T::SELECT);
@@ -1642,7 +1652,7 @@ void Parser::ParseSelect(const vector<string>& params) {
     AppendActor(actor);
 }
 
-void Parser::ParseTraversal(const vector<string>& params, Step_T type) {
+void ParserObject::ParseTraversal(const vector<string>& params, Step_T type) {
     //@ TraversalActor params: (Element_T inType, Element_T outType, Direction_T direction, int label_id)
     //  i_type = E/V, o_type = E/V
     Actor_Object actor(ACTOR_T::TRAVERSAL);
@@ -1710,7 +1720,7 @@ void Parser::ParseTraversal(const vector<string>& params, Step_T type) {
     io_type_ = (outType == Element_T::EDGE) ? IO_T::EDGE : IO_T::VERTEX;
 }
 
-void Parser::ParseValues(const vector<string>& params) {
+void ParserObject::ParseValues(const vector<string>& params) {
     // @ ValuesActor params: (Element_t type, int pid...)
     //  i_type = VERTX/EDGE, o_type = according to pid
     Actor_Object actor(ACTOR_T::VALUES);
@@ -1742,7 +1752,7 @@ void Parser::ParseValues(const vector<string>& params) {
     io_type_ = Value2IO(outType);
 }
 
-void Parser::ParseWhere(const vector<string>& params) {
+void ParserObject::ParseWhere(const vector<string>& params) {
     //@ WhereActor params: ((int label_step_key, predicate Type, vector label/side-effect_id)...)
     //  first label_step_key == -1 indicating
     //  i_type = o_type = any
@@ -1786,7 +1796,7 @@ void Parser::ParseWhere(const vector<string>& params) {
     }
 }
 
-void Parser::AddCommitStatement(TrxPlan& plan) {
+void ParserObject::AddCommitStatement(TrxPlan& plan) {
     // Add Validation Query
     vector<Actor_Object> valid_vec;
     valid_vec.emplace_back(ACTOR_T::VALIDATION);
@@ -1809,7 +1819,7 @@ void Parser::AddCommitStatement(TrxPlan& plan) {
     }
 }
 
-const map<string, Step_T> Parser::str2step = {
+const map<string, Step_T> ParserObject::str2step = {
     { "in", Step_T::IN },
     { "out", Step_T::OUT },
     { "both", Step_T::BOTH },
@@ -1860,7 +1870,7 @@ const map<string, Step_T> Parser::str2step = {
     { "repeat", Step_T::REPEAT }
 };
 
-const map<string, Predicate_T> Parser::str2pred = {
+const map<string, Predicate_T> ParserObject::str2pred = {
     { "eq", Predicate_T::EQ },
     { "neq", Predicate_T::NEQ },
     { "lt", Predicate_T::LT },
@@ -1874,4 +1884,4 @@ const map<string, Predicate_T> Parser::str2pred = {
     { "without", Predicate_T::WITHOUT }
 };
 
-const char *Parser::IOType[] = { "edge", "vertex", "int", "double", "char", "string", "collection" };
+const char *ParserObject::IOType[] = { "edge", "vertex", "int", "double", "char", "string", "collection" };
