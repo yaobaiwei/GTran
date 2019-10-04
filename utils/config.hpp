@@ -60,6 +60,20 @@ class Config{
     int num_gc_consumer;
     int num_parser_threads;
 
+    // Thread id for using one-sided RDMA outside the thread pool of ActorAdapter
+    static const int main_thread_tid = 0;
+    static const int process_allocated_ts_tid = 1;
+    static const int recv_notification_tid = 2;
+    static const int update_min_bt_tid = 3;
+    static const int perform_calibration_tid = 4;
+
+    static const int extra_rdma_rc_thread_count = 5;
+
+    // Count of extra RDMA send-buf in RDMAMainbox, for:
+    // 1. Worker::Start
+    // 2. Worker::ProcessAllocatedTimestamp
+    // 3. Worker::RecvNotification
+    static const int extra_send_buf_count = 3;
 
     int global_vertex_property_kv_sz_gb;
     int global_edge_property_kv_sz_gb;
@@ -710,8 +724,8 @@ class Config{
             kvstore_sz = 0;
             kvstore_offset = 0;
 
-            // one more thread for worker main thread
-            send_buffer_sz = (global_num_threads + 1) * MiB2B(global_per_send_buffer_sz_mb);
+            // three more threads
+            send_buffer_sz = (global_num_threads + extra_send_buf_count) * MiB2B(global_per_send_buffer_sz_mb);
             send_buffer_offset = kvstore_offset + kvstore_sz;
 
             recv_buffer_sz = (global_num_workers - 1) * global_num_threads * MiB2B(global_per_recv_buffer_sz_mb);

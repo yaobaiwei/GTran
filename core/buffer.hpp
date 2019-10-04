@@ -62,7 +62,7 @@ class Buffer {
 
     inline char* GetSendBuf(int index) {
         assert(config_->global_use_rdma);
-        CHECK_LE(index, config_->global_num_threads);
+        CHECK_LE(index, config_->global_num_threads + Config::extra_send_buf_count - 1);
         return config_->send_buf + index * MiB2B(config_->global_per_send_buffer_sz_mb);
     }
 

@@ -639,7 +639,7 @@ class Worker {
      *      Trx is not readonly:
      *          Store the Pack in a map, and push request for CT to another queue.
      */
-    bool RegisterQuery(TrxPlan& plan) {
+    bool RegisterQuery(TrxPlan& plan, int mailbox_tid) {
         vector<QueryPlan> qplans;
         // Get query plans of next level if any
         if (plan.NextQueries(qplans)) {
@@ -670,12 +670,10 @@ class Worker {
                         // For readonly trx, do not need to allocate CT and query RCT.
                         trx_table_->modify_status(plan.trxid, TRX_STAT::VALIDATING, plan.GetStartTime());
 
-                        // Push query plan to SendQueryMsg queue directly.
-                        queue_.Push(pkg);
+                        SendInitMsgForQuery(pkg, mailbox_tid);
                     }
                 } else {
-                    // Push query plan to SendQueryMsg queue
-                    queue_.Push(pkg);
+                    SendInitMsgForQuery(pkg, mailbox_tid);
                 }
             }
             return true;
@@ -730,7 +728,7 @@ class Worker {
                 uint64_t trx_id;
                 out >> trx_id >> trx_id_list;
 
-                InsertQueryRCTResult(trx_id, trx_id_list);
+                InsertQueryRCTResult(trx_id, trx_id_list, config_->global_num_threads + Config::recv_notification_tid);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
                 int n_id;
                 uint64_t trx_id;
@@ -757,24 +755,19 @@ class Worker {
         }
     }
 
-    void SendQueryMsg(AbstractMailbox * mailbox, CoreAffinity * core_affinity) {
-        while (1) {
-            Pack pkg;
-            queue_.WaitAndPop(pkg);
-
-            vector<Message> msgs;
-            Message::CreateInitMsg(
-                pkg.id.value(),
-                my_node_.get_local_rank(),
-                my_node_.get_local_size(),
-                core_affinity->GetThreadIdForActor(ACTOR_T::INIT),
-                pkg.qplan,
-                msgs);
-            for (int i = 0 ; i < my_node_.get_local_size(); i++) {
-                mailbox->Send(config_->global_num_threads, msgs[i]);
-            }
-            mailbox->Sweep(config_->global_num_threads);
+    void SendInitMsgForQuery(Pack pkg, int mailbox_tid) {
+        vector<Message> msgs;
+        Message::CreateInitMsg(
+            pkg.id.value(),
+            my_node_.get_local_rank(),
+            my_node_.get_local_size(),
+            core_affinity_->GetThreadIdForActor(ACTOR_T::INIT),
+            pkg.qplan,
+            msgs);
+        for (int i = 0 ; i < my_node_.get_local_size(); i++) {
+            mailbox_->Send(mailbox_tid, msgs[i]);
         }
+        mailbox_->Sweep(mailbox_tid);
     }
 
     void ProcessAllocatedTimestamp() {
@@ -803,7 +796,7 @@ class Worker {
                 // Firstly, query the local RCT
                 std::vector<uint64_t> trx_id_list;
                 rct_->query_trx(bt, ct - 1, trx_id_list);
-                InsertQueryRCTResult(trx_id, trx_id_list);
+                InsertQueryRCTResult(trx_id, trx_id_list, config_->global_num_threads + Config::process_allocated_ts_tid);
 
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
@@ -829,7 +822,7 @@ class Worker {
                 // Set bt for TrxPlan
                 plan.SetST(bt);
 
-                if (!RegisterQuery(plan)) {
+                if (!RegisterQuery(plan, config_->global_num_threads + Config::process_allocated_ts_tid)) {
                     string error_msg = "Error: Empty transaction";
                     value_t v;
                     Tool::str2str(error_msg, v);
@@ -850,7 +843,7 @@ class Worker {
         }
     }
 
-    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list) {
+    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list, int mailbox_tid) {
         VPackAccessor accessor;
         validaton_query_pkgs_.find(accessor, trx_id);
 
@@ -869,7 +862,7 @@ class Worker {
             }
 
             // Release the validation query.
-            queue_.Push(v_pkg.pack);
+            SendInitMsgForQuery(v_pkg.pack, mailbox_tid);
 
             validaton_query_pkgs_.erase(accessor);
         }
@@ -880,8 +873,8 @@ class Worker {
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
 
         // =================CoreAffinity====================
-        CoreAffinity * core_affinity = new CoreAffinity();
-        core_affinity->Init();
+        core_affinity_ = new CoreAffinity();
+        core_affinity_->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Init Core Affinity" << endl;
 
         // =================PrimitiveRCTTable===============
@@ -962,7 +955,6 @@ class Worker {
         // =================Other threads=================
         // Recv&Send Thread
         thread recvreq(&Worker::RecvRequest, this);
-        thread sendmsg(&Worker::SendQueryMsg, this, mailbox_, core_affinity);
         // Process notification msgs among workers
         thread recvnotification(&Worker::RecvNotification, this);
         // Deal with allocated timestamps
@@ -994,7 +986,7 @@ class Worker {
         worker_barrier(my_node_);
 
         // =================ActorAdapter====================
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox_, core_affinity);
+        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox_, core_affinity_);
         actor_adapter->Start();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
 
@@ -1038,7 +1030,7 @@ class Worker {
                 CHECK(false);
             }
 
-            if (!RegisterQuery(plan)) {
+            if (!RegisterQuery(plan, config_->global_num_threads + Config::main_thread_tid)) {
                 // Reply to client when transaction is finished
                 if (!is_emu_mode_) { // If Running EMU, do NOT send result back
                     ReplyClient(plan);
@@ -1066,7 +1058,6 @@ class Worker {
         garbage_collector_->Stop();
 
         recvreq.join();
-        sendmsg.join();
         recvnotification.join();
         trx_table_write_executor.join();
         timestamp_generator.join();
@@ -1087,9 +1078,9 @@ class Worker {
 
     vector<Node> & workers_;
     Config * config_;
+    CoreAffinity* core_affinity_;
     Parser* parser_;
     IndexStore* index_store_;
-    ThreadSafeQueue<Pack> queue_;
     ResultCollector * rc_;
     Monitor * monitor_;
     AbstractMailbox* mailbox_;

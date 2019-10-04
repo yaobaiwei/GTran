@@ -128,7 +128,7 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
         // write to remote
         uint64_t off = config_->min_bt_buffer_offset + node_.get_local_rank() * sizeof(Uint64CLine);
 
-        int t_id = config_->global_num_threads + 1;
+        int t_id = config_->global_num_threads + Config::update_min_bt_tid;
         RDMA &rdma = RDMA::get_rdma();
         for (int i = 0; i < node_.get_local_size(); i++) {
             if (i != node_.get_local_rank()) {

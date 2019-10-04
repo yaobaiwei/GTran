@@ -86,7 +86,7 @@ void Coordinator::ProcessTimestampRequest() {
 // Only called in PerformCalibration
 void Coordinator::WriteTimestampToWorker(int worker_id, uint64_t ts, uint64_t tag) {
     RDMA &rdma = RDMA::get_rdma();
-    int t_id = config_->global_num_threads + 2;
+    int t_id = config_->global_num_threads + Config::perform_calibration_tid;
     ts_cline_->SetValue(ts, tag);
     rdma.dev->RdmaWrite(t_id, worker_id, rdma_mem_, sizeof(Uint64CLineWithTag), rdma_mem_offset_);
 }
