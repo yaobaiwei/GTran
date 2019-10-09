@@ -360,8 +360,11 @@ void HDFSDataLoader::LoadVertexData() {
         node_.Rank0PrintfWithWorkerBarrier("!HDFSDataLoader::ReadVertexSnapshot()\n");
         vector<TMPVertex>().swap(shuffled_vtx_);
         GetVertices();
+        node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::GetVertices() finished\n");
         GetVPList();
+        node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::GetVPList() finished\n");
         ShuffleVertex();
+        node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ShuffleVertex() finished\n");
         WriteVertexSnapshot();
     }
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::LoadVertexData() finished\n");
@@ -378,7 +381,9 @@ void HDFSDataLoader::LoadEdgeData() {
         vector<TMPOutEdge>().swap(shuffled_out_edge_);
         vector<TMPInEdge>().swap(shuffled_in_edge_);
         GetEPList();
+        node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::GetEPList() finished\n");
         ShuffleEdge();
+        node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::ShuffleEdge() finished\n");
         WriteEdgeSnapshot();
     }
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::LoadEdgeData() finished\n");
@@ -425,7 +430,7 @@ void HDFSDataLoader::ShuffleVertex() {
     all_to_all(node_, false, vtx_parts);
     vertices_.clear();
 
-    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle vertex done\n");
+    node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader Shuffle vertices done\n");
 
     for (int i = 0; i < node_.get_local_size(); i++) {
         vertices_.insert(vertices_.end(), vtx_parts[i].begin(), vtx_parts[i].end());

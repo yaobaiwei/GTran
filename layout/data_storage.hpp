@@ -91,6 +91,27 @@ class DataStorage {
     void FillVertexContainer();
     void FillEdgeContainer();
 
+    // For each type of tmp container (V, InE, OutE), how many line will be printed during its loading process.
+    static constexpr int progress_print_count_ = 10;
+
+    // From 0 to progress_print_count_, indicates how many lines of progress has been printed.
+    int v_printed_progress_ = 0;
+    int out_e_printed_progress_ = 0;
+    int in_e_printed_progress_ = 0;
+
+    // For example, when progress_print_count_ == 10, and the size of tmp container of V is 50,
+    // threshold_print_progress_v_[2] will be 15, which indicates that when the loading of 15th
+    // element in tmp container of V is finished, the 3rd line of progress (indicating 30% is finished)
+    // will be printed.
+    int threshold_print_progress_v_[progress_print_count_];
+    int threshold_print_progress_out_e_[progress_print_count_];
+    int threshold_print_progress_in_e_[progress_print_count_];
+
+    // Functions related to progress printing
+    void InitPrintFillVProgress();
+    void InitPrintFillEProgress();
+    void PrintFillingProgress(int idx, int& printed_count, const int thresholds[], string progress_header);
+
     Config* config_ = nullptr;
     Node node_;
     SimpleIdMapper* id_mapper_ = nullptr;
