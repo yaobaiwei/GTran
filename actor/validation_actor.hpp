@@ -97,17 +97,17 @@ class ValidationActor : public AbstractActor {
         vstep_t() : actor_type(0), step_type(0), only_first(0) {}
 
         vstep_t(ACTOR_T actor_type_) : actor_type(static_cast<int>(actor_type_)), step_type(0), only_first(0) {
-            assert(actor_type == static_cast<int>(actor_type_));
+            CHECK(actor_type == static_cast<int>(actor_type_));
         }
 
         vstep_t(ACTOR_T actor_type_, int only_first_) :
             actor_type(static_cast<int>(actor_type_)), step_type(0), only_first(only_first_) {
-            assert((actor_type == static_cast<int>(actor_type_)) && (only_first == only_first_));
+            CHECK((actor_type == static_cast<int>(actor_type_)) && (only_first == only_first_));
         }
 
         vstep_t(ACTOR_T actor_type_, Step_T step_type_, int only_first_)
             : actor_type(static_cast<int>(actor_type_)), step_type(static_cast<int>(step_type_)), only_first(only_first_) {
-            assert((actor_type == static_cast<int>(actor_type_)) && (step_type == static_cast<int>(step_type_)) && (only_first == only_first_));
+            CHECK((actor_type == static_cast<int>(actor_type_)) && (step_type == static_cast<int>(step_type_)) && (only_first == only_first_));
         }
 
         bool operator == (const vstep_t & right) const {

@@ -49,7 +49,7 @@ class InitActor : public AbstractActor {
         int tid = TidMapper::GetInstance()->GetTid();
 
         Actor_Object actor_obj = qplan.actors[msg.meta.step];
-        assert(actor_obj.params.size() >= 2);
+        CHECK(actor_obj.params.size() >= 2);
         bool with_input = Tool::value_t2int(actor_obj.params[1]);
 
         bool next_count = qplan.actors[msg.meta.step + 1].actor_type == ACTOR_T::COUNT;
@@ -83,11 +83,11 @@ class InitActor : public AbstractActor {
         // 2) g.V(A) --> No Need to Validate;
         // 3) g.V().has() with index --> Check data from Index;
         for (auto & actor_obj : actor_list) {
-            assert(actor_obj->actor_type == ACTOR_T::INIT);
+            CHECK(actor_obj->actor_type == ACTOR_T::INIT);
             vector<uint64_t> local_check_set;
 
             // Analysis params
-            assert(actor_obj->params.size() >= 2);
+            CHECK(actor_obj->params.size() >= 2);
             Element_T inType = (Element_T)Tool::value_t2int(actor_obj->params.at(0));
             bool with_input = Tool::value_t2int(actor_obj->params[1]);
 
@@ -270,7 +270,7 @@ class InitActor : public AbstractActor {
         vector<pair<int, PredicateValue>> pred_chain;
 
         // Get Params
-        assert((actor_obj.params.size() - 2) % 3 == 0);  // make sure input format
+        CHECK((actor_obj.params.size() - 2) % 3 == 0);  // make sure input format
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
         int numParamsGroup = (actor_obj.params.size() - 2) / 3;  // number of groups of params
 

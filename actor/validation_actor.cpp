@@ -301,7 +301,7 @@ void ValidationActor::get_vstep_for_has(Actor_Object * cur_actor_obj, int step_n
         set<vstep_t> & step_sets, step2aobj_map_t_ & step_aobj_map) {
     Step_T has_step_type;
     // Get Params
-    assert(cur_actor_obj->params.size() > 0 && (cur_actor_obj->params.size() - 1) % 3 == 0);
+    CHECK(cur_actor_obj->params.size() > 0 && (cur_actor_obj->params.size() - 1) % 3 == 0);
     Element_T inType = (Element_T) Tool::value_t2int(cur_actor_obj->params.at(0));
     int numParamsGroup = (cur_actor_obj->params.size() - 1) / 3;
 

@@ -45,7 +45,7 @@ class BranchActor : public AbstractActor{
 
     void get_steps(const Actor_Object & actor, vector<int>& steps) {
         vector<value_t> params = actor.params;
-        assert(params.size() >= 1);
+        CHECK(params.size() >= 1);
         for (int i = 0; i < params.size(); i++) {
             steps.push_back(Tool::value_t2int(params[i]));
         }

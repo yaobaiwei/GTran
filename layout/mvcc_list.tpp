@@ -36,7 +36,7 @@ pair<bool, bool> MVCCList<Item>::TryPreReadUncommittedTail(const uint64_t& trx_i
     if (!config_->global_enable_opt_preread) { return make_pair(false, false); }
 
     uint64_t tail_trx_id = tail_->GetTransactionID();
-    assert(tail_trx_id != 0);
+    CHECK(tail_trx_id != 0);
 
     TrxTableStub * trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
@@ -133,7 +133,7 @@ pair<bool, bool> MVCCList<Item>::SerializableLevelGetVisibleVersion(const uint64
         if (begin_time < version->GetEndTime())
             break;
 
-        assert(version != tail_);
+        CHECK(version != tail_);
 
         version = static_cast<Item*>(version->GetNext());
     }
@@ -187,7 +187,7 @@ bool MVCCList<Item>::SnapshotLevelGetVisibleVersion(const uint64_t& trx_id, cons
         if (begin_time < version->GetEndTime())
             break;
 
-        assert(version != tail_);
+        CHECK(version != tail_);
 
         version = static_cast<Item*>(version->GetNext());
     }
@@ -275,7 +275,7 @@ decltype(Item::val)* MVCCList<Item>::AppendInitialVersion() {
 template<class Item>
 void MVCCList<Item>::CommitVersion(const uint64_t& trx_id, const uint64_t& commit_time) {
     SimpleSpinLockGuard lock_guard(&lock_);
-    assert(tail_->GetTransactionID() == trx_id);
+    CHECK(tail_->GetTransactionID() == trx_id);
 
     tail_->Commit(pre_tail_, commit_time);
     tmp_pre_tail_ = nullptr;
@@ -285,7 +285,7 @@ void MVCCList<Item>::CommitVersion(const uint64_t& trx_id, const uint64_t& commi
 template<class Item>
 void MVCCList<Item>::AbortVersion(const uint64_t& trx_id) {
     SimpleSpinLockGuard lock_guard(&lock_);
-    assert(tail_->GetTransactionID() == trx_id);
+    CHECK(tail_->GetTransactionID() == trx_id);
 
     if (tail_->NeedGC())
         tail_->ValueGC();

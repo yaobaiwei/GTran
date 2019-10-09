@@ -16,6 +16,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <atomic>
 #include <iostream>
 
+#include "glog/logging.h"
 #include "tbb/concurrent_hash_map.h"
 
 namespace std {

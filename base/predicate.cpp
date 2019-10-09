@@ -94,7 +94,7 @@ bool operator >=(const value_t& v1, const value_t& v2) {
 }
 
 bool Evaluate(PredicateValue & pv, const value_t *value) {
-    assert(pv.values.size() > 0);
+    CHECK(pv.values.size() > 0);
 
     // no value
     if (value == NULL) {
@@ -120,13 +120,13 @@ bool Evaluate(PredicateValue & pv, const value_t *value) {
       case Predicate_T::GTE:
         return *value >= pv.values[0];
       case Predicate_T::INSIDE:
-        assert(pv.values.size() == 2);
+        CHECK(pv.values.size() == 2);
         return *value > pv.values[0] && *value < pv.values[1];
       case Predicate_T::OUTSIDE:
-        assert(pv.values.size() == 2);
+        CHECK(pv.values.size() == 2);
         return *value < pv.values[0] || *value > pv.values[1];
       case Predicate_T::BETWEEN:
-        assert(pv.values.size() == 2);
+        CHECK(pv.values.size() == 2);
         return *value >= pv.values[0] && *value <= pv.values[1];
       case Predicate_T::WITHIN:
         for (auto v : pv.values) {

@@ -420,7 +420,7 @@ void IndexStore::InsertToUpdateBuffer(const uint64_t& trx_id, vector<uint64_t>& 
                                       value_t* new_val = NULL, vector<value_t>* old_vals = NULL) {
     vector<update_element> up_list;
     if (old_vals != NULL) {
-        assert(ids.size() == old_vals->size());
+        CHECK(ids.size() == old_vals->size());
     }
 
     for (int i = 0; i < ids.size(); i++) {

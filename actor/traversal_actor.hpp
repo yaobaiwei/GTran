@@ -106,7 +106,7 @@ class TraversalActor : public AbstractActor {
 
     bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
         for (auto & actor_obj : actor_list) {
-            assert(actor_obj->actor_type == ACTOR_T::TRAVERSAL);
+            CHECK(actor_obj->actor_type == ACTOR_T::TRAVERSAL);
             vector<uint64_t> local_check_set;
 
             // Analysis params

@@ -36,7 +36,7 @@ class SelectActor : public AbstractActor {
         Meta & m = msg.meta;
         Actor_Object actor_obj = qplan.actors[m.step];
 
-        assert(actor_obj.params.size() % 2 == 0);
+        CHECK(actor_obj.params.size() % 2 == 0);
         // Get Params
         vector<pair<int, string>> label_step_list;
         for (int i = 0; i < actor_obj.params.size(); i+=2) {

@@ -139,7 +139,7 @@ class LabelledBranchActorBase :  public AbstractActor {
         while (msg_path != end_path) {
             int i = msg_path.find_last_of("\t");
             // "\t" should not be the the last char
-            assert(i + 1 < msg_path.size());
+            CHECK(i + 1 < msg_path.size());
             // get last number
             int num = atoi(msg_path.substr(i + 1).c_str());
 
@@ -223,7 +223,7 @@ class BranchFilterActor : public LabelledBranchActorBase<BranchData::branch_filt
 
         // get branch infos
         int info_size = msg.meta.branch_infos.size();
-        assert(info_size > 0);
+        CHECK(info_size > 0);
         int branch_index = msg.meta.branch_infos[info_size - 1].index;
         int his_key = msg.meta.branch_infos[info_size - 1].key;
 
@@ -284,7 +284,7 @@ class BranchFilterActor : public LabelledBranchActorBase<BranchData::branch_filt
 
     void get_steps(const Actor_Object & actor, vector<int>& steps) {
         vector<value_t> params = actor.params;
-        assert(params.size() > 1);
+        CHECK(params.size() > 1);
         for (int i = 1; i < params.size(); i++) {
             steps.push_back(Tool::value_t2int(params[i]));
         }

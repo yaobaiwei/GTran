@@ -59,7 +59,7 @@ class HasActor : public AbstractActor {
         vector<pair<int, PredicateValue>> pred_chain;
 
         // Get Params
-        assert(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 3 == 0);  // make sure input format
+        CHECK(actor_obj.params.size() > 0 && (actor_obj.params.size() - 1) % 3 == 0);  // make sure input format
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
         int numParamsGroup = (actor_obj.params.size() - 1) / 3;  // number of groups of params
 
@@ -110,7 +110,7 @@ class HasActor : public AbstractActor {
 
     bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
         for (auto & actor_obj : actor_list) {
-            assert(actor_obj->actor_type == ACTOR_T::HAS);
+            CHECK(actor_obj->actor_type == ACTOR_T::HAS);
             vector<uint64_t> local_check_set;
 
             // Analysis params

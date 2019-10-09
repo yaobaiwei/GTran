@@ -39,7 +39,7 @@ class IsActor : public AbstractActor {
         // Get Params
         vector<PredicateValue> pred_chain;
 
-        assert(actor_obj.params.size() > 0 && (actor_obj.params.size() % 2) == 0);
+        CHECK(actor_obj.params.size() > 0 && (actor_obj.params.size() % 2) == 0);
         int numParamsGroup = actor_obj.params.size() / 2;
 
         for (int i = 0; i < numParamsGroup; i++) {

@@ -24,12 +24,12 @@ void TidMapper::Register(int tid) {
 
 int TidMapper::GetTid() {
     TidAccessor manual_accessor;
-    assert(manual_tid_map_.find(manual_accessor, pthread_self()));
+    CHECK(manual_tid_map_.find(manual_accessor, pthread_self()));
     return manual_accessor->second;
 }
 
 int TidMapper::GetTidUnique() {
     TidAccessor unique_accessor;
-    assert(unique_tid_map_.find(unique_accessor, pthread_self()));
+    CHECK(unique_tid_map_.find(unique_accessor, pthread_self()));
     return unique_accessor->second;
 }

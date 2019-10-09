@@ -7,6 +7,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 #include <vector>
 #include "base/type.hpp"
+#include "glog/logging.h"
 #include "utils/tool.hpp"
 
 bool operator ==(const value_t& v1, const value_t& v2);

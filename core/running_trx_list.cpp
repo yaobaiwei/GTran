@@ -66,8 +66,7 @@ void RunningTrxList::Init(const Node& node) {
 void RunningTrxList::EraseTrx(uint64_t bt) {
     pthread_spin_lock(&lock_);
     auto it = list_node_map_.find(bt);
-    // server: /home/cghuan/data/sublime_oltp/oltp/core/running_trx_list.cpp:54: void RunningTrxList::EraseTrx(uint64_t): Assertion `it != list_node_map_.end()' failed.
-    assert(it != list_node_map_.end());
+    CHECK(it != list_node_map_.end());
 
     ListNode* list_node = it->second;
 
@@ -115,7 +114,7 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
     if (min_bt_ == bt)
         return;
 
-    assert(min_bt_ < bt);
+    CHECK(min_bt_ < bt);
 
     min_bt_ = bt;
 

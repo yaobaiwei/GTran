@@ -40,8 +40,7 @@ void DropActor::process(const QueryPlan & qplan, Message & msg) {
         } else if (isProperty && elem_type == Element_T::EDGE) {
             index_store_->InsertToUpdateBuffer(qplan.trxid, update_ids, ID_T::EPID, false, NULL, &update_vals);
         } else {
-            cout << "[Drop Actor] Unexpected type combination" << endl;
-            assert(false);
+            CHECK(false) << "[Drop Actor] Unexpected type combination\n";
         }
 
         msg.CreateNextMsg(qplan.actors, msg.data, num_thread_, core_affinity_, msg_vec);
