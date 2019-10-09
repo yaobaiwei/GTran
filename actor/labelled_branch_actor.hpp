@@ -78,7 +78,7 @@ class LabelledBranchActorBase :  public AbstractActor {
             GetMsgInfo(msg, key, end_path);
 
             typename BranchDataTable::accessor ac;
-            data_table_.find(ac, key);
+            CHECK(data_table_.find(ac, key));
 
             bool isReady = IsReady(ac, msg.meta, end_path);
 
