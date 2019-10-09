@@ -632,12 +632,12 @@ class Worker {
     /* Get all queries without dependency from the given TrxPlan.
      * For each query, pack it into a Pack with its query_index.
      *
-     * For non-validation query, just push the Pack to the queue of queries to be executed.
+     * For non-validation query, just send initMsg of it.
      * For validation query:
      *      Trx is readonly:
-     *          Update status in trx_table, and push the Pack to the queue.
+     *          Update status in trx_table, send initMsg of it.
      *      Trx is not readonly:
-     *          Store the Pack in a map, and push request for CT to another queue.
+     *          Store the Pack in a map, and push request for CT.
      */
     bool RegisterQuery(TrxPlan& plan, int mailbox_tid) {
         vector<QueryPlan> qplans;
@@ -755,6 +755,8 @@ class Worker {
         }
     }
 
+    // Create the initMsg of a qplan in pkg, and send it out.
+    // Need to specify the tid, since RDMAMailbox needs to find the corresponding send_buf via tid.
     void SendInitMsgForQuery(Pack pkg, int mailbox_tid) {
         vector<Message> msgs;
         Message::CreateInitMsg(
@@ -843,6 +845,8 @@ class Worker {
         }
     }
 
+    // For non-readonly transaction, need to query trx_ids from RCT from all workers,
+    // before the validation query can be sent out.
     void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list, int mailbox_tid) {
         VPackAccessor accessor;
         validaton_query_pkgs_.find(accessor, trx_id);
