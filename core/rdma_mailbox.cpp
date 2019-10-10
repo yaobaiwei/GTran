@@ -33,10 +33,12 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
 
 
     // Other threads may call RDMARead or RDMAWrite in:
-    //      Worker::SendQueryMsg (with tid = config_->global_num_threads)
-    //      RunningTrxList::UpdateMinBT (with tid = config_->global_num_threads + 1)
-    //      Coordinator::PerformCalibration (with tid = config_->global_num_threads + 2)
-    RDMA_init(config_->global_num_workers, config_->global_num_threads + 3, nid, mem_info, nodes);
+    //      Worker::Start (with tid = config_->global_num_threads)
+    //      Worker::ProcessAllocatedTimestamp (with tid = config_->global_num_threads + 1)
+    //      Worker::RecvNotification (with tid = config_->global_num_threads + 2)
+    //      RunningTrxList::UpdateMinBT (with tid = config_->global_num_threads + 3)
+    //      Coordinator::PerformCalibration (with tid = config_->global_num_threads + 4)
+    RDMA_init(config_->global_num_workers, config_->global_num_threads + Config::extra_rdma_rc_thread_count, nid, mem_info, nodes);
 
     int nrbfs = (config_->global_num_workers - 1) * config_->global_num_threads;
 
@@ -69,7 +71,7 @@ void RdmaMailbox::Init(vector<Node> & nodes) {
     }
 
     // 1 more thread for worker to send init msg
-    pending_msgs.resize(config_->global_num_threads + 1);
+    pending_msgs.resize(config_->global_num_threads + Config::extra_send_buf_count);
     rr_size = 3;
 
     pthread_spin_init(&send_notification_lock_, 0);
