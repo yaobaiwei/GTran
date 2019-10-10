@@ -114,12 +114,68 @@ void DataStorage::CreateContainer() {
     EPropertyMVCCItem::SetGlobalValueStore(ep_store_);
 }
 
+// Calculate the thresholds of printing progress lines in the "load V" loop.
+void DataStorage::InitPrintFillVProgress() {
+    int vtx_sz = hdfs_data_loader_->shuffled_vtx_.size();
+
+    for (int i = 0; i < progress_print_count_; i++) {
+        // Calculate the threshold of printing a specific (i + 1) line
+        threshold_print_progress_v_[i] = vtx_sz * (i + 1.0) / progress_print_count_;
+        
+        // In case of precision loss of floating-point calculation
+        if (threshold_print_progress_v_[i] > vtx_sz)
+            threshold_print_progress_v_[i] = vtx_sz;
+    }
+}
+
+// Calculate the thresholds of printing progress lines in "load inE" and "load outE" loops.
+// Similar to InitPrintFillVProgress.
+void DataStorage::InitPrintFillEProgress() {
+    int out_e_sz = hdfs_data_loader_->shuffled_out_edge_.size();
+    int in_e_sz = hdfs_data_loader_->shuffled_in_edge_.size();
+
+    for (int i = 0; i < progress_print_count_; i++) {
+        threshold_print_progress_out_e_[i] = out_e_sz * (i + 1.0) / progress_print_count_;
+
+        if (threshold_print_progress_out_e_[i] > out_e_sz)
+            threshold_print_progress_out_e_[i] = out_e_sz;
+
+        threshold_print_progress_in_e_[i] = in_e_sz * (i + 1.0) / progress_print_count_;
+
+        if (threshold_print_progress_in_e_[i] > in_e_sz)
+            threshold_print_progress_in_e_[i] = in_e_sz;
+    }
+}
+
+// Print lines of loading progress of a "filling V/inE/outE" loop.
+void DataStorage::PrintFillingProgress(int idx, int& printed_count, const int thresholds[], string progress_header) {
+    if (printed_count == progress_print_count_)
+        return;
+
+    // Check if a specific percentage of data has been loaded.
+    if (idx >= thresholds[printed_count]) {
+        double ratio_to_print = 100 * (printed_count + 1.0) / progress_print_count_;
+
+        // Barrier invoked. Need to guarantee that all workers call Rank0PrintfWithWorkerBarrier as many times.
+        node_.Rank0PrintfWithWorkerBarrier("%s, %.2f%% finished\n", progress_header.c_str(), ratio_to_print);
+        printed_count++;
+
+        // Recursive calling. Make sure that all lines will be printed even if the loop length is less than the count of progress lines.
+        PrintFillingProgress(idx, printed_count, thresholds, progress_header);
+    }
+}
+
 void DataStorage::FillVertexContainer() {
     indexes_ = hdfs_data_loader_->indexes_;
 
     int max_vid = worker_rank_;
 
-    for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
+    InitPrintFillVProgress();
+    for (int i = 0; i < hdfs_data_loader_->shuffled_vtx_.size(); i++) {
+        PrintFillingProgress(i, v_printed_progress_, threshold_print_progress_v_, "DataStorage::FillVertexContainer");
+
+        const TMPVertex& vtx = hdfs_data_loader_->shuffled_vtx_[i];
+
         // std::pair<VertexIterator iterator_to_inserted_item, bool insert_success>
         auto insert_result = vertex_map_.insert(pair<uint32_t, Vertex>(vtx.id.value(), Vertex()));
         VertexIterator v_itr = insert_result.first;
@@ -145,6 +201,7 @@ void DataStorage::FillVertexContainer() {
                                                                 vtx.vp_value_list[i]);
         }
     }
+    PrintFillingProgress(hdfs_data_loader_->shuffled_vtx_.size(), v_printed_progress_, threshold_print_progress_v_, "DataStorage::FillVertexContainer");
 
     num_of_vertex_ = (max_vid - worker_rank_) / worker_size_;
 
@@ -156,10 +213,16 @@ void DataStorage::FillVertexContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillVertexContainer() finished\n");
 }
 
-
 void DataStorage::FillEdgeContainer() {
+    InitPrintFillEProgress();
+
     // Insert edge properties and outE
-    for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
+    for (int i = 0; i < hdfs_data_loader_->shuffled_out_edge_.size(); i++) {
+        PrintFillingProgress(i, out_e_printed_progress_,
+                             threshold_print_progress_out_e_, "DataStorage::FillEdgeContainer, out edge");
+
+        const TMPOutEdge& edge = hdfs_data_loader_->shuffled_out_edge_[i];
+
         auto insert_result = out_edge_map_.insert(pair<uint64_t, OutEdge>(edge.id.value(), OutEdge()));
         OutEdgeIterator out_e_itr = insert_result.first;
 
@@ -179,11 +242,7 @@ void DataStorage::FillEdgeContainer() {
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
             edge_version.ep_row_list->InsertInitialCell(epid_t(edge.id, edge.ep_label_list[i]), edge.ep_value_list[i]);
         }
-    }
 
-    // Insert inE
-
-    for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
         // check if the dst_v on this node
         if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
             auto insert_result = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge()));
@@ -199,8 +258,15 @@ void DataStorage::FillEdgeContainer() {
             in_e_itr->second.mvcc_list = mvcc_list;
         }
     }
+    PrintFillingProgress(hdfs_data_loader_->shuffled_out_edge_.size(), out_e_printed_progress_,
+                         threshold_print_progress_out_e_, "DataStorage::FillEdgeContainer, out edge");
 
-    for (auto edge : hdfs_data_loader_->shuffled_in_edge_) {
+    for (int i = 0; i < hdfs_data_loader_->shuffled_in_edge_.size(); i++) {
+        PrintFillingProgress(i, in_e_printed_progress_,
+                             threshold_print_progress_in_e_, "DataStorage::FillEdgeContainer, in edge");
+
+        const TMPInEdge& edge = hdfs_data_loader_->shuffled_in_edge_[i];
+    
         auto insert_result = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge()));
         InEdgeIterator in_e_itr = insert_result.first;
 
@@ -213,6 +279,8 @@ void DataStorage::FillEdgeContainer() {
         // pointer of MVCCList<EdgeMVCCItem> is shared with in_edge_map_
         in_e_itr->second.mvcc_list = mvcc_list;
     }
+    PrintFillingProgress(hdfs_data_loader_->shuffled_in_edge_.size(), in_e_printed_progress_,
+                         threshold_print_progress_in_e_, "DataStorage::FillEdgeContainer, in edge");
 
     node_.LocalSequentialDebugPrint("ve_row_pool_: " + ve_row_pool_->UsageString());
     node_.LocalSequentialDebugPrint("ep_row_pool_: " + ep_row_pool_->UsageString());
