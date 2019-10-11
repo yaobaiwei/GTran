@@ -54,10 +54,14 @@ void DataStorage::Init() {
     hdfs_data_loader_->GetStringIndexes();
 
     hdfs_data_loader_->LoadVertexData();
+    if (config_->predict_container_usage)
+        PredictVertexContainerUsage();
     FillVertexContainer();
     hdfs_data_loader_->FreeVertexMemory();
 
     hdfs_data_loader_->LoadEdgeData();
+    if (config_->predict_container_usage)
+        PredictEdgeContainerUsage();
     FillEdgeContainer();
     hdfs_data_loader_->FreeEdgeMemory();
 
@@ -163,6 +167,126 @@ void DataStorage::PrintFillingProgress(int idx, int& printed_count, const int th
         // Recursive calling. Make sure that all lines will be printed even if the loop length is less than the count of progress lines.
         PrintFillingProgress(idx, printed_count, thresholds, progress_header);
     }
+}
+
+string DataStorage::GetUsageString(UsageMap usage_map) {
+    string ret;
+
+    for (auto usage_pair : usage_map) {
+        ret += "[" + usage_pair.first + "]: ";
+        ret += "usage: " + to_string(usage_pair.second.first);
+        ret += ", total: " + to_string(usage_pair.second.second);
+        ret += ", usage ratio: " + to_string(usage_pair.second.first * 100.0 / usage_pair.second.second) + "%\n";
+    }
+
+    return ret;
+}
+
+void DataStorage::PredictVertexContainerUsage() {
+    size_t vp_store_item_count = GiB2B(config_->global_vertex_property_kv_sz_gb) / (MEM_ITEM_SIZE + sizeof(OffsetT));
+
+    size_t vp_row_usage = 0;
+    size_t vp_mvcc_usage = 0;
+    size_t v_mvcc_usage = hdfs_data_loader_->shuffled_vtx_.size();
+    size_t vp_store_cell_usage = 0;
+
+    // Emulate the insertion of vertices
+    for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
+        int vp_row_cost = vtx.vp_label_list.size() / VP_ROW_ITEM_COUNT;
+        if (vp_row_cost * VP_ROW_ITEM_COUNT != vtx.vp_label_list.size())
+            vp_row_cost++;
+        vp_row_usage += vp_row_cost;
+
+        vp_mvcc_usage += vtx.vp_label_list.size();
+
+        for (int i = 0; i < vtx.vp_label_list.size(); i++) {
+            int cell_cost = (vtx.vp_value_list[i].content.size() + 1) / MEM_ITEM_SIZE;
+            if (cell_cost * MEM_ITEM_SIZE != vtx.vp_value_list[i].content.size() + 1)
+                cell_cost++;
+            vp_store_cell_usage += cell_cost;
+        }
+    }
+
+    UsageMap usage_map;
+    usage_map["V mvcc"] = {v_mvcc_usage, config_->global_v_mvcc_pool_size};
+    usage_map["VP row"] = {vp_row_usage, config_->global_vp_row_pool_size};
+    usage_map["VP mvcc"] = {vp_row_usage, config_->global_vp_mvcc_pool_size};
+    usage_map["VP store cell"] = {vp_store_cell_usage, vp_store_item_count};
+
+    node_.Rank0PrintfWithWorkerBarrier(("Predicted container usage for vertices:\n" + GetUsageString(usage_map)).c_str());
+}
+
+void DataStorage::PredictEdgeContainerUsage() {
+    size_t ep_store_item_count = GiB2B(config_->global_edge_property_kv_sz_gb) / (MEM_ITEM_SIZE + sizeof(OffsetT));
+
+    size_t ep_row_usage = 0;
+    size_t ep_mvcc_usage = 0;
+    size_t e_mvcc_usage = hdfs_data_loader_->shuffled_out_edge_.size() + hdfs_data_loader_->shuffled_in_edge_.size();
+    size_t ep_store_cell_usage = 0;
+    size_t ve_row_usage = 0;
+
+    // To emulate the insertion of VE row, necessary for getting ve_row_usage
+    unordered_map<uint32_t, uint32_t> vtx_edge_cell_count;
+
+    // Emulate the insertion of out edges
+    for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
+        int ep_row_cost = edge.ep_label_list.size() / EP_ROW_ITEM_COUNT;
+        if (ep_row_cost * EP_ROW_ITEM_COUNT != edge.ep_label_list.size())
+            ep_row_cost++;
+        ep_row_usage += ep_row_cost;
+
+        ep_mvcc_usage += edge.ep_label_list.size();
+
+        for (int i = 0; i < edge.ep_label_list.size(); i++) {
+            int cell_cost = (edge.ep_value_list[i].content.size() + 1) / MEM_ITEM_SIZE;
+            if (cell_cost * MEM_ITEM_SIZE != edge.ep_value_list[i].content.size() + 1)
+                cell_cost++;
+            ep_store_cell_usage += cell_cost;
+        }
+
+        uint32_t src_vid = edge.id.out_v;
+        if (vtx_edge_cell_count.count(src_vid) == 0)
+            vtx_edge_cell_count.insert({src_vid, 0});
+        else
+            vtx_edge_cell_count.at(src_vid)++;
+
+        if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
+            e_mvcc_usage++;
+
+            uint32_t dst_vid = edge.id.in_v;
+            if (vtx_edge_cell_count.count(dst_vid) == 0)
+                vtx_edge_cell_count.insert({dst_vid, 0});
+            else
+                vtx_edge_cell_count.at(dst_vid)++;
+        }
+    }
+
+    // Emulate the insertion of in edges
+    for (auto edge : hdfs_data_loader_->shuffled_in_edge_) {
+        uint32_t dst_vid = edge.id.in_v;
+        if (vtx_edge_cell_count.count(dst_vid) == 0)
+            vtx_edge_cell_count.insert({dst_vid, 0});
+        else
+            vtx_edge_cell_count.at(dst_vid)++;
+    }
+
+    // Only when the (emulated) insertion is finished, can ve_row_usage be estimated.
+    for (auto p : vtx_edge_cell_count) {
+        int ve_row_cost = p.second / VE_ROW_ITEM_COUNT;
+        if (ve_row_cost * VE_ROW_ITEM_COUNT != p.second)
+            ve_row_cost++;
+        ve_row_usage += ve_row_cost;
+    }
+
+    UsageMap usage_map;
+
+    usage_map["E mvcc"] = {e_mvcc_usage, config_->global_e_mvcc_pool_size};
+    usage_map["EP row"] = {ep_row_usage, config_->global_ep_row_pool_size};
+    usage_map["EP mvcc"] = {ep_row_usage, config_->global_ep_mvcc_pool_size};
+    usage_map["EP store cell"] = {ep_store_cell_usage, ep_store_item_count};
+    usage_map["VE row"] = {ve_row_usage, config_->global_ve_row_pool_size};
+
+    node_.Rank0PrintfWithWorkerBarrier(("Predicted container usage for edges:\n" + GetUsageString(usage_map)).c_str());
 }
 
 void DataStorage::FillVertexContainer() {
