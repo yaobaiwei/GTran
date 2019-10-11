@@ -90,6 +90,8 @@ class Config{
     // enable recording the utilization of memory pool
     bool global_enable_mem_pool_utilization_record;
 
+    // Predict the usage of MemPool and ValueStore before filling container
+    bool predict_container_usage;
 
     // send_buffer_sz should be equal or less than recv_buffer_sz
     // per send buffer should be exactly ONE msg size
@@ -447,6 +449,14 @@ class Config{
             global_ep_mvcc_pool_size = val;
         } else {
             fprintf(stderr, "must enter the EP_MVCC_POOL_SIZE. exits.\n");
+            exit(-1);
+        }
+
+        val = iniparser_getboolean(ini, "SYSTEM:PREDICT_CONTAINER_USAGE", val_not_found);
+        if (val != val_not_found) {
+            predict_container_usage = val;
+        } else {
+            fprintf(stderr, "must enter the PREDICT_CONTAINER_USAGE. exits.\n");
             exit(-1);
         }
 

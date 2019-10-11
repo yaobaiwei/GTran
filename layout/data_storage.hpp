@@ -112,6 +112,14 @@ class DataStorage {
     void InitPrintFillEProgress();
     void PrintFillingProgress(int idx, int& printed_count, const int thresholds[], string progress_header);
 
+
+    // Usage printing related
+    typedef map<string, pair<size_t, size_t>> UsageMap;  // pair<used, total>
+    string GetUsageString(UsageMap usage_map);
+    void PredictVertexContainerUsage();
+    void PredictEdgeContainerUsage();
+
+
     Config* config_ = nullptr;
     Node node_;
     SimpleIdMapper* id_mapper_ = nullptr;
