@@ -137,7 +137,7 @@ class ActorAdapter {
             msg_logic_table_.insert(ac, m.qid);
             ac->second = move(m.qplan);
         } else if (m.msg_type == MSG_T::FEED) {
-            assert(msg.data.size() == 1);
+            CHECK(msg.data.size() == 1);
             agg_t agg_key(m.qid, m.step);
             data_storage_->InsertAggData(agg_key, msg.data[0].second);
 

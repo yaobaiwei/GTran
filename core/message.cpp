@@ -176,8 +176,7 @@ void Message::ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, con
         // addE().to()
         GenerateEdgeWithData(data, to_method_type, to_params, false);
     } else {
-        cout << "[Error] Unexpected Error for from() and to()" << endl;
-        assert(false);
+        CHECK(false) << "[Error] Unexpected Error for from() and to()\n";
     }
 }
 
@@ -668,7 +667,7 @@ bool Message::UpdateRoute(Meta& m, const vector<Actor_Object>& actors) {
         return true;
     } else if (m.step <= this->meta.step) {
         // to branch parent
-        assert(branch_depth >= 0);
+        CHECK(branch_depth >= 0);
 
         if (actors[m.step].actor_type == ACTOR_T::BRANCH || actors[m.step].actor_type == ACTOR_T::REPEAT) {
             // don't need to send msg back to parent branch step

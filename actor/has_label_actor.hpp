@@ -45,7 +45,7 @@ class HasLabelActor : public AbstractActor {
         Actor_Object actor_obj = qplan.actors[m.step];
 
         // Get Params
-        assert(actor_obj.params.size() > 1);
+        CHECK(actor_obj.params.size() > 1);
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params.at(0));
 
         if (qplan.trx_type != TRX_READONLY && config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
@@ -89,7 +89,7 @@ class HasLabelActor : public AbstractActor {
 
     bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
         for (auto & actor_obj : actor_list) {
-            assert(actor_obj->actor_type == ACTOR_T::HASLABEL);
+            CHECK(actor_obj->actor_type == ACTOR_T::HASLABEL);
             vector<uint64_t> local_check_set;
 
             // Analysis params

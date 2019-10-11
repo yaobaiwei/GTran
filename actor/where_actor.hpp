@@ -48,7 +48,7 @@ class WhereActor : public AbstractActor {
         vector<PredicateHistory> pred_chain;
 
         // Get Params
-        assert(actor_obj.params.size() > 0 && (actor_obj.params.size() % 3) == 0);
+        CHECK(actor_obj.params.size() > 0 && (actor_obj.params.size() % 3) == 0);
         int numParamsGroup = actor_obj.params.size() / 3;  // number of groups of params
 
         for (int i = 0; i < numParamsGroup; i++) {

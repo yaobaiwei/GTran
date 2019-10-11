@@ -477,10 +477,10 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
     auto* cell = LocateCell(pid);
 
     // system error; since this function is called by .drop() step, two conditions below won't happens
-    assert(cell != nullptr);
+    CHECK(cell != nullptr);
     MVCCListType* mvcc_list = cell->mvcc_list;
 
-    assert(mvcc_list != nullptr);
+    CHECK(mvcc_list != nullptr);
 
     bool old_val_exists = true;
     ValueHeader old_val_header;

@@ -106,7 +106,7 @@ bool BarrierActorBase<T>::IsReady(typename BarrierDataTable::accessor& ac, Meta&
     while (msg_path != end_path) {
         int i = msg_path.find_last_of("\t");
         // "\t" should not be the the last char
-        assert(i + 1 < msg_path.size());
+        CHECK(i + 1 < msg_path.size());
         // get last number
         int num = atoi(msg_path.substr(i + 1).c_str());
 

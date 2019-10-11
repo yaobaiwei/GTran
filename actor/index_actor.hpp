@@ -42,7 +42,7 @@ class IndexActor : public AbstractActor {
         Actor_Object actor_obj = qplan.actors[m.step];
 
         // Get Params
-        assert(actor_obj.params.size() == 2);  // make sure input format
+        CHECK(actor_obj.params.size() == 2);  // make sure input format
         Element_T inType = (Element_T) Tool::value_t2int(actor_obj.params[0]);
         int pid = Tool::value_t2int(actor_obj.params[1]);
 

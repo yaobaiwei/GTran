@@ -401,9 +401,9 @@ class DependentGCJob : public AbstractGCJob {
 
     bool taskExists(DependentGCTask* target_task) {
         if (find(tasks_.begin(), tasks_.end(), target_task) == tasks_.end()) {
-            return true;
+            return false;
         }
-        return false;
+        return true;
     }
 
     string DebugString() {

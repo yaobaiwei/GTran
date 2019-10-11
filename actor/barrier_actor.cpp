@@ -70,7 +70,7 @@ void AggregateActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
     // all msg are collected
     if (isReady) {
         const Actor_Object& actor = qplan.actors[msg.meta.step];
-        assert(actor.params.size() == 1);
+        CHECK(actor.params.size() == 1);
         int key = Tool::value_t2int(actor.params[0]);
 
         // insert to current node's storage
@@ -105,7 +105,7 @@ void CapActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
         // max msg size - sizeof(data with one empty pair) - sizeof(empty value_t)
         size_t max_size = msg.max_data_size - MemSize(msg_data) - MemSize(value_t());
 
-        assert(actor.params.size() % 2 == 0);
+        CHECK(actor.params.size() % 2 == 0);
 
         // side-effect key list
         for (int i = 0; i < actor.params.size(); i+=2) {
@@ -286,7 +286,7 @@ void GroupActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
     // get actor params
     const Actor_Object& actor = qplan.actors[msg.meta.step];
-    assert(actor.params.size() == 2);
+    CHECK(actor.params.size() == 2);
     int label_step = Tool::value_t2int(actor.params[1]);
 
     // process msg data
@@ -379,7 +379,7 @@ void OrderActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
     // get actor params
     const Actor_Object& actor = qplan.actors[msg.meta.step];
-    assert(actor.params.size() == 2);
+    CHECK(actor.params.size() == 2);
     int label_step = Tool::value_t2int(actor.params[0]);
 
     // process msg data
@@ -477,7 +477,7 @@ void PostValidationActor::do_work(int tid, const QueryPlan & qplan, Message & ms
             trx_table_stub_->update_status(qplan.trxid, TRX_STAT::COMMITTED);
             uint64_t ct = 0;
             trx_table_stub_->read_ct(qplan.trxid, stat, ct);
-            assert(ct != 0);
+            CHECK(ct != 0);
             value_t v;
             Tool::uint64_t2value_t(ct, v);
             msg_data.emplace_back(history_t(), vector<value_t>{move(v)});
@@ -499,7 +499,7 @@ void RangeActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
     // get actor params
     const Actor_Object& actor = qplan.actors[msg.meta.step];
-    assert(actor.params.size() == 2);
+    CHECK(actor.params.size() == 2);
     int start = Tool::value_t2int(actor.params[0]);
     int end = Tool::value_t2int(actor.params[1]);
     if (end == -1) { end = INT_MAX; }
@@ -584,7 +584,7 @@ void CoinActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
     // get actor params
     const Actor_Object& actor = qplan.actors[msg.meta.step];
 
-    assert(actor.params.size() == 1);
+    CHECK(actor.params.size() == 1);
     double rate = Tool::value_t2double(actor.params[0]);
 
     // process msg data
@@ -666,7 +666,7 @@ void MathActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
     // get actor params
     const Actor_Object& actor = qplan.actors[msg.meta.step];
-    assert(actor.params.size() == 1);
+    CHECK(actor.params.size() == 1);
     Math_T math_type = (Math_T)Tool::value_t2int(actor.params[0]);
     void (*op)(BarrierData::math_meta_t&, value_t&);
     switch (math_type) {

@@ -790,7 +790,7 @@ class Worker {
                 trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
 
                 TrxPlanAccessor accessor;
-                plans_.find(accessor, trx_id);
+                CHECK(plans_.find(accessor, trx_id));
 
                 TrxPlan& plan = accessor->second;
                 uint64_t bt = plan.GetStartTime();
@@ -815,7 +815,7 @@ class Worker {
                 running_trx_list_->InsertTrx(bt);
 
                 TrxPlanAccessor accessor;
-                plans_.find(accessor, trx_id);
+                CHECK(plans_.find(accessor, trx_id));
 
                 TrxPlan& plan = accessor->second;
 
@@ -849,7 +849,7 @@ class Worker {
     // before the validation query can be sent out.
     void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list, int mailbox_tid) {
         VPackAccessor accessor;
-        validaton_query_pkgs_.find(accessor, trx_id);
+        CHECK(validaton_query_pkgs_.find(accessor, trx_id));
 
         ValidationQueryPack& v_pkg = accessor->second;
 
@@ -1016,7 +1016,7 @@ class Worker {
             uint2qid_t(re.qid, qid);
 
             TrxPlanAccessor accessor;
-            plans_.find(accessor, qid.trxid);
+            CHECK(plans_.find(accessor, qid.trxid));
             TrxPlan& plan = accessor->second;
 
             if (re.reply_type == ReplyType::NOTIFY_ABORT) {

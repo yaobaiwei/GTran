@@ -222,7 +222,7 @@ void RdmaMailbox::FetchMsgFromRecvBuf(int tid, int nid, obinstream & um) {
         // Make sure RDMA trans is done
         while (*footer != pop_msg_size) {
             _mm_pause();
-            assert(*footer == 0 || *footer == pop_msg_size);
+            CHECK(*footer == 0 || *footer == pop_msg_size);
         }
 
         // IF it is a ring(rare situation)

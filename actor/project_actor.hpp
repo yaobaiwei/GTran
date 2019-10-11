@@ -58,7 +58,7 @@ class ProjectActor : public AbstractActor {
           case Element_T::EDGE:   proj = &this->project_edge; break;
           default:
             cout << "Wrong element type in project actor!" << endl;
-            assert(false);
+            CHECK(false);
         }
         vector<pair<history_t, vector<value_t>>> newData;
         bool read_success = true;
@@ -94,7 +94,7 @@ class ProjectActor : public AbstractActor {
 
     bool valid(uint64_t TrxID, vector<Actor_Object*> & actor_list, const vector<rct_extract_data_t> & check_set) {
         for (auto & actor_obj : actor_list) {
-            assert(actor_obj->actor_type == ACTOR_T::PROJECT);
+            CHECK(actor_obj->actor_type == ACTOR_T::PROJECT);
             vector<uint64_t> local_check_set;
 
             // Analysis params

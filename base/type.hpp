@@ -16,8 +16,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <tuple>
 #include <vector>
 
-#include "utils/mymath.hpp"
 #include "base/serialization.hpp"
+#include "utils/mymath.hpp"
 
 
 using __gnu_cxx::hash_map;

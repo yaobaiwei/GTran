@@ -30,8 +30,7 @@ void CommitActor::process(const QueryPlan & qplan, Message & msg) {
         index_store_->UpdateTrxStatus(qplan.trxid, TRX_STAT::COMMITTED);
         Tool::str2str("Transaction committed", result);
     } else {
-        cout << "[Error] Unexpected Message Type in Commit Actor" << endl;
-        assert(false);
+        CHECK(false) << "[Error] Unexpected Message Type in Commit Actor\n";
     }
 
     // Clean Dependency Read
