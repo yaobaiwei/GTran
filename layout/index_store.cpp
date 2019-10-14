@@ -55,8 +55,8 @@ bool IndexStore::IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = 
 //    type:             VERTEX / EDGE
 //    property_key:     key
 //    index_map:        alreay constructed index map
-//  no_key_vec:        vector of elements that have no provided key
-bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<value_t>>& index_map, vector<value_t>& no_key_vec) {
+//    no_key_vec:       vector of elements that have no provided key
+bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<uint64_t>>& index_map, vector<uint64_t>& no_key_vec) {
     if (config_->global_enable_indexing) {
         WritePriorRWLock * rw_lock;
         unordered_map<int, index_>* m;
@@ -74,7 +74,7 @@ bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<value_
         uint64_t sum = 0;
         // sort each vector for better searching performance
         for (auto& item : index_map) {
-            set<value_t> temp(std::make_move_iterator(item.second.begin()),
+            set<uint64_t> temp(std::make_move_iterator(item.second.begin()),
                             std::make_move_iterator(item.second.end()));
             uint64_t count = temp.size();
             sum += count;
@@ -83,7 +83,7 @@ bool IndexStore::SetIndexMap(Element_T type, int pid, map<value_t, vector<value_
             idx.values.push_back(&(itr->first));
         }
 
-        idx.no_key = set<value_t>(make_move_iterator(no_key_vec.begin()), make_move_iterator(no_key_vec.end()));
+        idx.no_key = set<uint64_t>(make_move_iterator(no_key_vec.begin()), make_move_iterator(no_key_vec.end()));
         sum += idx.no_key.size();
         idx.total = sum;
 
@@ -122,23 +122,31 @@ bool IndexStore::SetIndexMapEnable(Element_T type, int pid, bool inverse = false
 void IndexStore::ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>& pred_chain, vector<value_t>& data) {
     bool is_first = true;
     bool need_sort = pred_chain.size() != 1;
+    vector<uint64_t> tmp_data;
+
     for (auto& pred_pair : pred_chain) {
-        vector<value_t> vec;
+        vector<uint64_t> vec;
         // get sorted vector of all elements satisfying current predicate
         get_elements_by_predicate(type, pred_pair.first, pred_pair.second, need_sort, vec);
 
         if (is_first) {
-            data.swap(vec);
+            tmp_data.swap(vec);
             is_first = false;
         } else {
-            vector<value_t> temp;
+            vector<uint64_t> temp;
             // do intersection with previous result
             // temp is sorted after intersection
-            set_intersection(make_move_iterator(data.begin()), make_move_iterator(data.end()),
+            set_intersection(make_move_iterator(tmp_data.begin()), make_move_iterator(tmp_data.end()),
                             make_move_iterator(vec.begin()), make_move_iterator(vec.end()),
                             back_inserter(temp));
-            data.swap(temp);
+            tmp_data.swap(temp);
         }
+    }
+
+    // Convert all ids from uint64_t to value_t, required by InitActor::InitWithIndex()
+    data.resize(tmp_data.size());
+    for (int i = 0; i < tmp_data.size(); i++) {
+        Tool::uint64_t2value_t(tmp_data[i], data[i]);
     }
 }
 
@@ -378,33 +386,28 @@ void IndexStore::PropSelfGarbageCollect(const uint64_t& threshold, const int& pi
         auto up_elem_itr = pair.second.begin();
         while (up_elem_itr != pair.second.end()) {
             if (up_elem_itr->ct < threshold && up_elem_itr->ct != 0) {
-                // epid_t epid;
-                eid_t eid;
-                value_t eid_value_t;
-                uint2eid_t(up_elem_itr->element_id, eid);
-                // eid_t eid(epid.in_vid, epid.out_vid);
-                Tool::uint64_t2value_t(eid.value(), eid_value_t);
+                uint64_t eid_value = up_elem_itr->element_id;
 
                 if (up_elem_itr->update_type == PropertyUpdateT::ADD) {
                     // Add a new property for this vertex
                     // Need to modify index_map, no_key and count_map
                     // index_.no_key
-                    auto itr = cur_index->no_key.find(eid_value_t);
+                    auto itr = cur_index->no_key.find(eid_value);
                     if (itr != cur_index->no_key.end()) { cur_index->no_key.erase(itr); }
 
-                    modify_index(cur_index, eid_value_t, up_elem_itr->value, true);
+                    modify_index(cur_index, eid_value, up_elem_itr->value, true);
                 } else if (up_elem_itr->update_type == PropertyUpdateT::DROP) {
                     // property dropped from this vertex
                     // Need to modify index_map, no_key and count_map
 
                     // index_.no_key
-                    cur_index->no_key.emplace(eid_value_t);
+                    cur_index->no_key.emplace(eid_value);
 
-                    modify_index(cur_index, eid_value_t, up_elem_itr->value, false);
+                    modify_index(cur_index, eid_value, up_elem_itr->value, false);
                 } else if (up_elem_itr->update_type == PropertyUpdateT::MODIFY) {
                     // Property value changed from this vertex
                     // Need to modify index_map, count_map
-                    modify_index(cur_index, eid_value_t, up_elem_itr->value, up_elem_itr->isAdd);
+                    modify_index(cur_index, eid_value, up_elem_itr->value, up_elem_itr->isAdd);
                 }
 
                 up_elem_itr = pair.second.erase(up_elem_itr);
@@ -656,7 +659,7 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
 }
 
 void IndexStore::get_elements_by_predicate(Element_T type, int pid,
-        PredicateValue& pred, bool need_sort, vector<value_t>& vec) {
+        PredicateValue& pred, bool need_sort, vector<uint64_t>& vec) {
     unordered_map<int, index_>* m;
     tbb::concurrent_hash_map<int, map<value_t, vector<update_element>>>* up_region;
     WritePriorRWLock * rw_lock;
@@ -674,7 +677,7 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid,
     index_ &idx = (*m)[pid];
 
     auto &index_map = idx.index_map;
-    map<value_t, set<value_t>>::iterator itr;
+    map<value_t, set<uint64_t>>::iterator itr;
     int num_set = 0;
 
     // Updated Region
@@ -760,12 +763,11 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid,
         if (isUpdated) {
             for (auto & pair : pcac->second) {
                 for (auto & up_elem : pair.second) {
-                    value_t id_value_t;
-                    Tool::uint64_t2value_t(up_elem.element_id, id_value_t);
+                    uint64_t id = up_elem.element_id;
                     if (up_elem.update_type == PropertyUpdateT::DROP) {
-                        vec.emplace_back(id_value_t);
+                        vec.emplace_back(id);
                     } else if (up_elem.update_type == PropertyUpdateT::ADD) {
-                        vector<value_t>::iterator itr = find(vec.begin(), vec.end(), id_value_t);
+                        vector<uint64_t>::iterator itr = find(vec.begin(), vec.end(), id);
                         if (itr != vec.end()) {
                             vec.erase(itr);
                         }
@@ -797,14 +799,12 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid,
     }
 }
 
-void IndexStore::read_prop_update_data(const update_element & up_elem, vector<value_t> & vec) {
-    value_t id_value_t;
+void IndexStore::read_prop_update_data(const update_element & up_elem, vector<uint64_t> & vec) {
     if (up_elem.element_id == 0) { return; }
-    Tool::uint64_t2value_t(up_elem.element_id, id_value_t);
-    vector<value_t>::iterator itr = find(vec.begin(), vec.end(), id_value_t);
+    vector<uint64_t>::iterator itr = find(vec.begin(), vec.end(), up_elem.element_id);
     if (up_elem.isAdd) {
         if (itr == vec.end()) {
-            vec.emplace_back(id_value_t);
+            vec.emplace_back(up_elem.element_id);
         }
     } else {
         if (itr != vec.end()) {
@@ -892,10 +892,10 @@ void IndexStore::build_range_count(map<value_t, uint64_t>& m, PredicateValue& pr
     }
 }
 
-void IndexStore::build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred,
-        vector<value_t>& vec, int& num_set) {
-    map<value_t, set<value_t>>::iterator itr_low;
-    map<value_t, set<value_t>>::iterator itr_high;
+void IndexStore::build_range_elements(map<value_t, set<uint64_t>>& m, PredicateValue& pred,
+        vector<uint64_t>& vec, int& num_set) {
+    map<value_t, set<uint64_t>>::iterator itr_low;
+    map<value_t, set<uint64_t>>::iterator itr_high;
 
     build_range(m, pred, itr_low, itr_high);
 
@@ -923,15 +923,15 @@ void IndexStore::build_topo_data() {
     cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for Building InitEData in init_actor" << endl;
 }
 
-// id_value_t: value_t(vid), value_t(eid)
+// id: uint64_t(vid), uint64_t(eid)
 // val_value_t: value_t(property_value)
-void IndexStore::modify_index(index_ * idx, value_t& id_value_t, value_t& val_value_t, bool isAdd) {
+void IndexStore::modify_index(index_ * idx, uint64_t& id, value_t& val_value_t, bool isAdd) {
     if (isAdd) {
         // index_.index_map
         if (idx->index_map.find(val_value_t) != idx->index_map.end()) {
-            idx->index_map.at(val_value_t).emplace(id_value_t);
+            idx->index_map.at(val_value_t).emplace(id);
         } else {
-            idx->index_map.emplace(val_value_t, set<value_t>{id_value_t});
+            idx->index_map.emplace(val_value_t, set<uint64_t>{id});
         }
 
         // index_.count_map
@@ -944,7 +944,7 @@ void IndexStore::modify_index(index_ * idx, value_t& id_value_t, value_t& val_va
         bool exists = false;
         // index_.index_map
         if (idx->index_map.find(val_value_t) != idx->index_map.end()) {
-            idx->index_map.at(val_value_t).erase(id_value_t);
+            idx->index_map.at(val_value_t).erase(id);
         }
 
         // index_.count_map
