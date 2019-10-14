@@ -102,7 +102,7 @@ class IndexStore {
 
     // Prop Index Related
     bool IsIndexEnabled(Element_T type, int pid, PredicateValue* pred = NULL, uint64_t* count = NULL);
-    bool SetIndexMap(Element_T type, int pid, map<value_t, vector<value_t>>& index_map, vector<value_t>& no_key_vec);
+    bool SetIndexMap(Element_T type, int pid, map<value_t, vector<uint64_t>>& index_map, vector<uint64_t>& no_key_vec);
     bool SetIndexMapEnable(Element_T type, int pid, bool inverse = false);
 
     // Read Index
@@ -119,7 +119,7 @@ class IndexStore {
     //          if related trx is committed, merge
     //          if related trx is abort, erase from update list
     //      ]
-    //  else do nothin;
+    //  else do nothing;
     void VtxSelfGarbageCollect(const uint64_t& threshold);
     void EdgeSelfGarbageCollect(const uint64_t& threshold);
     void PropSelfGarbageCollect(const uint64_t& threshold, const int& pid, Element_T type);
@@ -135,8 +135,8 @@ class IndexStore {
     struct index_{  // One Index for One PropertyKey (e.g. age)
         bool isEnabled;
         uint64_t total;  // Number of objs in total {i.e. all vertices or edges}
-        map<value_t, set<value_t>> index_map;  // Map for (value, set<element>) (e.g. (13 -> [v1, v2]) {g.V().has("age", 13)}
-        set<value_t> no_key;  // Set for all elements that does not have propertyKey; {g.V().hasNot("age")}
+        map<value_t, set<uint64_t>> index_map;  // Map for (value, set<element>) (e.g. (13 -> [v1, v2]) {g.V().has("age", 13)}
+        set<uint64_t> no_key;  // Set for all elements that does not have propertyKey; {g.V().hasNot("age")}
         map<value_t, uint64_t> count_map;  // Number of each 'age' values (e.g. (13 -> 2)) {g.V().has("age", 13).count()}
         vector<const value_t *> values;  // Used when creating random values; Not for normal index
 
@@ -164,7 +164,7 @@ class IndexStore {
     unordered_map<int, unordered_set<int>> vtx_rand_count;
     unordered_map<int, unordered_set<int>> edge_rand_count;
 
-    // Updata region
+    // Update region
     tbb::concurrent_vector<update_element> vtx_update_list;
     tbb::concurrent_vector<update_element> edge_update_list;
     tbb::concurrent_hash_map<int, map<value_t, vector<update_element>>> vp_update_map;  // key: PropertyKey
@@ -200,14 +200,14 @@ class IndexStore {
 
     void build_topo_data();
 
-    void get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<value_t>& vec);
+    void get_elements_by_predicate(Element_T type, int pid, PredicateValue& pred, bool need_sort, vector<uint64_t>& vec);
     uint64_t get_count_by_predicate(Element_T type, int pid, PredicateValue& pred);
-    void read_prop_update_data(const update_element & up_elem, vector<value_t> & vec);
+    void read_prop_update_data(const update_element & up_elem, vector<uint64_t> & vec);
 
     void build_range_count(map<value_t, uint64_t>& m, PredicateValue& pred, uint64_t& count);
-    void build_range_elements(map<value_t, set<value_t>>& m, PredicateValue& pred, vector<value_t>& vec, int& num_set);
+    void build_range_elements(map<value_t, set<uint64_t>>& m, PredicateValue& pred, vector<uint64_t>& vec, int& num_set);
 
-    void modify_index(index_ * idx, value_t& id_value_t, value_t& val_value_t, bool isAdd);
+    void modify_index(index_ * idx, uint64_t& id, value_t& val_value_t, bool isAdd);
 
     // Timeout for GetRandomValue (\us)
     int TIMEOUT = 100000;

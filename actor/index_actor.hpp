@@ -96,13 +96,12 @@ class IndexActor : public AbstractActor {
         vector<vid_t> vid_list;
         data_storage_->GetAllVertices(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, vid_list);
 
-        map<value_t, vector<value_t>> index_map;
-        vector<value_t> no_key_vec;
+        map<value_t, vector<uint64_t>> index_map;
+        vector<uint64_t> no_key_vec;
 
         for (auto& vid : vid_list) {
-            value_t vtx;
+            uint64_t vtx = vid_t2uint(vid);
             value_t val;
-            Tool::str2int(to_string(vid.value()), vtx);
             if (pid == 0) {
                 label_t label;
                 data_storage_->GetVL(vid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
@@ -133,13 +132,12 @@ class IndexActor : public AbstractActor {
         vector<eid_t> eid_list;
         data_storage_->GetAllEdges(qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, eid_list);
 
-        map<value_t, vector<value_t>> index_map;
-        vector<value_t> no_key_vec;
+        map<value_t, vector<uint64_t>> index_map;
+        vector<uint64_t> no_key_vec;
 
         for (auto& eid : eid_list) {
-            value_t edge;
+            uint64_t edge = eid_t2uint(eid);
             value_t val;
-            Tool::str2uint64_t(to_string(eid.value()), edge);
 
             if (pid == 0) {
                 label_t label;
