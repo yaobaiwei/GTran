@@ -64,7 +64,7 @@ string Client::CommitQuery(string query) {
     } else {
         result = "Query '" + query + "' result: \n";
         for (auto& v : values) {
-            result += "=>" + Tool::DebugString(v) + "\n";
+            result += "=>" + v.DebugString() + "\n";
         }
     }
 

@@ -6,6 +6,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <string>
 #include <vector>
 #include "base/type.hpp"
+#include "utils/tool.hpp"
 
 const unordered_map<PROCESS_STAT, string, EnumClassHash<PROCESS_STAT>> abort_reason_map = {
     {PROCESS_STAT::ABORT, "[Undefined abort reason]"},
@@ -304,4 +305,43 @@ obinstream& operator>>(obinstream& m, ACTOR_T& type) {
 void uint2qid_t(uint64_t v, qid_t & qid) {
     qid.id = (v & _8LFLAG);
     qid.trxid = v & _56HFLAG;
+}
+
+string value_t::DebugString() const {
+    double d;
+    int i;
+    uint64_t u;
+    size_t uint64_sz = sizeof(uint64_t);
+    vector<value_t> vec;
+    string temp;
+    switch (type) {
+      case 6:  // v/epid(uint64_t) + {pkey : pvalue} (string)
+        u = Tool::value_t2uint64_t(*this);
+        return string(content.begin() + uint64_sz, content.end()); 
+      case 5:
+        u = Tool::value_t2uint64_t(*this);
+        return to_string(u);
+      case 4:
+      case 3:
+        return string(content.begin(), content.end());
+      case 2:
+        d = Tool::value_t2double(*this);
+        temp = to_string(d);
+        temp.resize(temp.find_last_not_of("0") + 1);
+        if (temp.back() == '.')
+            temp += "0";
+        return temp;
+      case 1:
+        i = Tool::value_t2int(*this);
+        return to_string(i);
+      default:
+        Tool::value_t2vec(*this, vec);
+        temp = "[";
+        for (auto& val : vec) {
+            temp += val.DebugString() + ", ";
+        }
+        temp = Tool::trim(temp, ", ");
+        temp += "]";
+        return temp;
+    }
 }

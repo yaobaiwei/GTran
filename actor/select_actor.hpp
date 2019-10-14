@@ -92,7 +92,7 @@ class SelectActor : public AbstractActor {
                 // once there is one list ends, end search
                 do {
                     if (l_itr->first == p_itr->first) {
-                        res += l_itr->second + ":" + Tool::DebugString(p_itr->second) + ", ";
+                        res += l_itr->second + ":" + p_itr->second.DebugString() + ", ";
                         isResultEmpty = false;
 
                         l_itr++;

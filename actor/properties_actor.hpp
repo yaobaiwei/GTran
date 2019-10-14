@@ -153,7 +153,7 @@ class PropertiesActor : public AbstractActor {
                     data_storage_->GetNameFromIndex(Index_T::V_PROPERTY, vp_kv_pair.first, keyStr);
 
                     vpid_t vpid(v_id, vp_kv_pair.first);
-                    string result_value = "{" + keyStr + ":" + Tool::DebugString(vp_kv_pair.second) + "}";
+                    string result_value = "{" + keyStr + ":" + vp_kv_pair.second.DebugString() + "}";
                     result.emplace_back(vpid.value(), result_value);
                 }
             }
@@ -195,7 +195,7 @@ class PropertiesActor : public AbstractActor {
                     data_storage_->GetNameFromIndex(Index_T::E_PROPERTY, ep_kv_pair.first, keyStr);
 
                     epid_t epid(e_id, ep_kv_pair.first);
-                    string result_value = "{" + keyStr + ":" + Tool::DebugString(ep_kv_pair.second) + "}";
+                    string result_value = "{" + keyStr + ":" + ep_kv_pair.second.DebugString() + "}";
                     result.emplace_back(epid.value(), result_value);
                 }
             }

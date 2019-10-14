@@ -125,7 +125,7 @@ bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
         string header;
         if (query_index == query_plans_.size() - 1) {
             header = "Status: ";
-            header += Tool::DebugString(vec[0]);
+            header += vec[0].DebugString();
         } else {
             header = "Query " + to_string(query_index + 1) + ": ";
             if (vec.size() == 0) {

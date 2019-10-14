@@ -186,7 +186,7 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, string& value_str, cons
         if (!is_update) {
             // get value string
             value_t v = *idx.values[rand_index];
-            value_str = Tool::DebugString(v);
+            value_str = v.DebugString();
             if (value_str.find(";") != string::npos ||
                 value_str.find("=") != string::npos ||
                 value_str.find("(") != string::npos ||
@@ -202,7 +202,7 @@ bool IndexStore::GetRandomValue(Element_T type, int pid, string& value_str, cons
 
             // get value string
             value_t v = *idx.values[rand_index];
-            value_str = Tool::DebugString(v);
+            value_str = v.DebugString();
             if (value_str.find(";") != string::npos ||
                 value_str.find("=") != string::npos ||
                 value_str.find("(") != string::npos ||
