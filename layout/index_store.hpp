@@ -86,7 +86,7 @@ class IndexStore {
         void Print() {
             cout << "[UpdateElement] " << element_id << ", " << (isAdd ? "ADD" : "DELETE") << endl;
             if (!value.isEmpty()) {
-                cout << "\tvalue : " << Tool::DebugString(value) << " with type " << update_type << endl;
+                cout << "\tvalue : " << value.DebugString() << " with type " << update_type << endl;
             }
         }
     };

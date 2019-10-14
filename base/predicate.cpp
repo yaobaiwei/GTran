@@ -8,7 +8,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 bool operator ==(const value_t& v1, const value_t& v2) {
     if (v1.type != v2.type) {
         if ((v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
-            return Tool::DebugString(const_cast<value_t&>(v1)) == Tool::DebugString(const_cast<value_t&>(v2));
+            return v1.DebugString() == v2.DebugString();
         }
         return false;
     }
@@ -18,7 +18,7 @@ bool operator ==(const value_t& v1, const value_t& v2) {
 bool operator !=(const value_t& v1, const value_t& v2) {
     if (v1.type != v2.type) {
         if ((v1.type == 1 && v2.type == 2) || (v1.type == 2 && v2.type == 1)) {
-            return Tool::DebugString(const_cast<value_t&>(v1)) != Tool::DebugString(const_cast<value_t&>(v2));
+            return v1.DebugString() != v2.DebugString();
         }
         return true;
     }

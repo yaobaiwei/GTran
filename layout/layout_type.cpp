@@ -79,7 +79,7 @@ string TMPVertex::DebugString() const {
         if (i != 0) {
             ret += ", ";
         }
-        ret += "{" + to_string(vp_label_list[i]) + ", " + Tool::DebugString(vp_value_list[i]) + "}";
+        ret += "{" + to_string(vp_label_list[i]) + ", " + vp_value_list[i].DebugString() + "}";
     }
     ret += "]";
 
@@ -95,7 +95,7 @@ string TMPOutEdge::DebugString() const {
         if (i != 0) {
             ret += ", ";
         }
-        ret += "{" + to_string(ep_label_list[i]) + ", " + Tool::DebugString(ep_value_list[i]) + "}";
+        ret += "{" + to_string(ep_label_list[i]) + ", " + ep_value_list[i].DebugString() + "}";
     }
     ret += "]";
 

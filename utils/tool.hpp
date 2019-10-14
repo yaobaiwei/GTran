@@ -343,48 +343,6 @@ class Tool{
         v.type = e.type;
     }
 
-    static string DebugString(const value_t & v) {
-        double d;
-        int i;
-        uint64_t u;
-        size_t uint64_sz = sizeof(uint64_t);
-        vector<value_t> vec;
-        string temp;
-        switch (v.type) {
-          case 6:  // v/epid(uint64_t) + {pkey : pvalue} (string)
-            u = Tool::value_t2uint64_t(v);
-            // return to_string(u) + " : " + string(v.content.begin() + uint64_sz, v.content.end()); 
-            return string(v.content.begin() + uint64_sz, v.content.end()); 
-          case 5:
-            u = Tool::value_t2uint64_t(v);
-            return to_string(u);
-          case 4:
-          case 3:
-            return string(v.content.begin(), v.content.end());
-          case 2:
-            d = Tool::value_t2double(v);
-            temp = to_string(d);
-            temp.resize(temp.find_last_not_of("0") + 1);
-            if (temp.back() == '.')
-                temp += "0";
-            return temp;
-          case 1:
-            i = Tool::value_t2int(v);
-            return to_string(i);
-          case -1:
-            return "";
-          default:
-            value_t2vec(v, vec);
-            temp = "[";
-            for (auto& val : vec) {
-                temp += DebugString(val) + ", ";
-            }
-            temp = trim(temp, ", ");
-            temp += "]";
-            return temp;
-        }
-    }
-
     static string int64_to_2int32_str(uint64_t val) {
         int a, b;
 

@@ -23,7 +23,6 @@ void EndActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
         // with abort_info in CreateAbortMsg
         if (msg.data.size() > 0) {
             data.emplace_back(msg.data[0].second[0]);
-            // printf("with abort_info: %s\n", Tool::DebugString(msg.data[0].second[0]).c_str());
         }
     }
 
@@ -116,7 +115,7 @@ void CapActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
             string temp = se_string + ":[";
             for (auto& val : vec) {
-                temp += Tool::DebugString(val) + ", ";
+                temp += val.DebugString() + ", ";
             }
             // remove trailing ", "
             if (vec.size() > 0) {
@@ -295,7 +294,7 @@ void GroupActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
         value_t k;
         string key;
         if (get_history_value(p.first, label_step, k)) {
-            key = Tool::DebugString(k);
+            key = k.DebugString();
         }
 
         int branch_value = get_branch_value(p.first, branch_key);
@@ -309,7 +308,7 @@ void GroupActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
 
         for (auto& val : p.second) {
             if (label_step == -1) {
-                key = Tool::DebugString(val);
+                key = val.DebugString();
             }
             map_[key].push_back(move(val));
         }
@@ -334,7 +333,7 @@ void GroupActor::do_work(int tid, const QueryPlan & qplan, Message & msg,
                 } else {
                     map_string = item.first + ":[";
                     for (auto& v : item.second) {
-                        map_string += Tool::DebugString(v) + ", ";
+                        map_string += v.DebugString() + ", ";
                     }
                     // remove trailing ", "
                     if (item.second.size() > 0) {
