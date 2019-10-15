@@ -89,7 +89,7 @@ class ConfigActor : public AbstractActor {
             s += "7. data_size\n";
             s += "8. opt_preread\n";
             s += "9. opt_validation\n";
-            s += "10. iso_level(Not Support Yet)\n";
+            s += "10. iso_level (Not Supported Yet)\n";
         }
 
         s += "\n";

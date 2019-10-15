@@ -50,6 +50,9 @@ class Client{
     void run_query(string query, string& result, bool isBatch);
 
     static void print_help();
+    static void print_build_index_help();
+    static void print_set_config_help();
+    static void print_run_emu_help();
     static bool trim_str(string& str);
 };
 

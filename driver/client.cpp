@@ -95,8 +95,12 @@ void Client::run_query(string query, string& result, bool isBatch) {
 }
 
 void Client::print_help() {
+    cout << endl;
     cout << "GQuery commands: " << endl;
-    cout << "    help                display help infomation" << endl;
+    cout << "    help                display general help infomation" << endl;
+    cout << "    help index          display help infomation for building index" << endl;
+    cout << "    help config         display help infomation for setting config" << endl;
+    cout << "    help emu            display help infomation for running emulation of througput test" << endl;
     cout << "    quit                quit from console" << endl;
     cout << "    gquery <args>       run Gremlin-Like queries" << endl;
     cout << "        -q <query> [<args>] a single query input by user" << endl;
@@ -107,6 +111,75 @@ void Client::print_help() {
     cout << "           -o <file>           output results into <file>" << endl;
     cout << "        -t <file> [<args>]  a set of queries configured by <file> (transaction-mode)" << endl;
     cout << "           -o <file>           output results into <file>" << endl;
+    cout << endl;
+}
+
+void Client::print_build_index_help() {
+    cout << endl;
+    cout << "Help information for building index:" << endl;
+    cout << endl;
+    cout << "Usage:" << endl;
+    cout << "    BuildIndex(<V/E>,'<property_key>')" << endl;
+    cout << endl;
+    cout << "Example:" << endl;
+    cout << "    gquery -q BuildIndex(V,'name')" << endl;
+    cout << endl;
+}
+
+void Client::print_set_config_help() {
+    cout << endl;
+    cout << "Help information for setting config:" << endl;
+    cout << endl;
+    cout << "Usage:" << endl;
+    cout << "    SetConfig(<option_name>,<option_value>)" << endl;
+    cout << endl;
+    cout << "Option value types:" << endl;
+    cout << "    boolean : 'y', 't', 'true' for true; 'n', 'f', 'false' for false" << endl;
+    cout << "    int : An integer value" << endl;
+    cout << "    isolation_level: 'SERIALIZABLE' or 'SNAPSHOT'" << endl;
+    cout << endl;
+    cout << "Available options:" << endl;
+    cout << "    caching: boolean" << endl;
+    cout << "    core_bind: boolean" << endl;
+    cout << "    actor_division: boolean" << endl;
+    cout << "    step_reorder: boolean" << endl;
+    cout << "    indexing: boolean" << endl;
+    cout << "    stealing: boolean" << endl;
+    cout << "    data_size: int" << endl;
+    cout << "    opt_preread: boolean" << endl;
+    cout << "    opt_validation: boolean" << endl;
+    cout << "    iso_level (Not Supported Yet): isolation_level" << endl;
+    cout << endl;
+    cout << "Example:" << endl;
+    cout << "    gquery -q SetConfig(actor_division,f)" << endl;
+    cout << endl;
+}
+
+void Client::print_run_emu_help() {
+    cout << endl;
+    cout << "Help information for running emulator mode:" << endl;
+    cout << endl;
+    cout << "Usage:" << endl;
+    cout << "    emu <emu_config_file> <emu_query_file>" << endl;
+    cout << endl;
+    cout << "The config file contains 2 lines:" << endl;
+    cout << "1   <seconds_of_emulation> <parallel_factor>" << endl;
+    cout << "2   <read_ratio> <write_ratio>" << endl;
+    cout << endl;
+    cout << "The format of the query file:" << endl;
+    cout << "    [INSERT]" << endl;
+    cout << "    <lines of INSERT queries ...>" << endl;
+    cout << "    [READ]" << endl;
+    cout << "    <lines of READ queries ...>" << endl;
+    cout << "    [UPDATE]" << endl;
+    cout << "    <lines of UPDATE queries ...>" << endl;
+    cout << "    [DROP]" << endl;
+    cout << "    <lines of DROP queries ...>" << endl;
+    cout << "    [MIX]" << endl;
+    cout << "    <lines of MIX queries ...>" << endl;
+    cout << "This is an example of a query line:" << endl;
+    cout << "    g.V().has(\"firstName\",\"$RAND\");g.E().has(\"creationDate\",\"$RAND\") V firstName E creationDate" << endl;
+    cout << endl;
 }
 
 bool Client::trim_str(string& str) {
@@ -160,7 +233,22 @@ void Client::run_console(string query_fname) {
             goto next;
         }
 
-        // Usage
+        if (cmd == "help index") {
+            print_build_index_help();
+            continue;
+        }
+
+        if (cmd == "help config") {
+            print_set_config_help();
+            continue;
+        }
+
+        if (cmd == "help emu") {
+            print_run_emu_help();
+            continue;
+        }
+
+        // General usage
         if (cmd == "help" || cmd == "h") {
           print_help();
           continue;
