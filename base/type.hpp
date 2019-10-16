@@ -11,9 +11,10 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <ext/hash_map>
 #include <ext/hash_set>
 #include <sstream>
-#include <unordered_map>
 #include <string>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "base/serialization.hpp"
@@ -405,6 +406,23 @@ struct value_t {
 
     bool isEmpty() {
         return empty;
+    }
+};
+
+struct ValueTHash {
+    // To limit the upper bound of cost for hashing
+    constexpr static int max_hash_len = 8;
+
+    size_t operator() (const value_t& val) const{
+        uint64_t hash_tmp = mymath::hash_u64(val.type) + mymath::hash_u64(val.content.size());
+
+        int hash_loop_len = (max_hash_len > val.content.size()) ? val.content.size() : max_hash_len;
+
+        // Only use the former elements to compute the hash value
+        for (int i = 0; i < hash_loop_len; i++)
+            hash_tmp = mymath::hash_u64(hash_tmp + val.content[i]);
+
+        return hash_tmp;
     }
 };
 

@@ -180,7 +180,7 @@ class Worker {
 
         // Read query file
         string query_line;
-        //  Key: INSERT, READ, UPDATE, MIX
+        //  Key: INSERT, READ, UPDATE, DROP, MIX
         unordered_map<string, vector<EmuTrxString>> trx_map;
         unordered_map<string, int> trx_count_map;
         vector<string> ldbc_person_ori_id_set;
@@ -198,16 +198,16 @@ class Worker {
                 trx_map.emplace(cur_trx_type, vector<EmuTrxString>());
                 trx_count_map.emplace(cur_trx_type, 0);
             } else {
-               if (cur_trx_type == "NULL") { cout << "Wrong Query Type" << endl; return; }
+                if (cur_trx_type == "NULL") { cout << "Wrong Query Type" << endl; return; }
 
-               EmuTrxString cur_trx_string;
-               if (!CheckEmulationQuery(is_main_worker, query_line, emu_command_plan, cur_trx_string, read_file_flag)) { return; }
+                EmuTrxString cur_trx_string;
+                if (!CheckEmulationQuery(is_main_worker, query_line, emu_command_plan, cur_trx_string, read_file_flag)) { return; }
 
-               cur_trx_string.trx_type = trx_counter;
-               trx_counter++;
+                cur_trx_string.trx_type = trx_counter;
+                trx_counter++;
 
-               trx_map.at(cur_trx_type).emplace_back(cur_trx_string);
-               trx_count_map.at(cur_trx_type)++;
+                trx_map.at(cur_trx_type).emplace_back(cur_trx_string);
+                trx_count_map.at(cur_trx_type)++;
             }
         }
 
