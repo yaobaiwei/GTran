@@ -76,6 +76,23 @@ obinstream& operator>>(obinstream& m, Meta& meta);
 
 typedef vector<pair<int, value_t>> history_t;
 
+struct HistoryTHash {
+    // To limit the upper bound of cost for hashing
+    constexpr static int max_hash_len = 4;
+
+    size_t operator() (const history_t& his) const{
+        uint64_t hash_tmp = mymath::hash_u64(his.size());
+
+        int hash_loop_len = (max_hash_len > his.size()) ? his.size() : max_hash_len;
+
+        // Only use the former elements to compute the hash value
+        for (int i = 0; i < hash_loop_len; i++)
+            hash_tmp = mymath::hash_u64(hash_tmp + ValueTHash()(his[i].second) + his[i].first);
+
+        return hash_tmp;
+    }
+};
+
 bool operator==(const history_t& l, const history_t& r);
 
 class Message {

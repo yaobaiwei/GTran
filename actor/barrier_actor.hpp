@@ -195,8 +195,8 @@ struct dedup_data : barrier_data_base {
     // int: assigned branch value by labelled branch step
     // vec: filtered data
     unordered_map<int, vector<pair<history_t, vector<value_t>>>> data_map;
-    unordered_map<int, set<history_t>> dedup_his_map;    // for dedup by history
-    unordered_map<int, set<value_t>> dedup_val_map;        // for dedup by value
+    unordered_map<int, unordered_set<history_t, HistoryTHash>> dedup_his_map;    // for dedup by history
+    unordered_map<int, unordered_set<value_t, ValueTHash>> dedup_val_map;        // for dedup by value
 };
 }  // namespace BarrierData
 
