@@ -210,7 +210,7 @@ void DataStorage::PredictVertexContainerUsage() {
     UsageMap usage_map;
     usage_map["V mvcc"] = {v_mvcc_usage, config_->global_v_mvcc_pool_size};
     usage_map["VP row"] = {vp_row_usage, config_->global_vp_row_pool_size};
-    usage_map["VP mvcc"] = {vp_row_usage, config_->global_vp_mvcc_pool_size};
+    usage_map["VP mvcc"] = {vp_mvcc_usage, config_->global_vp_mvcc_pool_size};
     usage_map["VP store cell"] = {vp_store_cell_usage, vp_store_item_count};
 
     node_.Rank0PrintfWithWorkerBarrier(("Predicted container usage for vertices:\n" + GetUsageString(usage_map)).c_str());
@@ -246,7 +246,7 @@ void DataStorage::PredictEdgeContainerUsage() {
 
         uint32_t src_vid = edge.id.out_v;
         if (vtx_edge_cell_count.count(src_vid) == 0)
-            vtx_edge_cell_count.insert({src_vid, 0});
+            vtx_edge_cell_count.insert({src_vid, 1});
         else
             vtx_edge_cell_count.at(src_vid)++;
 
@@ -255,7 +255,7 @@ void DataStorage::PredictEdgeContainerUsage() {
 
             uint32_t dst_vid = edge.id.in_v;
             if (vtx_edge_cell_count.count(dst_vid) == 0)
-                vtx_edge_cell_count.insert({dst_vid, 0});
+                vtx_edge_cell_count.insert({dst_vid, 1});
             else
                 vtx_edge_cell_count.at(dst_vid)++;
         }
@@ -265,7 +265,7 @@ void DataStorage::PredictEdgeContainerUsage() {
     for (auto edge : hdfs_data_loader_->shuffled_in_edge_) {
         uint32_t dst_vid = edge.id.in_v;
         if (vtx_edge_cell_count.count(dst_vid) == 0)
-            vtx_edge_cell_count.insert({dst_vid, 0});
+            vtx_edge_cell_count.insert({dst_vid, 1});
         else
             vtx_edge_cell_count.at(dst_vid)++;
     }
@@ -282,7 +282,7 @@ void DataStorage::PredictEdgeContainerUsage() {
 
     usage_map["E mvcc"] = {e_mvcc_usage, config_->global_e_mvcc_pool_size};
     usage_map["EP row"] = {ep_row_usage, config_->global_ep_row_pool_size};
-    usage_map["EP mvcc"] = {ep_row_usage, config_->global_ep_mvcc_pool_size};
+    usage_map["EP mvcc"] = {ep_mvcc_usage, config_->global_ep_mvcc_pool_size};
     usage_map["EP store cell"] = {ep_store_cell_usage, ep_store_item_count};
     usage_map["VE row"] = {ve_row_usage, config_->global_ve_row_pool_size};
 
