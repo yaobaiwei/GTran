@@ -140,7 +140,7 @@ bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
         NotifyQueryFinished(query_index);
     }
 
-    if (query_index != query_plans_.size() - 1) {
+    if (query_index == -1 || query_index != query_plans_.size() - 1) {
         if (vec.size() > 0) {
             results_[query_index].insert(results_[query_index].end(),
                                         make_move_iterator(vec.begin()),
