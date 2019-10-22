@@ -391,6 +391,8 @@ class Worker {
         map<int, vector<uint64_t>> latency_map;
         thpt_monitor_->GetLatencyMap(latency_map);
 
+        string result_string;
+
         if (my_node_.get_local_rank() == 0) {
             vector<double> thpt_list;
             vector<map<int, vector<uint64_t>>> map_list;
@@ -407,20 +409,27 @@ class Worker {
             master_gather(my_node_, false, num_completed_trx_list);
             master_gather(my_node_, false, num_aborted_trx_list);
 
+            stringstream ss;
 
-            cout << "#################################" << endl;
-            cout << "Emulator result with workload r:w is " << r_ratio << ":" << w_ratio << " and parrell factor: " << paralellfactor << endl;
-            cout << "Throughput of node 0: " << thpt << " K queries/sec" << endl;
+            ss << "#################################" << endl;
+            ss << "Emulator result with workload r:w is " << r_ratio << ":" << w_ratio << " and parrell factor: " << paralellfactor << endl;
+            ss << "Throughput of node 0: " << thpt << " K queries/sec" << endl;
             for (int i = 1; i < my_node_.get_local_size(); i++) {
                 thpt += thpt_list[i];
                 num_completed_trx += num_completed_trx_list[i];
                 num_aborted_trx += num_aborted_trx_list[i];
-                cout << "Throughput of node " << i << ": " << thpt_list[i] << " K queries/sec" << endl;
+                ss << "Throughput of node " << i << ": " << thpt_list[i] << " K queries/sec" << endl;
             }
             double abort_rate = (double) num_aborted_trx * 100 / num_completed_trx;
-            cout << "Total Throughput : " << thpt << " K queries/sec" << endl;
-            cout << "Abort Rate : " << abort_rate << "%" << endl;
-            cout << "#################################" << endl;
+            ss << "Total Throughput : " << thpt << " K queries/sec" << endl;
+            ss << "Abort Rate : " << abort_rate << "%" << endl;
+            ss << "#################################" << endl;
+
+            result_string = ss.str();
+
+            master_bcast(my_node_, false, result_string);
+
+            cout << result_string;
 
             map_list[0] = move(latency_map);
             thpt_monitor_->PrintCDF(map_list);
@@ -429,6 +438,8 @@ class Worker {
             slave_gather(my_node_, false, latency_map);
             slave_gather(my_node_, false, num_completed_trx);
             slave_gather(my_node_, false, num_aborted_trx);
+
+            slave_bcast(my_node_, false, result_string);
         }
 
         thpt_monitor_->PrintThptToFile(my_node_.get_local_rank());
@@ -457,7 +468,7 @@ class Worker {
         // send reply to client
         if (is_main_worker) {
             value_t v;
-            Tool::str2str("Run Emu Mode Done", v);
+            Tool::str2str(result_string, v);
             vector<value_t> result = {v};
             // thpt_monitor_->SetEmuStartTime(qid.value());
             // rc_->InsertResult(qid.value(), result);
