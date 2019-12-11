@@ -229,7 +229,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
         current_row = head_;
     }
     if (current_row == nullptr)
-        return;
+        return READ_STAT::NOTFOUND;
 
     if (map_snapshot == nullptr) {
         // Traverse the whole PropertyRowList
@@ -584,6 +584,9 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
             delete mvcc_list;
         }
     }
+
+    if (empty_cell_queue.empty())
+        return;
 
     int inverse_cell_index = property_count_ - 1;
     int cur_property_count = property_count_ - empty_cell_queue.size();
