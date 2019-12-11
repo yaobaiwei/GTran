@@ -11,336 +11,449 @@ GCTaskDAG::GCTaskDAG() {
     garbage_collector_ = GarbageCollector::GetInstance();
 }
 
-bool GCTaskDAG::InsertVPRowListGCTask(VPRowListGCTask* task) {
-    if (vp_row_list_gc_tasks_map.find(task->id) != vp_row_list_gc_tasks_map.end()) {
-        // Already Exists
-        return false;
-    }
+VPRowListGCTask* GCTaskDAG::InsertVPRowListGCTask(const vid_t& id, PropertyRowList<VertexPropertyRow>* target) {
+    VPRowListGCTask* task = nullptr;
 
-    if (vp_row_list_defrag_tasks_map.find(task->id) != vp_row_list_defrag_tasks_map.end()) {
-        VPRowListDefragTask * depender_task = vp_row_list_defrag_tasks_map.at(task->id);
-        // Try to set depender_task to invalid, if failed, depender_task already pushed out
-        if (!gc_producer_->vp_row_list_defrag_job.SetTaskInvalid(depender_task)) {
-            // Task already pushed, set blocked_conunt to current task
-            task->blocked_count_ += 1;
+    if (vp_row_list_gc_tasks_map.find(id) != vp_row_list_gc_tasks_map.end()) {
+        task = vp_row_list_gc_tasks_map.at(id);
+        if (task->task_status_ != TaskStatus::EMPTY) {
+            // already exists, ignore
+            return nullptr;
+        }
+
+        CHECK(task->task_status_ == TaskStatus::EMPTY);
+
+        auto* downstream_task = *task->downstream_tasks_.begin();
+
+        // substantiate the existing EMPTY task
+        task->target = target;
+        // check its downstream task
+        if (downstream_task->task_status_ == TaskStatus::PUSHED) {
             task->task_status_ = TaskStatus::BLOCKED;
+            task->blocked_count_ = 1;
+        } else {
+            CHECK(downstream_task->task_status_ == TaskStatus::ACTIVE);
+            task->task_status_ = TaskStatus::ACTIVE;
+
+            // set the ACTIVE downstream task INVALID
+            gc_producer_->SetVPRowListDefragTaskInvalid(downstream_task);
+            DisconnectInvalidVPRowListDefragTask(downstream_task);
         }
-    }
-
-    vp_row_list_gc_tasks_map.emplace(task->id, task);  // Insert to dependency map
-    return true;
-}
-
-bool GCTaskDAG::InsertVPRowListDefragTask(VPRowListDefragTask* task) {
-    if (vp_row_list_defrag_tasks_map.find(task->id) != vp_row_list_defrag_tasks_map.end()) {
-        // Already Exists
-        return false;
-    }
-
-    if (vp_row_list_gc_tasks_map.find(task->id) != vp_row_list_gc_tasks_map.end()) {
-        // Already exists dependee task
-        return false;
     } else {
-        vp_row_list_defrag_tasks_map.emplace(task->id, task);
+        // create a new task
+        task = new VPRowListGCTask(id, target);
+        task->task_status_ = TaskStatus::ACTIVE;
+        vp_row_list_gc_tasks_map.emplace(id, task);
     }
 
-    return true;
+    return task;
 }
 
-void GCTaskDAG::DeleteVPRowListGCTask(vid_t& vid) {
-    if (vp_row_list_gc_tasks_map.find(vid) != vp_row_list_gc_tasks_map.end()) {
-        delete vp_row_list_gc_tasks_map.at(vid);
-        vp_row_list_gc_tasks_map.erase(vid);
+VPRowListDefragTask* GCTaskDAG::InsertVPRowListDefragTask(const vid_t& id, PropertyRowList<VertexPropertyRow>* target, int gcable_cell_count) {
+    if (vp_row_list_defrag_tasks_map.find(id) != vp_row_list_defrag_tasks_map.end()) {
+        // already exists, ignore
+        return nullptr;
     }
+
+    if (vp_row_list_gc_tasks_map.find(id) != vp_row_list_gc_tasks_map.end()) {
+        // upstream task already exists
+        return nullptr;
+    }
+
+    VPRowListDefragTask* task = new VPRowListDefragTask(id, target, gcable_cell_count);
+    task->task_status_ = TaskStatus::ACTIVE;
+    vp_row_list_defrag_tasks_map.emplace(id, task);
+
+    VPRowListGCTask* empty_upstream_task = new VPRowListGCTask(id, nullptr);
+    empty_upstream_task->task_status_ = TaskStatus::EMPTY;
+    vp_row_list_gc_tasks_map.emplace(id, empty_upstream_task);
+
+    task->upstream_tasks_.emplace(empty_upstream_task);
+    empty_upstream_task->downstream_tasks_.emplace(task);
+
+    return task;
 }
 
-void GCTaskDAG::DeleteVPRowListDefragTask(vid_t& vid) {
-    // Find defrag task
-    if (vp_row_list_defrag_tasks_map.find(vid) != vp_row_list_defrag_tasks_map.end()) {
-        VPRowListDefragTask* defrag_task = vp_row_list_defrag_tasks_map.at(vid);
-        // Find related gc task
-        if (vp_row_list_gc_tasks_map.find(vid) != vp_row_list_gc_tasks_map.end()) {
-            // Check whether gc task is blocked
-            VPRowListGCTask* gc_task = vp_row_list_gc_tasks_map.at(vid);
-            CHECK(gc_producer_->vp_row_list_gc_job.ReduceTaskBlockCount(gc_task));
+void GCTaskDAG::DeleteVPRowListGCTask(VPRowListGCTask* task) {
+    CHECK(vp_row_list_gc_tasks_map.find(task->id) != vp_row_list_gc_tasks_map.end());
+    vp_row_list_gc_tasks_map.erase(task->id);
+}
 
-            if (gc_producer_->vp_row_list_gc_job.isReady()) {
-                VPRowListGCJob* new_job = new VPRowListGCJob();
-                new_job[0] = gc_producer_->vp_row_list_gc_job;
-                garbage_collector_->PushJobToPendingQueue(new_job);
-                gc_producer_->vp_row_list_gc_job.Clear();
-            }
+void GCTaskDAG::DeleteVPRowListDefragTask(VPRowListDefragTask* task) {
+    if (task->task_status_ == TaskStatus::INVALID)
+        return;
+    CHECK(task->task_status_ == TaskStatus::PUSHED);
+
+    CHECK(vp_row_list_defrag_tasks_map.find(task->id) != vp_row_list_defrag_tasks_map.end());
+
+    VPRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
+
+    if (upstream_task->task_status_ == TaskStatus::EMPTY) {
+        // delete the empty upstream task as it will no longer have any downstream task
+        vp_row_list_gc_tasks_map.erase(task->id);
+        delete upstream_task;
+    } else {
+        CHECK(upstream_task->task_status_ == TaskStatus::BLOCKED);
+        upstream_task->downstream_tasks_.erase(task);
+
+        gc_producer_->ReduceVPRowListGCJobBlockCount(upstream_task);
+    }
+
+    vp_row_list_defrag_tasks_map.erase(task->id);
+}
+
+void GCTaskDAG::DisconnectInvalidVPRowListDefragTask(VPRowListDefragTask* task) {
+    VPRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
+    task->upstream_tasks_.clear();
+
+    CHECK(upstream_task->downstream_tasks_.size() == 0);
+    CHECK(upstream_task->task_status_ == TaskStatus::EMPTY);
+
+    // erase and delete the upstream task since it is no longer connected
+    vp_row_list_defrag_tasks_map.erase(task->id);
+    delete upstream_task;
+}
+
+TopoRowListGCTask* GCTaskDAG::InsertTopoRowListGCTask(const vid_t& id, TopologyRowList* target) {
+    TopoRowListGCTask* task = nullptr;
+    if (topo_row_list_gc_tasks_map.find(id) != topo_row_list_gc_tasks_map.end()) {
+        task = topo_row_list_gc_tasks_map.at(id);
+        if (task->task_status_ != TaskStatus::EMPTY) {
+            // already exists, ignore
+            return nullptr;
         }
 
-        delete defrag_task;
-        vp_row_list_defrag_tasks_map.erase(vid);
-    }
-}
-
-bool GCTaskDAG::InsertTopoRowListGCTask(TopoRowListGCTask* task) {
-    if (topo_row_list_gc_tasks_map.find(task->id) != topo_row_list_gc_tasks_map.end()) {
-        // Already exists
-        TopoRowListGCTask* self = topo_row_list_gc_tasks_map.at(task->id);
-        if (self->task_status_ != TaskStatus::EMPTY) {
-            return false;
-        }
-
-        // Delete all downstream task
-        for (auto task_ptr : self->downstream_tasks_) {
-            bool success_for_topo = false;
-            bool success_for_ep = false;
-            if (gc_producer_->topo_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
-                success_for_topo = true;
-            }
-
-            if (gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
-                success_for_ep = true;
-            }
-
-            // Impossible success in both
-            CHECK(!(success_for_ep && success_for_topo));
-
-            // Both failed, blocked
-            if (!(success_for_topo || success_for_ep)) {
-                // NotFound in both or been pushed in at least one 
+        // task is empty
+        for (auto* downstream_task : task->downstream_tasks_) {
+            if (downstream_task->task_status_ == TaskStatus::PUSHED) {
                 task->blocked_count_ += 1;
-                task->task_status_ = TaskStatus::BLOCKED;
+                continue;
+            }
+
+            // set the ACTIVE downstream task INVALID
+            CHECK(downstream_task->task_status_ == TaskStatus::ACTIVE);
+            if (downstream_task->GetTaskType() == DepGCTaskType::TOPO_ROW_LIST_DEFRAG) {
+                gc_producer_->SetTopoRowListDefragTaskInvalid(downstream_task);
+                DisconnectInvalidTopoRowListDefragTask(downstream_task);
+            } else if (downstream_task->GetTaskType() == DepGCTaskType::EP_ROW_LIST_DEFRAG) {
+                gc_producer_->SetEPRowListDefragTaskInvalid(downstream_task);
+                DisconnectInvalidEPRowListDefragTask(downstream_task);
+            } else {
+                CHECK(false) << "unexpected downstream task type " << downstream_task->GetTaskTypeStr();
             }
         }
 
-        delete self;
-        topo_row_list_gc_tasks_map.at(task->id) = task;
+        // substaintiate the EMPTY task
+        task->target = target;
+        if (task->blocked_count_ > 0) {
+            task->task_status_ = TaskStatus::BLOCKED;
+        } else {
+            task->task_status_ = TaskStatus::ACTIVE;
+        }
     } else {
-        // Directly insert into dependency map
-        topo_row_list_gc_tasks_map.emplace(task->id, task);
+        // create a new task
+        task = new TopoRowListGCTask(id, target);
+        task->task_status_ = TaskStatus::ACTIVE;
+        topo_row_list_gc_tasks_map.emplace(id, task);
     }
 
-    return true;
+    return task;
 }
 
-bool GCTaskDAG::InsertTopoRowListDefragTask(TopoRowListDefragTask* task) {
-    if (topo_row_list_defrag_tasks_map.find(task->id) != topo_row_list_defrag_tasks_map.end()) {
-        return false;
+TopoRowListDefragTask* GCTaskDAG::InsertTopoRowListDefragTask(const vid_t& id, TopologyRowList* target, int gcable_cell_count) {
+    if (topo_row_list_defrag_tasks_map.find(id) != topo_row_list_defrag_tasks_map.end()) {
+        // already exists, ignore
+        return nullptr;
     }
 
-    if (topo_row_list_gc_tasks_map.find(task->id) != topo_row_list_gc_tasks_map.end()) {
+    TopoRowListDefragTask* task = nullptr;
+
+    if (topo_row_list_gc_tasks_map.find(id) != topo_row_list_gc_tasks_map.end()) {
         // Dependent Task Exists
-        TopoRowListGCTask* dep_task = topo_row_list_gc_tasks_map.at(task->id);
+        TopoRowListGCTask* dep_task = topo_row_list_gc_tasks_map.at(id);
         if (dep_task->task_status_ == TaskStatus::EMPTY) {
+            // An empty task generated by EPRowListDefragTask
+            task = new TopoRowListDefragTask(id, target, gcable_cell_count);
+            task->task_status_ = TaskStatus::ACTIVE;
+
             // Record Dependent relationship
             dep_task->downstream_tasks_.emplace(task);
             task->upstream_tasks_.emplace(dep_task);
-
-            topo_row_list_defrag_tasks_map.emplace(task->id, task);
+            gc_producer_->IncreaseTopoRowListGCJobBlockCount(dep_task);
         } else {
-            return false;
+            // Do not generate a task, since the upstream task exists
+            return nullptr;
         }
     } else {
+        task = new TopoRowListDefragTask(id, target, gcable_cell_count);
+        task->task_status_ = TaskStatus::ACTIVE;
+
         // Create Empty Dep Task
-        TopoRowListGCTask* topo_dep_task = new TopoRowListGCTask();
-        topo_dep_task->downstream_tasks_.emplace(task);
+        TopoRowListGCTask* topo_dep_task = new TopoRowListGCTask(id, nullptr);
         topo_dep_task->task_status_ = TaskStatus::EMPTY;
-        topo_row_list_gc_tasks_map.emplace(task->id, topo_dep_task);
 
-        // Insert Self as well
         task->upstream_tasks_.emplace(topo_dep_task);
-        topo_row_list_defrag_tasks_map.emplace(task->id, task);
-    }
-
-    return true;
-}
-
-bool GCTaskDAG::InsertEPRowListGCTask(EPRowListGCTask* task) {
-    if (ep_row_list_gc_tasks_map.find(task->id) != ep_row_list_gc_tasks_map.end()) {
-        EPRowListGCTask* self = ep_row_list_gc_tasks_map.at(task->id);
-        if (self->task_status_ != TaskStatus::EMPTY) {
-            return false;
-        }
-
-        // Delete all downstream task
-        for (auto task_ptr : self->downstream_tasks_) {
-            if (!gc_producer_->ep_row_list_defrag_job.SetTaskInvalid(task_ptr)) {
-                task->blocked_count_ += 1;
-                task->task_status_ = TaskStatus::BLOCKED;
-            }
-        }
-
-        delete self;
-        ep_row_list_gc_tasks_map.at(task->id) = task;
-    } else {
-        ep_row_list_gc_tasks_map.emplace(task->id, task);
-    }
-
-    return true;
-}
-
-bool GCTaskDAG::InsertEPRowListDefragTask(EPRowListDefragTask* task) {
-    if (ep_row_list_defrag_tasks_map.find(task->id) != ep_row_list_defrag_tasks_map.end()) {
-        // Already exists
-        return false;
-    }
-
-    vid_t src_v = task->id.GetAttachedVid();
-    bool topo_row_dep_exist = (topo_row_list_gc_tasks_map.find(src_v) != topo_row_list_gc_tasks_map.end());
-    bool ep_row_dep_exist = (ep_row_list_gc_tasks_map.find(task->id) != ep_row_list_gc_tasks_map.end());
-
-    bool topo_row_dep_empty = false;
-    bool ep_row_dep_empty = false;
-    // Check Depedency existence for topo_row
-    if (topo_row_dep_exist) {
-        TopoRowListGCTask * topo_dep_task = topo_row_list_gc_tasks_map.at(src_v);
-        if (topo_dep_task->task_status_ == TaskStatus::EMPTY) {
-            topo_row_dep_empty = true;
-        } else {
-            return false;
-        }
-    }
-
-    // Check Depedency existence for ep_row
-    if (ep_row_dep_exist) {
-        EPRowListGCTask* ep_dep_task = ep_row_list_gc_tasks_map.at(task->id);
-        if (ep_dep_task->task_status_ == TaskStatus::EMPTY) {
-            ep_row_dep_empty = true;
-        } else {
-            return false;
-        }
-    }
-
-    // Insert
-    if (topo_row_dep_exist) {
-        TopoRowListGCTask* topo_dep_task = topo_row_list_gc_tasks_map.at(src_v);
-        if (topo_row_dep_empty) {
-            topo_dep_task->downstream_tasks_.emplace(task);
-            task->upstream_tasks_.emplace(topo_dep_task);
-        }
-    } else {
-        // Create Empty Dep Task
-        TopoRowListGCTask * topo_dep_task = new TopoRowListGCTask();
         topo_dep_task->downstream_tasks_.emplace(task);
-        topo_dep_task->task_status_ == TaskStatus::EMPTY;
-        topo_row_list_gc_tasks_map.emplace(src_v, topo_dep_task);
 
-        task->upstream_tasks_.emplace(topo_dep_task);
+        topo_row_list_gc_tasks_map.emplace(id, topo_dep_task);
     }
 
-    // Insert
-    if (ep_row_dep_exist) {
-        EPRowListGCTask* ep_dep_task = ep_row_list_gc_tasks_map.at(task->id);
-        if (ep_row_dep_empty) {
-            ep_dep_task->downstream_tasks_.emplace(task);
-            task->upstream_tasks_.emplace(ep_dep_task);
+    topo_row_list_defrag_tasks_map.emplace(id, task);
+
+    return task;
+}
+
+EPRowListGCTask* GCTaskDAG::InsertEPRowListGCTask(const CompoundEPRowListID& id, PropertyRowList<EdgePropertyRow>* target) {
+    EPRowListGCTask* task = nullptr;
+
+    if (ep_row_list_gc_tasks_map.find(id) != ep_row_list_gc_tasks_map.end()) {
+        task = ep_row_list_gc_tasks_map.at(id);
+        if (task->task_status_ != TaskStatus::EMPTY) {
+            // already exists, ignore
+            return nullptr;
+        }
+
+        CHECK(task->task_status_ == TaskStatus::EMPTY);
+
+        EPRowListDefragTask* downstream_task = *task->downstream_tasks_.begin();
+
+        // substantiate the existing EMPTY task
+        task->target = target;
+        if (downstream_task->task_status_ == TaskStatus::PUSHED) {
+            task->blocked_count_ = 1;
+            task->task_status_ = TaskStatus::BLOCKED;
+        } else {
+            CHECK(downstream_task->task_status_ == TaskStatus::ACTIVE);
+            task->task_status_ = TaskStatus::ACTIVE;
+
+            // set the ACTIVE downstream task INVALID
+            gc_producer_->SetEPRowListDefragTaskInvalid(downstream_task);
+            DisconnectInvalidEPRowListDefragTask(downstream_task);
         }
     } else {
-        // Create Empty Dep Task
-        EPRowListGCTask * ep_dep_task = new EPRowListGCTask();
-        ep_dep_task->downstream_tasks_.emplace(task);
-        ep_dep_task->task_status_ == TaskStatus::EMPTY;
-        ep_row_list_gc_tasks_map.emplace(task->id, ep_dep_task);
-
-        task->upstream_tasks_.emplace(ep_dep_task);
+        // create a new task
+        task = new EPRowListGCTask(id, target);
+        task->task_status_ = TaskStatus::ACTIVE;
+        ep_row_list_gc_tasks_map.emplace(id, task);
     }
 
-    ep_row_list_defrag_tasks_map.emplace(task->id, task);
-    return true;
+    return task;
 }
 
-void GCTaskDAG::DeleteTopoRowListGCTask(vid_t& vid) {
-    if (topo_row_list_gc_tasks_map.find(vid) != topo_row_list_gc_tasks_map.end()) {
-        delete topo_row_list_gc_tasks_map.at(vid);
-        topo_row_list_gc_tasks_map.erase(vid);
-    }
-}
-
-void GCTaskDAG::DeleteTopoRowListDefragTask(vid_t& vid) {
-    if (topo_row_list_defrag_tasks_map.find(vid) != topo_row_list_defrag_tasks_map.end()) {
-        TopoRowListDefragTask* task_ptr = topo_row_list_defrag_tasks_map.at(vid);
-        // Reduce block count for all upstream tasks
-        for (auto upstream_t : task_ptr->upstream_tasks_) {
-            if (upstream_t->task_status_ == TaskStatus::BLOCKED) {
-                // BLOCKED: Already has a real task blocked
-                CHECK(gc_producer_->topo_row_list_gc_job.ReduceTaskBlockCount(upstream_t));
-
-                // Check whether job is still blocked or not
-                if (gc_producer_->topo_row_list_gc_job.isReady()) {
-                    TopoRowListGCJob* new_job = new TopoRowListGCJob();
-                    new_job[0] = gc_producer_->topo_row_list_gc_job;
-                    garbage_collector_->PushJobToPendingQueue(new_job);
-                    gc_producer_->topo_row_list_gc_job.Clear();
-                }
-            } else if (upstream_t->task_status_ == TaskStatus::EMPTY) {
-                // EMPTY: No real task exists
-                upstream_t->blocked_count_--;
-                if (upstream_t->blocked_count_ == 0) {
-                    delete upstream_t;
-                }
-                continue;
-            }
-        }
-
-        delete task_ptr;
-        topo_row_list_defrag_tasks_map.erase(vid);
-    }
-}
-
-void GCTaskDAG::DeleteEPRowListGCTask(CompoundEPRowListID& id) {
-    if (ep_row_list_gc_tasks_map.find(id) != ep_row_list_gc_tasks_map.end()) {
-        delete ep_row_list_gc_tasks_map.at(id);
-        ep_row_list_gc_tasks_map.erase(id);
-    }
-}
-
-void GCTaskDAG::DeleteEPRowListDefragTask(CompoundEPRowListID& id) {
+EPRowListDefragTask* GCTaskDAG::InsertEPRowListDefragTask(const CompoundEPRowListID& id, PropertyRowList<EdgePropertyRow>* target, int gcable_cell_count) {
     if (ep_row_list_defrag_tasks_map.find(id) != ep_row_list_defrag_tasks_map.end()) {
-        EPRowListDefragTask* task_ptr = ep_row_list_defrag_tasks_map.at(id);
-        // Reduce block count for all upstream tasks
-        for (auto upstream_t : task_ptr->upstream_tasks_) {
-            if (gc_producer_->ep_row_list_gc_job.taskExists(upstream_t)) {
-                if (upstream_t->task_status_ == TaskStatus::BLOCKED) {
-                    CHECK(gc_producer_->ep_row_list_gc_job.ReduceTaskBlockCount(upstream_t));
+        // already exists, ignore
+        return nullptr;
+    }
 
-                    // Check whether job is still blocked or not
-                    if (gc_producer_->ep_row_list_gc_job.isReady()) {
-                        EPRowListGCJob* new_job = new EPRowListGCJob();
-                        new_job[0] = gc_producer_->ep_row_list_gc_job;
-                        garbage_collector_->PushJobToPendingQueue(new_job);
-                        gc_producer_->ep_row_list_gc_job.Clear();
-                    }
-                } else if (upstream_t->task_status_ == TaskStatus::EMPTY) {
-                    // EMPTY: No real task exists, reduce blocked_count
-                    upstream_t->blocked_count_--;
-                    if (upstream_t->blocked_count_ == 0) {
-                        delete upstream_t;
-                    }
-                    continue;
-                }
-            } else if (gc_producer_->topo_row_list_gc_job.taskExists(upstream_t)) {
-                if (upstream_t->task_status_ == TaskStatus::BLOCKED) {
-                    CHECK(gc_producer_->topo_row_list_gc_job.ReduceTaskBlockCount(upstream_t));
+    vid_t src_v = id.GetAttachedVid();
+    bool topo_row_dep_exist = (topo_row_list_gc_tasks_map.find(src_v) != topo_row_list_gc_tasks_map.end());
+    bool ep_row_dep_exist = (ep_row_list_gc_tasks_map.find(id) != ep_row_list_gc_tasks_map.end());
 
-                    // Check whether job is still blocked or not
-                    if (gc_producer_->topo_row_list_gc_job.isReady()) {
-                        TopoRowListGCJob* new_job = new TopoRowListGCJob();
-                        new_job[0] = gc_producer_->topo_row_list_gc_job;
-                        garbage_collector_->PushJobToPendingQueue(new_job);
-                        gc_producer_->topo_row_list_gc_job.Clear();
-                    }
-                } else if (upstream_t->task_status_ == TaskStatus::EMPTY) {
-                    // EMPTY: No real task exists, reduce blocked_count
-                    upstream_t->blocked_count_--;
-                    if (upstream_t->blocked_count_ == 0) {
-                        delete upstream_t;
-                    }
-                    continue;
+    // Check depedency existence for ep_row
+    if (ep_row_dep_exist) {
+        // upstream task already exists
+        return nullptr;
+    }
+
+    // Check depedency existence for topo_row
+    TopoRowListGCTask* topo_dep_task;
+    if (topo_row_dep_exist) {
+        topo_dep_task = topo_row_list_gc_tasks_map.at(src_v);
+        if (topo_dep_task->task_status_ != TaskStatus::EMPTY) {
+            // non-empty upstream task already exists
+            return nullptr;
+        }
+    } else {
+        // create a new upstream task (TopoRowListGCTask)
+        topo_dep_task = new TopoRowListGCTask(src_v, nullptr);
+        topo_dep_task->task_status_ = TaskStatus::EMPTY;
+        topo_row_list_gc_tasks_map.emplace(src_v, topo_dep_task);
+    }
+
+    EPRowListDefragTask* task = new EPRowListDefragTask(id, target, gcable_cell_count);
+    task->task_status_ = TaskStatus::ACTIVE;
+
+    topo_dep_task->downstream_tasks_.emplace(task);
+    task->upstream_tasks_.emplace(topo_dep_task);
+
+    // Create Empty EPRowListGC Task
+    EPRowListGCTask* ep_dep_task = new EPRowListGCTask(id, nullptr);
+    ep_dep_task->task_status_ = TaskStatus::EMPTY;
+    ep_row_list_gc_tasks_map.emplace(id, ep_dep_task);
+
+    ep_dep_task->downstream_tasks_.emplace(task);
+    task->upstream_tasks_.emplace(ep_dep_task);
+
+    ep_row_list_defrag_tasks_map.emplace(id, task);
+
+    return task;
+}
+
+void GCTaskDAG::DeleteTopoRowListGCTask(TopoRowListGCTask* task) {
+    CHECK(topo_row_list_gc_tasks_map.find(task->id) != topo_row_list_gc_tasks_map.end());
+    topo_row_list_gc_tasks_map.erase(task->id);
+}
+
+void GCTaskDAG::DeleteTopoRowListDefragTask(TopoRowListDefragTask* task) {
+    if (task->task_status_ == TaskStatus::INVALID)
+        return;
+    CHECK(task->task_status_ == TaskStatus::PUSHED);
+
+    CHECK(topo_row_list_defrag_tasks_map.find(task->id) != topo_row_list_defrag_tasks_map.end());
+
+    TopoRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
+
+    upstream_task->downstream_tasks_.erase(task);
+
+    if (upstream_task->task_status_ == TaskStatus::EMPTY) {
+        if (upstream_task->downstream_tasks_.size() == 0) {
+            // delete the empty upstream task as it will no longer have any downstream task
+            topo_row_list_gc_tasks_map.erase(task->id);
+            delete upstream_task;
+        }
+    } else {
+        CHECK(upstream_task->task_status_ == TaskStatus::BLOCKED);
+        gc_producer_->ReduceTopoRowListGCJobBlockCount(upstream_task);
+    }
+
+    topo_row_list_defrag_tasks_map.erase(task->id);
+}
+
+void GCTaskDAG::DeleteEPRowListGCTask(EPRowListGCTask* task) {
+    CHECK(ep_row_list_gc_tasks_map.find(task->id) != ep_row_list_gc_tasks_map.end());
+    ep_row_list_gc_tasks_map.erase(task->id);
+}
+
+void GCTaskDAG::DeleteEPRowListDefragTask(EPRowListDefragTask* task) {
+    if (task->task_status_ == TaskStatus::INVALID)
+        return;
+    CHECK(task->task_status_ == TaskStatus::PUSHED);
+
+    CHECK(ep_row_list_defrag_tasks_map.find(task->id) != ep_row_list_defrag_tasks_map.end());
+
+    for (auto* upstream_task : task->upstream_tasks_) {
+        upstream_task->downstream_tasks_.erase(task);
+
+        if (upstream_task->GetTaskType() == DepGCTaskType::EP_ROW_LIST_GC) {
+            if (upstream_task->task_status_ == TaskStatus::EMPTY) {
+                CHECK(upstream_task->downstream_tasks_.size() == 0);
+                // delete the empty upstream task as it will no longer have any downstream task
+                ep_row_list_gc_tasks_map.erase(task->id);
+                delete upstream_task;
+            } else {
+                CHECK(upstream_task->task_status_ == TaskStatus::BLOCKED);
+
+                gc_producer_->ReduceEPRowListGCJobBlockCount(upstream_task);
+            }
+        } else if (upstream_task->GetTaskType() == DepGCTaskType::TOPO_ROW_LIST_GC) {
+            vid_t vid = task->id.GetAttachedVid();
+            if (upstream_task->task_status_ == TaskStatus::EMPTY) {
+                if (upstream_task->downstream_tasks_.size() == 0) {
+                    // delete the empty upstream task as it will no longer have any downstream task
+                    topo_row_list_gc_tasks_map.erase(vid);
+                    delete upstream_task;
                 }
             } else {
-                cout << "[GCProducer] Unexpected Task Type for DeleteEPRowListDefragTask()" << endl;
-                CHECK(false);
-            }
-        }
+                CHECK(upstream_task->task_status_ == TaskStatus::BLOCKED);
 
-        delete task_ptr;
-        ep_row_list_defrag_tasks_map.erase(id);
+                gc_producer_->ReduceTopoRowListGCJobBlockCount(upstream_task);
+            }
+        } else {
+            CHECK(false) << "unexpected upstream task type " << upstream_task->GetTaskTypeStr();
+        }
     }
+
+    ep_row_list_defrag_tasks_map.erase(task->id);
+}
+
+void GCTaskDAG::DisconnectInvalidTopoRowListDefragTask(TopoRowListDefragTask* task) {
+    topo_row_list_defrag_tasks_map.erase(task->id);
+
+    VPRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
+    task->upstream_tasks_.clear();
+
+    upstream_task->downstream_tasks_.erase(task);
+
+    if (upstream_task->downstream_tasks_.size() == 0) {
+        CHECK(upstream_task->task_status_ == TaskStatus::EMPTY);
+        // erase and delete the upstream task since it is no longer connected
+        topo_row_list_gc_tasks_map.erase(upstream_task->id);
+        delete upstream_task;
+    }
+}
+
+void GCTaskDAG::DisconnectInvalidEPRowListDefragTask(EPRowListDefragTask* task) {
+    ep_row_list_defrag_tasks_map.erase(task->id);
+
+    for (auto* upstream_task : task->upstream_tasks_) {
+        upstream_task->downstream_tasks_.erase(task);
+
+        if (upstream_task->downstream_tasks_.size() == 0) {
+            CHECK(upstream_task->task_status_ == TaskStatus::EMPTY);
+
+            // erase and delete the upstream task since it is no longer connected
+            if (upstream_task->GetTaskType() == DepGCTaskType::TOPO_ROW_LIST_GC) {
+                topo_row_list_defrag_tasks_map.erase(static_cast<TopoRowListGCTask*>(upstream_task)->id);
+            } else if (upstream_task->GetTaskType() == DepGCTaskType::EP_ROW_LIST_GC) {
+                ep_row_list_defrag_tasks_map.erase(static_cast<EPRowListGCTask*>(upstream_task)->id);
+            } else {
+                CHECK(false) << "unexpected upstream task type " << upstream_task->GetTaskTypeStr();
+            }
+            delete upstream_task;
+        }
+    }
+
+    task->upstream_tasks_.clear();
+}
+
+void GCProducer::ReduceVPRowListGCJobBlockCount(VPRowListGCTask* task) {
+    vp_row_list_gc_job.ReduceTaskBlockCount(task);
+
+    if (vp_row_list_gc_job.isReady()) {
+        VPRowListGCJob* new_job = new VPRowListGCJob();
+        *new_job = vp_row_list_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        vp_row_list_gc_job.Clear();
+    }
+}
+
+void GCProducer::ReduceEPRowListGCJobBlockCount(EPRowListGCTask* task) {
+    ep_row_list_gc_job.ReduceTaskBlockCount(task);
+
+    if (ep_row_list_gc_job.isReady()) {
+        EPRowListGCJob* new_job = new EPRowListGCJob();
+        *new_job = ep_row_list_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        ep_row_list_gc_job.Clear();
+    }
+}
+
+void GCProducer::ReduceTopoRowListGCJobBlockCount(TopoRowListGCTask* task) {
+    topo_row_list_gc_job.ReduceTaskBlockCount(task);
+
+    if (topo_row_list_gc_job.isReady()) {
+        TopoRowListGCJob* new_job = new TopoRowListGCJob();
+        *new_job = topo_row_list_gc_job;
+        garbage_collector_->PushJobToPendingQueue(new_job);
+        topo_row_list_gc_job.Clear();
+    }
+}
+
+void GCProducer::IncreaseTopoRowListGCJobBlockCount(TopoRowListGCTask* task) {
+    topo_row_list_gc_job.IncreaseTaskBlockCount(task);
+}
+
+void GCProducer::SetVPRowListDefragTaskInvalid(VPRowListDefragTask* task) {
+    vp_row_list_defrag_job.SetTaskInvalid(task);
+}
+
+void GCProducer::SetEPRowListDefragTaskInvalid(EPRowListDefragTask* task) {
+    ep_row_list_defrag_job.SetTaskInvalid(task);
+}
+
+void GCProducer::SetTopoRowListDefragTaskInvalid(TopoRowListDefragTask* task) {
+    topo_row_list_defrag_job.SetTaskInvalid(task);
 }
 
 void GCProducer::Init() {
@@ -671,9 +784,10 @@ void GCProducer::spawn_edge_mvcc_list_gctask(EdgeMVCCItem* gc_header,
 }
 
 void GCProducer::spawn_topo_row_list_gctask(TopologyRowList* topo_row_list, vid_t & vid) {
-    TopoRowListGCTask* task = new TopoRowListGCTask(topo_row_list, vid);
-    // No Need to Add Task into Job when Insert Failed
-    if (gc_task_dag_->InsertTopoRowListGCTask(task)) {
+    TopoRowListGCTask* task = gc_task_dag_->InsertTopoRowListGCTask(vid, topo_row_list);
+
+    // Do not Need to Add Task into Job when Insert Failed
+    if (task != nullptr) {
         topo_row_list_gc_job.AddTask(task);
     } else {
         return;
@@ -688,11 +802,11 @@ void GCProducer::spawn_topo_row_list_gctask(TopologyRowList* topo_row_list, vid_
 }
 
 void GCProducer::spawn_topo_row_list_defrag_gctask(TopologyRowList* row_list,
-        const vid_t& vid, const int& gcable_cell_counter) {
-    TopoRowListDefragTask* task = new TopoRowListDefragTask(row_list, vid, gcable_cell_counter);
+        const vid_t& vid, const int& gcable_cell_count) {
+    TopoRowListDefragTask* task = gc_task_dag_->InsertTopoRowListDefragTask(vid, row_list, gcable_cell_count);
 
-    // No Need to Add Task into Job when Insert Failed
-    if (gc_task_dag_->InsertTopoRowListDefragTask(task)) {
+    // Do not Need to Add Task into Job when Insert Failed
+    if (task != nullptr) {
         topo_row_list_defrag_job.AddTask(task);
     } else {
         return;
@@ -707,10 +821,10 @@ void GCProducer::spawn_topo_row_list_defrag_gctask(TopologyRowList* row_list,
 }
 
 void GCProducer::spawn_vp_row_list_gctask(PropertyRowList<VertexPropertyRow>* prop_row_list, vid_t & vid) {
-    VPRowListGCTask* task = new VPRowListGCTask(prop_row_list, vid);
+    VPRowListGCTask* task = gc_task_dag_->InsertVPRowListGCTask(vid, prop_row_list);
 
-    // No Need to Add Task into Job when Insert Failed
-    if (gc_task_dag_->InsertVPRowListGCTask(task)) {
+    // Do not Need to Add Task into Job when Insert Failed
+    if (task != nullptr) {
         vp_row_list_gc_job.AddTask(task);
     } else {
         return;
@@ -725,13 +839,13 @@ void GCProducer::spawn_vp_row_list_gctask(PropertyRowList<VertexPropertyRow>* pr
 }
 
 void GCProducer::spawn_vp_row_defrag_gctask(PropertyRowList<VertexPropertyRow>* row_list,
-        const uint64_t& element_id, const int& gcable_cell_counter) {
+                                            const uint64_t& element_id, const int& gcable_cell_count) {
     vid_t vid;
     uint2vid_t(element_id, vid);
-    VPRowListDefragTask* task = new VPRowListDefragTask(vid, row_list, gcable_cell_counter);
+    VPRowListDefragTask* task = gc_task_dag_->InsertVPRowListDefragTask(vid, row_list, gcable_cell_count);
 
-    // No Need to Add Task into Job when Insert Failed
-    if (gc_task_dag_->InsertVPRowListDefragTask(task)) {
+    // Do not Need to Add Task into Job when Insert Failed
+    if (task != nullptr) {
         vp_row_list_defrag_job.AddTask(task);
     } else {
         return;
@@ -746,10 +860,11 @@ void GCProducer::spawn_vp_row_defrag_gctask(PropertyRowList<VertexPropertyRow>* 
 }
 
 void GCProducer::spawn_ep_row_list_gctask(PropertyRowList<EdgePropertyRow>* row_list, eid_t& eid) {
-    EPRowListGCTask* task = new EPRowListGCTask(eid, row_list);
+    CompoundEPRowListID id(eid, row_list);
+    EPRowListGCTask* task = gc_task_dag_->InsertEPRowListGCTask(id, row_list);
 
-    // No Need to Add Task into Job when Insert Failed
-    if (gc_task_dag_->InsertEPRowListGCTask(task)) {
+    // Do not Need to Add Task into Job when Insert Failed
+    if (task != nullptr) {
         ep_row_list_gc_job.AddTask(task);
     } else {
         return;
@@ -764,13 +879,14 @@ void GCProducer::spawn_ep_row_list_gctask(PropertyRowList<EdgePropertyRow>* row_
 }
 
 void GCProducer::spawn_ep_row_defrag_gctask(PropertyRowList<EdgePropertyRow>* row_list,
-        const uint64_t& element_id, const int& gcable_cell_counter) {
+        const uint64_t& element_id, const int& gcable_cell_count) {
     eid_t eid;
     uint2eid_t(element_id, eid);
-    EPRowListDefragTask* task = new EPRowListDefragTask(eid, row_list, gcable_cell_counter);
+    CompoundEPRowListID id(eid, row_list);
+    EPRowListDefragTask* task = gc_task_dag_->InsertEPRowListDefragTask(id, row_list, gcable_cell_count);
 
-    // No Need to Add Task into Job when Insert Failed
-    if (gc_task_dag_->InsertEPRowListDefragTask(task)) {
+    // Do not Need to Add Task into Job when Insert Failed
+    if (task != nullptr) {
         ep_row_list_defrag_job.AddTask(task);
     } else {
         return;
@@ -810,7 +926,7 @@ void GCProducer::spawn_prop_index_gctask(Element_T type, const int& pid, const i
 
 void GCProducer::spawn_rct_gctask(const int& cost) {
     if (rct_gc_job.isEmpty()) {
-        RCTGCTask * task = new RCTGCTask(cost);
+        RCTGCTask* task = new RCTGCTask(cost);
         rct_gc_job.AddTask(task);
     } else {
         rct_gc_job.sum_of_cost_ = cost;;
@@ -826,7 +942,7 @@ void GCProducer::spawn_rct_gctask(const int& cost) {
 
 void GCProducer::spawn_trx_st_gctask(const int& cost) {
     if (trx_st_gc_job.isEmpty()) {
-        TrxStatusTableGCTask * task = new TrxStatusTableGCTask(cost);
+        TrxStatusTableGCTask* task = new TrxStatusTableGCTask(cost);
         trx_st_gc_job.AddTask(task);
     } else {
         trx_st_gc_job.sum_of_cost_ = cost;
@@ -871,32 +987,32 @@ void GCProducer::check_finished_job() {
             break;
           case JobType::TopoRowGC:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
-                gc_task_dag_->DeleteTopoRowListGCTask(static_cast<TopoRowListGCTask*>(t)->id);
+                gc_task_dag_->DeleteTopoRowListGCTask(static_cast<TopoRowListGCTask*>(t));
             }
             break;
           case JobType::TopoRowDefrag:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
-                gc_task_dag_->DeleteTopoRowListDefragTask(static_cast<TopoRowListDefragTask*>(t)->id);
+                gc_task_dag_->DeleteTopoRowListDefragTask(static_cast<TopoRowListDefragTask*>(t));
             }
             break;
           case JobType::VPRowGC:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
-                gc_task_dag_->DeleteVPRowListGCTask(static_cast<VPRowListGCTask*>(t)->id);
+                gc_task_dag_->DeleteVPRowListGCTask(static_cast<VPRowListGCTask*>(t));
             }
             break;
           case JobType::VPRowDefrag:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
-                gc_task_dag_->DeleteVPRowListDefragTask(static_cast<VPRowListDefragTask*>(t)->id);
+                gc_task_dag_->DeleteVPRowListDefragTask(static_cast<VPRowListDefragTask*>(t));
             }
             break;
           case JobType::EPRowGC:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
-                gc_task_dag_->DeleteEPRowListGCTask(static_cast<EPRowListGCTask*>(t)->id);
+                gc_task_dag_->DeleteEPRowListGCTask(static_cast<EPRowListGCTask*>(t));
             }
             break;
           case JobType::EPRowDefrag:
             for (auto t : static_cast<DependentGCJob*>(job)->tasks_) {
-                gc_task_dag_->DeleteEPRowListDefragTask(static_cast<EPRowListDefragTask*>(t)->id);
+                gc_task_dag_->DeleteEPRowListDefragTask(static_cast<EPRowListDefragTask*>(t));
             }
             break;
           default:
