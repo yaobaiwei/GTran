@@ -59,10 +59,11 @@ class GCTaskDAG {
     unordered_map<vid_t, VPRowListGCTask*, VidHash> vp_row_list_gc_tasks_map;
     unordered_map<vid_t, VPRowListDefragTask*, VidHash> vp_row_list_defrag_tasks_map;
 
-    bool InsertVPRowListGCTask(VPRowListGCTask*);
-    bool InsertVPRowListDefragTask(VPRowListDefragTask*);
-    void DeleteVPRowListGCTask(vid_t&);
-    void DeleteVPRowListDefragTask(vid_t&);
+    VPRowListGCTask* InsertVPRowListGCTask(const vid_t&, PropertyRowList<VertexPropertyRow>*);
+    VPRowListDefragTask* InsertVPRowListDefragTask(const vid_t&, PropertyRowList<VertexPropertyRow>*, int);
+    void DeleteVPRowListGCTask(VPRowListGCTask*);
+    void DeleteVPRowListDefragTask(VPRowListDefragTask*);
+    void DisconnectInvalidVPRowListDefragTask(VPRowListDefragTask*);
 
     /*
      * Task dependency DAG 2:
@@ -77,15 +78,17 @@ class GCTaskDAG {
     unordered_map<CompoundEPRowListID, EPRowListGCTask*, CompoundEPRowListIDHash> ep_row_list_gc_tasks_map;
     unordered_map<CompoundEPRowListID, EPRowListDefragTask*, CompoundEPRowListIDHash> ep_row_list_defrag_tasks_map;
 
-    bool InsertTopoRowListGCTask(TopoRowListGCTask*);
-    bool InsertTopoRowListDefragTask(TopoRowListDefragTask*);
-    bool InsertEPRowListGCTask(EPRowListGCTask*);
-    bool InsertEPRowListDefragTask(EPRowListDefragTask*);
+    TopoRowListGCTask* InsertTopoRowListGCTask(const vid_t&, TopologyRowList*);
+    TopoRowListDefragTask* InsertTopoRowListDefragTask(const vid_t&, TopologyRowList*, int);
+    EPRowListGCTask* InsertEPRowListGCTask(const CompoundEPRowListID&, PropertyRowList<EdgePropertyRow>*);
+    EPRowListDefragTask* InsertEPRowListDefragTask(const CompoundEPRowListID&, PropertyRowList<EdgePropertyRow>*, int);
 
-    void DeleteTopoRowListGCTask(vid_t&);
-    void DeleteTopoRowListDefragTask(vid_t&);
-    void DeleteEPRowListGCTask(CompoundEPRowListID&);
-    void DeleteEPRowListDefragTask(CompoundEPRowListID&);
+    void DeleteTopoRowListGCTask(TopoRowListGCTask*);
+    void DeleteTopoRowListDefragTask(TopoRowListDefragTask*);
+    void DeleteEPRowListGCTask(EPRowListGCTask*);
+    void DeleteEPRowListDefragTask(EPRowListDefragTask*);
+    void DisconnectInvalidTopoRowListDefragTask(TopoRowListDefragTask*);
+    void DisconnectInvalidEPRowListDefragTask(EPRowListDefragTask*);
 };
 
 class GCProducer {
@@ -126,6 +129,19 @@ class GCProducer {
 
     EPRowListGCJob ep_row_list_gc_job;
     EPRowListDefragJob ep_row_list_defrag_job;
+
+    // Reduce block count of upstream jobs, and push out them if ready
+    void ReduceVPRowListGCJobBlockCount(VPRowListGCTask*);
+    void ReduceEPRowListGCJobBlockCount(EPRowListGCTask*);
+    void ReduceTopoRowListGCJobBlockCount(TopoRowListGCTask*);
+
+    // Increase block count of upstream jobs (for TopoRowListGCJob only)
+    void IncreaseTopoRowListGCJobBlockCount(TopoRowListGCTask*);
+
+    // Set task invalid, if its non-empty upstream task is generated
+    void SetVPRowListDefragTaskInvalid(VPRowListDefragTask*);
+    void SetEPRowListDefragTaskInvalid(EPRowListDefragTask*);
+    void SetTopoRowListDefragTaskInvalid(TopoRowListDefragTask*);
 
     // Index Store GC
     TopoIndexGCJob topo_index_gc_job;

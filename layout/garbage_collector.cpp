@@ -27,7 +27,18 @@ void GarbageCollector::Stop() {
     }
 }
 
-void GarbageCollector::PushJobToPendingQueue(AbstractGCJob* job_ptr) {
+void GarbageCollector::PushJobToPendingQueue(DependentGCJob* job_ptr) {
+    for (auto* task : job_ptr->tasks_) {
+        if (task->task_status_ == TaskStatus::ACTIVE) {
+            task->task_status_ = TaskStatus::PUSHED;
+        } else {
+            CHECK(task->task_status_ == TaskStatus::INVALID);
+        }
+    }
+    pending_job_queue.push(job_ptr);
+}
+
+void GarbageCollector::PushJobToPendingQueue(IndependentGCJob* job_ptr) {
     pending_job_queue.push(job_ptr);
 }
 

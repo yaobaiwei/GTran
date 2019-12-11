@@ -26,7 +26,8 @@ class GarbageCollector {
     void Init();
     void Stop();
 
-    void PushJobToPendingQueue(AbstractGCJob*);
+    void PushJobToPendingQueue(IndependentGCJob*);
+    void PushJobToPendingQueue(DependentGCJob*);
     void PushJobToFinishedQueue(AbstractGCJob*);
     bool PopJobFromPendingQueue(AbstractGCJob*&);
     bool PopJobFromFinishedQueue(AbstractGCJob*&);
