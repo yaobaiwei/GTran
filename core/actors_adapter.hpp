@@ -38,6 +38,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "actor/properties_actor.hpp"
 #include "actor/property_actor.hpp"
 #include "actor/select_actor.hpp"
+#include "actor/status_actor.hpp"
 #include "actor/traversal_actor.hpp"
 #include "actor/values_actor.hpp"
 #include "actor/validation_actor.hpp"
@@ -108,6 +109,7 @@ class ActorAdapter {
         actors_[ACTOR_T::COIN] = unique_ptr<AbstractActor>(new CoinActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::REPEAT] = unique_ptr<AbstractActor>(new RepeatActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::SELECT] = unique_ptr<AbstractActor>(new SelectActor(id ++, num_thread_, mailbox_, core_affinity_));
+        actors_[ACTOR_T::STATUS] = unique_ptr<AbstractActor>(new StatusActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::TRAVERSAL] = unique_ptr<AbstractActor>(new TraversalActor(id ++, num_thread_, mailbox_, core_affinity_));
         actors_[ACTOR_T::VALIDATION] = unique_ptr<AbstractActor>(new ValidationActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, &actors_, &msg_logic_table_));
         actors_[ACTOR_T::VALUES] = unique_ptr<AbstractActor>(new ValuesActor(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));

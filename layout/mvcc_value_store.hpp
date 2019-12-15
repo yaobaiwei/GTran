@@ -92,5 +92,6 @@ class MVCCValueStore {
     static constexpr int BLOCK_SIZE = 1024;
 
     std::string UsageString();
-    std::pair<OffsetT, OffsetT> GetUsage();
+    std::pair<OffsetT, OffsetT> GetUsage();  // <get_count, free_count>
+    std::pair<uint64_t, uint64_t> UsageStatistic();  // <usage_byte, total_byte>
 };

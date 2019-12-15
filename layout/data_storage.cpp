@@ -289,6 +289,43 @@ void DataStorage::PredictEdgeContainerUsage() {
     node_.Rank0PrintfWithWorkerBarrier(("Predicted container usage for edges:\n" + GetUsageString(usage_map)).c_str());
 }
 
+DataStorage::UsageMap DataStorage::GetContainerUsageMap() {
+    UsageMap usage_map;
+
+    usage_map["E mvcc"] = edge_mvcc_pool_->UsageStatistic();
+    usage_map["EP row"] = ep_row_pool_->UsageStatistic();
+    usage_map["EP mvcc"] = ep_mvcc_pool_->UsageStatistic();
+    usage_map["EP store"] = ep_store_->UsageStatistic();
+
+    usage_map["V mvcc"] = vertex_mvcc_pool_->UsageStatistic();
+    usage_map["VE row"] = ve_row_pool_->UsageStatistic();
+    usage_map["VP row"] = vp_row_pool_->UsageStatistic();
+    usage_map["VP mvcc"] = vp_mvcc_pool_->UsageStatistic();
+    usage_map["VP store"] = vp_store_->UsageStatistic();
+
+    size_t total_container_size = 0, total_container_usage = 0;
+
+    for (auto usage_pair : usage_map) {
+        total_container_usage += usage_pair.second.first;
+        total_container_size += usage_pair.second.second;
+    }
+
+    usage_map["total"] = {total_container_usage, total_container_size};
+    return usage_map;
+}
+
+string DataStorage::GetContainerUsageString() {
+    UsageMap usage_map = GetContainerUsageMap();
+
+    return GetUsageString(usage_map);
+}
+
+double DataStorage::GetContainerUsage() {
+    UsageMap usage_map = GetContainerUsageMap();
+
+    return usage_map["total"].first * 1.0 / usage_map["total"].second;
+}
+
 void DataStorage::FillVertexContainer() {
     indexes_ = hdfs_data_loader_->indexes_;
 
