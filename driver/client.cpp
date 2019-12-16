@@ -101,6 +101,7 @@ void Client::print_help() {
     cout << "    help index          display help infomation for building index" << endl;
     cout << "    help config         display help infomation for setting config" << endl;
     cout << "    help emu            display help infomation for running emulation of througput test" << endl;
+    cout << "    help status         display help infomation for displaying system status" << endl;
     cout << "    quit                quit from console" << endl;
     cout << "    gquery <args>       run Gremlin-Like queries" << endl;
     cout << "        -q <query> [<args>] a single query input by user" << endl;
@@ -182,6 +183,20 @@ void Client::print_run_emu_help() {
     cout << endl;
 }
 
+void Client::print_display_status_help() {
+    cout << endl;
+    cout << "Help information for displaying system status:" << endl;
+    cout << "Usage:" << endl;
+    cout << "    DisplayStatus(<status_key>)" << endl;
+    cout << endl;
+    cout << "Available status keys:" << endl;
+    cout << "    mem: Display memory info of containers " << endl;
+    cout << endl;
+    cout << "Example:" << endl;
+    cout << "    gquery -q DisplayStatus(mem)" << endl;
+    cout << endl;
+}
+
 bool Client::trim_str(string& str) {
     size_t pos = str.find_first_not_of(" \t");  // trim blanks from head
     if (pos == string::npos) return false;
@@ -245,6 +260,11 @@ void Client::run_console(string query_fname) {
 
         if (cmd == "help emu") {
             print_run_emu_help();
+            continue;
+        }
+
+        if (cmd == "help status") {
+            print_display_status_help();
             continue;
         }
 

@@ -153,6 +153,9 @@ class ParserObject {
     // Parse set config
     void ParseSetConfig(const string& param);
 
+    // Parse display runtime status of the system
+    void ParseDisplayStatus(const string& param);
+
     // Parse query or sub-query
     void ParseQuery(const string& query);
 

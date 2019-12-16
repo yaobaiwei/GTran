@@ -118,6 +118,7 @@ class DataStorage {
     string GetUsageString(UsageMap usage_map);
     void PredictVertexContainerUsage();
     void PredictEdgeContainerUsage();
+    UsageMap GetContainerUsageMap();
 
 
     Config* config_ = nullptr;
@@ -290,4 +291,8 @@ class DataStorage {
 
     // "schema" (indexes)
     string_index* indexes_ = nullptr;
+
+    // display container usage at runtime
+    string GetContainerUsageString();
+    double GetContainerUsage();
 };

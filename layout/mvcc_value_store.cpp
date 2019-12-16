@@ -268,3 +268,15 @@ std::pair<OffsetT, OffsetT> MVCCValueStore::GetUsage() {
 
     return std::make_pair(get_counter, free_counter);
 }
+
+std::pair<uint64_t, uint64_t> MVCCValueStore::UsageStatistic() {
+    OffsetT get_counter = 0;
+    OffsetT free_counter = 0;
+    for (int tid = 0; tid < nthreads_; tid++) {
+        get_counter += thread_stat_[tid].get_counter;
+        free_counter += thread_stat_[tid].free_counter;
+    }
+    uint64_t usage_counter = get_counter - free_counter + 2;
+
+    return std::pair<uint64_t, uint64_t>(usage_counter * (MEM_ITEM_SIZE + sizeof(OffsetT)), item_count_ * (MEM_ITEM_SIZE + sizeof(OffsetT)));
+}

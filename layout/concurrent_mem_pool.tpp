@@ -135,20 +135,17 @@ std::string ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::UsageString() 
            + ", Total: " + std::to_string(element_count_) + ", Avail: " + std::to_string(cell_avail);
 }
 
-// Temporal Use
 template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>
-std::pair<uint64_t, uint64_t> ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::UsageStatistic(uint64_t unit_size) {
+std::pair<uint64_t, uint64_t> ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::UsageStatistic() {
     OffsetT get_counter = 0;
     OffsetT free_counter = 0;
     for (int tid = 0; tid < nthreads_; tid++) {
         get_counter += thread_stat_[tid].get_counter;
         free_counter += thread_stat_[tid].free_counter;
     }
-    OffsetT cell_avail = element_count_ - get_counter + free_counter - 2;
+    uint64_t usage_counter = get_counter - free_counter + 2;
 
-    return std::pair<uint64_t, uint64_t>((std::stoi(std::to_string(cell_avail)) * unit_size), (std::stoi(std::to_string(element_count_)) * unit_size));
-    // return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter)
-    //        + ", Total: " + std::to_string(element_count_) + ", Avail: " + std::to_string(cell_avail);
+    return std::pair<uint64_t, uint64_t>(usage_counter * (sizeof(ItemT) + sizeof(OffsetT)), element_count_ * (sizeof(ItemT) + sizeof(OffsetT)));
 }
 
 template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>

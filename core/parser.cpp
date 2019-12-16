@@ -108,6 +108,7 @@ bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, stri
     ClearQuery();
     bool build_index = false;
     bool set_config = false;
+    bool display_status = false;
     string error_prefix = "Parser error at line ";
     // check prefix
     if (line.find("BuildIndex") == 0) {
@@ -116,6 +117,9 @@ bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, stri
     } else if (line.find("SetConfig") == 0) {
         set_config = true;
         error_prefix = "Set Config error: ";
+    } else if (line.find("DisplayStatus") == 0) {
+        display_status = true;
+        error_prefix = "Display Status error";
     }
     /*
     else {
@@ -131,6 +135,8 @@ bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, stri
             ParseIndex(line);
         } else if (set_config) {
             ParseSetConfig(line);
+        } else if (display_status) {
+            ParseDisplayStatus(line);
         } else {
             string query, return_name;
             ParseInit(line, return_name, query);
@@ -369,6 +375,25 @@ void ParserObject::ParseSetConfig(const string& param) {
     } else {
         throw ParserException("expect 'enable' or 'y' or 't'");
     }
+
+    AppendActor(actor);
+    is_read_only_ = false;
+}
+
+void ParserObject::ParseDisplayStatus(const string& param) {
+    vector<string> params;
+    Tool::splitWithEscape(param, ",() ", params);
+    if (params.size() != 2) {
+        throw ParserException("expect 1 parameter");
+    }
+
+    Actor_Object actor(ACTOR_T::STATUS);
+
+    Tool::trim(params[1], "\"");
+
+    value_t v;
+    Tool::str2str(params[1], v);
+    actor.params.push_back(v);
 
     AppendActor(actor);
     is_read_only_ = false;
