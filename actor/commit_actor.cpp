@@ -79,4 +79,7 @@ void CommitActor::prepare_clean_actor_set() {
     need_clean_actor_set_.emplace(ACTOR_T::RANGE);
     need_clean_actor_set_.emplace(ACTOR_T::COIN);
     need_clean_actor_set_.emplace(ACTOR_T::MATH);
+
+    // Labelled Branch Actors
+    need_clean_actor_set_.emplace(ACTOR_T::BRANCHFILTER);
 }
