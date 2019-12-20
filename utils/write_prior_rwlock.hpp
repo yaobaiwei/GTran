@@ -29,17 +29,16 @@ class WritePriorRWLock {
     ~WritePriorRWLock();
 
     void GetReadLock();
-    void ReleaseReadLock();
-
     void GetWriteLock();
-    void ReleaseWriteLock();
+
+    void ReleaseLock();
 };
 
 class ReaderLockGuard {
  public:
     explicit ReaderLockGuard(WritePriorRWLock& lock);
     ~ReaderLockGuard();
-    bool is_unlock = false;
+    bool unlocked_ = false;
 
     void Unlock();
 
@@ -51,7 +50,19 @@ class WriterLockGuard {
  public:
     explicit WriterLockGuard(WritePriorRWLock& lock);
     ~WriterLockGuard();
-    bool is_unlock = false;
+    bool unlocked_ = false;
+
+    void Unlock();
+
+ private:
+    WritePriorRWLock* lock_;
+};
+
+class RWLockGuard {
+ public:
+    explicit RWLockGuard(WritePriorRWLock& lock, bool is_writer);
+    ~RWLockGuard();
+    bool unlocked_ = false;
 
     void Unlock();
 

@@ -20,15 +20,11 @@ void WritePriorRWLock::GetReadLock() {
     assert(pthread_rwlock_rdlock(&lock_) == 0);
 }
 
-void WritePriorRWLock::ReleaseReadLock() {
-    assert(pthread_rwlock_unlock(&lock_) == 0);
-}
-
 void WritePriorRWLock::GetWriteLock() {
     assert(pthread_rwlock_wrlock(&lock_) == 0);
 }
 
-void WritePriorRWLock::ReleaseWriteLock() {
+void WritePriorRWLock::ReleaseLock() {
     assert(pthread_rwlock_unlock(&lock_) == 0);
 }
 
@@ -43,10 +39,10 @@ ReaderLockGuard::~ReaderLockGuard() {
 }
 
 void ReaderLockGuard::Unlock() {
-    if (!is_unlock) {
-        is_unlock = true;
+    if (!unlocked_) {
+        unlocked_ = true;
         if (lock_)
-            lock_->ReleaseReadLock();
+            lock_->ReleaseLock();
     }
 }
 
@@ -61,9 +57,31 @@ WriterLockGuard::~WriterLockGuard() {
 }
 
 void WriterLockGuard::Unlock() {
-    if (!is_unlock) {
-        is_unlock = true;
+    if (!unlocked_) {
+        unlocked_ = true;
         if (lock_)
-            lock_->ReleaseWriteLock();
+            lock_->ReleaseLock();
+    }
+}
+
+RWLockGuard::RWLockGuard(WritePriorRWLock& lock, bool is_writer) {
+    lock_ = &lock;
+    if (lock_) {
+        if (is_writer)
+            lock_->GetWriteLock();
+        else
+            lock_->GetReadLock();
+    }
+}
+
+RWLockGuard::~RWLockGuard() {
+    Unlock();
+}
+
+void RWLockGuard::Unlock() {
+    if (!unlocked_) {
+        unlocked_ = true;
+        if (lock_)
+            lock_->ReleaseLock();
     }
 }

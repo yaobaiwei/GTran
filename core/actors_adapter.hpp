@@ -121,6 +121,8 @@ class ActorAdapter {
         TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();  // in case of initial in parallel region
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
+        locks_ = new WritePriorRWLock[config_->msg_lock_count];
+
         for (int i = 0; i < num_thread_; ++i)
             thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
     }
@@ -132,6 +134,16 @@ class ActorAdapter {
 
     void execute(int tid, Message & msg) {
         Meta & m = msg.meta;
+
+        bool acquire_writer_lock = false;
+        if (m.msg_type == MSG_T::INIT && m.qplan.actors[0].actor_type == ACTOR_T::COMMIT) {
+            acquire_writer_lock = true;
+        }
+
+        uint64_t trx_id = m.qid & _56HFLAG;
+        uint64_t lock_id = (trx_id >> QID_BITS) % config_->msg_lock_count;
+
+        RWLockGuard rw_lock_guard(locks_[lock_id], acquire_writer_lock);
 
         if (m.msg_type == MSG_T::INIT) {
             // acquire write lock for insert
@@ -270,6 +282,9 @@ class ActorAdapter {
     // clocks
     vector<uint64_t> times_;
     int num_thread_;
+
+    // locks
+    WritePriorRWLock* locks_;
 
     // 5 more timers for total, recv , send, serialization, create msg
     static const int timer_offset = 5;
