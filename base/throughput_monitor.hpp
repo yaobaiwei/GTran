@@ -55,9 +55,14 @@ class ThroughputMonitor {
     }
 
     // Set the start time of normal query
-    void RecordStart(uint64_t qid, int query_type = -1) {
+    void RecordPushed() {
         unique_lock<mutex> lock(thread_mutex_);
         num_recorded_++;
+    }
+
+    // Set the start time of normal query
+    void RecordStart(uint64_t qid, int query_type = -1) {
+        unique_lock<mutex> lock(thread_mutex_);
         stats_[qid] = make_pair(query_type, timer::get_usec());
     }
 

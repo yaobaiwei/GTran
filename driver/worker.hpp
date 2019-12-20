@@ -374,6 +374,7 @@ class Worker {
 
             RequestParsingTrx(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
+            thpt_monitor_->RecordPushed();
 
             thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
         }
