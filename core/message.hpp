@@ -46,6 +46,7 @@ struct Meta {
     // query
     uint64_t qid;
     int step;
+    uint8_t query_count_in_trx;
 
     // route
     int recver_nid;
@@ -118,7 +119,7 @@ class Message {
     void InsertData(vector<pair<history_t, vector<value_t>>>& vec);
 
     // create init msg
-    static void CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
+    static void CreateInitMsg(uint64_t qid, uint8_t query_count_in_trx, int parent_node, int nodes_num, int recv_tid,
                               QueryPlan& qplan, vector<Message>& vec);
 
     // broadcast msg to all nodes
