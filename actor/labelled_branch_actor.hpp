@@ -38,6 +38,7 @@ class LabelledBranchActorBase :  public AbstractActor {
     static_assert(std::is_base_of<BranchData::branch_data_base, T>::value,
                     "T must derive from barrier_data_base");
     using BranchDataTable = tbb::concurrent_hash_map<mkey_t, T, MkeyHashCompare>;
+    using TrxTable = tbb::concurrent_hash_map<uint64_t, set<mkey_t>>;
 
  public:
     LabelledBranchActorBase(int id,
@@ -66,7 +67,11 @@ class LabelledBranchActorBase :  public AbstractActor {
             mkey_t key(msg.meta.qid, msg_id, index);
 
             typename BranchDataTable::accessor ac;
-            data_table_.insert(ac, key);
+            if (data_table_.insert(ac, key)) {
+                typename TrxTable::accessor tac;
+                trx_table_.insert(tac, qplan.trxid);
+                tac->second.insert(key);
+            }
             send_branch_msg(tid, qplan.actors, msg, msg_id);
             ac->second.branch_counter = make_pair(get_steps_count(qplan.actors[msg.meta.step]), 0);
 
@@ -93,6 +98,19 @@ class LabelledBranchActorBase :  public AbstractActor {
         }
     }
 
+    void clean_trx_data(uint64_t trxid) override {
+        TrxTable::accessor ac;
+        if (trx_table_.find(ac, trxid)) {
+            // Erase tmp data of not finished labelled_branch actor
+            // ac->second is not empty only when transaction is aborted in Processing Phase
+            for (const mkey_t& k : ac->second) {
+                data_table_.erase(k);
+            }
+
+            trx_table_.erase(ac);
+        }
+    }
+
  protected:
     int num_thread_;
     AbstractMailbox* mailbox_;
@@ -116,6 +134,7 @@ class LabelledBranchActorBase :  public AbstractActor {
     msg_id_alloc* id_allocator_;
 
     BranchDataTable data_table_;
+    TrxTable trx_table_;
 
     // send out msg with history label to indicate each input traverser
     void send_branch_msg(int tid, const vector<Actor_Object> & actors, Message & msg, uint64_t msg_id) {

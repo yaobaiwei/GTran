@@ -61,7 +61,8 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
             }
             else {
                 if (trx_status[i].trx_id == 0) {
-                    CHECK(false);
+                    // not found
+                    return false;
                 } else {
                     bucket_id = trx_status[i].trx_id;
                     break;
@@ -112,7 +113,8 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
             }
             else {
                 if (trx_status[i].trx_id == 0) {
-                    CHECK(false);
+                    // not found
+                    return false;
                 } else {
                     bucket_id = trx_status[i].trx_id;
                     break;

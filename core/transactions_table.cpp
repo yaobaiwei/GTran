@@ -40,13 +40,12 @@ bool TransactionTable::query_ct(uint64_t trx_id, uint64_t& ct) {
 bool TransactionTable::query_status(uint64_t trx_id, TRX_STAT & status) {
     CHECK(IS_VALID_TRX_ID(trx_id));
     TidStatus * p = nullptr;
-    bool found = find_trx(trx_id, &p);
-    if (!found) {
-        return false;
-    } else {
+
+    if (find_trx(trx_id, &p)) {
         status = p -> getState();
         return true;
     }
+    return false;
 }
 
 bool TransactionTable::register_ct(uint64_t trx_id, uint64_t ct) {
@@ -76,7 +75,7 @@ bool TransactionTable::find_trx(uint64_t trx_id, TidStatus** p) {
                 }
             } else {
                 if (table_[slot_id].trx_id == 0) {
-                    CHECK(false);
+                    return false;
                 } else {
                     bucket_id = table_[slot_id].trx_id;
                     break;
@@ -85,7 +84,6 @@ bool TransactionTable::find_trx(uint64_t trx_id, TidStatus** p) {
         }
     }
 
-    CHECK(false);
     return false;
 }
 

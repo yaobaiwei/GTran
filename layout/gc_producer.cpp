@@ -224,11 +224,12 @@ EPRowListGCTask* GCTaskDAG::InsertEPRowListGCTask(const CompoundEPRowListID& id,
             task->task_status_ = TaskStatus::BLOCKED;
         } else {
             CHECK(downstream_task->task_status_ == TaskStatus::ACTIVE);
-            task->task_status_ = TaskStatus::ACTIVE;
 
             // set the ACTIVE downstream task INVALID
             gc_producer_->SetEPRowListDefragTaskInvalid(downstream_task);
             DisconnectInvalidEPRowListDefragTask(downstream_task);
+
+            task->task_status_ = TaskStatus::ACTIVE;
         }
     } else {
         // create a new task

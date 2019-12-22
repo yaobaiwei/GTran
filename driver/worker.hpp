@@ -46,6 +46,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 struct Pack {
     qid_t id;
+    uint8_t query_count_in_trx;
     QueryPlan qplan;
 };
 
@@ -374,6 +375,7 @@ class Worker {
 
             RequestParsingTrx(trx_tmp, client_host, emu_trx_string.trx_type, true);
             pushed_trxs.emplace_back(trx_tmp);
+            thpt_monitor_->RecordPushed();
 
             thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
         }
@@ -657,10 +659,10 @@ class Worker {
             for (QueryPlan& qplan : qplans) {
                 // Register qid in result collector
                 qid_t qid(plan.trxid, qplan.query_index);
-                rc_->Register(qid.value());
 
                 Pack pkg;
                 pkg.id = qid;
+                pkg.query_count_in_trx = plan.GetQueryCount();
                 pkg.qplan = move(qplan);
 
                 if (pkg.qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
@@ -771,7 +773,7 @@ class Worker {
     void SendInitMsgForQuery(Pack pkg, int mailbox_tid) {
         vector<Message> msgs;
         Message::CreateInitMsg(
-            pkg.id.value(),
+            pkg.id.value(), pkg.query_count_in_trx,
             my_node_.get_local_rank(),
             my_node_.get_local_size(),
             core_affinity_->GetThreadIdForActor(ACTOR_T::INIT),
@@ -1027,19 +1029,19 @@ class Worker {
             uint2qid_t(re.qid, qid);
 
             TrxPlanAccessor accessor;
-            CHECK(plans_.find(accessor, qid.trxid));
+            bool found = plans_.find(accessor, qid.trxid);
+
+            if (!found)
+                continue;
+
             TrxPlan& plan = accessor->second;
 
-            if (re.reply_type == ReplyType::NOTIFY_ABORT) {
-                plan.Abort();
-                continue;
-            } else if (re.reply_type == ReplyType::RESULT_ABORT) {
-                // For Run Emu Dubeg
-                // cout << Tool::DebugString(re.results[0]) << endl;
+            if (re.reply_type == ReplyType::RESULT_ABORT) {
                 plan.FillResult(qid.id, re.results);
+                plan.Abort();
             } else if (re.reply_type == ReplyType::RESULT_NORMAL) {
                 if (!plan.FillResult(qid.id, re.results)) {
-                    trx_table_stub_->update_status(plan.trxid, TRX_STAT::ABORT);
+                    trx_table_stub_->update_status(qid.trxid, TRX_STAT::ABORT, plan.GetTrxType() == TRX_READONLY);
                 }
             } else {
                 CHECK(false);

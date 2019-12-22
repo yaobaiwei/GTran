@@ -121,6 +121,8 @@ class ActorAdapter {
         TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();  // in case of initial in parallel region
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
+        locks_ = new WritePriorRWLock[config_->msg_lock_count];
+
         for (int i = 0; i < num_thread_; ++i)
             thread_pool_.emplace_back(&ActorAdapter::ThreadExecutor, this, i);
     }
@@ -132,6 +134,53 @@ class ActorAdapter {
 
     void execute(int tid, Message & msg) {
         Meta & m = msg.meta;
+
+        bool acquire_writer_lock = false, check_trx_status = false;
+        if (m.msg_type == MSG_T::INIT && m.qplan.actors[0].actor_type == ACTOR_T::COMMIT) {
+            acquire_writer_lock = true;
+        }
+
+        uint64_t trx_id = m.qid & _56HFLAG;
+        uint64_t lock_id = (trx_id >> QID_BITS) % config_->msg_lock_count;
+        uint8_t query_index = m.qid - trx_id;
+        CHECK(m.query_count_in_trx > 1);
+
+        if (query_index != m.query_count_in_trx - 1 && m.msg_type != MSG_T::ABORT && m.msg_type != MSG_T::TERMINATE) {
+            // Do not need to check if:
+            //      1. The last query (validation / commit / abort)
+            //      2. Not an abort / terminate msg
+            check_trx_status = true;
+        }
+
+        RWLockGuard rw_lock_guard(locks_[lock_id], acquire_writer_lock);
+
+        if (check_trx_status) {
+            TRX_STAT status;
+            trx_table_stub_->read_status(trx_id, status);
+            if (status == TRX_STAT::ABORT) {
+                CHECK(msg.meta.msg_type != MSG_T::TERMINATE);
+                msg.meta.msg_type = MSG_T::TERMINATE;
+                msg.meta.recver_nid = msg.meta.parent_nid;
+                msg.meta.recver_tid = msg.meta.parent_tid;
+                msg.data.clear();
+                value_t v;
+                Tool::str2str("Abort with [MSG_T::TERMINATE]", v);
+                msg.data.emplace_back(history_t(), vector<value_t>(1, v));
+                mailbox_->Send(tid, msg);
+                return;
+            }
+        }
+
+        if (acquire_writer_lock) {
+            while (true) {
+                TRX_STAT status;
+                CHECK(trx_table_stub_->read_status(trx_id, status));
+                if (status == TRX_STAT::ABORT) {
+                    // since the update of TrxTable is asynchronous, need to wait until the transaction is ABORT in the TrxTable
+                    break;
+                }
+            }
+        }
 
         if (m.msg_type == MSG_T::INIT) {
             // acquire write lock for insert
@@ -156,32 +205,19 @@ class ActorAdapter {
                 exit_msg_count_table_.erase(ac);
             }
             return;
+        } else if (m.msg_type == MSG_T::TERMINATE) {
+            rc_->InsertAbortResult(m.qid, msg.data[0].second);
+            return;
         }
 
         const_accessor ac;
         // qid not found
         if (!msg_logic_table_.find(ac, m.qid)) {
-            // throw msg to the same thread as init msg
+            // throw msg back to the mailbox
             msg.meta.recver_tid = msg.meta.parent_tid;
             mailbox_->Send(tid, msg);
-            return;
-        }
 
-        // Check status of transaction itself, only for process phase query
-        //  if abort, return directly
-        //  TODO :  Most fine-grained check, need to consider trade-off
-        if (ac->second.is_process && m.msg_type != MSG_T::ABORT) {
-            TRX_STAT status;
-            trx_table_stub_->read_status(ac->second.trxid, status);
-            if (status == TRX_STAT::ABORT) {
-                vector<Message> msg_vec;
-                string abort_info = "Abort with [ActorAdapter::execute][ac->second.is_process][TRX_STAT::ABORT]";
-                msg.CreateAbortMsg(ac->second.actors, msg_vec, abort_info);
-                for (auto& msg : msg_vec) {
-                    mailbox_->Send(tid, msg);
-                }
-                return;
-            }
+            return;
         }
 
         int current_step;
@@ -270,6 +306,9 @@ class ActorAdapter {
     // clocks
     vector<uint64_t> times_;
     int num_thread_;
+
+    // locks
+    WritePriorRWLock* locks_;
 
     // 5 more timers for total, recv , send, serialization, create msg
     static const int timer_offset = 5;

@@ -29,6 +29,7 @@ obinstream& operator>>(obinstream& m, Branch_Info& info) {
 ibinstream& operator<<(ibinstream& m, const Meta& meta) {
     m << meta.qid;
     m << meta.step;
+    m << meta.query_count_in_trx;
     m << meta.msg_type;
     m << meta.recver_nid;
     m << meta.recver_tid;
@@ -45,6 +46,7 @@ ibinstream& operator<<(ibinstream& m, const Meta& meta) {
 obinstream& operator>>(obinstream& m, Meta& meta) {
     m >> meta.qid;
     m >> meta.step;
+    m >> meta.query_count_in_trx;
     m >> meta.msg_type;
     m >> meta.recver_nid;
     m >> meta.recver_tid;
@@ -63,6 +65,7 @@ std::string Meta::DebugString() const {
     ss << "Meta: {";
     ss << "  qid: " << qid;
     ss << ", step: " << step;
+    ss << "  query_count_in_trx: " << query_count_in_trx;
     ss << ", recver node: " << recver_nid << ":" << recver_tid;
     ss << ", msg type: " << MsgType[static_cast<int>(msg_type)];
     ss << ", msg path: " << msg_path;
@@ -297,12 +300,13 @@ void Message::GenerateEdgeWithBothHistory(vector<pair<history_t, vector<value_t>
     }
 }
 
-void Message::CreateInitMsg(uint64_t qid, int parent_node, int nodes_num, int recv_tid,
+void Message::CreateInitMsg(uint64_t qid, uint8_t query_count_in_trx, int parent_node, int nodes_num, int recv_tid,
                             QueryPlan& qplan, vector<Message>& vec) {
     // assign receiver thread id
     Meta m;
     m.qid = qid;
     m.step = 0;
+    m.query_count_in_trx = query_count_in_trx;
     m.recver_nid = -1;                    // assigned in for loop
     m.recver_tid = recv_tid;
     m.parent_nid = parent_node;
@@ -522,6 +526,7 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
     m.qid = this->meta.qid;
     m.recver_tid = this->meta.parent_tid;
     m.step = key;
+    m.query_count_in_trx = this->meta.query_count_in_trx;
     m.msg_type = MSG_T::FEED;
 
     auto temp_data = make_pair(history_t(), data);
