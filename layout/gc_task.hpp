@@ -131,7 +131,7 @@ class DependentGCTask : public AbstractGCTask {
         return "DependentGCTask";
     }
 
-    string TaskStatusString() {
+    string GetTaskStatusStr() {
         switch (task_status_) {
             case TaskStatus::ACTIVE:
                 return "ACTIVE";
@@ -144,6 +144,10 @@ class DependentGCTask : public AbstractGCTask {
             case TaskStatus::PUSHED:
                 return "PUSHED";
         }
+    }
+
+    string GetTaskInfoStr() {
+        return "status:" + GetTaskStatusStr() + ", type:" + GetTaskTypeStr();
     }
 
     virtual DepGCTaskType GetTaskType() = 0;

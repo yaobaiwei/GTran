@@ -32,7 +32,7 @@ void GarbageCollector::PushJobToPendingQueue(DependentGCJob* job_ptr) {
         if (task->task_status_ == TaskStatus::ACTIVE) {
             task->task_status_ = TaskStatus::PUSHED;
         } else {
-            CHECK(task->task_status_ == TaskStatus::INVALID);
+            CHECK(task->task_status_ == TaskStatus::INVALID) << task->GetTaskInfoStr();
         }
     }
     pending_job_queue.push(job_ptr);
