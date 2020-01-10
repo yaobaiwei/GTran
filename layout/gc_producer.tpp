@@ -78,7 +78,6 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
             if (is_base_of<PropertyMVCCItem, MVCCItem>::value) {
                 break;
             } else {
-                // scan_ep_row_list((EdgeMVCCItem*)cur_ptr);
                 scan_prop_row_list(element_id, ((EdgeMVCCItem*)cur_ptr)->GetValue().ep_row_list);
             }
         }
@@ -133,17 +132,6 @@ void GCProducer::spawn_prop_row_defrag_gctask(PropertyRowList<PropertyRow> * pro
         cout << "[GCProducer] Unexpected error in spawn_prop_row_defrag_gctask" << endl;
         CHECK(false);
     }
-
-    /*
-    if constexpr (is_same<PropertyRow, VertexPropertyRow>::value) {
-        spawn_vp_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
-    } else if constexpr (is_same<PropertyRow, EdgePropertyRow>::value) {
-        spawn_ep_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
-    } else constexpr {
-        cout << "[GCProducer] Unexpected error in spawn_prop_row_defrag_gctask" << endl;
-        CHECK(false);
-    }
-    */
 }
 
 
@@ -161,17 +149,4 @@ void GCProducer::spawn_mvcc_list_gctask(MVCCItem* gc_header, const uint64_t& ele
         cout << "[GCProducer] VertexMVCCListGCTask should not be created in spawn_mvcc_list_gctask or there is a unexpected error" << endl;
         CHECK(false);
     }
-
-    /*
-    if constexpr (is_same<MVCCItem, VPropertyMVCCItem>::value) {
-        spawn_vp_mvcc_list_gctask(gc_header, gc_version_count);
-    } else if constexpr (is_same<MVCCItem, EPropertyMVCCItem>::value) {
-        spawn_ep_mvcc_list_gctask(gc_header, gc_version_count);
-    } else if constexpr (is_same<MVCCItem, EdgeMVCCItem>::value) {
-        spawn_edge_mvcc_list_gctask(gc_header, element_id, gc_version_count);
-    } else constexpr {
-        cout << "[GCProducer] VertexMVCCListGCTask should not be created in spawn_mvcc_list_gctask or there is a unexpected error" << endl;
-        CHECK(false);
-    }
-    */
 }

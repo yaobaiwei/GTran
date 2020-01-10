@@ -231,7 +231,7 @@ class DataStorage {
                                      const bool& read_only, vector<vid_t>& ret);
     READ_STAT GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                    const uint64_t& trx_id, const uint64_t& begin_time,
-                                   const bool& read_only, vector<eid_t>& ret);
+                                   const bool& read_only, vector<eid_t>& ret, bool need_read_lock = true);
 
     READ_STAT GetAllVertices(const uint64_t& trx_id, const uint64_t& begin_time,
                              const bool& read_only, vector<vid_t>& ret);
@@ -239,8 +239,8 @@ class DataStorage {
                           const bool& read_only, vector<eid_t>& ret);
 
     // Check visibility for vertex/edge
-    bool CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vid_t& vid);
-    bool CheckEdgeVisibility(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, eid_t& eid);
+    bool CheckVertexVisibilityWithVid(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, vid_t& vid);
+    bool CheckEdgeVisibilityWithEid(const uint64_t& trx_id, const uint64_t& begin_time, const bool& read_only, eid_t& eid);
 
     // Transaction processing stage related
     vid_t ProcessAddV(const label_t& label, const uint64_t& trx_id, const uint64_t& begin_time);

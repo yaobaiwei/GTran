@@ -565,7 +565,7 @@ void IndexStore::ReadVtxTopoIndex(const uint64_t & trx_id, const uint64_t & begi
         if (up_elem.element_id == 0) { continue; }
         vid_t vid;
         uint2vid_t(up_elem.element_id, vid);
-        if (data_storage_->CheckVertexVisibility(trx_id, begin_time, read_only, vid)) {
+        if (data_storage_->CheckVertexVisibilityWithVid(trx_id, begin_time, read_only, vid)) {
             // Visible (For Add)
             if (up_elem.isAdd) {
                 addV_vec.emplace_back(vid);
@@ -615,7 +615,7 @@ void IndexStore::ReadEdgeTopoIndex(const uint64_t & trx_id, const uint64_t & beg
         eid_t eid;
         uint2eid_t(up_elem.element_id, eid);
 
-        if (data_storage_->CheckEdgeVisibility(trx_id, begin_time, read_only, eid)) {
+        if (data_storage_->CheckEdgeVisibilityWithEid(trx_id, begin_time, read_only, eid)) {
             // Visible (For Add)
             if (up_elem.isAdd) {
                 addE_set.emplace(eid);
@@ -815,16 +815,12 @@ void IndexStore::read_prop_update_data(const update_element & up_elem, vector<ui
 
 uint64_t IndexStore::get_count_by_predicate(Element_T type, int pid, PredicateValue& pred) {
     unordered_map<int, index_>* m;
-    WritePriorRWLock * rw_lock;
     if (type == Element_T::VERTEX) {
         m = &vtx_prop_index;
-        rw_lock = &vtx_prop_gc_rwlock_;
     } else {
         m = &edge_prop_index;
-        rw_lock = &edge_prop_gc_rwlock_;
     }
 
-    ReaderLockGuard reader_guard_lock(*rw_lock);
     index_ &idx = (*m)[pid];
     auto& count_map = idx.count_map;
     uint64_t count = 0;

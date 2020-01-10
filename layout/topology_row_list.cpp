@@ -17,7 +17,6 @@ void TopologyRowList::Init(const vid_t& my_vid) {
  */
 void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
                                    MVCCList<EdgeMVCCItem>* mvcc_list) {
-    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     pthread_spin_lock(&lock_);
     int cell_id = edge_count_;
     int cell_id_in_row = cell_id % VE_ROW_ITEM_COUNT;
