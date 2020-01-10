@@ -750,8 +750,9 @@ READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& e
 
 READ_STAT DataStorage::GetConnectedEdgeList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
                                             const uint64_t& trx_id, const uint64_t& begin_time,
-                                            const bool& read_only, vector<eid_t>& ret) {
-    ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
+                                            const bool& read_only, vector<eid_t>& ret, bool need_read_lock) {
+    WritePriorRWLock* lock_ptr = need_read_lock ? &vertex_map_erase_rwlock_ : nullptr;
+    ReaderLockGuard reader_lock_guard(*lock_ptr);
     VertexConstIterator v_iterator = vertex_map_.find(vid.value());
 
     if (v_iterator == vertex_map_.end()) {
@@ -835,7 +836,7 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
     return READ_STAT::SUCCESS;
 }
 
-bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
+bool DataStorage::CheckVertexVisibilityWithVid(const uint64_t& trx_id, const uint64_t& begin_time,
                                         const bool& read_only, vid_t& vid) {
     // Check visibility of the vertex
     ReaderLockGuard reader_lock_guard(vertex_map_erase_rwlock_);
@@ -852,7 +853,7 @@ bool DataStorage::CheckVertexVisibility(const uint64_t& trx_id, const uint64_t& 
     return true;
 }
 
-bool DataStorage::CheckEdgeVisibility(const uint64_t& trx_id, const uint64_t& begin_time,
+bool DataStorage::CheckEdgeVisibilityWithEid(const uint64_t& trx_id, const uint64_t& begin_time,
                                       const bool& read_only, eid_t& eid) {
     // Check visibility of the edge
     OutEdgeConstIterator out_e_iterator;
@@ -1057,7 +1058,8 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
     }
 
     vector<eid_t> all_connected_edge;
-    auto read_stat = GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge);
+    // Do not need to acquire read lock for vertex_map_erase_rwlock_ in GetConnectedEdgeList
+    auto read_stat = GetConnectedEdgeList(vid, 0, BOTH, trx_id, begin_time, false, all_connected_edge, false);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -1202,10 +1204,14 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
 
 PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
                                        const uint64_t& trx_id, const uint64_t& begin_time) {
-    ReaderLockGuard out_edge_rlock_guard(out_edge_erase_rwlock_);
-    ReaderLockGuard in_edge_rlock_guard(in_edge_erase_rwlock_);
-
     WritePriorRWLock* erase_rwlock_;
+    if (is_out)
+        erase_rwlock_ = &out_edge_erase_rwlock_;
+    else
+        erase_rwlock_ = &in_edge_erase_rwlock_;
+
+    ReaderLockGuard edge_map_rlock_guard(*erase_rwlock_);
+
     InEdgeConstIterator in_e_iterator;
     OutEdgeConstIterator out_e_iterator;
     bool found;
@@ -1216,18 +1222,14 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
      *      else, this function will add an inE, which means that dst_vid is on this node.
      */
     if (is_out) {
-        erase_rwlock_ = &out_edge_erase_rwlock_;
         out_e_iterator = out_edge_map_.find(eid.value());
         found = (out_e_iterator != out_edge_map_.end());
         conn_vid = dst_vid;
     } else {
-        erase_rwlock_ = &in_edge_erase_rwlock_;
         in_e_iterator = in_edge_map_.find(eid.value());
         found = (in_e_iterator != in_edge_map_.end());
         conn_vid = src_vid;
     }
-
-    ReaderLockGuard edge_map_rlock_guard(*erase_rwlock_);
 
     // do nothing
     if (!found)

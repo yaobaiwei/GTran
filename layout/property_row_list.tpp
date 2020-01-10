@@ -16,7 +16,6 @@ void PropertyRowList<PropertyRow>::Init() {
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         AllocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
-    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     if (property_count_ptr == nullptr) {
         // Called by InsertInitialCell
         int cell_id = property_count_++;
@@ -118,7 +117,6 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         LocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
-    ReaderLockGuard reader_lock_guard(gc_rwlock_);
     PropertyRow* current_row;
     int property_count_snapshot;
     CellMap* map_snapshot;
