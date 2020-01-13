@@ -491,7 +491,7 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
     if (version_val_ptr == nullptr)  // Modify failed, abort
         return nullptr;
 
-    version_val_ptr[0].count = 0;  // IsEmpty() == true
+    version_val_ptr[0].byte = 0;  // IsEmpty() == true
 
     return mvcc_list;
 }

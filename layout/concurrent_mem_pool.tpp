@@ -3,59 +3,54 @@
 Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 */
 
-template<class ItemT, class OffsetT, int BLOCK_SIZE>
-ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::~ConcurrentMemPool() {
+template<class CellT, class OffsetT, int BLOCK_SIZE>
+ConcurrentMemPool<CellT, OffsetT, BLOCK_SIZE>::~ConcurrentMemPool() {
     if (next_offset_ != nullptr)
         _mm_free(next_offset_);
     if (mem_allocated_)
         _mm_free(attached_mem_);
 }
 
-template<class ItemT, class OffsetT, int BLOCK_SIZE>
-void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, size_t element_count,
+template<class CellT, class OffsetT, int BLOCK_SIZE>
+void ConcurrentMemPool<CellT, OffsetT, BLOCK_SIZE>::Init(CellT* mem, size_t cell_count,
                                                          int nthreads, bool utilization_record) {
-    assert(element_count > nthreads * (BLOCK_SIZE + 2));
+    // make sure that enough cells are available for all threads
+    assert(cell_count > nthreads * (BLOCK_SIZE + 2));
 
-    element_count_ = element_count;
-    // Make sure that OffsetT can hold element_count
-    assert(element_count_ == element_count);
+    cell_count_ = cell_count;
+    // Make sure that OffsetT can hold cell_count
+    assert(cell_count_ == cell_count);
 
     if (mem != nullptr) {
         attached_mem_ = mem;
         mem_allocated_ = false;
     } else {
-        attached_mem_ = reinterpret_cast<ItemT*>(_mm_malloc(sizeof(ItemT) * element_count, 4096));
+        attached_mem_ = reinterpret_cast<CellT*>(_mm_malloc(sizeof(CellT) * cell_count, CONCURRENT_MEM_POOL_ARRAY_MEMORY_ALIGNMENT));
         mem_allocated_ = true;
     }
 
-    next_offset_ = reinterpret_cast<OffsetT*>(_mm_malloc(sizeof(OffsetT) * element_count, 4096));
+    next_offset_ = reinterpret_cast<OffsetT*>(_mm_malloc(sizeof(OffsetT) * cell_count, CONCURRENT_MEM_POOL_ARRAY_MEMORY_ALIGNMENT));
 
-    for (OffsetT i = 0; i < element_count; i++) {
+    for (OffsetT i = 0; i < cell_count; i++) {
         next_offset_[i] = i + 1;
     }
 
     head_ = 0;
-    tail_ = element_count - 1;
+    tail_ = cell_count - 1;
 
-    thread_stat_ = reinterpret_cast<ThreadStat*>(_mm_malloc(sizeof(ThreadStat) * nthreads, 4096));
+    thread_local_block_ = reinterpret_cast<ThreadLocalBlock*>(_mm_malloc(sizeof(ThreadLocalBlock) * nthreads, CONCURRENT_MEM_POOL_ARRAY_MEMORY_ALIGNMENT));
 
+    // initialize and allocate objects for the thread-local block
     for (int tid = 0; tid < nthreads; tid++) {
-        auto& local_stat = thread_stat_[tid];
-        local_stat.free_cell_count = 0;
-        OffsetT tmp_head = head_;
-        if (next_offset_[tmp_head] == tail_) {
-            assert(false);
-        } else {
-            local_stat.free_cell_count = BLOCK_SIZE;
-            local_stat.block_head = tmp_head;
-            for (OffsetT i = 0; i < BLOCK_SIZE; i++) {
-                local_stat.block_tail = tmp_head;
-                tmp_head = next_offset_[tmp_head];
-            }
-            head_ = tmp_head;
-        }
-        local_stat.get_counter = 0;
-        local_stat.free_counter = 0;
+        auto& local_block = thread_local_block_[tid];
+
+        local_block.free_cell_count = BLOCK_SIZE;
+        local_block.block_head = head_;
+        local_block.block_tail = head_ + BLOCK_SIZE - 1;
+        local_block.get_counter = 0;
+        local_block.free_counter = 0;
+
+        head_ = head_ + BLOCK_SIZE;
     }
 
     pthread_spin_init(&lock_, 0);
@@ -64,19 +59,21 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Init(ItemT* mem, size_t elem
     utilization_record_ = utilization_record;
 }
 
-template<class ItemT, class OffsetT, int BLOCK_SIZE>
-ItemT* ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Get(int tid) {
-    ItemT* ret;
-    auto& local_stat = thread_stat_[tid];
+template<class CellT, class OffsetT, int BLOCK_SIZE>
+CellT* ConcurrentMemPool<CellT, OffsetT, BLOCK_SIZE>::Get(int tid) {
+    CellT* ret;
+    auto& local_block = thread_local_block_[tid];
 
-    if (next_offset_[local_stat.block_head] == local_stat.block_tail) {
-        // fetch a new block, append to the local block tail
+    if (next_offset_[local_block.block_head] == local_block.block_tail) {
+        // insufficient cells in the thred local block
+        // fetch BLOCK_SIZE cells from the shared block to the tail of of the thread-local block
         pthread_spin_lock(&lock_);
         OffsetT tmp_head = head_;
-        local_stat.free_cell_count += BLOCK_SIZE;
-        next_offset_[local_stat.block_tail] = tmp_head;
+        local_block.free_cell_count += BLOCK_SIZE;
+        next_offset_[local_block.block_tail] = tmp_head;
         for (OffsetT i = 0; i < BLOCK_SIZE; i++) {
-            local_stat.block_tail = tmp_head;
+            if (i == BLOCK_SIZE - 1)
+                local_block.block_tail = tmp_head;
             tmp_head = next_offset_[tmp_head];
             assert(tmp_head != tail_);
         }
@@ -84,33 +81,39 @@ ItemT* ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Get(int tid) {
         pthread_spin_unlock(&lock_);
     }
 
-    ret = attached_mem_ + local_stat.block_head;
-    local_stat.block_head = next_offset_[local_stat.block_head];
-    local_stat.free_cell_count--;
+    // fetch one cell from the head of thread-local block
+    ret = attached_mem_ + local_block.block_head;
+    local_block.block_head = next_offset_[local_block.block_head];
+    local_block.free_cell_count--;
 
     if (utilization_record_)
-        local_stat.get_counter++;
+        local_block.get_counter++;
 
     return ret;
 }
 
-template<class ItemT, class OffsetT, int BLOCK_SIZE>
-void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Free(ItemT* element, int tid) {
-    OffsetT mem_off = element - attached_mem_;
+template<class CellT, class OffsetT, int BLOCK_SIZE>
+void ConcurrentMemPool<CellT, OffsetT, BLOCK_SIZE>::Free(CellT* cell, int tid) {
+    OffsetT mem_off = cell - attached_mem_;
 
-    auto& local_stat = thread_stat_[tid];
+    auto& local_block = thread_local_block_[tid];
 
-    next_offset_[local_stat.block_tail] = mem_off;
-    local_stat.block_tail = mem_off;
-    local_stat.free_cell_count++;
+    // attach the free cell to the tail of thread-local block
+    next_offset_[local_block.block_tail] = mem_off;
+    local_block.block_tail = mem_off;
+    local_block.free_cell_count++;
 
-    if (local_stat.free_cell_count == 2 * BLOCK_SIZE) {
-        OffsetT tmp_head = local_stat.block_head;
+    if (local_block.free_cell_count == 2 * BLOCK_SIZE) {
+        // too many free cells in the thread-local block
+        // get BLOCK_SIZE cells from the head of the thread-local block
+        OffsetT tmp_head = local_block.block_head;
         OffsetT tmp_tail = tmp_head;
         for (int i = 0; i < BLOCK_SIZE - 1; i++)
             tmp_tail = next_offset_[tmp_tail];
-        local_stat.block_head = next_offset_[tmp_tail];
-        local_stat.free_cell_count -= BLOCK_SIZE;
+        local_block.block_head = next_offset_[tmp_tail];
+        local_block.free_cell_count -= BLOCK_SIZE;
+
+        // attach those cells to the tail of the shared block
         pthread_spin_lock(&lock_);
         next_offset_[tail_] = tmp_head;
         tail_ = tmp_tail;
@@ -118,43 +121,43 @@ void ConcurrentMemPool<ItemT, OffsetT, BLOCK_SIZE>::Free(ItemT* element, int tid
     }
 
     if (utilization_record_)
-        local_stat.free_counter++;
+        local_block.free_counter++;
 }
 
-template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>
-std::string ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::UsageString() {
+template<class CellT, class OffsetT, int THREAD_BLOCK_SIZE>
+std::string ConcurrentMemPool<CellT, OffsetT, THREAD_BLOCK_SIZE>::UsageString() {
     OffsetT get_counter = 0;
     OffsetT free_counter = 0;
     for (int tid = 0; tid < nthreads_; tid++) {
-        get_counter += thread_stat_[tid].get_counter;
-        free_counter += thread_stat_[tid].free_counter;
+        get_counter += thread_local_block_[tid].get_counter;
+        free_counter += thread_local_block_[tid].free_counter;
     }
-    OffsetT cell_avail = element_count_ - get_counter + free_counter - 2;
+    OffsetT cell_avail = cell_count_ - get_counter + free_counter - 2;
 
     return "Get: " + std::to_string(get_counter) + ", Free: " + std::to_string(free_counter)
-           + ", Total: " + std::to_string(element_count_) + ", Avail: " + std::to_string(cell_avail);
+           + ", Total: " + std::to_string(cell_count_) + ", Avail: " + std::to_string(cell_avail);
 }
 
-template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>
-std::pair<uint64_t, uint64_t> ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::UsageStatistic() {
+template<class CellT, class OffsetT, int THREAD_BLOCK_SIZE>
+std::pair<uint64_t, uint64_t> ConcurrentMemPool<CellT, OffsetT, THREAD_BLOCK_SIZE>::UsageStatistic() {
     OffsetT get_counter = 0;
     OffsetT free_counter = 0;
     for (int tid = 0; tid < nthreads_; tid++) {
-        get_counter += thread_stat_[tid].get_counter;
-        free_counter += thread_stat_[tid].free_counter;
+        get_counter += thread_local_block_[tid].get_counter;
+        free_counter += thread_local_block_[tid].free_counter;
     }
     uint64_t usage_counter = get_counter - free_counter + 2;
 
-    return std::pair<uint64_t, uint64_t>(usage_counter * (sizeof(ItemT) + sizeof(OffsetT)), element_count_ * (sizeof(ItemT) + sizeof(OffsetT)));
+    return std::pair<uint64_t, uint64_t>(usage_counter * (sizeof(CellT) + sizeof(OffsetT)), cell_count_ * (sizeof(CellT) + sizeof(OffsetT)));
 }
 
-template<class ItemT, class OffsetT, int THREAD_BLOCK_SIZE>
-std::pair<OffsetT, OffsetT> ConcurrentMemPool<ItemT, OffsetT, THREAD_BLOCK_SIZE>::GetUsage() {
+template<class CellT, class OffsetT, int THREAD_BLOCK_SIZE>
+std::pair<OffsetT, OffsetT> ConcurrentMemPool<CellT, OffsetT, THREAD_BLOCK_SIZE>::GetUsage() {
     OffsetT get_counter = 0;
     OffsetT free_counter = 0;
     for (int tid = 0; tid < nthreads_; tid++) {
-        get_counter += thread_stat_[tid].get_counter;
-        free_counter += thread_stat_[tid].free_counter;
+        get_counter += thread_local_block_[tid].get_counter;
+        free_counter += thread_local_block_[tid].free_counter;
     }
 
     return std::make_pair(get_counter, free_counter);
