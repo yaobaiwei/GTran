@@ -24,17 +24,40 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 
 #define OffsetT uint32_t
-#define MEM_ITEM_SIZE 8
-static_assert(MEM_ITEM_SIZE % 8 == 0, "mvcc_value_store.hpp, MEM_ITEM_SIZE % 8 != 0");
+#define MEM_CELL_SIZE 8
+
+// MEM_CELL_SIZE should be divisible by 8, to ensure good memory alignment.
+static_assert(MEM_CELL_SIZE % 8 == 0, "mvcc_value_store.hpp, MEM_CELL_SIZE % 8 != 0");
+
+/*
+MVCCValueStore is used for storing value_t in a pre-allocated memory.
+-----------------------------------------------------------------------------------
+The logic of MVCCValueStore is like ConcurrentMemPool. A value_t can be stored in one or multiple cells, depending on the size of value_t.
+Like ConcurrentMemPool, MVCCValueStore also has thread-local blocks and a shared block.
+-----------------------------------------------------------------------------------
+Usage:
+    1. Use InsertValue() to insert a value_t into the MVCCValueStore. Insert() will return a ValueHeader.
+    2. Use ReadValue() to get the inserted value_t by a ValueHeader.
+    3. Use FreeValue() to free cells related to a ValueHeader.
+-----------------------------------------------------------------------------------
+Cautious: the same as ConcurrentMemoryPool, a thread id can only be used by one thread to avoid undefined behavior.
+*/
 
 struct ValueHeader {
     OffsetT head_offset;
-    OffsetT count;
+    OffsetT byte;
 
     // True when the property has been dropped.
-    bool IsEmpty() {return count == 0;}
-    ValueHeader() {count = 0;}
-    constexpr ValueHeader(OffsetT _head_offset, OffsetT _count) : head_offset(_head_offset), count(_count) {}
+    // For any property, byte should be >= 1, since value_t::type will occupy 1 byte
+    bool IsEmpty() {return byte == 0;}
+    ValueHeader() {byte = 0;}
+    constexpr ValueHeader(OffsetT _head_offset, OffsetT _byte) : head_offset(_head_offset), byte(_byte) {}
+    inline OffsetT GetCellCount() const __attribute__((always_inline)) {
+        OffsetT cell_count = byte / MEM_CELL_SIZE;
+        if (cell_count * MEM_CELL_SIZE != byte)
+            cell_count++;
+        return cell_count;
+    }
 };
 
 class MVCCValueStore {
@@ -46,7 +69,7 @@ class MVCCValueStore {
     char* attached_mem_ __attribute__((aligned(16))) = nullptr;
     OffsetT* next_offset_ __attribute__((aligned(32))) = nullptr;
 
-    OffsetT item_count_;
+    OffsetT cell_count_;
     int nthreads_;
     bool utilization_record_;
 
@@ -56,38 +79,46 @@ class MVCCValueStore {
     pthread_spinlock_t lock_ __attribute__((aligned(64)));
 
     // the user should guarantee that a specific tid will only be used by one specific thread.
-    struct ThreadStat {
+    struct ThreadLocalBlock {
         OffsetT block_head __attribute__((aligned(16)));
         OffsetT block_tail __attribute__((aligned(16)));
         OffsetT free_cell_count __attribute__((aligned(16)));
         OffsetT get_counter, free_counter;
     } __attribute__((aligned(64)));
 
-    static_assert(sizeof(ThreadStat) % 64 == 0, "concurrent_mem_pool.hpp, sizeof(ThreadStat) % 64 != 0");
+    static_assert(sizeof(ThreadLocalBlock) % 64 == 0, "mvcc_value_store.hpp, sizeof(ThreadLocalBlock) % 64 != 0");
 
-    ThreadStat* thread_stat_ __attribute__((aligned(64)));
+    ThreadLocalBlock* thread_local_block_ __attribute__((aligned(64)));
 
+    // inline this for better performance
+    inline char* GetCellPtr(const OffsetT& offset) __attribute__((always_inline)) {
+        return attached_mem_ + ((size_t) offset) * MEM_CELL_SIZE;
+    }
+
+    // Allocate cells, called by InsertValue
     OffsetT Get(const OffsetT& count, int tid);
+    // Free cells, called by FreeValue
     void Free(const OffsetT& offset, const OffsetT& count, int tid);
-    char* GetItemPtr(const OffsetT& offset);
 
-    void Init(char* mem, size_t item_count, int nthreads, bool utilization_record);
+    /*
+    Allocate memories and initialize blocks.
+    @param:
+        char* mem: Pre-allocated memory. If mem == nullptr, memory will be allocated in Init()
+        size_t cell_count: The number of cells
+        int nthreads: The count of thread that will use this ConcurrentMemPool
+        bool utilization_record_: If true, the count of got and free cells will be recorded.
+    */
+    void Init(char* mem, size_t cell_count, int nthreads, bool utilization_record);
 
  public:
     // Insert a value_t to the MVCCValueStore, returns a ValueHeader used to fetch and free this value_t
     ValueHeader InsertValue(const value_t& value, int tid = 0);
     // Free spaces allocated for the ValueHeader
     void FreeValue(const ValueHeader& header, int tid = 0);
-    /* There is no lock in each thread local block, thus if different threads call above 2
-     * functions and pass the same tid, error may occurs.
-     */
 
     void ReadValue(const ValueHeader& header, value_t& value);
 
-    /* In the constructor, nthreads thread local blocks will be allocated, which means that
-     * the concurrency of MVCCValueStore is nthreads at most (InsertValue and FreeValue).
-     */
-    MVCCValueStore(char* mem, size_t item_count, int nthreads, bool utilization_record);
+    MVCCValueStore(char* mem, size_t cell_count, int nthreads, bool utilization_record);
 
     static constexpr int BLOCK_SIZE = 1024;
 

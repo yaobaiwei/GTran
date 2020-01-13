@@ -108,9 +108,9 @@ void DataStorage::CreateContainer() {
 
     uint64_t vp_sz = GiB2B(config_->global_vertex_property_kv_sz_gb);
     uint64_t ep_sz = GiB2B(config_->global_edge_property_kv_sz_gb);
-    vp_store_ = new MVCCValueStore(nullptr, vp_sz / (MEM_ITEM_SIZE + sizeof(OffsetT)), nthreads_,
+    vp_store_ = new MVCCValueStore(nullptr, vp_sz / (MEM_CELL_SIZE + sizeof(OffsetT)), nthreads_,
                                    config_->global_enable_mem_pool_utilization_record);
-    ep_store_ = new MVCCValueStore(nullptr, ep_sz / (MEM_ITEM_SIZE + sizeof(OffsetT)), nthreads_,
+    ep_store_ = new MVCCValueStore(nullptr, ep_sz / (MEM_CELL_SIZE + sizeof(OffsetT)), nthreads_,
                                    config_->global_enable_mem_pool_utilization_record);
     PropertyRowList<VertexPropertyRow>::SetGlobalValueStore(vp_store_);
     PropertyRowList<EdgePropertyRow>::SetGlobalValueStore(ep_store_);
@@ -183,7 +183,7 @@ string DataStorage::GetUsageString(UsageMap usage_map) {
 }
 
 void DataStorage::PredictVertexContainerUsage() {
-    size_t vp_store_item_count = GiB2B(config_->global_vertex_property_kv_sz_gb) / (MEM_ITEM_SIZE + sizeof(OffsetT));
+    size_t vp_store_item_count = GiB2B(config_->global_vertex_property_kv_sz_gb) / (MEM_CELL_SIZE + sizeof(OffsetT));
 
     size_t vp_row_usage = 0;
     size_t vp_mvcc_usage = 0;
@@ -200,8 +200,8 @@ void DataStorage::PredictVertexContainerUsage() {
         vp_mvcc_usage += vtx.vp_label_list.size();
 
         for (int i = 0; i < vtx.vp_label_list.size(); i++) {
-            int cell_cost = (vtx.vp_value_list[i].content.size() + 1) / MEM_ITEM_SIZE;
-            if (cell_cost * MEM_ITEM_SIZE != vtx.vp_value_list[i].content.size() + 1)
+            int cell_cost = (vtx.vp_value_list[i].content.size() + 1) / MEM_CELL_SIZE;
+            if (cell_cost * MEM_CELL_SIZE != vtx.vp_value_list[i].content.size() + 1)
                 cell_cost++;
             vp_store_cell_usage += cell_cost;
         }
@@ -217,7 +217,7 @@ void DataStorage::PredictVertexContainerUsage() {
 }
 
 void DataStorage::PredictEdgeContainerUsage() {
-    size_t ep_store_item_count = GiB2B(config_->global_edge_property_kv_sz_gb) / (MEM_ITEM_SIZE + sizeof(OffsetT));
+    size_t ep_store_item_count = GiB2B(config_->global_edge_property_kv_sz_gb) / (MEM_CELL_SIZE + sizeof(OffsetT));
 
     size_t ep_row_usage = 0;
     size_t ep_mvcc_usage = 0;
@@ -238,8 +238,8 @@ void DataStorage::PredictEdgeContainerUsage() {
         ep_mvcc_usage += edge.ep_label_list.size();
 
         for (int i = 0; i < edge.ep_label_list.size(); i++) {
-            int cell_cost = (edge.ep_value_list[i].content.size() + 1) / MEM_ITEM_SIZE;
-            if (cell_cost * MEM_ITEM_SIZE != edge.ep_value_list[i].content.size() + 1)
+            int cell_cost = (edge.ep_value_list[i].content.size() + 1) / MEM_CELL_SIZE;
+            if (cell_cost * MEM_CELL_SIZE != edge.ep_value_list[i].content.size() + 1)
                 cell_cost++;
             ep_store_cell_usage += cell_cost;
         }
