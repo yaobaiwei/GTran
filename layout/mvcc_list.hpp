@@ -12,13 +12,22 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/factory.hpp"
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_definition.hpp"
-#include "layout/layout_type.hpp"
 #include "utils/config.hpp"
 #include "utils/simple_spinlock_guard.hpp"
 #include "utils/tid_mapper.hpp"
 
 class GCProducer;
 class GCConsumer;
+
+// record dependencies in MVCCList::TryPreReadUncommittedTail, used in validation phase
+struct depend_trx_lists {
+    std::set<uint64_t> homo_trx_list;  // commit -> commit
+    std::set<uint64_t> hetero_trx_list;  // abort -> commit
+};
+
+extern tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;  // defined here, instantiated in data_storage.cpp
+typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::accessor dep_trx_accessor;
+typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::const_accessor dep_trx_const_accessor;
 
 template<class Item>
 class MVCCList {

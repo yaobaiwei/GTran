@@ -11,7 +11,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/communication.hpp"
 #include "base/node.hpp"
 #include "core/id_mapper.hpp"
-#include "layout/layout_type.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
 #include "layout/snapshot_function_implementation.hpp"
 #include "utils/config.hpp"
@@ -19,7 +18,91 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "utils/timer.hpp"
 #include "utils/tool.hpp"
 
-namespace std {
+
+/* =================== TMP datatypes for data loading =================== */
+// used for data loading from HDFS: V_KVpair, E_KVpair, VProperty, EProperty, TMPVertexInfo
+
+struct V_KVpair {
+    vpid_t key;
+    value_t value;
+    string DebugString() const;
+};
+
+struct E_KVpair {
+    epid_t key;
+    value_t value;
+    string DebugString() const;
+};
+
+struct VProperty {
+    vid_t id;
+    vector<V_KVpair> plist;
+    string DebugString() const;
+};
+
+struct EProperty {
+    eid_t id;
+    vector<E_KVpair> plist;
+    string DebugString() const;
+};
+
+struct TMPVertexInfo {
+    vid_t id;
+    vector<vid_t> in_nbs;  // this_vtx <- in_nbs
+    vector<vid_t> out_nbs;  // this_vtx -> out_nbs
+    vector<label_t> vp_list;
+
+    string DebugString() const;
+};
+
+ibinstream& operator<<(ibinstream& m, const V_KVpair& pair);
+obinstream& operator>>(obinstream& m, V_KVpair& pair);
+ibinstream& operator<<(ibinstream& m, const VProperty& vp);
+obinstream& operator>>(obinstream& m, VProperty& vp);
+ibinstream& operator<<(ibinstream& m, const E_KVpair& pair);
+obinstream& operator>>(obinstream& m, E_KVpair& pair);
+ibinstream& operator<<(ibinstream& m, const EProperty& ep);
+obinstream& operator>>(obinstream& m, EProperty& ep);
+ibinstream& operator<<(ibinstream& m, const TMPVertexInfo& v);
+obinstream& operator>>(obinstream& m, TMPVertexInfo& v);
+
+
+// used for data loading after shuffling: TMPVertex, TMPOutEdge, TMPInEdge
+
+struct TMPVertex {
+    vid_t id;
+    label_t label;
+    std::vector<vid_t> in_nbs;  // this_vtx <- in_nbs
+    std::vector<vid_t> out_nbs;  // this_vtx -> out_nbs
+    std::vector<label_t> vp_label_list;
+    std::vector<value_t> vp_value_list;
+
+    std::string DebugString() const;
+};
+
+struct TMPOutEdge {
+    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
+    label_t label;
+    std::vector<label_t> ep_label_list;
+    std::vector<value_t> ep_value_list;
+
+    std::string DebugString() const;
+};
+
+struct TMPInEdge {
+    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
+    label_t label;
+};
+
+ibinstream& operator<<(ibinstream& m, const TMPVertex& v);
+obinstream& operator>>(obinstream& m, TMPVertex& v);
+ibinstream& operator<<(ibinstream& m, const TMPOutEdge& v);
+obinstream& operator>>(obinstream& m, TMPOutEdge& v);
+ibinstream& operator<<(ibinstream& m, const TMPInEdge& v);
+obinstream& operator>>(obinstream& m, TMPInEdge& v);
+
+
+/* =================== HDFSDataLoader =================== */
 
 class HDFSDataLoader {
  private:
@@ -65,6 +148,8 @@ class HDFSDataLoader {
         return hdfs_data_loader_instance_ptr;
     }
 
+    ~HDFSDataLoader();
+
     void Init();
     void GetStringIndexes();
     void LoadVertexData();
@@ -85,5 +170,3 @@ class HDFSDataLoader {
 
     MPISnapshotManager* snapshot_manager_ = nullptr;
 };
-
-}  // namespace std

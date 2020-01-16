@@ -45,7 +45,7 @@ class PropertyRowList {
     CellMap* cell_map_;
     typedef typename tbb::concurrent_hash_map<label_t, CellType*>::accessor CellAccessor;
     typedef typename tbb::concurrent_hash_map<label_t, CellType*>::const_accessor CellConstAccessor;
-    static constexpr int MAP_THRESHOLD = PropertyRow::ROW_ITEM_COUNT;
+    static constexpr int MAP_THRESHOLD = PropertyRow::ROW_CELL_COUNT;
 
  public:
     void Init();

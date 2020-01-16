@@ -7,7 +7,6 @@ file(GLOB layout-src-files
     gc_consumer.cpp
     gc_producer.cpp
     index_store.cpp
-    layout_type.cpp
     mpi_snapshot_manager.cpp
     mvcc_definition.cpp
     mvcc_value_store.cpp

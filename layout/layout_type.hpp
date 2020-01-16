@@ -5,140 +5,143 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #pragma once
 
+#include <atomic>
 #include <vector>
+
+#include "tbb/atomic.h"
 
 #include "base/serialization.hpp"
 #include "base/type.hpp"
+#include "layout/mvcc_definition.hpp"
+#include "layout/mvcc_list.hpp"
+#include "layout/mvcc_value_store.hpp"
+#include "layout/property_row_list.hpp"
+#include "layout/topology_row_list.hpp"
 #include "utils/tool.hpp"
-#include "tbb/atomic.h"
 #include "utils/write_prior_rwlock.hpp"
 
-// tmp datatype for HDFSDataLoader
-struct TMPVertex {
-    vid_t id;
-    label_t label;
-    std::vector<vid_t> in_nbs;  // this_vtx <- in_nbs
-    std::vector<vid_t> out_nbs;  // this_vtx -> out_nbs
-    std::vector<label_t> vp_label_list;
-    std::vector<value_t> vp_value_list;
+/* =================== VP, EP, VE row related =================== */
 
-    std::string DebugString() const;
-};
-
-// tmp datatype for HDFSDataLoader
-struct TMPOutEdge {
-    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
-    label_t label;
-    std::vector<label_t> ep_label_list;
-    std::vector<value_t> ep_value_list;
-
-    std::string DebugString() const;
-};
-
-// tmp datatype for HDFSDataLoader
-struct TMPInEdge {
-    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
-    label_t label;
-
-    std::string DebugString() const;
-};
-
-ibinstream& operator<<(ibinstream& m, const TMPVertex& v);
-obinstream& operator>>(obinstream& m, TMPVertex& v);
-ibinstream& operator<<(ibinstream& m, const TMPOutEdge& v);
-obinstream& operator>>(obinstream& m, TMPOutEdge& v);
-ibinstream& operator<<(ibinstream& m, const TMPInEdge& v);
-obinstream& operator>>(obinstream& m, TMPInEdge& v);
-
-// To infer how many elements a row contains during compilation
+/*
+InferElementCount is implemented to infer how many cells that a row contains during compilation.
+@param:
+    T: The cell datatype
+    preferred_size: the size of the row
+    taken_size: the size of non-cell elements in a row
+@return: the number of cells in each row
+*/
 template <class T>
 constexpr int InferElementCount(int preferred_size, int taken_size) {
     return (preferred_size - taken_size) / sizeof(T);
 }
 
-// For dependency read, whether commit depends on others' status
-struct depend_trx_lists {
-    std::set<uint64_t> homo_trx_list;  // commit -> commit
-    std::set<uint64_t> hetero_trx_list;  // abort -> commit
+class GCProducer;
+class GCConsumer;
+
+// VPHeader is the cell in VPRow
+struct VPHeader {
+    vpid_t pid;
+    std::atomic<MVCCList<VPropertyMVCCItem>*> mvcc_list;
+
+    VPHeader& operator= (const VPHeader& other) {
+        pid = other.pid;
+        MVCCList<VPropertyMVCCItem>* non_atomic = other.mvcc_list;
+        mvcc_list = non_atomic;
+
+        return *this;
+    }
+
+    typedef VPropertyMVCCItem MVCCItemType;
 };
 
-extern tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
-typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::accessor dep_trx_accessor;
-typedef tbb::concurrent_hash_map<uint64_t, depend_trx_lists>::const_accessor dep_trx_const_accessor;
+/*
+InferElementCount<VPHeader>(128, sizeof(void*)):
+    For VPRow containing VPHeader as the cell, we want to know how many cells will be in VPHeader if sizeof(VPRow) == 128.
+    There will be a next pointer in each row. Thus, we need to pass sizeof(void*) as the second parameter to InferElementCount.
+    Similarly hereinafter.
+*/
+#define VP_ROW_CELL_COUNT InferElementCount<VPHeader>(128, sizeof(void*))
 
-// tmp datatype for HDFSDataLoader
-struct TMPVertexInfo {
-    vid_t id;
-    // label_t label;
-    vector<vid_t> in_nbs;
-    vector<vid_t> out_nbs;
-    vector<label_t> vp_list;
-    string DebugString() const;
+// EPHeader is the cell in EPRow
+struct EPHeader {
+    epid_t pid;
+    std::atomic<MVCCList<EPropertyMVCCItem>*> mvcc_list;
+
+    EPHeader& operator= (const EPHeader& other) {
+        pid = other.pid;
+        MVCCList<EPropertyMVCCItem>* non_atomic = other.mvcc_list;
+        mvcc_list = non_atomic;
+
+        return *this;
+    }
+
+    typedef EPropertyMVCCItem MVCCItemType;
 };
 
-ibinstream& operator<<(ibinstream& m, const TMPVertexInfo& v);
+#define EP_ROW_CELL_COUNT InferElementCount<EPHeader>(64, sizeof(void*))
 
-obinstream& operator>>(obinstream& m, TMPVertexInfo& v);
+// EPHeader is the cell in VERow
+struct EdgeHeader {
+ public:
+    bool is_out;
+    vid_t conn_vtx_id;
+    MVCCList<EdgeMVCCItem>* mvcc_list;
 
-// tmp datatype for HDFSDataLoader
-struct V_KVpair {
-    vpid_t key;
-    value_t value;
-    string DebugString() const;
+    EdgeHeader& operator= (const EdgeHeader& _edge_header) {
+        this->is_out = _edge_header.is_out;
+        this->conn_vtx_id = _edge_header.conn_vtx_id;
+        this->mvcc_list = _edge_header.mvcc_list;
+    }
 };
 
-ibinstream& operator<<(ibinstream& m, const V_KVpair& pair);
+#define VE_ROW_CELL_COUNT InferElementCount<EdgeHeader>(128, sizeof(void*))
 
-obinstream& operator>>(obinstream& m, V_KVpair& pair);
+struct VertexPropertyRow {
+ private:
+    VertexPropertyRow* next_;
+    VPHeader cells_[VP_ROW_CELL_COUNT];
 
-// tmp datatype for HDFSDataLoader
-struct VProperty{
-    vid_t id;
-    vector<V_KVpair> plist;
-    string DebugString() const;
-};
+    template<class PropertyRow> friend class PropertyRowList;
+    friend class GCProducer;
+    friend class GCConsumer;
 
-ibinstream& operator<<(ibinstream& m, const VProperty& vp);
+ public:
+    static constexpr int ROW_CELL_COUNT = VP_ROW_CELL_COUNT;
+}  __attribute__((aligned(64)));
 
-obinstream& operator>>(obinstream& m, VProperty& vp);
 
-// tmp datatype for HDFSDataLoader
-struct E_KVpair {
-    epid_t key;
-    value_t value;
-    string DebugString() const;
-};
+struct EdgePropertyRow {
+ private:
+    EdgePropertyRow* next_;
+    EPHeader cells_[EP_ROW_CELL_COUNT];
 
-ibinstream& operator<<(ibinstream& m, const E_KVpair& pair);
+    template<class PropertyRow> friend class PropertyRowList;
+    friend class GCProducer;
+    friend class GCConsumer;
 
-obinstream& operator>>(obinstream& m, E_KVpair& pair);
+ public:
+    static constexpr int ROW_CELL_COUNT = EP_ROW_CELL_COUNT;
+}  __attribute__((aligned(64)));
 
-// tmp datatype for HDFSDataLoader
-struct EProperty {
-    eid_t id;
-    vector<E_KVpair> plist;
-    string DebugString() const;
-};
 
-ibinstream& operator<<(ibinstream& m, const EProperty& ep);
+struct VertexEdgeRow {
+ private:
+    VertexEdgeRow* next_;
+    EdgeHeader cells_[VE_ROW_CELL_COUNT];
 
-obinstream& operator>>(obinstream& m, EProperty& ep);
+    friend class TopologyRowList;
+    friend class GCProducer;
+    friend class GCConsumer;
+}  __attribute__((aligned(64)));
 
-struct EdgePropertyRow;
-struct VertexPropertyRow;
-template <class T>
-class PropertyRowList;
-class TopologyRowList;
-struct VertexMVCCItem;
-struct EdgeMVCCItem;
-template <class Item>
-class MVCCList;
+
+/* =================== Data types for vertex map and edge map in DataStorage =================== */
 
 struct Vertex {
     label_t label;
-    // container to hold inE and outE
+    // container to hold connected edges
     TopologyRowList* ve_row_list = nullptr;
-    // container to hold VP
+    // container to hold properties
     PropertyRowList<VertexPropertyRow>* vp_row_list = nullptr;
     /* Two version in the list at most:
      *  the first version is "true", means "visible";
@@ -147,25 +150,6 @@ struct Vertex {
     tbb::atomic<MVCCList<VertexMVCCItem>*> mvcc_list;
 
     Vertex() : mvcc_list(nullptr) {}
-};
-
-/* Since eid consists of src_vid and dst_vid, there will be multiple EdgeVersion
- * instance with the same eid in the system if we add an edge with an eid (Edge0),
- * then delete it, and then add it back (Edge1).
- * Edge0 and Edge1 just have the same eid, and share nothing.
- * A transaction will only be able to see one EdgeVersion instance with a specific eid at most.
- */
-struct EdgeVersion {
-    label_t label;  // if 0, then the edge is deleted
-    // for in_e or deleted edge, this is always nullptr
-    PropertyRowList<EdgePropertyRow>* ep_row_list = nullptr;
-
-    bool Exist() const {return label != 0;}
-    bool IsEmpty() const {return label == 0;}
-    EdgeVersion() {}
-
-    constexpr EdgeVersion(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
-    label(_label), ep_row_list(_ep_row_list) {}
 };
 
 struct InEdge {

@@ -20,7 +20,7 @@ void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<
     int gcable_cell_counter = 0;
     typename PropertyRowList<PropertyRow>::MVCCListType* cur_mvcc_list_ptr;
     for (int i = 0; i < property_count_snapshot; i++) {
-        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
         if (i != 0 && cell_id_in_row == 0) {
             row_ptr = row_ptr->next_;
         }
