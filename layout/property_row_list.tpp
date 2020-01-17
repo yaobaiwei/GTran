@@ -19,7 +19,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     if (property_count_ptr == nullptr) {
         // Called by InsertInitialCell
         int cell_id = property_count_++;
-        int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = cell_id % PropertyRow::ROW_CELL_COUNT;
 
         if (cell_id_in_row == 0) {
             auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
@@ -50,7 +50,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
             current_row = head_;
         // Check pid of newly allocated cells
         for (int i = recent_count; i < property_count_snapshot; i++) {
-            int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+            int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
             if (i > 0 && cell_id_in_row == 0) {
                 current_row = current_row->next_;
             }
@@ -65,7 +65,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     if (!allocated_already) {
         // Allocate a new cell
         int cell_id = property_count_snapshot;
-        int cell_id_in_row = cell_id % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = cell_id % PropertyRow::ROW_CELL_COUNT;
 
         if (cell_id_in_row == 0) {
             auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
@@ -88,7 +88,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
                 cell_map_ = new CellMap;
                 PropertyRow* current_row = head_;
                 for (int i = 0; i < property_count_snapshot + 1; i++) {
-                    int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+                    int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
                     if (i > 0 && cell_id_in_row == 0) {
                         current_row = current_row->next_;
                     }
@@ -140,7 +140,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     if (map_snapshot == nullptr) {
         // Traverse the whole PropertyRowList
         for (int i = 0; i < property_count_snapshot; i++) {
-            int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+            int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
             if (i > 0 && cell_id_in_row == 0) {
                 current_row = current_row->next_;
             }
@@ -242,7 +242,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                 break;
             }
 
-            int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+            int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
             if (i > 0 && cell_id_in_row == 0) {
                 current_row = current_row->next_;
             }
@@ -334,7 +334,7 @@ READ_STAT PropertyRowList<PropertyRow>::
     }
 
     for (int i = 0; i < property_count_snapshot; i++) {
-        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
         if (i > 0 && cell_id_in_row == 0) {
             current_row = current_row->next_;
         }
@@ -386,7 +386,7 @@ READ_STAT PropertyRowList<PropertyRow>::
     }
 
     for (int i = 0; i < property_count_snapshot; i++) {
-        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
         if (i > 0 && cell_id_in_row == 0) {
             current_row = current_row->next_;
         }
@@ -504,8 +504,8 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     if (current_row == nullptr)
         return;
 
-    int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
-    if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)
+    int row_count = property_count_ / PropertyRow::ROW_CELL_COUNT;
+    if (row_count * PropertyRow::ROW_CELL_COUNT != property_count_)
         row_count++;
     if (row_count == 0)
         row_count = 1;
@@ -515,7 +515,7 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     int row_ptr_count = 1;
 
     for (int i = 0; i < property_count_; i++) {
-        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
         if (i > 0 && cell_id_in_row == 0) {
             current_row = current_row->next_;
             row_ptrs[row_ptr_count++] = current_row;
@@ -548,8 +548,8 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     if (current_row == nullptr)
         return;
 
-    int row_count = property_count_ / PropertyRow::ROW_ITEM_COUNT;
-    if (row_count * PropertyRow::ROW_ITEM_COUNT != property_count_)
+    int row_count = property_count_ / PropertyRow::ROW_CELL_COUNT;
+    if (row_count * PropertyRow::ROW_CELL_COUNT != property_count_)
         row_count++;
     if (row_count == 0)
         row_count = 1;
@@ -561,7 +561,7 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     queue<pair<int, int>> empty_cell_queue;
     // Collect empty cell info
     for (int i = 0; i < property_count_; i++) {
-        int cell_id_in_row = i % PropertyRow::ROW_ITEM_COUNT;
+        int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
         if (i > 0 && cell_id_in_row == 0) {
             current_row = current_row->next_;
             row_ptrs[row_ptr_count++] = current_row;
@@ -571,13 +571,13 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
         if (mvcc_list == nullptr) {
-            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_ITEM_COUNT), cell_id_in_row);
+            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_CELL_COUNT), cell_id_in_row);
             continue;
         }
 
         if (mvcc_list->GetHead() == nullptr) {
             // gc cell, record to empty cell
-            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_ITEM_COUNT), cell_id_in_row);
+            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_CELL_COUNT), cell_id_in_row);
             mvcc_list->SelfGarbageCollect();
             delete mvcc_list;
         }
@@ -592,8 +592,8 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     int inverse_row_index = row_count - 1;
 
     // Calculate removable row
-    int cur_row_count = cur_property_count / PropertyRow::ROW_ITEM_COUNT + 1;
-    if (cur_property_count % PropertyRow::ROW_ITEM_COUNT == 0) {
+    int cur_row_count = cur_property_count / PropertyRow::ROW_CELL_COUNT + 1;
+    if (cur_property_count % PropertyRow::ROW_CELL_COUNT == 0) {
         cur_row_count--;
     }
     int num_gcable_rows = row_count - cur_row_count;
@@ -601,8 +601,8 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     bool first_iteration = true;
     // move cell from tail to empty cell
     while (true) {
-        int cell_id_in_row = inverse_cell_index % PropertyRow::ROW_ITEM_COUNT;
-        if (cell_id_in_row == PropertyRow::ROW_ITEM_COUNT - 1 &&
+        int cell_id_in_row = inverse_cell_index % PropertyRow::ROW_CELL_COUNT;
+        if (cell_id_in_row == PropertyRow::ROW_CELL_COUNT - 1 &&
             inverse_cell_index != property_count_ - 1) {
             inverse_row_index--;
             CHECK_GE(inverse_row_index, 0);

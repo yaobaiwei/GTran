@@ -15,18 +15,10 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "tbb/concurrent_unordered_map.h"
 
 #include "core/factory.hpp"
-#include "layout/concurrent_mem_pool.hpp"
 #include "layout/hdfs_data_loader.hpp"
-#include "layout/mpi_snapshot_manager.hpp"
-#include "layout/mvcc_list.hpp"
-#include "layout/mvcc_value_store.hpp"
-#include "layout/property_row_list.hpp"
-#include "layout/row_definition.hpp"
-#include "layout/topology_row_list.hpp"
+#include "layout/layout_type.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
-#include "utils/tid_mapper.hpp"
-#include "utils/write_prior_rwlock.hpp"
 
 /* For non-readonly transaction, arbitrary MVCCLists can be modified during the Processing Phase.
  * In the Commit/Abort Phase, to commit or rollback the transaction, we just need pointers of modified MVCCLists.
@@ -153,9 +145,8 @@ class DataStorage {
     MVCCValueStore* vp_store_ = nullptr;
     MVCCValueStore* ep_store_ = nullptr;
 
-    // for data initialization
+    // for data loading
     HDFSDataLoader* hdfs_data_loader_ = nullptr;
-    MPISnapshotManager* snapshot_manager_ = nullptr;
 
     // Containers
     ConcurrentMemPool<EdgePropertyRow>* ep_row_pool_ = nullptr;

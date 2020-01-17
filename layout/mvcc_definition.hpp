@@ -9,7 +9,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "core/common.hpp"
 #include "layout/mvcc_value_store.hpp"
-#include "layout/layout_type.hpp"
 #include "utils/tid_mapper.hpp"
 
 class GCProducer;
@@ -135,6 +134,28 @@ struct VertexMVCCItem : public AbstractMVCCItem {
     void ValueGC();
 
     template<class MVCC> friend class MVCCList;
+};
+
+// PropertyRowList and EdgePropertyRow are used in EdgeVersion
+template <class T>
+class PropertyRowList;
+struct EdgePropertyRow;
+
+/*
+In our system, there may be multiple EdgeVersion with the same eid, with different visible time span.
+They exist as different versions in an MVCCList.
+*/
+struct EdgeVersion {
+    label_t label;  // a "deleted edge" version if label == 0
+
+    PropertyRowList<EdgePropertyRow>* ep_row_list = nullptr;  // != nullptr for an existing out edge
+
+    bool Exist() const {return label != 0;}
+    bool IsEmpty() const {return label == 0;}
+    EdgeVersion() {}
+
+    constexpr EdgeVersion(label_t _label, PropertyRowList<EdgePropertyRow>* _ep_row_list) :
+    label(_label), ep_row_list(_ep_row_list) {}
 };
 
 struct EdgeMVCCItem : public AbstractMVCCItem {

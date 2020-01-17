@@ -6,6 +6,9 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/data_storage.hpp"
 #include "layout/garbage_collector.hpp"
 
+// defined in mvcc_list.hpp, for recording reading dependencies
+tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
+
 template<class MVCC> ConcurrentMemPool<MVCC>* MVCCList<MVCC>::mem_pool_ = nullptr;
 template<class PropertyRow> ConcurrentMemPool<PropertyRow>* PropertyRowList<PropertyRow>::mem_pool_ = nullptr;
 template<class PropertyRow> MVCCValueStore* PropertyRowList<PropertyRow>::value_storage_ = nullptr;
@@ -19,7 +22,6 @@ void DataStorage::Init() {
     node_ = Node::StaticInstance();
     config_ = Config::GetInstance();
     id_mapper_ = SimpleIdMapper::GetInstance();
-    snapshot_manager_ = MPISnapshotManager::GetInstance();
     worker_rank_ = node_.get_local_rank();
     worker_size_ = node_.get_local_size();
     // allow the main thread and GCConsumer threads to use memory pool
@@ -27,27 +29,19 @@ void DataStorage::Init() {
     TidMapper::GetInstance()->Register(config_->global_num_threads);  // register the main thread in TidMapper
 
     node_.Rank0PrintfWithWorkerBarrier(
-                      "VE_ROW_ITEM_COUNT = %d, sizeof(EdgeHeader) = %d, sizeof(VertexEdgeRow) = %d\n",
-                       VE_ROW_ITEM_COUNT, sizeof(EdgeHeader), sizeof(VertexEdgeRow));
+                      "VE_ROW_CELL_COUNT = %d, sizeof(EdgeHeader) = %d, sizeof(VertexEdgeRow) = %d\n",
+                       VE_ROW_CELL_COUNT, sizeof(EdgeHeader), sizeof(VertexEdgeRow));
     node_.Rank0PrintfWithWorkerBarrier(
-                       "VP_ROW_ITEM_COUNT = %d, sizeof(VPHeader) = %d, sizeof(VertexPropertyRow) = %d\n",
-                       VP_ROW_ITEM_COUNT, sizeof(VPHeader), sizeof(VertexPropertyRow));
+                       "VP_ROW_CELL_COUNT = %d, sizeof(VPHeader) = %d, sizeof(VertexPropertyRow) = %d\n",
+                       VP_ROW_CELL_COUNT, sizeof(VPHeader), sizeof(VertexPropertyRow));
     node_.Rank0PrintfWithWorkerBarrier(
-                       "EP_ROW_ITEM_COUNT = %d, sizeof(EPHeader) = %d, sizeof(EdgePropertyRow) = %d\n",
-                       EP_ROW_ITEM_COUNT, sizeof(EPHeader), sizeof(EdgePropertyRow));
+                       "EP_ROW_CELL_COUNT = %d, sizeof(EPHeader) = %d, sizeof(EdgePropertyRow) = %d\n",
+                       EP_ROW_CELL_COUNT, sizeof(EPHeader), sizeof(EdgePropertyRow));
     node_.Rank0PrintfWithWorkerBarrier(
                        "sizeof(PropertyMVCCItem) = %d, sizeof(VertexMVCCItem) = %d, sizeof(EdgeMVCCItem) = %d\n",
                        sizeof(PropertyMVCCItem), sizeof(VertexMVCCItem), sizeof(EdgeMVCCItem));
 
     CreateContainer();
-
-    snapshot_manager_->SetRootPath(config_->SNAPSHOT_PATH);
-    snapshot_manager_->AppendConfig("HDFS_INDEX_PATH", config_->HDFS_INDEX_PATH);
-    snapshot_manager_->AppendConfig("HDFS_VTX_SUBFOLDER", config_->HDFS_VTX_SUBFOLDER);
-    snapshot_manager_->AppendConfig("HDFS_VP_SUBFOLDER", config_->HDFS_VP_SUBFOLDER);
-    snapshot_manager_->AppendConfig("HDFS_EP_SUBFOLDER", config_->HDFS_EP_SUBFOLDER);
-    snapshot_manager_->SetComm(node_.local_comm);
-    snapshot_manager_->ConfirmConfig();
 
     hdfs_data_loader_ = HDFSDataLoader::GetInstance();
 
@@ -65,7 +59,6 @@ void DataStorage::Init() {
     FillEdgeContainer();
     hdfs_data_loader_->FreeEdgeMemory();
 
-    delete snapshot_manager_;
     delete hdfs_data_loader_;
 
     garbage_collector_ = GarbageCollector::GetInstance();
@@ -183,7 +176,7 @@ string DataStorage::GetUsageString(UsageMap usage_map) {
 }
 
 void DataStorage::PredictVertexContainerUsage() {
-    size_t vp_store_item_count = GiB2B(config_->global_vertex_property_kv_sz_gb) / (MEM_CELL_SIZE + sizeof(OffsetT));
+    size_t vp_store_cell_count = GiB2B(config_->global_vertex_property_kv_sz_gb) / (MEM_CELL_SIZE + sizeof(OffsetT));
 
     size_t vp_row_usage = 0;
     size_t vp_mvcc_usage = 0;
@@ -192,8 +185,8 @@ void DataStorage::PredictVertexContainerUsage() {
 
     // Emulate the insertion of vertices
     for (auto vtx : hdfs_data_loader_->shuffled_vtx_) {
-        int vp_row_cost = vtx.vp_label_list.size() / VP_ROW_ITEM_COUNT;
-        if (vp_row_cost * VP_ROW_ITEM_COUNT != vtx.vp_label_list.size())
+        int vp_row_cost = vtx.vp_label_list.size() / VP_ROW_CELL_COUNT;
+        if (vp_row_cost * VP_ROW_CELL_COUNT != vtx.vp_label_list.size())
             vp_row_cost++;
         vp_row_usage += vp_row_cost;
 
@@ -211,13 +204,13 @@ void DataStorage::PredictVertexContainerUsage() {
     usage_map["V mvcc"] = {v_mvcc_usage, config_->global_v_mvcc_pool_size};
     usage_map["VP row"] = {vp_row_usage, config_->global_vp_row_pool_size};
     usage_map["VP mvcc"] = {vp_mvcc_usage, config_->global_vp_mvcc_pool_size};
-    usage_map["VP store cell"] = {vp_store_cell_usage, vp_store_item_count};
+    usage_map["VP store cell"] = {vp_store_cell_usage, vp_store_cell_count};
 
     node_.Rank0PrintfWithWorkerBarrier(("Predicted container usage for vertices:\n" + GetUsageString(usage_map)).c_str());
 }
 
 void DataStorage::PredictEdgeContainerUsage() {
-    size_t ep_store_item_count = GiB2B(config_->global_edge_property_kv_sz_gb) / (MEM_CELL_SIZE + sizeof(OffsetT));
+    size_t ep_store_cell_count = GiB2B(config_->global_edge_property_kv_sz_gb) / (MEM_CELL_SIZE + sizeof(OffsetT));
 
     size_t ep_row_usage = 0;
     size_t ep_mvcc_usage = 0;
@@ -230,8 +223,8 @@ void DataStorage::PredictEdgeContainerUsage() {
 
     // Emulate the insertion of out edges
     for (auto edge : hdfs_data_loader_->shuffled_out_edge_) {
-        int ep_row_cost = edge.ep_label_list.size() / EP_ROW_ITEM_COUNT;
-        if (ep_row_cost * EP_ROW_ITEM_COUNT != edge.ep_label_list.size())
+        int ep_row_cost = edge.ep_label_list.size() / EP_ROW_CELL_COUNT;
+        if (ep_row_cost * EP_ROW_CELL_COUNT != edge.ep_label_list.size())
             ep_row_cost++;
         ep_row_usage += ep_row_cost;
 
@@ -272,8 +265,8 @@ void DataStorage::PredictEdgeContainerUsage() {
 
     // Only when the (emulated) insertion is finished, can ve_row_usage be estimated.
     for (auto p : vtx_edge_cell_count) {
-        int ve_row_cost = p.second / VE_ROW_ITEM_COUNT;
-        if (ve_row_cost * VE_ROW_ITEM_COUNT != p.second)
+        int ve_row_cost = p.second / VE_ROW_CELL_COUNT;
+        if (ve_row_cost * VE_ROW_CELL_COUNT != p.second)
             ve_row_cost++;
         ve_row_usage += ve_row_cost;
     }
@@ -283,7 +276,7 @@ void DataStorage::PredictEdgeContainerUsage() {
     usage_map["E mvcc"] = {e_mvcc_usage, config_->global_e_mvcc_pool_size};
     usage_map["EP row"] = {ep_row_usage, config_->global_ep_row_pool_size};
     usage_map["EP mvcc"] = {ep_mvcc_usage, config_->global_ep_mvcc_pool_size};
-    usage_map["EP store cell"] = {ep_store_cell_usage, ep_store_item_count};
+    usage_map["EP store cell"] = {ep_store_cell_usage, ep_store_cell_count};
     usage_map["VE row"] = {ve_row_usage, config_->global_ve_row_pool_size};
 
     node_.Rank0PrintfWithWorkerBarrier(("Predicted container usage for edges:\n" + GetUsageString(usage_map)).c_str());

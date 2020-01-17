@@ -570,7 +570,7 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
 
     int gcable_cell_count = 0;
     for (int i = 0; i < edge_count_snapshot; i++) {
-        int cell_id_in_row = i % VE_ROW_ITEM_COUNT;
+        int cell_id_in_row = i % VE_ROW_CELL_COUNT;
         if (i != 0 && cell_id_in_row == 0) {
             CHECK(row_ptr->next_ != nullptr) << topo_row_list->edge_count_;
             row_ptr = row_ptr->next_;
@@ -587,7 +587,7 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
         }
     }
 
-    if (gcable_cell_count >= edge_count_snapshot % VE_ROW_ITEM_COUNT && gcable_cell_count != 0) {
+    if (gcable_cell_count >= edge_count_snapshot % VE_ROW_CELL_COUNT && gcable_cell_count != 0) {
         spawn_topo_row_list_defrag_gctask(topo_row_list, vid, gcable_cell_count);
     }
 }
