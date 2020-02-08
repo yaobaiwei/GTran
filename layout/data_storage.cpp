@@ -1171,6 +1171,12 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
         } else {
             mvcc_list = in_e_iterator->second.mvcc_list;
         }
+
+        // multiple transactions are trying to add edges with the same eid
+        if (mvcc_list == nullptr) {
+            return PROCESS_STAT::ABORT_MULTIPLE_TRX_ADD_SAME_EDGE;
+        }
+
         EdgeVersion* e_item = mvcc_list->AppendVersion(trx_id, begin_time);
 
         if (e_item == nullptr) {
