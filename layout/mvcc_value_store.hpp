@@ -45,16 +45,16 @@ Cautious: the same as ConcurrentMemoryPool, a thread id can only be used by one 
 
 struct ValueHeader {
     OffsetT head_offset;
-    OffsetT byte;
+    OffsetT byte_count;
 
     // True when the property has been dropped.
-    // For any property, byte should be >= 1, since value_t::type will occupy 1 byte
-    bool IsEmpty() {return byte == 0;}
-    ValueHeader() {byte = 0;}
-    constexpr ValueHeader(OffsetT _head_offset, OffsetT _byte) : head_offset(_head_offset), byte(_byte) {}
+    // For any property, byte_count should be >= 1, since value_t::type will occupy 1 byte
+    bool IsEmpty() {return byte_count == 0;}
+    ValueHeader() {byte_count = 0;}
+    constexpr ValueHeader(OffsetT _head_offset, OffsetT _byte_count) : head_offset(_head_offset), byte_count(_byte_count) {}
     inline OffsetT GetCellCount() const __attribute__((always_inline)) {
-        OffsetT cell_count = byte / MEM_CELL_SIZE;
-        if (cell_count * MEM_CELL_SIZE != byte)
+        OffsetT cell_count = byte_count / MEM_CELL_SIZE;
+        if (cell_count * MEM_CELL_SIZE != byte_count)
             cell_count++;
         return cell_count;
     }

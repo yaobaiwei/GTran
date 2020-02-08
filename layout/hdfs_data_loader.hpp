@@ -12,7 +12,6 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "base/node.hpp"
 #include "core/id_mapper.hpp"
 #include "layout/mpi_snapshot_manager.hpp"
-#include "layout/snapshot_function_implementation.hpp"
 #include "utils/config.hpp"
 #include "utils/hdfs_core.hpp"
 #include "utils/timer.hpp"

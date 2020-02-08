@@ -16,36 +16,17 @@ void PropertyRowList<PropertyRow>::Init() {
 template <class PropertyRow>
 typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         AllocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr) {
-    if (property_count_ptr == nullptr) {
-        // Called by InsertInitialCell
-        int cell_id = property_count_++;
-        int cell_id_in_row = cell_id % PropertyRow::ROW_CELL_COUNT;
-
-        if (cell_id_in_row == 0) {
-            auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
-            if (cell_id == 0) {
-                head_ = tail_ = new_row;
-            } else {
-                tail_->next_ = new_row;
-                tail_ = tail_->next_;
-            }
-        }
-
-        tail_->cells_[cell_id_in_row].pid = pid;
-        return &tail_->cells_[cell_id_in_row];
-    }
-
     // Called by ProcessModifyProperty, thread safety need to be guaranteed.
     WriterLockGuard writer_lock_guard(rwlock_);
 
     int property_count_snapshot = property_count_;
-    int recent_count = property_count_ptr[0];
+    int recent_count = *property_count_ptr;
     CellType* ret = nullptr;
     bool allocated_already = false;
 
     // Check if new cell allocated by another thread
     if (recent_count != property_count_snapshot) {
-        PropertyRow* current_row = tail_ptr[0];
+        PropertyRow* current_row = *tail_ptr;
         if (current_row == nullptr)
             current_row = head_;
         // Check pid of newly allocated cells
@@ -55,7 +36,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
                 current_row = current_row->next_;
             }
             if (current_row->cells_[cell_id_in_row].pid == pid) {
-                // A cell with the same pid has already been allocated
+                // A cell with the same pid has already been allocated after LocateCell is called
                 allocated_already = true;
                 break;
             }
@@ -110,7 +91,6 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         property_count_++;
     }
 
-
     return ret;
 }
 
@@ -121,20 +101,18 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
     int property_count_snapshot;
     CellMap* map_snapshot;
 
-    /* Get the snapshot of the PropertyRowList in critical region
-     * Similarly hereinafter.
-     */
-    if (property_count_ptr != nullptr) {
+    {
         ReaderLockGuard reader_lock_guard(rwlock_);
-        map_snapshot = cell_map_;
-        property_count_snapshot = property_count_ptr[0] = property_count_;
-        tail_ptr[0] = tail_;
-        current_row = head_;
-    } else {
-        ReaderLockGuard reader_lock_guard(rwlock_);
+
         map_snapshot = cell_map_;
         property_count_snapshot = property_count_;
         current_row = head_;
+
+        if (property_count_ptr != nullptr) {
+            // called by AllocateCell, need to return the snapshot of property_count_ and tail_ via pointers
+            *property_count_ptr = property_count_snapshot;
+            *tail_ptr = tail_;
+        }
     }
 
     if (map_snapshot == nullptr) {
@@ -163,13 +141,24 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
 
 template <class PropertyRow>
 void PropertyRowList<PropertyRow>::InsertInitialCell(const PidType& pid, const value_t& value) {
-    auto* cell = AllocateCell(pid);
+    int cell_id = property_count_++;
+    int cell_id_in_row = cell_id % PropertyRow::ROW_CELL_COUNT;
+
+    if (cell_id_in_row == 0) {
+        auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+        if (cell_id == 0) {
+            head_ = tail_ = new_row;
+        } else {
+            tail_->next_ = new_row;
+            tail_ = tail_->next_;
+        }
+    }
+
+    tail_->cells_[cell_id_in_row].pid = pid;
 
     MVCCListType* mvcc_list = new MVCCListType;
-
-    mvcc_list->AppendInitialVersion()[0] = value_storage_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
-
-    cell->mvcc_list = mvcc_list;
+    *(mvcc_list->AppendInitialVersion()) = value_store_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
+    tail_->cells_[cell_id_in_row].mvcc_list = mvcc_list;
 }
 
 template <class PropertyRow>
@@ -180,13 +169,6 @@ READ_STAT PropertyRowList<PropertyRow>::
     auto* cell = LocateCell(pid);
     if (cell == nullptr)
         return READ_STAT::NOTFOUND;
-
-    /* When a cell is visible, it just means that it has been allocated in AllocateCell.
-     * However, the mvcc_list will be nullptr before the property has been inserted.
-     * We need to fetch the cell->mvcc_list pointer in critical region, as cell->mvcc_list
-     * will also be modified in critical region in ProcessModifyProperty.
-     * Similarly hereinafter.
-     */
 
     MVCCListType* mvcc_list = cell->mvcc_list;
     // Being edited by other transaction.
@@ -203,12 +185,12 @@ READ_STAT PropertyRowList<PropertyRow>::
         return READ_STAT::NOTFOUND;
 
     if (!storage_header.IsEmpty()) {
-        value_storage_->ReadValue(storage_header, ret);
+        value_store_->ReadValue(storage_header, ret);
         return READ_STAT::SUCCESS;
+    } else {
+        // this property was deleted
+        READ_STAT::NOTFOUND;
     }
-
-    // Property's storage_header IsEmpty(), means deleted
-    return READ_STAT::NOTFOUND;
 }
 
 template <class PropertyRow>
@@ -238,7 +220,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
 
         for (int i = 0; i < property_count_snapshot; i++) {
             if (pkey_set.size() == 0) {
-                // All properties has been fetched.
+                // All needed properties has been fetched.
                 break;
             }
 
@@ -273,7 +255,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                 if (!storage_header.IsEmpty()) {
                     value_t v;
                     label_t label = cell_ref.pid.pid;
-                    value_storage_->ReadValue(storage_header, v);
+                    value_store_->ReadValue(storage_header, v);
                     ret.emplace_back(make_pair(label, v));
                 }
             }
@@ -306,7 +288,7 @@ READ_STAT PropertyRowList<PropertyRow>::ReadPropertyByPKeyList(const vector<labe
                 if (!storage_header.IsEmpty()) {
                     value_t v;
                     label_t label = cell_ref.pid.pid;
-                    value_storage_->ReadValue(storage_header, v);
+                    value_store_->ReadValue(storage_header, v);
                     ret.emplace_back(make_pair(label, v));
                 }
             }
@@ -362,7 +344,7 @@ READ_STAT PropertyRowList<PropertyRow>::
         if (!storage_header.IsEmpty()) {
             value_t v;
             label_t label = cell_ref.pid.pid;
-            value_storage_->ReadValue(storage_header, v);
+            value_store_->ReadValue(storage_header, v);
             ret.emplace_back(make_pair(label, v));
         }
     }
@@ -451,14 +433,14 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     ValueHeader old_val_header;
     auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time, &old_val_header, &old_val_exists);
     if (old_val_exists) {
-        // Get Old Values
-        value_storage_->ReadValue(old_val_header, old_val);
+        // Get old value
+        value_store_->ReadValue(old_val_header, old_val);
     }
 
     if (version_val_ptr == nullptr)  // modify failed
         return make_pair(true, nullptr);
 
-    version_val_ptr[0] = value_storage_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
+    *version_val_ptr = value_store_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
 
     if (!modify_flag) {
         // For a newly added cell, assign the mvcc_list after it has been initialized.
@@ -484,14 +466,14 @@ typename PropertyRowList<PropertyRow>::MVCCListType* PropertyRowList<PropertyRow
     ValueHeader old_val_header;
     auto* version_val_ptr = mvcc_list->AppendVersion(trx_id, begin_time, &old_val_header, &old_val_exists);
     if (old_val_exists) {
-        // Get Old Values
-        value_storage_->ReadValue(old_val_header, old_val);
+        // Get old Value
+        value_store_->ReadValue(old_val_header, old_val);
     }
 
-    if (version_val_ptr == nullptr)  // Modify failed, abort
+    if (version_val_ptr == nullptr)  // modify failed
         return nullptr;
 
-    version_val_ptr[0].byte = 0;  // IsEmpty() == true
+    version_val_ptr->byte_count = 0;  // IsEmpty() == true, as a "drop" version
 
     return mvcc_list;
 }
@@ -641,6 +623,5 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
         tail_ = row_ptrs[cur_row_count - 1];
     }
 
-    // new property count
     property_count_ = cur_property_count;
 }

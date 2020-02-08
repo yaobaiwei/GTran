@@ -11,7 +11,7 @@ tbb::concurrent_hash_map<uint64_t, depend_trx_lists> dep_trx_map;
 
 template<class MVCC> ConcurrentMemPool<MVCC>* MVCCList<MVCC>::mem_pool_ = nullptr;
 template<class PropertyRow> ConcurrentMemPool<PropertyRow>* PropertyRowList<PropertyRow>::mem_pool_ = nullptr;
-template<class PropertyRow> MVCCValueStore* PropertyRowList<PropertyRow>::value_storage_ = nullptr;
+template<class PropertyRow> MVCCValueStore* PropertyRowList<PropertyRow>::value_store_ = nullptr;
 ConcurrentMemPool<VertexEdgeRow>* TopologyRowList::mem_pool_ = nullptr;
 MVCCValueStore* VPropertyMVCCItem::value_store = nullptr;
 MVCCValueStore* EPropertyMVCCItem::value_store = nullptr;

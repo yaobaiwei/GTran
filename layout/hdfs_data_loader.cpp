@@ -607,16 +607,16 @@ void HDFSDataLoader::LoadEdgeData() {
 }
 
 bool HDFSDataLoader::ReadVertexSnapshot() {
-    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, ReadBySerialization))
+    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_))
         return false;
 
     return true;
 }
 
 bool HDFSDataLoader::ReadEdgeSnapshot() {
-    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_out_edge_", shuffled_out_edge_, ReadBySerialization))
+    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_out_edge_", shuffled_out_edge_))
         return false;
-    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, ReadBySerialization))
+    if (!snapshot_manager_->ReadData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_))
         return false;
 
     return true;
@@ -624,15 +624,15 @@ bool HDFSDataLoader::ReadEdgeSnapshot() {
 
 void HDFSDataLoader::WriteVertexSnapshot() {
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_vtx_\n");
-    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_, WriteBySerialization);
+    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_vtx_", shuffled_vtx_);
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteVertexSnapshot() finished\n");
 }
 
 void HDFSDataLoader::WriteEdgeSnapshot() {
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_out_edge_\n");
-    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_out_edge_", shuffled_out_edge_, WriteBySerialization);
+    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_out_edge_", shuffled_out_edge_);
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteSnapshot() shuffled_in_edge_\n");
-    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_, WriteBySerialization);
+    snapshot_manager_->WriteData("HDFSDataLoader::shuffled_in_edge_", shuffled_in_edge_);
     node_.Rank0PrintfWithWorkerBarrier("HDFSDataLoader::WriteEdgeSnapshot() finished\n");
 }
 

@@ -64,7 +64,7 @@ void MVCCValueStore::Init(char* mem, size_t cell_count, int nthreads, bool utili
 
 ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
     ValueHeader ret;
-    ret.byte = value.content.size() + 1;
+    ret.byte_count = value.content.size() + 1;
 
     // Calculate how many cells will be used to store this value_t
     OffsetT cell_count = ret.GetCellCount();
@@ -107,10 +107,10 @@ ValueHeader MVCCValueStore::InsertValue(const value_t& value, int tid) {
 }
 
 void MVCCValueStore::ReadValue(const ValueHeader& header, value_t& value) {
-    if (header.byte == 0)
+    if (header.byte_count == 0)
         return;
 
-    OffsetT value_len = header.byte - 1, value_off = 0;
+    OffsetT value_len = header.byte_count - 1, value_off = 0;
     value.content.resize(value_len);
     OffsetT cell_count = header.GetCellCount();
     OffsetT current_offset = header.head_offset;

@@ -26,19 +26,16 @@ class PropertyRowList {
     typedef typename CellType::MVCCItemType MVCCItemType;
     typedef MVCCList<MVCCItemType> MVCCListType;
 
-    static ConcurrentMemPool<PropertyRow>* mem_pool_;  // Initialized in data_storage.cpp
-    static MVCCValueStore* value_storage_;
+    // Initialized in data_storage.cpp
+    static ConcurrentMemPool<PropertyRow>* mem_pool_;
+    static MVCCValueStore* value_store_;
 
     std::atomic_int property_count_;
     tbb::atomic<PropertyRow*> head_, tail_;
-    WritePriorRWLock rwlock_;
-    // This lock is only used to avoid conflict between
-    // gc operator (including delete all and defrag) and all others;
-    // write_lock -> gc opr; read_lock -> others
-    // concurrency for others is guaranteed by rwlock_ above
-    WritePriorRWLock gc_rwlock_;
 
-    CellType* AllocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
+    CellType* AllocateCell(PidType pid, int* property_count_ptr, PropertyRow** tail_ptr);
+
+    // property_count_ptr and tail_ptr will not be nullptr when called by ProcessedModifyProperty
     CellType* LocateCell(PidType pid, int* property_count_ptr = nullptr, PropertyRow** tail_ptr = nullptr);
 
     typedef tbb::concurrent_hash_map<label_t, CellType*> CellMap;
@@ -47,10 +44,19 @@ class PropertyRowList {
     typedef typename tbb::concurrent_hash_map<label_t, CellType*>::const_accessor CellConstAccessor;
     static constexpr int MAP_THRESHOLD = PropertyRow::ROW_CELL_COUNT;
 
+    // This lock is implemented to guarantee the consistency of 4 variables: head_, tail_, property_count_ and cell_map_.
+    // These variables will be changed in AllocateCell(). Thus, in AllocateCell(), a write lock will be acquired.
+    // In other functions, a read lock will be acquired when reading a snapshot of those variables.
+    WritePriorRWLock rwlock_;
+
+    // This lock is only used to avoid conflict between gc operation (including delete all and defrag) and all other operations:
+    // write_lock -> gc; read_lock -> others
+    WritePriorRWLock gc_rwlock_;
+
  public:
     void Init();
 
-    // This function will only be called when loading data from hdfs
+    // used when loading data from hdfs
     void InsertInitialCell(const PidType& pid, const value_t& value);
 
     READ_STAT ReadProperty(const PidType& pid, const uint64_t& trx_id,
@@ -65,7 +71,7 @@ class PropertyRowList {
 
     // Return value:
     //  bool:           True if "Modify", false if "Add"
-    //  MVCCListType* : Pointer to MVCC list, need to abort if is nullptr
+    //  MVCCListType* : Pointer to MVCC list, nullptr if abort
     pair<bool, MVCCListType*> ProcessModifyProperty(const PidType& pid, const value_t& value, value_t& old_value,
                                                     const uint64_t& trx_id, const uint64_t& begin_time);
     MVCCListType* ProcessDropProperty(const PidType& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t& old_value);
@@ -73,8 +79,8 @@ class PropertyRowList {
     static void SetGlobalMemoryPool(ConcurrentMemPool<PropertyRow>* mem_pool) {
         mem_pool_ = mem_pool;
     }
-    static void SetGlobalValueStore(MVCCValueStore* value_storage_ptr) {
-        value_storage_ = value_storage_ptr;
+    static void SetGlobalValueStore(MVCCValueStore* value_store_ptr) {
+        value_store_ = value_store_ptr;
     }
 
     void SelfGarbageCollect();
