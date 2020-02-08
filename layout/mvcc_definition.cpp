@@ -8,7 +8,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include <cstdio>
 
 #include "layout/mvcc_definition.hpp"
-#include "layout/property_row_list.hpp"
+#include "layout/layout_type.hpp"
 
 // note: this file is only for implementing ValueGC()
 
@@ -23,5 +23,9 @@ void EPropertyMVCCItem::ValueGC() {
 void VertexMVCCItem::ValueGC() {}
 
 void EdgeMVCCItem::ValueGC() {
-    val.ep_row_list = nullptr;
+    if (val.ep_row_list != nullptr) {
+        val.ep_row_list->SelfGarbageCollect();
+        delete val.ep_row_list;
+        val.ep_row_list = nullptr;
+    }
 }
