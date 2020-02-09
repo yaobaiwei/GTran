@@ -110,19 +110,12 @@ class DependentGCTask : public AbstractGCTask {
     DependentGCTask(int cost) : AbstractGCTask(cost) { blocked_count_ = 0; }
     ~DependentGCTask() {}
 
-    // Task Status to indicate whether the task is
-    // active, invalid or other status
-    TaskStatus task_status_ = TaskStatus::ACTIVE;
 
     // upstream_tasks_ stores the incoming neighbors (parent tasks)
     unordered_set<DependentGCTask*> upstream_tasks_;
 
     // downstream_tasks_ stores the outgoing neighbors (child tasks)
     unordered_set<DependentGCTask*> downstream_tasks_;
-
-    // How many dependent tasks has been pushed out.
-    // Notice that a task can be EMPTY when blocked_count_ > 0
-    int blocked_count_ = 0;
 
     // There must be an id for each dependent task which will
     // be used as key in dependent map
@@ -146,11 +139,51 @@ class DependentGCTask : public AbstractGCTask {
         }
     }
 
-    string GetTaskInfoStr() {
-        return "status:" + GetTaskStatusStr() + ", type:" + GetTaskTypeStr();
+    string GetTaskInfoStr(bool print_adj = true) {
+        string ret = " status:" + GetTaskStatusStr() + ", type:" + GetTaskTypeStr();
+        if (print_adj) {
+            string adj_info = "upstream: ";
+            for (auto* upstream_task : upstream_tasks_)
+                adj_info += "{" + upstream_task->GetTaskInfoStr(false) + "} ";
+
+            adj_info += ", downstream: ";
+            for (auto* downstream_task : downstream_tasks_)
+                adj_info += "{" + downstream_task->GetTaskInfoStr(false) + "} ";
+            ret += "adj: [" + adj_info + "]";
+        }
+        return ret;
     }
 
     virtual DepGCTaskType GetTaskType() = 0;
+
+    void IncreaseBLockedCount() {
+        blocked_count_++;
+    }
+
+    void DecreaseBLockedCount() {
+        blocked_count_--;
+    }
+
+    int GetBlockedCount() {
+        return blocked_count_;
+    }
+
+    TaskStatus GetTaskStatus() {
+        return task_status_;
+    }
+
+    void SetTaskStatus(TaskStatus task_status) {
+        task_status_ = task_status;
+    }
+
+ private:
+    // Task Status to indicate whether the task is
+    // active, invalid or other status
+    TaskStatus task_status_ = TaskStatus::ACTIVE;
+
+    // How many dependent tasks has been pushed out.
+    // Will be maintained only when a task is not EMPTY
+    int blocked_count_ = 0;
 };
 
 // Erase a specific vid on vertex_map_
@@ -435,26 +468,26 @@ class DependentGCJob : public AbstractGCJob {
     void AddTask(DependentGCTask* task) {
         tasks_.emplace_back(task);
         sum_of_cost_ += task->cost_;
-        sum_blocked_count_ += task->blocked_count_;
+        sum_blocked_count_ += task->GetBlockedCount();
     }
 
     void SetTaskInvalid(DependentGCTask* task) {
-        task->task_status_ = TaskStatus::INVALID;
+        task->SetTaskStatus(TaskStatus::INVALID);
         sum_of_cost_ -= task->cost_;
     }
 
     // Invoked when the task is not longer blocked
     void ReduceTaskBlockCount(DependentGCTask* task) {
-        task->blocked_count_--;
-        if (task->blocked_count_ == 0) {
-            task->task_status_ = TaskStatus::ACTIVE;
+        task->DecreaseBLockedCount();
+        if (task->GetBlockedCount() == 0) {
+            task->SetTaskStatus(TaskStatus::ACTIVE);
         }
 
         sum_blocked_count_--;
     }
 
     void IncreaseTaskBlockCount(DependentGCTask* task) {
-        task->blocked_count_++;
+        task->IncreaseBLockedCount();
         sum_blocked_count_++;
     }
 

@@ -36,6 +36,8 @@ void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
     tail_->cells_[cell_id_in_row].conn_vtx_id = conn_vtx_id;
     tail_->cells_[cell_id_in_row].mvcc_list = mvcc_list;
 
+    // edge_count_ is increased after the new cell is initialized.
+    // Thus, it is impossible to traverse to an uninitialized cell in ReadConnectedVertex() and ReadConnectedEdge()
     edge_count_++;
     pthread_spin_unlock(&lock_);
 }
@@ -141,7 +143,6 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
     MVCCList<EdgeMVCCItem>* mvcc_list = new MVCCList<EdgeMVCCItem>;
     mvcc_list->AppendVersion(trx_id, begin_time)[0] = EdgeVersion(edge_label, ep_row_list_ptr);
 
-    // This won't fail, guaranteed by DataStorage::ProcessAddE
     AllocateCell(is_out, conn_vtx_id, mvcc_list);
 
     return mvcc_list;
@@ -194,7 +195,6 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
         }
 
         cell_ref.mvcc_list->SelfGarbageCollect();
-
         // Do not need to delete mvcc_list, since mvcc_list is still referred by e_map
     }
 
