@@ -488,9 +488,9 @@ struct string_index{
 
 enum Index_T { E_LABEL, E_PROPERTY, V_LABEL, V_PROPERTY };
 
-// Spawn: spawn a new actor
-// Feed: "proxy" feed actor a input
-// Reply: actor returns the intermidiate result to actor
+// Spawn: spawn a new expert
+// Feed: "proxy" feed expert a input
+// Reply: expert returns the intermidiate result to expert
 enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH, EXIT, VALIDATION, COMMIT, ABORT, TERMINATE};
 static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit", "validation", "commit", "abort", "terminate"};
 
@@ -498,13 +498,13 @@ ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 
 obinstream& operator>>(obinstream& m, MSG_T& type);
 
-enum class ACTOR_T : char {
+enum class EXPERT_T : char {
     INIT, ADDE, ADDV, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, CONFIG, COUNT, DEDUP, DROP,
     GROUP, HAS, HASLABEL, INDEX, IS, KEY, LABEL, MATH, ORDER, POSTVALIDATION, PROJECT, PROPERTIES, PROPERTY, RANGE,
     SELECT, TRAVERSAL, VALUES, WHERE, COIN, REPEAT, END, VALIDATION, COMMIT, STATUS
 };
 
-static const char *ActorType[] = {
+static const char *ExpertType[] = {
     "INIT", "ADDE", "ADDV", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "CONFIG", "COUNT", "DEDUP",
     "DROP", "GROUP", "HAS", "HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "POSTVALIDATION",
     "PROJECT", "PROPERTIES", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE" , "COIN", "REPEAT",
@@ -517,11 +517,11 @@ enum class Step_T{
     MEAN, MIN, NOT, OR, ORDER, PROPERTIES, PROPERTY, RANGE, SELECT, SKIP, SUM, TO, UNION, VALUES, WHERE, COIN, REPEAT, STATUS
 };
 
-ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
+ibinstream& operator<<(ibinstream& m, const EXPERT_T& type);
 
-obinstream& operator>>(obinstream& m, ACTOR_T& type);
+obinstream& operator>>(obinstream& m, EXPERT_T& type);
 
-// Enums for actors
+// Enums for experts
 enum Filter_T{ AND, OR, NOT };
 enum Math_T { SUM, MAX, MIN, MEAN };
 enum Element_T{ VERTEX, EDGE };
@@ -550,7 +550,7 @@ struct qid_t{
 
 void uint2qid_t(uint64_t v, qid_t & qid);
 
-// msg key for branch and barrier actors
+// msg key for branch and barrier experts
 struct mkey_t {
     uint64_t qid;    // qid
     uint64_t mid;    // msg id of branch parent
@@ -638,14 +638,14 @@ struct hash<agg_t> {
 };
 }  // namespace std
 
-// Thread_division for actors
-// Cache_Sequential : LabelActor, HasLabelActor, PropertiesActor, ValuesActor, HasActor, KeyActor [1/4 #threads]
-// Cache_Barrier : GroupActor, OrderActor [1/6 #threads]
-// TRAVERSAL : TraversalActor [1/12 #threads]
-// Normal_Barrier : CountActor, AggregateActor, CapActor, DedupActor, MathActor [1/6 #threads]
-// Normal_Branch : RangeActor, CoinActor, BranchFilterActor, BranchActor [1/6 #threads]
-// Normal_Sequential : AsActor, SelectActor, WhereActor, IsActor [1/6 #threads]
-enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
+// Thread_division for experts
+// Cache_Sequential : LabelExpert, HasLabelExpert, PropertiesExpert, ValuesExpert, HasExpert, KeyExpert [1/4 #threads]
+// Cache_Barrier : GroupExpert, OrderExpert [1/6 #threads]
+// TRAVERSAL : TraversalExpert [1/12 #threads]
+// Normal_Barrier : CountExpert, AggregateExpert, CapExpert, DedupExpert, MathExpert [1/6 #threads]
+// Normal_Branch : RangeExpert, CoinExpert, BranchFilterExpert, BranchExpert [1/6 #threads]
+// Normal_Sequential : AsExpert, SelectExpert, WhereExpert, IsExpert [1/6 #threads]
+enum ExpertDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
 enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };
 
 typedef tuple<uint64_t, int, Element_T> rct_extract_data_t;

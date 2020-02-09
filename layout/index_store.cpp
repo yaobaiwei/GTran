@@ -143,7 +143,7 @@ void IndexStore::ReadPropIndex(Element_T type, vector<pair<int, PredicateValue>>
         }
     }
 
-    // Convert all ids from uint64_t to value_t, required by InitActor::InitWithIndex()
+    // Convert all ids from uint64_t to value_t, required by InitExpert::InitWithIndex()
     data.resize(tmp_data.size());
     for (int i = 0; i < tmp_data.size(); i++) {
         Tool::uint64_t2value_t(tmp_data[i], data[i]);
@@ -909,14 +909,14 @@ void IndexStore::build_topo_data() {
     data_storage_->GetAllVertices(0, 0, true, topo_vtx_data);
     end_t = timer::get_usec();
     cout << "[InitData] Got Vertex with size " << topo_vtx_data.size() << endl;
-    cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for Building InitVData in init_actor" << endl;
+    cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for Building InitVData in init_expert" << endl;
 
     start_t = timer::get_usec();
     // Build Edge Init Data
     data_storage_->GetAllEdges(0, 0, true, topo_edge_data);
     end_t = timer::get_usec();
     cout << "[InitData] Got Egde with size " << topo_edge_data.size() << endl;
-    cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for Building InitEData in init_actor" << endl;
+    cout << "[Timer] " << (end_t - start_t) / 1000 << " ms for Building InitEData in init_expert" << endl;
 }
 
 // id: uint64_t(vid), uint64_t(eid)

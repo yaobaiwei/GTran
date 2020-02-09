@@ -142,7 +142,7 @@ void Client::print_set_config_help() {
     cout << "Available options:" << endl;
     cout << "    caching: boolean" << endl;
     cout << "    core_bind: boolean" << endl;
-    cout << "    actor_division: boolean" << endl;
+    cout << "    expert_division: boolean" << endl;
     cout << "    step_reorder: boolean" << endl;
     cout << "    indexing: boolean" << endl;
     cout << "    stealing: boolean" << endl;
@@ -152,7 +152,7 @@ void Client::print_set_config_help() {
     cout << "    iso_level (Not Supported Yet): isolation_level" << endl;
     cout << endl;
     cout << "Example:" << endl;
-    cout << "    gquery -q SetConfig(actor_division,f)" << endl;
+    cout << "    gquery -q SetConfig(expert_division,f)" << endl;
     cout << endl;
 }
 

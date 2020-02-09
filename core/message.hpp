@@ -13,7 +13,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include <string>
 #include <utility>
 
-#include "actor/actor_object.hpp"
 #include "base/core_affinity.hpp"
 #include "base/node.hpp"
 #include "base/serialization.hpp"
@@ -21,6 +20,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/predicate.hpp"
 #include "core/exec_plan.hpp"
 #include "core/id_mapper.hpp"
+#include "expert/expert_object.hpp"
 
 #define TEN_MB 1048576
 
@@ -126,27 +126,27 @@ class Message {
     void CreateBroadcastMsg(MSG_T type, int nodes_num, vector<Message>& vec);
 
     // Processing stage abort
-    // Send to end actor directly
-    void CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec, string abort_info = "");
+    // Send to end expert directly
+    void CreateAbortMsg(const vector<Expert_Object>& experts, vector<Message> & vec, string abort_info = "");
 
-    // actors:  actors chain for current message
-    // data:    new data processed by actor_type
+    // experts:  experts chain for current message
+    // data:    new data processed by expert_type
     // vec:     messages to be send
     // mapper:  function that maps value_t to particular machine, default NULL
-    void CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
+    void CreateNextMsg(const vector<Expert_Object>& experts, vector<pair<history_t, vector<value_t>>>& data,
                     int num_thread, CoreAffinity* core_affinity, vector<Message>& vec);
 
-    // actors:  actors chain for current message
+    // experts:  experts chain for current message
     // stpes:   branching steps
     // vec:     messages to be send
-    void CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>& steps, int num_thread,
+    void CreateBranchedMsg(const vector<Expert_Object>& experts, vector<int>& steps, int num_thread,
                         CoreAffinity* core_affinity, vector<Message>& vec);
 
-    // actors:  actors chain for current message
+    // experts:  experts chain for current message
     // stpes:   branching steps
-    // msg_id:  assigned by actor to indicate parent msg
+    // msg_id:  assigned by expert to indicate parent msg
     // vec:     messages to be send
-    void CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id,
+    void CreateBranchedMsgWithHisLabel(const vector<Expert_Object>& experts, vector<int>& steps, uint64_t msg_id,
                             int num_thread, CoreAffinity* core_affinity, vector<Message>& vec);
 
     // create Feed msg
@@ -157,19 +157,19 @@ class Message {
 
  private:
     // dispatch input data to different node
-    void DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
+    void DispatchData(Meta& m, const vector<Expert_Object>& experts, vector<pair<history_t, vector<value_t>>>& data,
                     int num_thread, CoreAffinity * core_affinity, vector<Message>& vec);
-    // update route to next actor
-    bool UpdateRoute(Meta& m, const vector<Actor_Object>& actors);
-    // update route to barrier or labelled branch actors for msg collection
-    bool UpdateCollectionRoute(Meta& m, const vector<Actor_Object>& actors);
+    // update route to next expert
+    bool UpdateRoute(Meta& m, const vector<Expert_Object>& experts);
+    // update route to barrier or labelled branch experts for msg collection
+    bool UpdateCollectionRoute(Meta& m, const vector<Expert_Object>& experts);
     // get the node where vertex or edge is stored
     static int GetNodeId(const value_t & v, SimpleIdMapper * id_mapper, bool consider_both_edge = false);
-    // Redistribute params of actors according to data locality
+    // Redistribute params of experts according to data locality
     static void AssignParamsByLocality(vector<QueryPlan>& qplans);
 
     // Construct EdgeID for AddE
-    static void ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj);
+    static void ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, const Expert_Object & expert_obj);
     static void GenerateEdgeWithData(vector<pair<history_t, vector<value_t>>> & data, AddEdgeMethodType method_type, int step_param, bool isFrom);
     static void GenerateEdgeWithHistory(vector<pair<history_t, vector<value_t>>> & data, int step_param, int other_end_vid, bool isFrom);
     static void GenerateEdgeWithBothHistory(vector<pair<history_t, vector<value_t>>> & data, int from_label, int to_label);

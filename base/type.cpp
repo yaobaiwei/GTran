@@ -290,16 +290,16 @@ obinstream& operator>>(obinstream& m, MSG_T& type) {
     return m;
 }
 
-ibinstream& operator<<(ibinstream& m, const ACTOR_T& type) {
+ibinstream& operator<<(ibinstream& m, const EXPERT_T& type) {
     int t = static_cast<int>(type);
     m << t;
     return m;
 }
 
-obinstream& operator>>(obinstream& m, ACTOR_T& type) {
+obinstream& operator>>(obinstream& m, EXPERT_T& type) {
     int tmp;
     m >> tmp;
-    type = static_cast<ACTOR_T>(tmp);
+    type = static_cast<EXPERT_T>(tmp);
     return m;
 }
 

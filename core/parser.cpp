@@ -77,7 +77,7 @@ bool ParserObject::Parse(const string& trx_input, TrxPlan& plan, string& error_m
     for (string& line : lines) {
         Tool::trim(line, " ");
         plan.deps_count_[line_index] = 0;
-        if (!ParseLine(line, plan.query_plans_[line_index].actors, error_msg)) {
+        if (!ParseLine(line, plan.query_plans_[line_index].experts, error_msg)) {
             return false;
         }
 
@@ -98,13 +98,13 @@ bool ParserObject::Parse(const string& trx_input, TrxPlan& plan, string& error_m
         line_index++;
     }
 
-    // Add validation actor and finish actor (commit or abort)
+    // Add validation expert and finish expert (commit or abort)
     AddCommitStatement(plan);
 
     return true;
 }
 
-bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, string& error_msg) {
+bool ParserObject::ParseLine(const string& line, vector<Expert_Object>& vec, string& error_msg) {
     ClearQuery();
     bool build_index = false;
     bool set_config = false;
@@ -153,11 +153,11 @@ bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, stri
     }
 
     int i = 0;
-    for (auto& actor : actors_) {
-        if (actor.actor_type == ACTOR_T::ADDE) {
-            // Need to check addE actor params
-            AddEdgeMethodType fromType = Tool::value_t2int(actor.params[1]);
-            AddEdgeMethodType toType = Tool::value_t2int(actor.params[3]);
+    for (auto& expert : experts_) {
+        if (expert.expert_type == EXPERT_T::ADDE) {
+            // Need to check addE expert params
+            AddEdgeMethodType fromType = Tool::value_t2int(expert.params[1]);
+            AddEdgeMethodType toType = Tool::value_t2int(expert.params[3]);
             int count = 0;
             // No from/to = 0, both with placeholer = 4
             if (fromType != AddEdgeMethodType::NotApplicable) {
@@ -176,11 +176,11 @@ bool ParserObject::ParseLine(const string& line, vector<Actor_Object>& vec, stri
                 return false;
             }
         }
-        vec.push_back(move(actor));
+        vec.push_back(move(expert));
         i++;
     }
 
-    vec.emplace_back(ACTOR_T::END);
+    vec.emplace_back(EXPERT_T::END);
 
     return true;
 }
@@ -316,7 +316,7 @@ void ParserObject::ParseIndex(const string& param) {
         throw ParserException("expect 2 parameters");
     }
 
-    Actor_Object actor(ACTOR_T::INDEX);
+    Expert_Object expert(EXPERT_T::INDEX);
 
     Element_T type;
     if (params[1] == "V") {
@@ -335,9 +335,9 @@ void ParserObject::ParseIndex(const string& param) {
         throw ParserException("unexpected property key: " + params[2] + ", expected is " + ExpectedKey(false));
     }
 
-    actor.AddParam(type);
-    actor.AddParam(property_key);
-    AppendActor(actor);
+    expert.AddParam(type);
+    expert.AddParam(property_key);
+    AppendExpert(expert);
     is_read_only_ = false;
 }
 
@@ -348,35 +348,35 @@ void ParserObject::ParseSetConfig(const string& param) {
         throw ParserException("expect 2 parameters");
     }
 
-    Actor_Object actor(ACTOR_T::CONFIG);
+    Expert_Object expert(EXPERT_T::CONFIG);
 
     Tool::trim(params[1], "\"");
     Tool::trim(params[2], "\"");
 
     value_t v;
     Tool::str2str(params[1], v);
-    actor.params.push_back(v);
+    expert.params.push_back(v);
 
     bool enable;
     if (params[2] == "enable"
         || params[2][0] == 'y'
         || params[2][0] == 't') {
             enable = true;
-            actor.AddParam(enable);
+            expert.AddParam(enable);
     } else if (params[2] == "disable"
         || params[2][0] == 'n'
         || params[2][0] == 'f') {
             enable = false;
-            actor.AddParam(enable);
+            expert.AddParam(enable);
     } else if (Tool::checktype(params[2]) == 1 || Tool::checktype(params[2]) == 4) {
         v.content.clear();
         Tool::str2int(params[2], v);
-        actor.params.push_back(v);
+        expert.params.push_back(v);
     } else {
         throw ParserException("expect 'enable' or 'y' or 't'");
     }
 
-    AppendActor(actor);
+    AppendExpert(expert);
     is_read_only_ = false;
 }
 
@@ -387,15 +387,15 @@ void ParserObject::ParseDisplayStatus(const string& param) {
         throw ParserException("expect 1 parameter");
     }
 
-    Actor_Object actor(ACTOR_T::STATUS);
+    Expert_Object expert(EXPERT_T::STATUS);
 
     Tool::trim(params[1], "\"");
 
     value_t v;
     Tool::str2str(params[1], v);
-    actor.params.push_back(v);
+    expert.params.push_back(v);
 
-    AppendActor(actor);
+    AppendExpert(expert);
     is_read_only_ = false;
 }
 
@@ -407,12 +407,12 @@ void ParserObject::ParseQuery(const string& query) {
     // Optimization
     ReOrderSteps(tokens);
 
-    // Parse steps to actors_
+    // Parse steps to experts_
     ParseSteps(tokens);
 }
 
 void ParserObject::ClearTrx() {
-    actor_index = 0;
+    expert_index = 0;
     line_index = 0;
     side_effect_key = 0;
     last_update = -1;
@@ -420,7 +420,7 @@ void ParserObject::ClearTrx() {
 }
 
 void ParserObject::ClearQuery() {
-    actors_.clear();
+    experts_.clear();
     index_count_.clear();
     str2ls_.clear();
     ls2type_.clear();
@@ -430,32 +430,32 @@ void ParserObject::ClearQuery() {
     is_read_only_ = true;
 }
 
-void ParserObject::AppendActor(Actor_Object& actor) {
-    actor.next_actor = actors_.size() + 1;
-    actor.index = actor_index++;
-    actors_.push_back(move(actor));
+void ParserObject::AppendExpert(Expert_Object& expert) {
+    expert.next_expert = experts_.size() + 1;
+    expert.index = expert_index++;
+    experts_.push_back(move(expert));
 }
 
-void ParserObject::RemoveLastActor() {
-    actors_.erase(actors_.end() - 1);
-    actor_index--;
+void ParserObject::RemoveLastExpert() {
+    experts_.erase(experts_.end() - 1);
+    expert_index--;
 }
 
-bool ParserObject::CheckLastActor(ACTOR_T type) {
-    int current = actors_.size();
-    int itr = actors_.size() - 1;
+bool ParserObject::CheckLastExpert(EXPERT_T type) {
+    int current = experts_.size();
+    int itr = experts_.size() - 1;
 
-    // not actor in sub query
+    // not expert in sub query
     if (itr < first_in_sub_) {
         return false;
     }
 
-    // find last actor
-    while (actors_[itr].next_actor != current) {
-        itr = actors_[itr].next_actor;
+    // find last expert
+    while (experts_[itr].next_expert != current) {
+        itr = experts_[itr].next_expert;
     }
 
-    return actors_[itr].actor_type == type;
+    return experts_[itr].expert_type == type;
 }
 
 bool ParserObject::CheckIfQuery(const string& param) {
@@ -619,7 +619,7 @@ void ParserObject::ReOrderSteps(vector<pair<Step_T, string>>& tokens) {
                     if (checkAs && tokens[j].first == Step_T::AS) {
                         break;
                     } else if (GetStepPriority(tokens[j].first) > priority) {
-                        // move current actor forward
+                        // move current expert forward
                         swap(tokens[current], tokens[j]);
                         current = j;
                     } else {
@@ -638,88 +638,88 @@ void ParserObject::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
         SplitParam(stepToken.second, params);
 
         switch (type) {
-          // AddE Actor
+          // AddE Expert
           case Step_T::ADDE:
             ParseAddE(params); break;
           case Step_T::FROM: case Step_T::TO:
             ParseFromTo(params, type); break;
-          // AddV Actor:
+          // AddV Expert:
           case Step_T::ADDV:
             ParseAddV(params); break;
-          // AggregateActor
+          // AggregateExpert
           case Step_T::AGGREGATE:
             ParseAggregate(params); break;
-          // As Actor
+          // As Expert
           case Step_T::AS:
             ParseAs(params); break;
-          // Branch ActorsW
+          // Branch ExpertsW
           case Step_T::UNION:
             ParseBranch(params); break;
-          // BranchFilter Actors
+          // BranchFilter Experts
           case Step_T::AND:case Step_T::NOT:case Step_T::OR:
             ParseBranchFilter(params, type); break;
-          // Cap Actor
+          // Cap Expert
           case Step_T::CAP:
             ParseCap(params); break;
-          // Count Actor
+          // Count Expert
           case Step_T::COUNT:
             ParseCount(params); break;
-          // Dedup Actor
+          // Dedup Expert
           case Step_T::DEDUP:
             ParseDedup(params); break;
-          // Drop Actor
+          // Drop Expert
           case Step_T::DROP:
             ParseDrop(params); break;
-          // Group Actor
+          // Group Expert
           case Step_T::GROUP:case Step_T::GROUPCOUNT:
             ParseGroup(params, type); break;
-          // Has Actors
+          // Has Experts
           case Step_T::HAS:case Step_T::HASKEY:case Step_T::HASVALUE:case Step_T::HASNOT:
             ParseHas(params, type); break;
-          // HasLabel Actors
+          // HasLabel Experts
           case Step_T::HASLABEL:
             ParseHasLabel(params); break;
-          // Is Actor
+          // Is Expert
           case Step_T::IS:
             ParseIs(params); break;
-          // Key Actor
+          // Key Expert
           case Step_T::KEY:
             ParseKey(params); break;
-          // Label Actor
+          // Label Expert
           case Step_T::LABEL:
             ParseLabel(params); break;
-          // Math Actor
+          // Math Expert
           case Step_T::MAX:case Step_T::MEAN:case Step_T::MIN:case Step_T::SUM:
             ParseMath(params, type); break;
-          // Order Actor
+          // Order Expert
           case Step_T::ORDER:
             ParseOrder(params); break;
-          // Properties Actor
+          // Properties Expert
           case Step_T::PROPERTIES:
             ParseProperties(params); break;
-          // Property Actor
+          // Property Expert
           case Step_T::PROPERTY:
             ParseProperty(params); break;
-          // Range Actor
+          // Range Expert
           case Step_T::LIMIT:case Step_T::RANGE:case Step_T::SKIP:
             ParseRange(params, type); break;
-          // Coin Actor
+          // Coin Expert
           case Step_T::COIN:
             ParseCoin(params); break;
-          // Repeat Actor
+          // Repeat Expert
           case Step_T::REPEAT:
             ParseRepeat(params); break;
-          // Select Actor
+          // Select Expert
           case Step_T::SELECT:
             ParseSelect(params); break;
-          // Traversal Actors
+          // Traversal Experts
           case Step_T::IN:case Step_T::OUT:case Step_T::BOTH:case Step_T::INE:case Step_T::OUTE:
           case Step_T::BOTHE:case Step_T::INV:case Step_T::OUTV:case Step_T::BOTHV:
             ParseTraversal(params, type); break;
-          // Values Actor
+          // Values Expert
           case Step_T::VALUES:
             ParseValues(params); break;
-          // Where Actor
+          // Where Expert
           case Step_T::WHERE:
             ParseWhere(params); break;
           default:throw ParserException("Unexpected step");
@@ -728,7 +728,7 @@ void ParserObject::ParseSteps(const vector<pair<Step_T, string>>& tokens) {
 }
 
 void ParserObject::ParseSub(const vector<string>& params, int current, bool filterBranch) {
-    int sub_step = actors_.size();
+    int sub_step = experts_.size();
     IO_T current_type = io_type_;
     IO_T sub_type;
     bool first = true;
@@ -737,9 +737,9 @@ void ParserObject::ParseSub(const vector<string>& params, int current, bool filt
     for (const string &sub : params) {
         // restore input type before parsing next sub query
         io_type_ = current_type;
-        first_in_sub_ = actors_.size();
+        first_in_sub_ = experts_.size();
 
-        // Parse sub-query and add to actors_ list
+        // Parse sub-query and add to experts_ list
         ParseQuery(sub);
 
         // check sub query type
@@ -750,28 +750,28 @@ void ParserObject::ParseSub(const vector<string>& params, int current, bool filt
             throw ParserException("expect same output type in sub queries");
         }
 
-        // update sub_step of branch actor
-        actors_[current].AddParam(sub_step);
+        // update sub_step of branch expert
+        experts_[current].AddParam(sub_step);
 
-        sub_step = actors_.size() - 1;
+        sub_step = experts_.size() - 1;
 
-        // update the last actor of sub query
+        // update the last expert of sub query
         int last_of_branch = sub_step;
         sub_step++;
-        while (actors_[last_of_branch].next_actor != sub_step) {
-            last_of_branch = actors_[last_of_branch].next_actor;
+        while (experts_[last_of_branch].next_expert != sub_step) {
+            last_of_branch = experts_[last_of_branch].next_expert;
         }
-        actors_[last_of_branch].next_actor = current;
+        experts_[last_of_branch].next_expert = current;
     }
-    // update next step of branch actor
-    actors_[current].next_actor = sub_step;
+    // update next step of branch expert
+    experts_[current].next_expert = sub_step;
     if (filterBranch) {
-        io_type_ = current_type;        // restore type for filtering actor
+        io_type_ = current_type;        // restore type for filtering expert
     }
     first_in_sub_ = m_first_in_sub;
 }
 
-void ParserObject::ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey) {
+void ParserObject::ParsePredicate(string& param, uint8_t type, Expert_Object& expert, bool toKey) {
     Predicate_T pred_type;
     value_t pred_param;
     vector<string> pred_params;
@@ -825,14 +825,14 @@ void ParserObject::ParsePredicate(string& param, uint8_t type, Actor_Object& act
         break;
     }
 
-    actor.AddParam(pred_type);
-    actor.params.push_back(pred_param);
+    expert.AddParam(pred_type);
+    expert.params.push_back(pred_param);
 }
 
 void ParserObject::ParseInit(const string& line, string& var_name, string& query) {
-    // @InitActor params: (Element_T type, bool with_input, uint64_t [vids/eids] )
+    // @InitExpert params: (Element_T type, bool with_input, uint64_t [vids/eids] )
     // o_type = E/V
-    Actor_Object actor(ACTOR_T::INIT);
+    Expert_Object expert(EXPERT_T::INIT);
 
     // Check "=" sign , extract return variable name and query string
     std::size_t idx = line.find("=");
@@ -888,15 +888,15 @@ void ParserObject::ParseInit(const string& line, string& var_name, string& query
         throw ParserException("Unexpected query ending with '" + query + "''");
     }
 
-    actor.AddParam(element_type);
-    actor.AddParam(with_input);
-    AppendActor(actor);
+    expert.AddParam(element_type);
+    expert.AddParam(with_input);
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseAddE(const vector<string>& params) {
-    //@ AddEActor params: (int label, AddEdgeMethodType type, value_t labelKey/src_vid, AddEdgeMethodType type, value_t labelKey/dst_vid)
+    //@ AddEExpert params: (int label, AddEdgeMethodType type, value_t labelKey/src_vid, AddEdgeMethodType type, value_t labelKey/dst_vid)
     //  i_type = Vertex, o_type = Edge
-    Actor_Object actor(ACTOR_T::ADDE);
+    Expert_Object expert(EXPERT_T::ADDE);
     if (params.size() != 1) {
         throw ParserException("expect one parameter for addE");
     }
@@ -911,24 +911,24 @@ void ParserObject::ParseAddE(const vector<string>& params) {
         throw ParserException("unexpected label in addE : " + params[0] + ", expected is " + ExpectedKey(true));
     }
 
-    actor.AddParam(lid);
+    expert.AddParam(lid);
     // Add default value for rest params
-    actor.AddParam(AddEdgeMethodType::NotApplicable);
-    actor.params.emplace_back();
-    actor.AddParam(AddEdgeMethodType::NotApplicable);
-    actor.params.emplace_back();
+    expert.AddParam(AddEdgeMethodType::NotApplicable);
+    expert.params.emplace_back();
+    expert.AddParam(AddEdgeMethodType::NotApplicable);
+    expert.params.emplace_back();
 
-    AppendActor(actor);
+    AppendExpert(expert);
     trx_plan->trx_type_ |= TRX_ADD;
     is_read_only_ = false;
 }
 
 void ParserObject::ParseFromTo(const vector<string>& params, Step_T type) {
-    // Append params to AddE Actor
-    if (!CheckLastActor(ACTOR_T::ADDE)) {
+    // Append params to AddE Expert
+    if (!CheckLastExpert(EXPERT_T::ADDE)) {
         throw ParserException("expect 'addE()' before from/to");
     }
-    Actor_Object &actor = actors_[actors_.size() - 1];
+    Expert_Object &expert = experts_[experts_.size() - 1];
 
     int param_index;
     switch (type) {
@@ -944,19 +944,19 @@ void ParserObject::ParseFromTo(const vector<string>& params, Step_T type) {
         isLabelStep = true;
         labelKey = str2ls_[params[0]];
     } else if (place_holder.count(params[0]) != 0) {
-        RegPlaceHolder(params[0], actors_.size() - 1, param_index + 1, IO_T::VERTEX);
+        RegPlaceHolder(params[0], experts_.size() - 1, param_index + 1, IO_T::VERTEX);
     } else {
         throw ParserException("unexpected varaiable " + params[0]);
     }
 
-    actor.ModifyParam(isLabelStep ? AddEdgeMethodType::StepLabel : AddEdgeMethodType::PlaceHolder, param_index);
-    actor.ModifyParam(labelKey, param_index + 1);
+    expert.ModifyParam(isLabelStep ? AddEdgeMethodType::StepLabel : AddEdgeMethodType::PlaceHolder, param_index);
+    expert.ModifyParam(labelKey, param_index + 1);
 }
 
 void ParserObject::ParseAddV(const vector<string>& params) {
-    //@ AddVActor params: (int label)
+    //@ AddVExpert params: (int label)
     //  i_type = any, o_type = Vertex
-    Actor_Object actor(ACTOR_T::ADDV);
+    Expert_Object expert(EXPERT_T::ADDV);
     if (params.size() != 1) {
         throw ParserException("expect one parameter for addV");
     }
@@ -967,16 +967,16 @@ void ParserObject::ParseAddV(const vector<string>& params) {
         throw ParserException("unexpected label in addV : " + params[0] + ", expected is " + ExpectedKey(true));
     }
 
-    actor.AddParam(lid);
-    AppendActor(actor);
+    expert.AddParam(lid);
+    AppendExpert(expert);
     trx_plan->trx_type_ |= TRX_ADD;
     is_read_only_ = false;
 }
 
 void ParserObject::ParseAggregate(const vector<string>& params) {
-    //@ AggregateActor params: (int side_effect_key)
+    //@ AggregateExpert params: (int side_effect_key)
     //  i_type = o_type = any
-    Actor_Object actor(ACTOR_T::AGGREGATE);
+    Expert_Object expert(EXPERT_T::AGGREGATE);
     if (params.size() != 1) {
         throw ParserException("expect one parameter for aggregate");
     }
@@ -986,16 +986,16 @@ void ParserObject::ParseAggregate(const vector<string>& params) {
     if (str2se_.count(key) == 0) {
         str2se_[key] = side_effect_key++;
     }
-    actor.AddParam(str2se_[key]);
-    actor.send_remote = IsElement();
+    expert.AddParam(str2se_[key]);
+    expert.send_remote = IsElement();
 
-    AppendActor(actor);
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseAs(const vector<string>& params) {
-    //@ AsActor params: (int label_step_key)
+    //@ AsExpert params: (int label_step_key)
     //  i_type = o_type = any
-    Actor_Object actor(ACTOR_T::AS);
+    Expert_Object expert(EXPERT_T::AS);
     if (params.size() != 1) {
         throw ParserException("expect one parameter for as");
     }
@@ -1005,35 +1005,35 @@ void ParserObject::ParseAs(const vector<string>& params) {
     if (str2ls_.count(key) != 0) {
         throw ParserException("duplicated key: " + key);
     }
-    int ls_id = actors_.size();
+    int ls_id = experts_.size();
     str2ls_[key] = ls_id;
-    actor.AddParam(ls_id);
+    expert.AddParam(ls_id);
 
     // store output type of label step
     ls2type_[ls_id] = io_type_;
 
-    AppendActor(actor);
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseBranch(const vector<string>& params) {
-    // @BranchActor params: (int sub_steps, ...)
+    // @BranchExpert params: (int sub_steps, ...)
     //  i_type = any, o_type = subquery->o_type
-    Actor_Object actor(ACTOR_T::BRANCH);
+    Expert_Object expert(EXPERT_T::BRANCH);
     if (params.size() < 1) {
         throw ParserException("expect at least one parameter for branch");
     }
 
-    int current = actors_.size();
-    AppendActor(actor);
+    int current = experts_.size();
+    AppendExpert(expert);
 
     // Parse sub query
     ParseSub(params, current, false);
 }
 
 void ParserObject::ParseBranchFilter(const vector<string>& params, Step_T type) {
-    // @BranchFilterActor params: (Filter_T filterType, int sub_steps, ...)
+    // @BranchFilterExpert params: (Filter_T filterType, int sub_steps, ...)
     //  i_type = o_type
-    Actor_Object actor(ACTOR_T::BRANCHFILTER);
+    Expert_Object expert(EXPERT_T::BRANCHFILTER);
     if (params.size() < 1) {
         throw ParserException("expect at least one parameter for branch filter");
     }
@@ -1045,19 +1045,19 @@ void ParserObject::ParseBranchFilter(const vector<string>& params, Step_T type) 
       case Step_T::NOT:    filterType = Filter_T::NOT; break;
       default:    throw ParserException("unexpected error");
     }
-    actor.AddParam(filterType);
+    expert.AddParam(filterType);
 
-    int current = actors_.size();
-    AppendActor(actor);
+    int current = experts_.size();
+    AppendExpert(expert);
 
     // Parse sub query
     ParseSub(params, current, true);
 }
 
 void ParserObject::ParseCap(const vector<string>& params) {
-    //@ CapsActor params: ([int side_effect_key, string side_effect_string]...)
+    //@ CapsExpert params: ([int side_effect_key, string side_effect_string]...)
     //  i_type = any, o_type = collection
-    Actor_Object actor(ACTOR_T::CAP);
+    Expert_Object expert(EXPERT_T::CAP);
     if (params.size() < 1) {
         throw ParserException("expect at least one parameter for cap");
     }
@@ -1067,48 +1067,48 @@ void ParserObject::ParseCap(const vector<string>& params) {
         if (str2se_.count(key) == 0) {
             throw ParserException("unexpected key in cap: " + key);
         }
-        actor.AddParam(str2se_[key]);
-        actor.AddParam(key);
+        expert.AddParam(str2se_[key]);
+        expert.AddParam(key);
     }
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = COLLECTION;
 }
 
 void ParserObject::ParseCount(const vector<string>& params) {
-    //@ CountActor params: ()
+    //@ CountExpert params: ()
     //  i_type = any, o_type = int
-    Actor_Object actor(ACTOR_T::COUNT);
+    Expert_Object expert(EXPERT_T::COUNT);
     if (params.size() != 0) {
         throw ParserException("expect no parameter for count");
     }
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = IO_T::INT;
 }
 
 void ParserObject::ParseDedup(const vector<string>& params) {
-    //@ DedupActor params: (int label_step_key...)
+    //@ DedupExpert params: (int label_step_key...)
     //  i_type = o_type = any
-    Actor_Object actor(ACTOR_T::DEDUP);
+    Expert_Object expert(EXPERT_T::DEDUP);
     for (string key : params) {
         // get label step key id by string
         if (str2ls_.count(key) == 0) {
             throw ParserException("unexpected key in dedup: " + key);
         }
-        actor.AddParam(str2ls_[key]);
+        expert.AddParam(str2ls_[key]);
     }
 
-    actor.send_remote = IsElement();
-    AppendActor(actor);
+    expert.send_remote = IsElement();
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseDrop(const vector<string>& params) {
-    //@ DropActor params: (Element_T element_type, bool isProperty)
+    //@ DropExpert params: (Element_T element_type, bool isProperty)
     if (params.size() != 0) {
         throw ParserException("expect no param in drop");
     }
-    Actor_Object actor(ACTOR_T::DROP);
+    Expert_Object expert(EXPERT_T::DROP);
     Element_T element_type;
     bool isProperty = false;
     switch (io_type_) {
@@ -1119,16 +1119,16 @@ void ParserObject::ParseDrop(const vector<string>& params) {
       default:
         throw ParserException("Unexpected input type before drop");
     }
-    actor.AddParam(element_type);
-    actor.AddParam(isProperty);
-    AppendActor(actor);
+    expert.AddParam(element_type);
+    expert.AddParam(isProperty);
+    AppendExpert(expert);
 
-    // For Vertex, ConnectedEdge need one more actor to handle
+    // For Vertex, ConnectedEdge need one more expert to handle
     if (io_type_ == IO_T::VERTEX) {
-        Actor_Object next_actor(ACTOR_T::DROP);
-        next_actor.AddParam(Element_T::EDGE);
-        next_actor.AddParam(false);
-        AppendActor(next_actor);
+        Expert_Object next_expert(EXPERT_T::DROP);
+        next_expert.AddParam(Element_T::EDGE);
+        next_expert.AddParam(false);
+        AppendExpert(next_expert);
     }
 
     trx_plan->trx_type_ |= TRX_DELETE;
@@ -1136,15 +1136,15 @@ void ParserObject::ParseDrop(const vector<string>& params) {
 }
 
 void ParserObject::ParseGroup(const vector<string>& params, Step_T type) {
-    //@ GroupActor params: (bool isCount, Element_T type, int label_step_key)
+    //@ GroupExpert params: (bool isCount, Element_T type, int label_step_key)
     //  i_type = any, o_type = collection
-    Actor_Object actor(ACTOR_T::GROUP);
+    Expert_Object expert(EXPERT_T::GROUP);
     if (params.size() > 2) {
         throw ParserException("expect at most two params in group");
     }
 
     int isCount = type == Step_T::GROUPCOUNT;
-    actor.AddParam(isCount);
+    expert.AddParam(isCount);
 
     Element_T element_type;
     int ls_key = -1;
@@ -1163,18 +1163,18 @@ void ParserObject::ParseGroup(const vector<string>& params, Step_T type) {
                 proj_key[i] = 0;
             }
         }
-        ls_key = actors_.size();
+        ls_key = experts_.size();
         ParseProject(element_type, proj_key[0], proj_key[1]);
     }
 
-    actor.AddParam(ls_key);
+    expert.AddParam(ls_key);
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = COLLECTION;
 }
 
 void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
-    //@ HasActor params: (Element_T type, [int pid, Predicate_T  p_type, vector values]...)
+    //@ HasExpert params: (Element_T type, [int pid, Predicate_T  p_type, vector values]...)
     //  i_type = o_type = VERTX/EDGE
     if (params.size() < 1) {
         throw ParserException("expect at least one param for has");
@@ -1185,12 +1185,12 @@ void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
         throw ParserException("expect vertex/edge input for has");
     }
 
-    if (!CheckLastActor(ACTOR_T::HAS)) {
-        Actor_Object tmp(ACTOR_T::HAS);
+    if (!CheckLastExpert(EXPERT_T::HAS)) {
+        Expert_Object tmp(EXPERT_T::HAS);
         tmp.AddParam(element_type);
-        AppendActor(tmp);
+        AppendExpert(tmp);
     }
-    Actor_Object &actor = actors_[actors_.size() - 1];
+    Expert_Object &expert = experts_[experts_.size() - 1];
 
     string pred_param = "";
     int key = 0;
@@ -1213,8 +1213,8 @@ void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
         if (params.size() == 2) {
             pred_param = params[1];
         }
-        actor.AddParam(key);
-        ParsePredicate(pred_param, vtype, actor, false);
+        expert.AddParam(key);
+        ParsePredicate(pred_param, vtype, expert, false);
         break;
       case Step_T::HASVALUE:
         /*
@@ -1224,9 +1224,9 @@ void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
         */
         key = -1;
         for (string param : params) {
-            actor.AddParam(key);
-            actor.AddParam(Predicate_T::EQ);
-            if (!actor.AddParam(param)) {
+            expert.AddParam(key);
+            expert.AddParam(Predicate_T::EQ);
+            if (!expert.AddParam(param)) {
                 throw ParserException("unexpected value: " + param);
             }
         }
@@ -1244,9 +1244,9 @@ void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
         if (!ParseKeyId(params[0], false, key)) {
             throw ParserException("unexpected key in hasNot : " + params[0] + ", expected is " + ExpectedKey(false));
         }
-        actor.AddParam(key);
-        actor.AddParam(Predicate_T::NONE);
-        actor.AddParam(-1);
+        expert.AddParam(key);
+        expert.AddParam(Predicate_T::NONE);
+        expert.AddParam(-1);
         break;
       case Step_T::HASKEY:
         /*
@@ -1261,44 +1261,44 @@ void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
             throw ParserException("unexpected key in hasKey : " + params[0] + ", expected is " + ExpectedKey(false));
         }
 
-        actor.AddParam(key);
-        actor.AddParam(Predicate_T::ANY);
-        actor.AddParam(-1);
+        expert.AddParam(key);
+        expert.AddParam(Predicate_T::ANY);
+        expert.AddParam(-1);
         break;
       default: throw ParserException("unexpected error");
     }
 
-    // When has actor is after init actor
-    if (actors_.size() == 2 && key != -1) {
-        int size = actor.params.size();
-        Predicate_T pred_type = (Predicate_T) Tool::value_t2int(actor.params[size - 2]);
-        PredicateValue pred(pred_type, actor.params[size - 1]);
+    // When has expert is after init expert
+    if (experts_.size() == 2 && key != -1) {
+        int size = expert.params.size();
+        Predicate_T pred_type = (Predicate_T) Tool::value_t2int(expert.params[size - 2]);
+        PredicateValue pred(pred_type, expert.params[size - 1]);
 
         uint64_t count = 0;
         bool enabled = parser_->index_store->IsIndexEnabled(element_type, key, &pred, &count);
 
         if (enabled && count / index_ratio < min_count_) {
-            Actor_Object &init_actor = actors_[0];
-            init_actor.params.insert(init_actor.params.end(),
-                                    make_move_iterator(actor.params.end() - 3),
-                                    make_move_iterator(actor.params.end()));
-            actor.params.resize(actor.params.size() - 3);
+            Expert_Object &init_expert = experts_[0];
+            init_expert.params.insert(init_expert.params.end(),
+                                    make_move_iterator(expert.params.end() - 3),
+                                    make_move_iterator(expert.params.end()));
+            expert.params.resize(expert.params.size() - 3);
 
             // update min_count
             if (count < min_count_) {
                 min_count_ = count;
 
-                // remove all predicate with large count from init actor
+                // remove all predicate with large count from init expert
                 int i = 0;
                 for (auto itr = index_count_.begin(); itr != index_count_.end();) {
                     if (*itr / index_ratio >= min_count_) {
                         itr = index_count_.erase(itr);
                         int first = 1 + 3 * i;
-                        move(init_actor.params.begin() + first,
-                            init_actor.params.begin() + first + 3,
-                            back_inserter(actor.params));
-                        init_actor.params.erase(init_actor.params.begin() + first,
-                                                init_actor.params.begin() + first + 3);
+                        move(init_expert.params.begin() + first,
+                            init_expert.params.begin() + first + 3,
+                            back_inserter(expert.params));
+                        init_expert.params.erase(init_expert.params.begin() + first,
+                                                init_expert.params.begin() + first + 3);
                     } else {
                         itr++;
                         i++;
@@ -1307,16 +1307,16 @@ void ParserObject::ParseHas(const vector<string>& params, Step_T type) {
             }
 
             index_count_.push_back(count);
-            // no predicate in has actor params
-            if (actor.params.size() == 1) {
-                RemoveLastActor();
+            // no predicate in has expert params
+            if (expert.params.size() == 1) {
+                RemoveLastExpert();
             }
         }
     }
 }
 
 void ParserObject::ParseHasLabel(const vector<string>& params) {
-    //@ HasLabelActor params: (Element_T type, int lid...)
+    //@ HasLabelExpert params: (Element_T type, int lid...)
     //  i_type = o_type = VERTX/EDGE
     if (params.size() < 1) {
         throw ParserException("expect at least one param for hasLabel");
@@ -1327,46 +1327,46 @@ void ParserObject::ParseHasLabel(const vector<string>& params) {
         throw ParserException("expect vertex/edge input for hasLabel");
     }
 
-    if (!CheckLastActor(ACTOR_T::HASLABEL)) {
-        Actor_Object tmp(ACTOR_T::HASLABEL);
+    if (!CheckLastExpert(EXPERT_T::HASLABEL)) {
+        Expert_Object tmp(EXPERT_T::HASLABEL);
         tmp.AddParam(element_type);
-        AppendActor(tmp);
+        AppendExpert(tmp);
     }
-    Actor_Object &actor = actors_[actors_.size() - 1];
+    Expert_Object &expert = experts_[experts_.size() - 1];
 
     int lid;
     for (auto& param : params) {
         if (!ParseKeyId(param, true, lid)) {
             throw ParserException("unexpected label in hasLabel : " + param + ", expected is " + ExpectedKey(true));
         }
-        actor.AddParam(lid);
+        expert.AddParam(lid);
     }
 
-    // When hasLabel actor is after init actor
-    if (actors_.size() == 2) {
+    // When hasLabel expert is after init expert
+    if (experts_.size() == 2) {
         // if index_enabled
         Predicate_T pred_type = Predicate_T::WITHIN;
-        vector<value_t> pred_params = actor.params;
+        vector<value_t> pred_params = expert.params;
         pred_params.erase(pred_params.begin());
         PredicateValue pred(pred_type, pred_params);
 
         uint64_t count = 0;
         if (parser_->index_store->IsIndexEnabled(element_type, 0, &pred, &count)) {
-            RemoveLastActor();
+            RemoveLastExpert();
 
             value_t v;
             Tool::vec2value_t(pred_params, v);
-            // add params to init actor
-            Actor_Object &init_actor = actors_[0];
-            init_actor.AddParam(0);
-            init_actor.AddParam(pred_type);
-            init_actor.params.push_back(v);
+            // add params to init expert
+            Expert_Object &init_expert = experts_[0];
+            init_expert.AddParam(0);
+            init_expert.AddParam(pred_type);
+            init_expert.params.push_back(v);
         }
     }
 }
 
 void ParserObject::ParseIs(const vector<string>& params) {
-    //@ IsActor params: ((Predicate_T  p_type, vector values)...)
+    //@ IsExpert params: ((Predicate_T  p_type, vector values)...)
     //  i_type = o_type = int/double/char/string
     if (params.size() != 1) {
         throw ParserException("expect one param for is");
@@ -1377,20 +1377,20 @@ void ParserObject::ParseIs(const vector<string>& params) {
         throw ParserException("unexpected input type for is");
     }
 
-    if (!CheckLastActor(ACTOR_T::IS)) {
-        Actor_Object tmp(ACTOR_T::IS);
-        AppendActor(tmp);
+    if (!CheckLastExpert(EXPERT_T::IS)) {
+        Expert_Object tmp(EXPERT_T::IS);
+        AppendExpert(tmp);
     }
 
-    Actor_Object &actor = actors_[actors_.size() - 1];
+    Expert_Object &expert = experts_[experts_.size() - 1];
     string param = params[0];
-    ParsePredicate(param, type, actor, false);
+    ParsePredicate(param, type, expert, false);
 }
 
 void ParserObject::ParseKey(const vector<string>& params) {
-    //@ KeyActor params: (Element_T type)
+    //@ KeyExpert params: (Element_T type)
     //  i_type = VERTX/EDGE, o_type = string
-    Actor_Object actor(ACTOR_T::KEY);
+    Expert_Object expert(EXPERT_T::KEY);
     if (params.size() != 0) {
         throw ParserException("expect no parameter for key");
     }
@@ -1399,16 +1399,16 @@ void ParserObject::ParseKey(const vector<string>& params) {
     if (!IsElement(element_type)) {
         throw ParserException("expect vertex/edge input for key");
     }
-    actor.AddParam(element_type);
+    expert.AddParam(element_type);
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = IO_T::STRING;
 }
 
 void ParserObject::ParseLabel(const vector<string>& params) {
-    //@ LabelActor params: (Element_T type)
+    //@ LabelExpert params: (Element_T type)
     //  i_type = VERTX/EDGE, o_type = string
-    Actor_Object actor(ACTOR_T::LABEL);
+    Expert_Object expert(EXPERT_T::LABEL);
     if (params.size() != 0) {
         throw ParserException("expect no parameter for label");
     }
@@ -1417,16 +1417,16 @@ void ParserObject::ParseLabel(const vector<string>& params) {
     if (!IsElement(element_type)) {
         throw ParserException("expect vertex/edge input for label");
     }
-    actor.AddParam(element_type);
+    expert.AddParam(element_type);
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = IO_T::STRING;
 }
 
 void ParserObject::ParseMath(const vector<string>& params, Step_T type) {
-    //@ LabelActor params: (Math_T mathType)
+    //@ LabelExpert params: (Math_T mathType)
     //  i_type = NUMBER, o_type = DOUBLE
-    Actor_Object actor(ACTOR_T::MATH);
+    Expert_Object expert(EXPERT_T::MATH);
     if (params.size() != 0) {
         throw ParserException("expect no parameter for math");
     }
@@ -1443,23 +1443,23 @@ void ParserObject::ParseMath(const vector<string>& params, Step_T type) {
       case Step_T::SUM:    mathType = Math_T::SUM; break;
       default: throw ParserException("unexpected error");
     }
-    actor.AddParam(mathType);
+    expert.AddParam(mathType);
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = IO_T::DOUBLE;
 }
 
 void ParserObject::ParseOrder(const vector<string>& params) {
-    //@ OrderActor params: (Element_T element_type, int label_step_key, Order_T order)
+    //@ OrderExpert params: (Element_T element_type, int label_step_key, Order_T order)
     //  i_type = o_type = any
 
-    Actor_Object actor(ACTOR_T::ORDER);
+    Expert_Object expert(EXPERT_T::ORDER);
     if (params.size() > 2) {
         throw ParserException("expect at most two params in order");
     }
 
     Element_T element_type;
-    int ls_key = -1;  // label step key of project actor, -1 indicating no projection
+    int ls_key = -1;  // label step key of project expert, -1 indicating no projection
     Order_T order = Order_T::INCR;
 
     for (string param : params) {
@@ -1477,37 +1477,37 @@ void ParserObject::ParseOrder(const vector<string>& params) {
                     throw ParserException("no such property key:" + param + ", expected is " + ExpectedKey(false));
                 }
             }
-            ls_key = actors_.size();
+            ls_key = experts_.size();
             ParseProject(element_type, key, -1);
         }
     }
 
-    actor.AddParam(ls_key);  // Label step key of project actor
-    actor.AddParam(order);
-    actor.send_remote = IsElement();
-    AppendActor(actor);
+    expert.AddParam(ls_key);  // Label step key of project expert
+    expert.AddParam(order);
+    expert.send_remote = IsElement();
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseProject(Element_T element_type, int key_id, int value_id) {
-    //@ ProjectActor params: (Element_T type, int key_id, int value_id)
+    //@ ProjectExpert params: (Element_T type, int key_id, int value_id)
     // Project V/E to key value pair according to property id
-    Actor_Object actor(ACTOR_T::PROJECT);
-    actor.AddParam(element_type);
-    actor.AddParam(key_id);
-    actor.AddParam(value_id);
-    AppendActor(actor);
+    Expert_Object expert(EXPERT_T::PROJECT);
+    expert.AddParam(element_type);
+    expert.AddParam(key_id);
+    expert.AddParam(value_id);
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseProperties(const vector<string>& params) {
-    //@ PropertiesActor params: (Element_T type, int pid...)
+    //@ PropertiesExpert params: (Element_T type, int pid...)
     //  i_type = VERTX/EDGE, o_type = COLLECTION
-    Actor_Object actor(ACTOR_T::PROPERTIES);
+    Expert_Object expert(EXPERT_T::PROPERTIES);
 
     Element_T element_type;
     if (!IsElement(element_type)) {
         throw ParserException("expect vertex/edge input for properties");
     }
-    actor.AddParam(element_type);
+    expert.AddParam(element_type);
 
     int key;
     for (string param : params) {
@@ -1515,17 +1515,17 @@ void ParserObject::ParseProperties(const vector<string>& params) {
             throw ParserException("unexpected key in ParseProperties: " + param +
                                 ", expected is " + ExpectedKey(false));
         }
-        actor.AddParam(key);
+        expert.AddParam(key);
     }
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = (element_type == Element_T::VERTEX) ? IO_T::VP : IO_T::EP;
 }
 
 void ParserObject::ParseProperty(const vector<string>& params) {
-    //@ RangeActor params: (Element_T element_type, int pid, value_t value)
+    //@ RangeExpert params: (Element_T element_type, int pid, value_t value)
     //  i_type = o_type = Vertex/Edge
-    Actor_Object actor(ACTOR_T::PROPERTY);
+    Expert_Object expert(EXPERT_T::PROPERTY);
 
     if (params.size() != 2) {
         throw ParserException("expect two params for property");
@@ -1535,7 +1535,7 @@ void ParserObject::ParseProperty(const vector<string>& params) {
     if (!IsElement(element_type)) {
         throw ParserException("expect vertex/edge input for property");
     }
-    actor.AddParam(element_type);
+    expert.AddParam(element_type);
 
     int key;
     uint8_t key_type;
@@ -1547,17 +1547,17 @@ void ParserObject::ParseProperty(const vector<string>& params) {
         throw ParserException("property key type no match with value type in property()");
     }
 
-    actor.AddParam(key);
-    actor.AddParam(params[1]);
-    AppendActor(actor);
+    expert.AddParam(key);
+    expert.AddParam(params[1]);
+    AppendExpert(expert);
     trx_plan->trx_type_ |= TRX_UPDATE;
     is_read_only_ = false;
 }
 
 void ParserObject::ParseRange(const vector<string>& params, Step_T type) {
-    //@ RangeActor params: (int start, int end)
+    //@ RangeExpert params: (int start, int end)
     //  i_type = o_type = any
-    Actor_Object actor(ACTOR_T::RANGE);
+    Expert_Object expert(EXPERT_T::RANGE);
 
     vector<int> vec;
     for (string param : params) {
@@ -1591,17 +1591,17 @@ void ParserObject::ParseRange(const vector<string>& params, Step_T type) {
         break;
       default: throw ParserException("unexpected error");
     }
-    actor.AddParam(start);
-    actor.AddParam(end);
-    actor.send_remote = IsElement();
-    AppendActor(actor);
+    expert.AddParam(start);
+    expert.AddParam(end);
+    expert.send_remote = IsElement();
+    AppendExpert(expert);
 }
 
 
 void ParserObject::ParseCoin(const vector<string>& params) {
-    //@ CoinActor params: (double pass_rate)
+    //@ CoinExpert params: (double pass_rate)
     //  i_type = o_type = any
-    Actor_Object actor(ACTOR_T::COIN);
+    Expert_Object expert(EXPERT_T::COIN);
 
     vector<int> vec;
 
@@ -1624,31 +1624,31 @@ void ParserObject::ParseCoin(const vector<string>& params) {
         param += ".0";
     }
 
-    actor.AddParam(param);
+    expert.AddParam(param);
 
-    actor.send_remote = IsElement();
-    AppendActor(actor);
+    expert.send_remote = IsElement();
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseRepeat(const vector<string>& params) {
     // @ Act just as union
-    Actor_Object actor(ACTOR_T::REPEAT);
-    // Actor_Object actor(ACTOR_T::BRANCH);
+    Expert_Object expert(EXPERT_T::REPEAT);
+    // Expert_Object expert(EXPERT_T::BRANCH);
     if (params.size() < 1) {
         throw ParserException("expect at least one parameter for branch");
     }
 
-    int current = actors_.size();
-    AppendActor(actor);
+    int current = experts_.size();
+    AppendExpert(expert);
 
     // Parse sub query
     ParseSub(params, current, false);
 }
 
 void ParserObject::ParseSelect(const vector<string>& params) {
-    //@ SelectActor params: ([int label_step_key, string label_step_string]..)
+    //@ SelectExpert params: ([int label_step_key, string label_step_string]..)
     //  i_type = any, o_type = COLLECTION / according step
-    Actor_Object actor(ACTOR_T::SELECT);
+    Expert_Object expert(EXPERT_T::SELECT);
 
     if (params.size() < 1) {
         throw ParserException("expect at least one params for select");
@@ -1662,25 +1662,25 @@ void ParserObject::ParseSelect(const vector<string>& params) {
         }
         key = str2ls_[param];
         type = ls2type_[key];
-        actor.AddParam(key);
-        actor.AddParam(param);
+        expert.AddParam(key);
+        expert.AddParam(param);
     }
 
 
     if (params.size() == 1) {
         io_type_ = type;
-        actor.send_remote = IsElement();
+        expert.send_remote = IsElement();
     } else {
         io_type_ = IO_T::COLLECTION;
     }
 
-    AppendActor(actor);
+    AppendExpert(expert);
 }
 
 void ParserObject::ParseTraversal(const vector<string>& params, Step_T type) {
-    //@ TraversalActor params: (Element_T inType, Element_T outType, Direction_T direction, int label_id)
+    //@ TraversalExpert params: (Element_T inType, Element_T outType, Direction_T direction, int label_id)
     //  i_type = E/V, o_type = E/V
-    Actor_Object actor(ACTOR_T::TRAVERSAL);
+    Expert_Object expert(EXPERT_T::TRAVERSAL);
     int traversal_type = static_cast<int>(type);
     Element_T inType;
     Element_T outType;
@@ -1735,26 +1735,26 @@ void ParserObject::ParseTraversal(const vector<string>& params, Step_T type) {
         }
     }
 
-    actor.AddParam(inType);
-    actor.AddParam(outType);
-    actor.AddParam(dir);
-    actor.AddParam(lid);
-    actor.send_remote = true;
-    AppendActor(actor);
+    expert.AddParam(inType);
+    expert.AddParam(outType);
+    expert.AddParam(dir);
+    expert.AddParam(lid);
+    expert.send_remote = true;
+    AppendExpert(expert);
 
     io_type_ = (outType == Element_T::EDGE) ? IO_T::EDGE : IO_T::VERTEX;
 }
 
 void ParserObject::ParseValues(const vector<string>& params) {
-    // @ ValuesActor params: (Element_t type, int pid...)
+    // @ ValuesExpert params: (Element_t type, int pid...)
     //  i_type = VERTX/EDGE, o_type = according to pid
-    Actor_Object actor(ACTOR_T::VALUES);
+    Expert_Object expert(EXPERT_T::VALUES);
 
     Element_T element_type;
     if (!IsElement(element_type)) {
         throw ParserException("expect vertex/edge input for values");
     }
-    actor.AddParam(element_type);
+    expert.AddParam(element_type);
 
     int key;
     uint8_t vtype;
@@ -1770,15 +1770,15 @@ void ParserObject::ParseValues(const vector<string>& params) {
         } else if (outType != vtype) {
             throw ParserException("expect same type of key in values");
         }
-        actor.AddParam(key);
+        expert.AddParam(key);
     }
 
-    AppendActor(actor);
+    AppendExpert(expert);
     io_type_ = Value2IO(outType);
 }
 
 void ParserObject::ParseWhere(const vector<string>& params) {
-    //@ WhereActor params: ((int label_step_key, predicate Type, vector label/side-effect_id)...)
+    //@ WhereExpert params: ((int label_step_key, predicate Type, vector label/side-effect_id)...)
     //  first label_step_key == -1 indicating
     //  i_type = o_type = any
     if (params.size() > 2 || params.size() == 0) {
@@ -1793,7 +1793,7 @@ void ParserObject::ParseWhere(const vector<string>& params) {
     }
 
     if (is_query) {
-        // parse where step as branch filter actor
+        // parse where step as branch filter expert
         try {
             ParseBranchFilter(params, Step_T::AND);
         }
@@ -1811,31 +1811,31 @@ void ParserObject::ParseWhere(const vector<string>& params) {
             param = params[1];
         }
 
-        if (!CheckLastActor(ACTOR_T::WHERE)) {
-            Actor_Object tmp(ACTOR_T::WHERE);
-            AppendActor(tmp);
+        if (!CheckLastExpert(EXPERT_T::WHERE)) {
+            Expert_Object tmp(EXPERT_T::WHERE);
+            AppendExpert(tmp);
         }
-        Actor_Object &actor = actors_[actors_.size() - 1];
-        actor.AddParam(label_step_key);
-        ParsePredicate(param, 1, actor, true);
+        Expert_Object &expert = experts_[experts_.size() - 1];
+        expert.AddParam(label_step_key);
+        ParsePredicate(param, 1, expert, true);
     }
 }
 
 void ParserObject::AddCommitStatement(TrxPlan& plan) {
     // Add Validation Query
-    vector<Actor_Object> valid_vec;
-    valid_vec.emplace_back(ACTOR_T::VALIDATION);
-    valid_vec[0].next_actor = 1;
+    vector<Expert_Object> valid_vec;
+    valid_vec.emplace_back(EXPERT_T::VALIDATION);
+    valid_vec[0].next_expert = 1;
 
     // Add post validation query
-    valid_vec.emplace_back(ACTOR_T::POSTVALIDATION);
-    valid_vec[1].next_actor = 2;
+    valid_vec.emplace_back(EXPERT_T::POSTVALIDATION);
+    valid_vec[1].next_expert = 2;
 
     // Add commit query
-    valid_vec.emplace_back(ACTOR_T::COMMIT);
-    valid_vec[2].next_actor = 3;
+    valid_vec.emplace_back(EXPERT_T::COMMIT);
+    valid_vec[2].next_expert = 3;
 
-    plan.query_plans_[line_index].actors = move(valid_vec);
+    plan.query_plans_[line_index].experts = move(valid_vec);
     plan.query_plans_[line_index].is_process = false;
     plan.deps_count_[line_index] = 0;
     uint8_t begin = (last_update > 0) ? last_update : 0;
