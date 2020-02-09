@@ -17,21 +17,21 @@ struct VertexEdgeRow;
 
 class TopologyRowList {
  private:
-    static ConcurrentMemPool<VertexEdgeRow>* mem_pool_;  // Initialized in data_storage.cpp
+    // Initialized in data_storage.cpp
+    static ConcurrentMemPool<VertexEdgeRow>* mem_pool_;
 
     atomic_int edge_count_;
     tbb::atomic<VertexEdgeRow*> head_, tail_;
     vid_t my_vid_;
+
+    void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id, MVCCList<EdgeMVCCItem>* mvcc_list);
+
+    // this lock is only used in AllocateCell. Traversal in the row list is thread-safe
     pthread_spinlock_t lock_;
-    // This lock is only used to avoid conflict between
-    // gc operator (including delete all and defrag) and all others;
-    // write_lock -> gc opr; read_lock -> others
-    // concurrency for others is guaranteed by spin lock above
+
+    // This lock is only used to avoid conflict between gc operation (including delete all and defrag) and all other operations:
+    // write_lock -> gc; read_lock -> others
     WritePriorRWLock gc_rwlock_;
-
-
-    void AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
-                      MVCCList<EdgeMVCCItem>* mvcc_list);
 
  public:
     void Init(const vid_t& my_vid);

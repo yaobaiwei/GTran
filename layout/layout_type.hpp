@@ -85,7 +85,7 @@ struct EdgeHeader {
  public:
     bool is_out;
     vid_t conn_vtx_id;
-    MVCCList<EdgeMVCCItem>* mvcc_list;
+    tbb::atomic<MVCCList<EdgeMVCCItem>*> mvcc_list;
 
     EdgeHeader& operator= (const EdgeHeader& _edge_header) {
         this->is_out = _edge_header.is_out;

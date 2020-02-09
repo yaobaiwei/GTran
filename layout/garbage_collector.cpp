@@ -29,10 +29,10 @@ void GarbageCollector::Stop() {
 
 void GarbageCollector::PushJobToPendingQueue(DependentGCJob* job_ptr) {
     for (auto* task : job_ptr->tasks_) {
-        if (task->task_status_ == TaskStatus::ACTIVE) {
-            task->task_status_ = TaskStatus::PUSHED;
+        if (task->GetTaskStatus() == TaskStatus::ACTIVE) {
+            task->SetTaskStatus(TaskStatus::PUSHED);
         } else {
-            CHECK(task->task_status_ == TaskStatus::INVALID) << task->GetTaskInfoStr();
+            CHECK(task->GetTaskStatus() == TaskStatus::INVALID) << task->GetTaskInfoStr();
         }
     }
     pending_job_queue.push(job_ptr);
