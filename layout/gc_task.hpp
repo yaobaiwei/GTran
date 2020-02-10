@@ -54,7 +54,7 @@ struct CompoundEPRowListID {
     CompoundEPRowListID(eid_t eid_, PropertyRowList<EdgePropertyRow>* ptr_) : eid(eid_), ptr(ptr_) {}
 
     vid_t GetAttachedVid() {
-        return eid.out_v;  // src_v
+        return eid.src_v;  // src_v
     }
 
     bool operator== (const CompoundEPRowListID& right_id) const {

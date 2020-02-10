@@ -213,22 +213,22 @@ class TraversalExpert : public AbstractExpert {
 
             for (auto & value : pair.second) {
                 uint64_t eid_value = Tool::value_t2uint64_t(value);
-                uint64_t in_v = eid_value >> VID_BITS;
-                uint64_t out_v = eid_value - (in_v << VID_BITS);
+                uint64_t dst_v = eid_value >> VID_BITS;
+                uint64_t src_v = eid_value - (dst_v << VID_BITS);
 
                 if (dir == Direction_T::IN) {
                     value_t new_value;
-                    Tool::str2int(to_string(in_v), new_value);
+                    Tool::str2int(to_string(dst_v), new_value);
                     newData.push_back(new_value);
                 } else if (dir == Direction_T::OUT) {
                     value_t new_value;
-                    Tool::str2int(to_string(out_v), new_value);
+                    Tool::str2int(to_string(src_v), new_value);
                     newData.push_back(new_value);
                 } else if (dir == Direction_T::BOTH) {
                     value_t new_value_in;
                     value_t new_value_out;
-                    Tool::str2int(to_string(in_v), new_value_in);
-                    Tool::str2int(to_string(out_v), new_value_out);
+                    Tool::str2int(to_string(dst_v), new_value_in);
+                    Tool::str2int(to_string(src_v), new_value_out);
                     newData.push_back(new_value_in);
                     newData.push_back(new_value_out);
                 } else {

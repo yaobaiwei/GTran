@@ -16,8 +16,8 @@ string V_KVpair::DebugString() const {
 
 string E_KVpair::DebugString() const {
     stringstream ss;
-    ss << "E_KVpair: { key = " << key.in_vid << "|"
-       << key.out_vid << "|"
+    ss << "E_KVpair: { key = " << key.dst_vid << "|"
+       << key.src_vid << "|"
        << key.pid << ", value.type = "
        << static_cast<int>(value.type) << " }" << endl;
     return ss.str();
@@ -34,7 +34,7 @@ string VProperty::DebugString() const {
 
 string EProperty::DebugString() const {
     stringstream ss;
-    ss << "EProperty: { id = " << id.in_v << "," << id.out_v <<  " plist = [" << endl;
+    ss << "EProperty: { id = " << id.dst_v << "," << id.src_v <<  " plist = [" << endl;
     for (auto & ep : plist)
         ss << ep.DebugString();
     ss << "]}" << endl;
@@ -152,7 +152,7 @@ string TMPVertex::DebugString() const {
 }
 
 string TMPOutEdge::DebugString() const {
-    string ret = "eid: " + to_string(id.out_v) + "->" + to_string(id.in_v) + ", label: " + to_string(label);
+    string ret = "eid: " + to_string(id.src_v) + "->" + to_string(id.dst_v) + ", label: " + to_string(label);
 
     ret += ", properties: [";
 
@@ -527,18 +527,18 @@ void HDFSDataLoader::ToEP(char* line) {
     uint64_t atoi_time = timer::get_usec();
     char * pch;
     pch = strtok(line, "\t");
-    int out_v = atoi(pch);
+    int src_v = atoi(pch);
     pch = strtok(nullptr, "\t");
-    int in_v = atoi(pch);
+    int dst_v = atoi(pch);
 
-    eid_t eid(in_v, out_v);
+    eid_t eid(dst_v, src_v);
     ep->id = eid;
 
     pch = strtok(nullptr, "\t");
     label_t label = (label_t)atoi(pch);
     // insert label to EProperty
     E_KVpair e_pair;
-    e_pair.key = epid_t(in_v, out_v, 0);
+    e_pair.key = epid_t(dst_v, src_v, 0);
     Tool::str2int(to_string(label), e_pair.value);
     // push to property_list of v
     ep->plist.push_back(e_pair);
@@ -556,7 +556,7 @@ void HDFSDataLoader::ToEP(char* line) {
         Tool::get_kvpair(kvpairs[i], kvpairs[i+1], indexes_->str2eptype[kvpairs[i]], p);
 
         E_KVpair e_pair;
-        e_pair.key = epid_t(in_v, out_v, p.key);
+        e_pair.key = epid_t(dst_v, src_v, p.key);
         e_pair.value = p.value;
 
         ep->plist.push_back(e_pair);
@@ -739,7 +739,7 @@ void HDFSDataLoader::ShuffleEdge() {
             node_map[src_v_node_id].push_back(kv_pair);
             // label should be stored on two side
             if (kv_pair.key.pid == 0) {
-                int dst_v_node_id = id_mapper_->GetMachineIdForVertex(vid_t(kv_pair.key.in_vid));
+                int dst_v_node_id = id_mapper_->GetMachineIdForVertex(vid_t(kv_pair.key.dst_vid));
                 if (dst_v_node_id != src_v_node_id) {
                     node_map[dst_v_node_id].push_back(kv_pair);
                 }
@@ -768,7 +768,7 @@ void HDFSDataLoader::ShuffleEdge() {
     // For an edge, if src_v and dst_v are both on this node, it will be stored in out_edge_map_
     size_t ine_cnt = 0, oute_cnt = 0;
     for (auto eps : eplist_) {
-        if (id_mapper_->IsVertexLocal(eps->id.out_v)) {
+        if (id_mapper_->IsVertexLocal(eps->id.src_v)) {
             oute_cnt++;
         } else {
             ine_cnt++;
@@ -782,7 +782,7 @@ void HDFSDataLoader::ShuffleEdge() {
 
     // construct shuffled_out_edge_ and shuffled_in_edge_
     for (auto eps : eplist_) {
-        if (id_mapper_->IsVertexLocal(eps->id.out_v)) {
+        if (id_mapper_->IsVertexLocal(eps->id.src_v)) {
             auto& edge_ref = shuffled_out_edge_[oute_iter_counter];
             edge_ref.id = eps->id;
             for (auto ep : eps->plist) {

@@ -129,7 +129,7 @@ PROCESS_STAT DropExpert::processDrop(const QueryPlan & qplan, vector<pair<histor
                     eid_t e_id;
                     uint2eid_t(eid_uint64, e_id);
                     // outE
-                    if (id_mapper_->GetMachineIdForVertex(e_id.out_v) == machine_id_) {
+                    if (id_mapper_->GetMachineIdForVertex(e_id.src_v) == machine_id_) {
                         process_stat = data_storage_->ProcessDropE(e_id, true, qplan.trxid, qplan.st);
                         if (process_stat != PROCESS_STAT::SUCCESS) {
                             return process_stat; 
@@ -137,7 +137,7 @@ PROCESS_STAT DropExpert::processDrop(const QueryPlan & qplan, vector<pair<histor
                     }
 
                     // inE
-                    if (id_mapper_->GetMachineIdForVertex(e_id.in_v) == machine_id_) {
+                    if (id_mapper_->GetMachineIdForVertex(e_id.dst_v) == machine_id_) {
                         process_stat = data_storage_->ProcessDropE(e_id, false, qplan.trxid, qplan.st);
                         if (process_stat != PROCESS_STAT::SUCCESS) {
                             return process_stat; 

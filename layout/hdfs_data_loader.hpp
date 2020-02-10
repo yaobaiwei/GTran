@@ -80,7 +80,7 @@ struct TMPVertex {
 };
 
 struct TMPOutEdge {
-    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
+    eid_t id;  // id.src_v -> e -> id.dst_v, follows src_v
     label_t label;
     std::vector<label_t> ep_label_list;
     std::vector<value_t> ep_value_list;
@@ -89,7 +89,7 @@ struct TMPOutEdge {
 };
 
 struct TMPInEdge {
-    eid_t id;  // id.out_v -> e -> id.in_v, follows out_v
+    eid_t id;  // id.src_v -> e -> id.dst_v, follows src_v
     label_t label;
 };
 

@@ -239,16 +239,16 @@ void DataStorage::PredictEdgeContainerUsage() {
             ep_store_cell_usage += cell_cost;
         }
 
-        uint32_t src_vid = edge.id.out_v;
+        uint32_t src_vid = edge.id.src_v;
         if (vtx_edge_cell_count.count(src_vid) == 0)
             vtx_edge_cell_count.insert({src_vid, 1});
         else
             vtx_edge_cell_count.at(src_vid)++;
 
-        if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
+        if (id_mapper_->IsVertexLocal(edge.id.dst_v)) {
             e_mvcc_usage++;
 
-            uint32_t dst_vid = edge.id.in_v;
+            uint32_t dst_vid = edge.id.dst_v;
             if (vtx_edge_cell_count.count(dst_vid) == 0)
                 vtx_edge_cell_count.insert({dst_vid, 1});
             else
@@ -258,7 +258,7 @@ void DataStorage::PredictEdgeContainerUsage() {
 
     // Emulate the insertion of in edges
     for (auto edge : hdfs_data_loader_->shuffled_in_edge_) {
-        uint32_t dst_vid = edge.id.in_v;
+        uint32_t dst_vid = edge.id.dst_v;
         if (vtx_edge_cell_count.count(dst_vid) == 0)
             vtx_edge_cell_count.insert({dst_vid, 1});
         else
@@ -382,13 +382,13 @@ void DataStorage::FillEdgeContainer() {
 
         const TMPOutEdge& edge = hdfs_data_loader_->shuffled_out_edge_[i];
 
-        VertexIterator v_itr = vertex_map_.find(edge.id.out_v);
+        VertexIterator v_itr = vertex_map_.find(edge.id.src_v);
 
         auto* ep_row_list = new PropertyRowList<EdgePropertyRow>;
         ep_row_list->Init();
 
         // "true" means that is_out = true, as this edge is an outE for the Vertex
-        auto* mvcc_list = v_itr->second.ve_row_list->InsertInitialCell(true, edge.id.in_v, edge.label, ep_row_list);
+        auto* mvcc_list = v_itr->second.ve_row_list->InsertInitialCell(true, edge.id.dst_v, edge.label, ep_row_list);
 
         // edge map will have pointer of MVCCList<EdgeMVCCItem> in ve_row_list, similarly hereinafter.
         OutEdgeIterator out_e_itr = out_edge_map_.insert(pair<uint64_t, OutEdge>(edge.id.value(), OutEdge())).first;
@@ -403,12 +403,12 @@ void DataStorage::FillEdgeContainer() {
         }
 
         // check if the dst_v on this worker
-        if (id_mapper_->IsVertexLocal(edge.id.in_v)) {
-            VertexIterator v_itr = vertex_map_.find(edge.id.in_v);
+        if (id_mapper_->IsVertexLocal(edge.id.dst_v)) {
+            VertexIterator v_itr = vertex_map_.find(edge.id.dst_v);
 
             // "false" => is_out = false => inE
             auto* mvcc_list = v_itr->second.ve_row_list
-                              ->InsertInitialCell(false, edge.id.out_v, edge.label, nullptr);
+                              ->InsertInitialCell(false, edge.id.src_v, edge.label, nullptr);
 
             InEdgeIterator in_e_itr = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge())).first;
             in_e_itr->second.mvcc_list = mvcc_list;
@@ -424,11 +424,11 @@ void DataStorage::FillEdgeContainer() {
         const TMPInEdge& edge = hdfs_data_loader_->shuffled_in_edge_[i];
     
 
-        VertexIterator v_itr = vertex_map_.find(edge.id.in_v);
+        VertexIterator v_itr = vertex_map_.find(edge.id.dst_v);
 
         // "false" => is_out = false => inE
         auto* mvcc_list = v_itr->second.ve_row_list
-                          ->InsertInitialCell(false, edge.id.out_v, edge.label, nullptr);
+                          ->InsertInitialCell(false, edge.id.src_v, edge.label, nullptr);
 
         InEdgeIterator in_e_itr = in_edge_map_.insert(pair<uint64_t, InEdge>(edge.id.value(), InEdge())).first;
         in_e_itr->second.mvcc_list = mvcc_list;
@@ -581,7 +581,7 @@ READ_STAT DataStorage::GetVL(const vid_t& vid, const uint64_t& trx_id,
 
 READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, value_t& ret) {
-    eid_t eid = eid_t(pid.in_vid, pid.out_vid);
+    eid_t eid = eid_t(pid.dst_vid, pid.src_vid);
 
     OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
@@ -793,7 +793,7 @@ READ_STAT DataStorage::GetAllEdges(const uint64_t& trx_id, const uint64_t& begin
         if (edge_version.Exist()) {
             uint64_t eid_fetched = e_pair->first;
             eid_t* tmp_eid_p = reinterpret_cast<eid_t*>(&eid_fetched);
-            ret.emplace_back(eid_t(tmp_eid_p->out_v, tmp_eid_p->in_v));
+            ret.emplace_back(eid_t(tmp_eid_p->src_v, tmp_eid_p->dst_v));
         }
     }
 
@@ -1022,7 +1022,7 @@ PROCESS_STAT DataStorage::ProcessDropV(const vid_t& vid, const uint64_t& trx_id,
     InsertTrxProcessHistory(trx_id, TrxProcessHistory::PROCESS_DROP_V, v_iterator->second.mvcc_list);
 
     for (auto eid : all_connected_edge) {
-        if (eid.out_v == vid.value()) {
+        if (eid.src_v == vid.value()) {
             // this is an out edge
             out_eids.emplace_back(eid);
         } else {
@@ -1047,7 +1047,7 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     InEdgeIterator in_e_iterator;
     OutEdgeIterator out_e_iterator;
     bool is_new;
-    vid_t src_vid = eid.out_v, dst_vid = eid.in_v;
+    vid_t src_vid = eid.src_v, dst_vid = eid.dst_v;
     vid_t adj_vid, vid;
 
     /* if is_out == true, this function will add an outE, which means that src_vid is on this worker;
@@ -1152,7 +1152,7 @@ PROCESS_STAT DataStorage::ProcessDropE(const eid_t& eid, const bool& is_out,
     InEdgeConstIterator in_e_iterator;
     OutEdgeConstIterator out_e_iterator;
     bool found;
-    vid_t src_vid = eid.out_v, dst_vid = eid.in_v;
+    vid_t src_vid = eid.src_v, dst_vid = eid.dst_v;
     vid_t adj_vid;
 
     /* if is_out == true, this function will drop an outE, which means that src_vid is on this worker;
@@ -1231,7 +1231,7 @@ PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& valu
                                           const uint64_t& trx_id, const uint64_t& begin_time) {
     OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
+    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid_t(pid.dst_vid, pid.src_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
@@ -1290,7 +1290,7 @@ PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_i
 PROCESS_STAT DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
     OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid_t(pid.in_vid, pid.out_vid), trx_id, begin_time, false, edge_version);
+    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid_t(pid.dst_vid, pid.src_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);

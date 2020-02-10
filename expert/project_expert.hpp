@@ -190,7 +190,7 @@ class ProjectExpert : public AbstractExpert {
 
     READ_STAT get_properties_for_edge(const QueryPlan& qplan, const epid_t& ep_id, value_t& val) {
         if (ep_id.pid == 0) {
-            eid_t eid(ep_id.in_vid, ep_id.out_vid);
+            eid_t eid(ep_id.dst_vid, ep_id.src_vid);
             label_t label;
             READ_STAT read_status = data_storage_->GetEL(eid, qplan.trxid, qplan.st, qplan.trx_type == TRX_READONLY, label);
             if (read_status == READ_STAT::SUCCESS) {

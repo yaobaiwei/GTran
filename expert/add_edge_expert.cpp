@@ -32,26 +32,26 @@ void AddEdgeExpert::process(const QueryPlan & qplan, Message & msg) {
             bool is_src_v_local = false, is_dst_v_local = false;
 
             // outV
-            if (id_mapper_->GetMachineIdForVertex(e_id.out_v) == machine_id_) {
+            if (id_mapper_->GetMachineIdForVertex(e_id.src_v) == machine_id_) {
                 update_data.emplace_back(eid_uint64);
                 is_src_v_local = true;
                 process_stat = data_storage_->ProcessAddE(e_id, lid, true, qplan.trxid, qplan.st);
                 if (process_stat != PROCESS_STAT::SUCCESS) {
                     success = false;
                     abort_info = "Abort with [Processing][DataStorage::ProcessAddE<OutE>(" +
-                                         to_string(e_id.out_v) + "->" + to_string(e_id.in_v) + ")]" +
+                                         to_string(e_id.src_v) + "->" + to_string(e_id.dst_v) + ")]" +
                                          abort_reason_map[process_stat];
                 }
             }
 
             // inV
-            if (id_mapper_->GetMachineIdForVertex(e_id.in_v) == machine_id_) {
+            if (id_mapper_->GetMachineIdForVertex(e_id.dst_v) == machine_id_) {
                 is_dst_v_local = true;
                 process_stat = data_storage_->ProcessAddE(e_id, lid, false, qplan.trxid, qplan.st);
                 if (process_stat != PROCESS_STAT::SUCCESS) {
                     success = false;
                     abort_info = "Abort with [Processing][DataStorage::ProcessAddE<InE>(" +
-                                         to_string(e_id.out_v) + "->" + to_string(e_id.in_v) + ")]" +
+                                         to_string(e_id.src_v) + "->" + to_string(e_id.dst_v) + ")]" +
                                          abort_reason_map[process_stat];
                 }
             }
