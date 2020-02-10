@@ -131,19 +131,19 @@ obinstream& operator>>(obinstream& m, eid_t& e) {
 
 uint64_t eid_t2uint(const eid_t & eid) {
     uint64_t r = 0;
-    r += eid.in_v;
+    r += eid.dst_v;
     r <<= VID_BITS;
-    r += eid.out_v;
+    r += eid.src_v;
     return r;
 }
 
 void uint2eid_t(uint64_t v, eid_t & eid) {
-    eid.in_v = v >> VID_BITS;
-    eid.out_v = v - (eid.in_v << VID_BITS);
+    eid.dst_v = v >> VID_BITS;
+    eid.src_v = v - (eid.dst_v << VID_BITS);
 }
 
 bool operator == (const eid_t &p1, const eid_t &p2) {
-    if ((p1.in_v == p2.in_v) && (p1.out_v == p2.out_v))
+    if ((p1.dst_v == p2.dst_v) && (p1.src_v == p2.src_v))
         return true;
     else
         return false;
@@ -198,22 +198,22 @@ obinstream& operator>>(obinstream& m, epid_t& ep) {
 
 uint64_t epid_t2uint(const epid_t & ep) {
     uint64_t r = 0;
-    r += ep.in_vid;
+    r += ep.dst_vid;
     r <<= VID_BITS;
-    r += ep.out_vid;
+    r += ep.src_vid;
     r <<= PID_BITS;
     r += ep.pid;
     return r;
 }
 
 void uint2epid_t(uint64_t v, epid_t & ep) {
-    ep.in_vid = v >> PID_BITS >> VID_BITS;
-    ep.out_vid = (v >> PID_BITS) - (ep.in_vid << VID_BITS);
+    ep.dst_vid = v >> PID_BITS >> VID_BITS;
+    ep.src_vid = (v >> PID_BITS) - (ep.dst_vid << VID_BITS);
     ep.pid = v - (v >> PID_BITS << PID_BITS);
 }
 
 bool operator ==(const epid_t &p1, const epid_t &p2) {
-    if ((p1.in_vid == p2.in_vid) && (p1.out_vid == p2.out_vid) && (p1.pid == p2.pid))
+    if ((p1.dst_vid == p2.dst_vid) && (p1.src_vid == p2.src_vid) && (p1.pid == p2.pid))
         return true;
     else
         return false;
@@ -290,16 +290,16 @@ obinstream& operator>>(obinstream& m, MSG_T& type) {
     return m;
 }
 
-ibinstream& operator<<(ibinstream& m, const ACTOR_T& type) {
+ibinstream& operator<<(ibinstream& m, const EXPERT_T& type) {
     int t = static_cast<int>(type);
     m << t;
     return m;
 }
 
-obinstream& operator>>(obinstream& m, ACTOR_T& type) {
+obinstream& operator>>(obinstream& m, EXPERT_T& type) {
     int tmp;
     m >> tmp;
-    type = static_cast<ACTOR_T>(tmp);
+    type = static_cast<EXPERT_T>(tmp);
     return m;
 }
 

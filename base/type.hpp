@@ -222,19 +222,19 @@ struct hash<vid_t> {
 };
 }  // namespace __gnu_cxx
 
-// vid: 64bits 0000|0000|0000|in_v|out_v
+// vid: 64bits 0000|0000|0000|dst_v|src_v
 struct eid_t {
-uint64_t in_v : VID_BITS;  // dst_v
-uint64_t out_v : VID_BITS;  // src_v
+uint64_t dst_v : VID_BITS;
+uint64_t src_v : VID_BITS;
 
-    eid_t(): in_v(0), out_v(0) { }
+    eid_t(): dst_v(0), src_v(0) { }
 
-    eid_t(int _in_v, int _out_v): in_v(_in_v), out_v(_out_v) {
-        assert((in_v == _in_v) && (out_v == _out_v) );  // no key truncate
+    eid_t(int _dst_v, int _src_v): dst_v(_dst_v), src_v(_src_v) {
+        assert((dst_v == _dst_v) && (src_v == _src_v) );  // no key truncate
     }
 
     bool operator == (const eid_t &eid) {
-        if ((in_v == eid.in_v) && (out_v == eid.out_v))
+        if ((dst_v == eid.dst_v) && (src_v == eid.src_v))
             return true;
         return false;
     }
@@ -245,9 +245,9 @@ uint64_t out_v : VID_BITS;  // src_v
 
     uint64_t value() const {
         uint64_t r = 0;
-        r += in_v;
+        r += dst_v;
         r <<= VID_BITS;
-        r += out_v;
+        r += src_v;
         return r;
     }
 
@@ -274,8 +274,8 @@ namespace __gnu_cxx {
 template <>
 struct hash<eid_t> {
     size_t operator()(const eid_t& eid) const {
-        int k1 = static_cast<int>(eid.in_v);
-        int k2 = static_cast<int>(eid.out_v);
+        int k1 = static_cast<int>(eid.dst_v);
+        int k2 = static_cast<int>(eid.src_v);
         size_t seed = 0;
         mymath::hash_combine(seed, k1);
         mymath::hash_combine(seed, k2);
@@ -336,35 +336,35 @@ void uint2vpid_t(uint64_t v, vpid_t & vp);
 
 bool operator == (const vpid_t &p1, const vpid_t &p2);
 
-// vpid: 64bits  v_in|v_out|pid
+// vpid: 64bits  v_dst|v_src|pid
 struct epid_t {
-uint64_t in_vid : VID_BITS;
-uint64_t out_vid : VID_BITS;
+uint64_t dst_vid : VID_BITS;
+uint64_t src_vid : VID_BITS;
 uint64_t pid : PID_BITS;
 
-    epid_t(): in_vid(0), out_vid(0), pid(0) { }
+    epid_t(): dst_vid(0), src_vid(0), pid(0) { }
 
     epid_t(eid_t _eid, int _pid): pid(_pid) {
-        in_vid = _eid.in_v;
-        out_vid = _eid.out_v;
-        assert((in_vid == _eid.in_v) && (out_vid == _eid.out_v) && (pid == _pid) );  // no key truncate
+        dst_vid = _eid.dst_v;
+        src_vid = _eid.src_v;
+        assert((dst_vid == _eid.dst_v) && (src_vid == _eid.src_v) && (pid == _pid) );  // no key truncate
     }
 
-    epid_t(int _in_v, int _out_v, int _pid): in_vid(_in_v), out_vid(_out_v), pid(_pid) {
-        assert((in_vid == _in_v) && (out_vid == _out_v) && (pid == _pid) );  // no key truncate
+    epid_t(int _dst_v, int _src_v, int _pid): dst_vid(_dst_v), src_vid(_src_v), pid(_pid) {
+        assert((dst_vid == _dst_v) && (src_vid == _src_v) && (pid == _pid) );  // no key truncate
     }
 
     bool operator == (const epid_t &epid) {
-        if ((in_vid == epid.in_vid) && (out_vid == epid.out_vid) && (pid == epid.pid))
+        if ((dst_vid == epid.dst_vid) && (src_vid == epid.src_vid) && (pid == epid.pid))
             return true;
         return false;
     }
 
     uint64_t value() const {
         uint64_t r = 0;
-        r += in_vid;
+        r += dst_vid;
         r <<= VID_BITS;
-        r += out_vid;
+        r += src_vid;
         r <<= PID_BITS;
         r += pid;
         return r;
@@ -372,9 +372,9 @@ uint64_t pid : PID_BITS;
 
     uint64_t validation_value() {
         uint64_t r = 0;
-        r += in_vid;
+        r += dst_vid;
         r <<= VID_BITS;
-        r += out_vid;
+        r += src_vid;
         return r;
     }
 
@@ -488,9 +488,9 @@ struct string_index{
 
 enum Index_T { E_LABEL, E_PROPERTY, V_LABEL, V_PROPERTY };
 
-// Spawn: spawn a new actor
-// Feed: "proxy" feed actor a input
-// Reply: actor returns the intermidiate result to actor
+// Spawn: spawn a new expert
+// Feed: "proxy" feed expert a input
+// Reply: expert returns the intermidiate result to expert
 enum class MSG_T : char { INIT, SPAWN, FEED, REPLY, BARRIER, BRANCH, EXIT, VALIDATION, COMMIT, ABORT, TERMINATE};
 static const char *MsgType[] = {"init", "spawn", "feed", "reply", "barrier", "branch", "exit", "validation", "commit", "abort", "terminate"};
 
@@ -498,17 +498,17 @@ ibinstream& operator<<(ibinstream& m, const MSG_T& type);
 
 obinstream& operator>>(obinstream& m, MSG_T& type);
 
-enum class ACTOR_T : char {
+enum class EXPERT_T : char {
     INIT, ADDE, ADDV, AGGREGATE, AS, BRANCH, BRANCHFILTER, CAP, CONFIG, COUNT, DEDUP, DROP,
     GROUP, HAS, HASLABEL, INDEX, IS, KEY, LABEL, MATH, ORDER, POSTVALIDATION, PROJECT, PROPERTIES, PROPERTY, RANGE,
-    SELECT, TRAVERSAL, VALUES, WHERE, COIN, REPEAT, END, VALIDATION, COMMIT, STATUS
+    SELECT, TRAVERSAL, VALUES, WHERE, COIN, REPEAT, END, VALIDATION, TERMINATE, STATUS
 };
 
-static const char *ActorType[] = {
+static const char *ExpertType[] = {
     "INIT", "ADDE", "ADDV", "AGGREGATE", "AS", "BRANCH", "BRANCHFILTER", "CAP", "CONFIG", "COUNT", "DEDUP",
     "DROP", "GROUP", "HAS", "HASLABEL", "INDEX", "IS", "KEY", "LABEL", "MATH", "ORDER", "POSTVALIDATION",
     "PROJECT", "PROPERTIES", "PROPERTY", "RANGE", "SELECT", "TRAVERSAL", "VALUES", "WHERE" , "COIN", "REPEAT",
-    "END", "VALIDATION", "COMMIT", "STATUS"
+    "END", "VALIDATION", "TERMINATE", "STATUS"
 };
 
 enum class Step_T{
@@ -517,11 +517,11 @@ enum class Step_T{
     MEAN, MIN, NOT, OR, ORDER, PROPERTIES, PROPERTY, RANGE, SELECT, SKIP, SUM, TO, UNION, VALUES, WHERE, COIN, REPEAT, STATUS
 };
 
-ibinstream& operator<<(ibinstream& m, const ACTOR_T& type);
+ibinstream& operator<<(ibinstream& m, const EXPERT_T& type);
 
-obinstream& operator>>(obinstream& m, ACTOR_T& type);
+obinstream& operator>>(obinstream& m, EXPERT_T& type);
 
-// Enums for actors
+// Enums for experts
 enum Filter_T{ AND, OR, NOT };
 enum Math_T { SUM, MAX, MIN, MEAN };
 enum Element_T{ VERTEX, EDGE };
@@ -550,7 +550,7 @@ struct qid_t{
 
 void uint2qid_t(uint64_t v, qid_t & qid);
 
-// msg key for branch and barrier actors
+// msg key for branch and barrier experts
 struct mkey_t {
     uint64_t qid;    // qid
     uint64_t mid;    // msg id of branch parent
@@ -638,14 +638,14 @@ struct hash<agg_t> {
 };
 }  // namespace std
 
-// Thread_division for actors
-// Cache_Sequential : LabelActor, HasLabelActor, PropertiesActor, ValuesActor, HasActor, KeyActor [1/4 #threads]
-// Cache_Barrier : GroupActor, OrderActor [1/6 #threads]
-// TRAVERSAL : TraversalActor [1/12 #threads]
-// Normal_Barrier : CountActor, AggregateActor, CapActor, DedupActor, MathActor [1/6 #threads]
-// Normal_Branch : RangeActor, CoinActor, BranchFilterActor, BranchActor [1/6 #threads]
-// Normal_Sequential : AsActor, SelectActor, WhereActor, IsActor [1/6 #threads]
-enum ActorDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
+// Thread_division for experts
+// Cache_Sequential : LabelExpert, HasLabelExpert, PropertiesExpert, ValuesExpert, HasExpert, KeyExpert [1/4 #threads]
+// Cache_Barrier : GroupExpert, OrderExpert [1/6 #threads]
+// TRAVERSAL : TraversalExpert [1/12 #threads]
+// Normal_Barrier : CountExpert, AggregateExpert, CapExpert, DedupExpert, MathExpert [1/6 #threads]
+// Normal_Branch : RangeExpert, CoinExpert, BranchFilterExpert, BranchExpert [1/6 #threads]
+// Normal_Sequential : AsExpert, SelectExpert, WhereExpert, IsExpert [1/6 #threads]
+enum ExpertDivisionType { CACHE_SEQ, CACHE_BARR, TRAVERSAL, NORMAL_BARR, NORMAL_BRANCH, NORMAL_SEQ };
 enum ResidentThread_T { MAIN, RECVREQ, SENDQUERY, MONITOR };
 
 typedef tuple<uint64_t, int, Element_T> rct_extract_data_t;

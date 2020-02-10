@@ -7,7 +7,7 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
 ibinstream& operator<<(ibinstream& m, const QueryPlan& plan) {
     m << plan.query_index;
-    m << plan.actors;
+    m << plan.experts;
     m << plan.is_process;
     m << plan.trx_type;
     m << plan.trxid;
@@ -17,7 +17,7 @@ ibinstream& operator<<(ibinstream& m, const QueryPlan& plan) {
 
 obinstream& operator>>(obinstream& m, QueryPlan& plan) {
     m >> plan.query_index;
-    m >> plan.actors;
+    m >> plan.experts;
     m >> plan.is_process;
     m >> plan.trx_type;
     m >> plan.trxid;
@@ -29,10 +29,10 @@ void TrxPlan::SetST(uint64_t st) {
     st_ = st;
 }
 
-void TrxPlan::RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int actor_index, int param_index) {
+void TrxPlan::RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int expert_index, int param_index) {
     // Record the position of placeholder
     // When src_index is finished, results will be inserted into recorded positions.
-    place_holder_[src_index].emplace_back(dst_index, actor_index, param_index);
+    place_holder_[src_index].emplace_back(dst_index, expert_index, param_index);
     RegDependency(src_index, dst_index);
 }
 
@@ -54,10 +54,10 @@ void TrxPlan::Abort() {
     is_abort_ = true;
 
     // setup abort statement
-    // erase validation and post_validation actor
+    // erase validation and post_validation expert
     int index = query_plans_.size() - 1;
     QueryPlan& plan = query_plans_[index];
-    plan.actors.erase(plan.actors.begin(), plan.actors.begin() + 2);
+    plan.experts.erase(plan.experts.begin(), plan.experts.begin() + 2);
 
     // set abort statement to next execution batch
     deps_count_.clear();
@@ -67,28 +67,28 @@ void TrxPlan::Abort() {
 bool TrxPlan::FillResult(int query_index, vector<value_t>& vec) {
     // Find placeholders that depend on results of query_index_
     for (position_t& pos : place_holder_[query_index]) {
-        Actor_Object& actor = query_plans_[pos.query].actors[pos.actor];
+        Expert_Object& expert = query_plans_[pos.query].experts[pos.expert];
         if (pos.param == -1) {
             // insert to the end of params
-            pos.param = actor.params.size();
+            pos.param = expert.params.size();
         }
 
         value_t result;
-        switch (actor.actor_type) {
-          case ACTOR_T::INIT:
-            actor.params.insert(actor.params.begin() + pos.param, vec.begin(), vec.end());
+        switch (expert.expert_type) {
+          case EXPERT_T::INIT:
+            expert.params.insert(expert.params.begin() + pos.param, vec.begin(), vec.end());
             break;
-          case ACTOR_T::ADDE:
+          case EXPERT_T::ADDE:
             if (vec.size() == 1) {
                 result = vec[0];
             } else {
                 Abort();
                 return false;
             }
-            actor.params[pos.param] = result;
+            expert.params[pos.param] = result;
             break;
           default:
-            cout << "[Error][ExecPlan] Unexpected ActorType" << endl;
+            cout << "[Error][ExecPlan] Unexpected ExpertType" << endl;
         }
     }
 
@@ -159,7 +159,7 @@ bool TrxPlan::NextQueries(vector<QueryPlan>& plans) {
 
 void TrxPlan::GetResult(vector<value_t>& vec) {
     // Append query results in increasing order
-    // Transaction status (aborted/committed) is handled by commit actor
+    // Transaction status (aborted/committed) is handled by commit expert
     for (auto itr = results_.begin(); itr != results_.end(); itr ++) {
         vec.insert(vec.end(), make_move_iterator(itr->second.begin()), make_move_iterator(itr->second.end()));
     }

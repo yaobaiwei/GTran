@@ -5,7 +5,7 @@ add_library(all-deps STATIC
   $<TARGET_OBJECTS:core-objs>
   $<TARGET_OBJECTS:utils-objs>
   $<TARGET_OBJECTS:base-objs>
-  $<TARGET_OBJECTS:actor-objs>
+  $<TARGET_OBJECTS:expert-objs>
   $<TARGET_OBJECTS:rdma-objs>
   $<TARGET_OBJECTS:layout-objs>
   $<TARGET_OBJECTS:bptree-objs>

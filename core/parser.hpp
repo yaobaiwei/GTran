@@ -71,8 +71,8 @@ class ParserObject {
     // Name of query variable to <query index, type>
     map<string, pair<int, IO_T>> place_holder;
 
-    // Unique index of each actor object in transaction
-    int actor_index;
+    // Unique index of each expert object in transaction
+    int expert_index;
 
     // Current line
     uint8_t line_index;
@@ -95,7 +95,7 @@ class ParserObject {
     // first step index in sub query
     int first_in_sub_;
 
-    // record step index of actor which should send data to non-local nodes
+    // record step index of expert which should send data to non-local nodes
     int dispatch_step_;
 
     // disable index when (count of given predicate > min_count_ * ratio)
@@ -109,8 +109,8 @@ class ParserObject {
     // id to enm
     map<int, IO_T> ls2type_;  // label step output type
 
-    // tmp actors store
-    vector<Actor_Object> actors_;
+    // tmp experts store
+    vector<Expert_Object> experts_;
 
 
 /*---------------------------------Functions------------------------------------
@@ -123,8 +123,8 @@ class ParserObject {
     bool IsElement(Element_T& type);
     IO_T Value2IO(uint8_t type);
 
-    // check the type of last actor
-    bool CheckLastActor(ACTOR_T type);
+    // check the type of last expert
+    bool CheckLastExpert(EXPERT_T type);
 
     // check if parameter is query
     bool CheckIfQuery(const string& param);
@@ -139,13 +139,13 @@ class ParserObject {
     void ClearTrx();
     void ClearQuery();
 
-    void AppendActor(Actor_Object& actor);
-    void RemoveLastActor();
+    void AppendExpert(Expert_Object& expert);
+    void RemoveLastExpert();
 
     void RegPlaceHolder(const string& var, int step, int param_index, IO_T type);
 
     // Parse each line of transaction
-    bool ParseLine(const string& query, vector<Actor_Object>& vec, string& error_msg);
+    bool ParseLine(const string& query, vector<Expert_Object>& vec, string& error_msg);
 
     // Parse build index
     void ParseIndex(const string& param);
@@ -165,7 +165,7 @@ class ParserObject {
     // Re-ordering Optimization
     void ReOrderSteps(vector<pair<Step_T, string>>& tokens);
 
-    // mapping steps to actors
+    // mapping steps to experts
     void ParseSteps(const vector<pair<Step_T, string>>& tokens);
 
     // mapping string to label key or property key
@@ -174,13 +174,13 @@ class ParserObject {
     // error message for unexpected key
     string ExpectedKey(bool isLabel);
 
-    // Parse sub-query for branching actors
+    // Parse sub-query for branching experts
     void ParseSub(const vector<string>& params, int current_step, bool checkType);
 
     // Parse predicate
-    void ParsePredicate(string& param, uint8_t type, Actor_Object& actor, bool toKey);
+    void ParsePredicate(string& param, uint8_t type, Expert_Object& expert, bool toKey);
 
-    // Parse actors
+    // Parse experts
     void ParseInit(const string& line, string& var_name, string& query);
     void ParseAddE(const vector<string>& params);
     void ParseFromTo(const vector<string>& params, Step_T type);

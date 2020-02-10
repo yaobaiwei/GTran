@@ -22,26 +22,26 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "utils/global.hpp"
 #include "utils/config.hpp"
 
+#include "core/buffer.hpp"
 #include "core/coordinator.hpp"
 #include "core/exec_plan.hpp"
-#include "core/message.hpp"
+#include "core/experts_adapter.hpp"
 #include "core/id_mapper.hpp"
-#include "core/buffer.hpp"
+#include "core/message.hpp"
+#include "core/parser.hpp"
+#include "core/progress_monitor.hpp"
 #include "core/RCT.hpp"
 #include "core/rdma_mailbox.hpp"
+#include "core/result_collector.hpp"
 #include "core/tcp_mailbox.hpp"
 #include "core/transactions_table.hpp"
-#include "core/actors_adapter.hpp"
-#include "core/progress_monitor.hpp"
-#include "core/parser.hpp"
-#include "core/result_collector.hpp"
+#include "core/trx_table_stub_rdma.hpp"
+#include "core/trx_table_stub_zmq.hpp"
 
-#include "layout/pmt_rct_table.hpp"
-#include "layout/index_store.hpp"
 #include "layout/data_storage.hpp"
 #include "layout/garbage_collector.hpp"
-#include "core/trx_table_stub_zmq.hpp"
-#include "core/trx_table_stub_rdma.hpp"
+#include "layout/index_store.hpp"
+#include "layout/pmt_rct_table.hpp"
 
 
 struct Pack {
@@ -665,7 +665,7 @@ class Worker {
                 pkg.query_count_in_trx = plan.GetQueryCount();
                 pkg.qplan = move(qplan);
 
-                if (pkg.qplan.actors[0].actor_type == ACTOR_T::VALIDATION) {
+                if (pkg.qplan.experts[0].expert_type == EXPERT_T::VALIDATION) {
                     if (pkg.qplan.trx_type != TRX_READONLY) {
                         VPackAccessor accessor;
                         validaton_query_pkgs_.insert(accessor, pkg.qplan.trxid);
@@ -776,7 +776,7 @@ class Worker {
             pkg.id.value(), pkg.query_count_in_trx,
             my_node_.get_local_rank(),
             my_node_.get_local_size(),
-            core_affinity_->GetThreadIdForActor(ACTOR_T::INIT),
+            core_affinity_->GetThreadIdForExpert(EXPERT_T::INIT),
             pkg.qplan,
             msgs);
         for (int i = 0 ; i < my_node_.get_local_size(); i++) {
@@ -875,7 +875,7 @@ class Worker {
             for (auto & trxID : v_pkg.trx_id_list) {
                 value_t v;
                 Tool::uint64_t2value_t(trxID, v);
-                v_pkg.pack.qplan.actors[0].params.emplace_back(v);
+                v_pkg.pack.qplan.experts[0].params.emplace_back(v);
             }
 
             // Release the validation query.
@@ -1002,13 +1002,13 @@ class Worker {
         cout << "[Worker" << my_node_.get_local_rank() << "]: " << my_node_.DebugString();
         worker_barrier(my_node_);
 
-        // =================ActorAdapter====================
-        ActorAdapter * actor_adapter = new ActorAdapter(my_node_, rc_, mailbox_, core_affinity_);
-        actor_adapter->Start();
-        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> actor_adapter->Start()" << endl;
+        // =================ExpertAdapter====================
+        ExpertAdapter * expert_adapter = new ExpertAdapter(my_node_, rc_, mailbox_, core_affinity_);
+        expert_adapter->Start();
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> expert_adapter->Start()" << endl;
 
         // =================GarbageCollector================
-        // GarbageCollector must init after ActorAdapter since it require GlobalMinBt
+        // GarbageCollector must init after ExpertAdapter since it require GlobalMinBt
         garbage_collector_ = GarbageCollector::GetInstance();
         garbage_collector_->Init();
         cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> garbage_collector->Start()" << endl;
@@ -1070,7 +1070,7 @@ class Worker {
             }
         }
 
-        actor_adapter->Stop();
+        expert_adapter->Stop();
         monitor_->Stop();
         garbage_collector_->Stop();
 

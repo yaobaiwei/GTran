@@ -60,7 +60,7 @@ class Config{
     int num_gc_consumer;
     int num_parser_threads;
 
-    // Thread id for using one-sided RDMA outside the thread pool of ActorAdapter
+    // Thread id for using one-sided RDMA outside the thread pool of ExpertAdapter
     static const int main_thread_tid = 0;
     static const int process_allocated_ts_tid = 1;
     static const int recv_notification_tid = 2;
@@ -108,7 +108,7 @@ class Config{
     bool global_use_rdma;
     bool global_enable_caching;
     bool global_enable_core_binding;
-    bool global_enable_actor_division;
+    bool global_enable_expert_division;
     bool global_enable_step_reorder;
     bool global_enable_indexing;
     bool global_enable_workstealing;
@@ -118,7 +118,7 @@ class Config{
 
 
     int max_data_size;
-    int msg_lock_count;  // The count of read-write locks used in ActorAdapter::execute
+    int msg_lock_count;  // The count of read-write locks used in ExpertAdapter::execute
 
     int Erase_V_Task_THRESHOLD;
     int Erase_OUTE_Task_THRESHOLD;
@@ -501,11 +501,11 @@ class Config{
             exit(-1);
         }
 
-        val = iniparser_getboolean(ini, "SYSTEM:ENABLE_ACTOR_DIVISION", val_not_found);
+        val = iniparser_getboolean(ini, "SYSTEM:ENABLE_EXPERT_DIVISION", val_not_found);
         if (val != val_not_found) {
-            global_enable_actor_division = val;
+            global_enable_expert_division = val;
         } else {
-            fprintf(stderr, "must enter the ENABLE_ACTOR_DIVISION. exits.\n");
+            fprintf(stderr, "must enter the ENABLE_EXPERT_DIVISION. exits.\n");
             exit(-1);
         }
 
@@ -513,7 +513,7 @@ class Config{
         if (val != val_not_found) {
             global_enable_step_reorder = val;
         } else {
-            fprintf(stderr, "must enter the ENABLE_ACTOR_REORDER. exits.\n");
+            fprintf(stderr, "must enter the ENABLE_EXPERT_REORDER. exits.\n");
             exit(-1);
         }
 
@@ -821,7 +821,7 @@ class Config{
         ss << "global_use_rdma : " << global_use_rdma << endl;
         ss << "global_enable_caching : " << global_enable_caching << endl;
         ss << "global_enable_core_binding : " << global_enable_core_binding << endl;
-        ss << "global_enable_actor_division : " << global_enable_actor_division << endl;
+        ss << "global_enable_expert_division : " << global_enable_expert_division << endl;
         ss << "global_enable_workstealing : " << global_enable_workstealing << endl;
 
         return ss.str();

@@ -32,10 +32,10 @@ class NaiveIdMapper : public AbstractIdMapper {
     }
 
     bool IsEdge(uint64_t e_id) {
-        bool has_out_v = e_id & _VIDFLAG;
+        bool has_src_v = e_id & _VIDFLAG;
         e_id >>= VID_BITS;
-        bool has_in_v = e_id & _VIDFLAG;
-        return has_out_v && has_in_v;
+        bool has_dst_v = e_id & _VIDFLAG;
+        return has_src_v && has_dst_v;
     }
 
     bool IsVProperty(uint64_t vp_id) {
@@ -49,10 +49,10 @@ class NaiveIdMapper : public AbstractIdMapper {
     bool IsEProperty(uint64_t ep_id) {
         bool has_p = ep_id & _PIDLFLAG;
         ep_id >>= PID_BITS;
-        bool has_out_v = ep_id & _VIDFLAG;
+        bool has_src_v = ep_id & _VIDFLAG;
         ep_id >>= VID_BITS;
-        bool has_in_v = ep_id & _VIDFLAG;
-        return has_p && has_out_v && has_in_v;
+        bool has_dst_v = ep_id & _VIDFLAG;
+        return has_p && has_src_v && has_dst_v;
     }
 
     // judge if vertex/edge/property local
@@ -89,7 +89,7 @@ class NaiveIdMapper : public AbstractIdMapper {
     }
 
     int GetMachineIdForEProperty(epid_t ep_id) {
-        eid_t e(ep_id.in_vid, ep_id.out_vid);
+        eid_t e(ep_id.dst_vid, ep_id.src_vid);
         return mymath::hash_mod(e.hash(), my_node_.get_local_size());
     }
 #else
@@ -115,10 +115,10 @@ class SimpleIdMapper : public AbstractIdMapper {
     }
 
     bool IsEdge(uint64_t e_id) {
-        bool has_out_v = e_id & _VIDFLAG;
+        bool has_src_v = e_id & _VIDFLAG;
         e_id >>= VID_BITS;
-        bool has_in_v = e_id & _VIDFLAG;
-        return has_out_v && has_in_v;
+        bool has_dst_v = e_id & _VIDFLAG;
+        return has_src_v && has_dst_v;
     }
 
     bool IsVProperty(uint64_t vp_id) {
@@ -132,10 +132,10 @@ class SimpleIdMapper : public AbstractIdMapper {
     bool IsEProperty(uint64_t ep_id) {
         bool has_p = ep_id & _PIDLFLAG;
         ep_id >>= PID_BITS;
-        bool has_out_v = ep_id & _VIDFLAG;
+        bool has_src_v = ep_id & _VIDFLAG;
         ep_id >>= VID_BITS;
-        bool has_in_v = ep_id & _VIDFLAG;
-        return has_p && has_out_v && has_in_v;
+        bool has_dst_v = ep_id & _VIDFLAG;
+        return has_p && has_src_v && has_dst_v;
     }
 
     // judge if vertex/edge/property local
@@ -162,9 +162,9 @@ class SimpleIdMapper : public AbstractIdMapper {
 
     int GetMachineIdForEdge(eid_t e_id, bool considerDstVtx = false) {
         if (considerDstVtx) {
-            return e_id.in_v % my_node_.get_local_size();
+            return e_id.dst_v % my_node_.get_local_size();
         }
-        return e_id.out_v % my_node_.get_local_size();
+        return e_id.src_v % my_node_.get_local_size();
     }
 
     int GetMachineIdForVProperty(vpid_t vp_id) {
@@ -172,7 +172,7 @@ class SimpleIdMapper : public AbstractIdMapper {
     }
 
     int GetMachineIdForEProperty(epid_t ep_id) {
-        return ep_id.out_vid % my_node_.get_local_size();
+        return ep_id.src_vid % my_node_.get_local_size();
     }
 
     static SimpleIdMapper* GetInstance(Node* node = nullptr) {

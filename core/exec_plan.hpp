@@ -8,9 +8,9 @@ Authors: Created by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 #include <unordered_set>
 #include <vector>
 
-#include "actor/actor_object.hpp"
 #include "base/serialization.hpp"
 #include "base/type.hpp"
+#include "expert/expert_object.hpp"
 #include "utils/timer.hpp"
 
 // Execution plan for query
@@ -20,7 +20,7 @@ class QueryPlan {
 
     // Query info
     uint8_t query_index;
-    vector<Actor_Object> actors;
+    vector<Expert_Object> experts;
     bool is_process;  // True if query is in process phase
 
     // Transaction info
@@ -54,7 +54,7 @@ class TrxPlan {
     void SetST(uint64_t st);
 
     // Register place holder, dst_index depends on src_index
-    void RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int actor_index, int param_index);
+    void RegPlaceHolder(uint8_t src_index, uint8_t dst_index, int expert_index, int param_index);
 
     // Register dependency, dst_index depends on src_index
     void RegDependency(uint8_t src_index, uint8_t dst_index);
@@ -87,9 +87,9 @@ class TrxPlan {
     // Locate the position of place holder
     struct position_t {
         int query;
-        int actor;
+        int expert;
         int param;
-        position_t(int q, int a, int p) : query(q), actor(a), param(p){}
+        position_t(int q, int a, int p) : query(q), expert(a), param(p){}
     };
 
     uint64_t st_;

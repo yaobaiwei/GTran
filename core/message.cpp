@@ -72,9 +72,9 @@ std::string Meta::DebugString() const {
     ss << ", parent node: " << parent_nid;
     ss << ", paraent thread: " << parent_tid;
     if (msg_type == MSG_T::INIT) {
-        ss << ", actors [";
-        for (auto &actor : qplan.actors) {
-            ss  << ActorType[static_cast<int>(actor.actor_type)];
+        ss << ", experts [";
+        for (auto &expert : qplan.experts) {
+            ss  << ExpertType[static_cast<int>(expert.expert_type)];
         }
         ss << "]";
     }
@@ -99,20 +99,20 @@ obinstream& operator>>(obinstream& m, Message& msg) {
 }
 
 void Message::AssignParamsByLocality(vector<QueryPlan>& qplans) {
-    // Currently only init actor need to consider data locality
+    // Currently only init expert need to consider data locality
     // [TODO](Nick) : Add more type if necessary. e.g: AddE
-    //                If only init actor, remove for loop
-    //                Else i < qplan.actors.size()
+    //                If only init expert, remove for loop
+    //                Else i < qplan.experts.size()
     QueryPlan& qplan = qplans[0];
     for (int i = 0; i < 1; i ++) {
-        Actor_Object& actor = qplans[0].actors[i];
-        vector<value_t>& params = actor.params;
+        Expert_Object& expert = qplans[0].experts[i];
+        vector<value_t>& params = expert.params;
         // start position of V/E data which need to be redistributed
         int data_index = -1;
 
-        switch (actor.actor_type) {
-          case ACTOR_T::INIT:
-            // If init actor has input from place holder
+        switch (expert.expert_type) {
+          case EXPERT_T::INIT:
+            // If init expert has input from place holder
             if (!Tool::value_t2int(params[1])) {
                 continue;
             }
@@ -132,29 +132,29 @@ void Message::AssignParamsByLocality(vector<QueryPlan>& qplans) {
 
         // Assign params to corresponding query plan
         for (int j = 0; j < qplans.size(); j++) {
-            vector<value_t>& actor_params = qplans[j].actors[i].params;
+            vector<value_t>& expert_params = qplans[j].experts[i].params;
             // Remove params after data_index
-            actor_params.resize(data_index);
+            expert_params.resize(data_index);
             // Insert corresponding data
-            actor_params.insert(actor_params.end(),
+            expert_params.insert(expert_params.end(),
                                 make_move_iterator(nid2data[j].begin()),
                                 make_move_iterator(nid2data[j].end()));
         }
     }
 }
 
-void Message::ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, const Actor_Object & actor_obj) {
-    CHECK(actor_obj.actor_type == ACTOR_T::ADDE);
+void Message::ConstructEdge(vector<pair<history_t, vector<value_t>>> & data, const Expert_Object & expert_obj) {
+    CHECK(expert_obj.expert_type == EXPERT_T::ADDE);
 
     // Get info from params
-    int label_id = static_cast<int>(Tool::value_t2int(actor_obj.params.at(0)));
-    AddEdgeMethodType from_method_type = static_cast<AddEdgeMethodType>(Tool::value_t2int(actor_obj.params.at(1)));
-    AddEdgeMethodType to_method_type = static_cast<AddEdgeMethodType>(Tool::value_t2int(actor_obj.params.at(3)));
+    int label_id = static_cast<int>(Tool::value_t2int(expert_obj.params.at(0)));
+    AddEdgeMethodType from_method_type = static_cast<AddEdgeMethodType>(Tool::value_t2int(expert_obj.params.at(1)));
+    AddEdgeMethodType to_method_type = static_cast<AddEdgeMethodType>(Tool::value_t2int(expert_obj.params.at(3)));
     bool from_applicable = from_method_type != AddEdgeMethodType::NotApplicable;
     bool to_applicable = to_method_type != AddEdgeMethodType::NotApplicable;
     int from_params, to_params;
-    if (from_applicable) { from_params = Tool::value_t2int(actor_obj.params.at(2)); }
-    if (to_applicable) { to_params = Tool::value_t2int(actor_obj.params.at(4)); }
+    if (from_applicable) { from_params = Tool::value_t2int(expert_obj.params.at(2)); }
+    if (to_applicable) { to_params = Tool::value_t2int(expert_obj.params.at(4)); }
 
     if (from_applicable && to_applicable) {
         // addE().from().to()
@@ -314,22 +314,22 @@ void Message::CreateInitMsg(uint64_t qid, uint8_t query_count_in_trx, int parent
     m.msg_type = MSG_T::INIT;
     m.msg_path = to_string(nodes_num);
 
-    // Check first actor type
-    bool isAddV = qplan.actors[0].actor_type == ACTOR_T::ADDV;
-    bool isAddE = qplan.actors[0].actor_type == ACTOR_T::ADDE;
+    // Check first expert type
+    bool isAddV = qplan.experts[0].expert_type == EXPERT_T::ADDV;
+    bool isAddE = qplan.experts[0].expert_type == EXPERT_T::ADDE;
     value_t eid;
     int src_node = -1;
     int dst_node = -1;
     if (isAddE) {
         vector<pair<history_t, vector<value_t>>> data;
-        ConstructEdge(data, qplan.actors[0]);
+        ConstructEdge(data, qplan.experts[0]);
         eid = data[0].second[0];
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
         src_node = GetNodeId(eid, id_mapper);
         dst_node = GetNodeId(eid, id_mapper, true);
     }
 
-    // Redistribute actor params
+    // Redistribute expert params
     vector<QueryPlan> qplans(nodes_num - 1, qplan);
     qplans.push_back(move(qplan));
     AssignParamsByLocality(qplans);
@@ -364,11 +364,11 @@ void Message::CreateBroadcastMsg(MSG_T msg_type, int nodes_num, vector<Message>&
     }
 }
 
-void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message> & vec, string abort_info) {
-    // To EndActor directly
+void Message::CreateAbortMsg(const vector<Expert_Object>& experts, vector<Message> & vec, string abort_info) {
+    // To EndExpert directly
     Message msg;
     msg.meta = this->meta;
-    msg.meta.step = actors.size() - 1;
+    msg.meta.step = experts.size() - 1;
     msg.meta.msg_type = MSG_T::ABORT;
     msg.meta.recver_nid = meta.parent_nid;
     msg.meta.recver_tid = meta.parent_tid;
@@ -380,13 +380,13 @@ void Message::CreateAbortMsg(const vector<Actor_Object>& actors, vector<Message>
     vec.emplace_back(move(msg));
 }
 
-void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
+void Message::CreateNextMsg(const vector<Expert_Object>& experts, vector<pair<history_t, vector<value_t>>>& data,
                         int num_thread, CoreAffinity* core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
-    m.step = actors[this->meta.step].next_actor;
+    m.step = experts[this->meta.step].next_expert;
 
     int count = vec.size();
-    DispatchData(m, actors, data, num_thread, core_affinity, vec);
+    DispatchData(m, experts, data, num_thread, core_affinity, vec);
 
     // set disptching path
     string num = to_string(vec.size() - count);
@@ -400,7 +400,7 @@ void Message::CreateNextMsg(const vector<Actor_Object>& actors, vector<pair<hist
     }
 }
 
-void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>& steps, int num_thread,
+void Message::CreateBranchedMsg(const vector<Expert_Object>& experts, vector<int>& steps, int num_thread,
                             CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
 
@@ -457,7 +457,7 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
         auto temp = data;
         // dispatch data to msg vec
         int count = vec.size();
-        DispatchData(step_meta, actors, temp, num_thread, core_affinity, vec);
+        DispatchData(step_meta, experts, temp, num_thread, core_affinity, vec);
 
         // set msg_path for each branch
         for (int j = count; j < vec.size(); j++) {
@@ -466,7 +466,7 @@ void Message::CreateBranchedMsg(const vector<Actor_Object>& actors, vector<int>&
     }
 }
 
-void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, vector<int>& steps, uint64_t msg_id,
+void Message::CreateBranchedMsgWithHisLabel(const vector<Expert_Object>& experts, vector<int>& steps, uint64_t msg_id,
                             int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta m = this->meta;
 
@@ -512,7 +512,7 @@ void Message::CreateBranchedMsgWithHisLabel(const vector<Actor_Object>& actors, 
 
         // dispatch data to msg vec
         int count = vec.size();
-        DispatchData(step_meta, actors, temp, num_thread, core_affinity, vec);
+        DispatchData(step_meta, experts, temp, num_thread, core_affinity, vec);
 
         // set msg_path for each branch
         for (int j = count; j < vec.size(); j++) {
@@ -544,36 +544,36 @@ void Message::CreateFeedMsg(int key, int nodes_num, vector<value_t>& data, vecto
     }
 }
 
-void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<pair<history_t, vector<value_t>>>& data,
+void Message::DispatchData(Meta& m, const vector<Expert_Object>& experts, vector<pair<history_t, vector<value_t>>>& data,
                         int num_thread, CoreAffinity * core_affinity, vector<Message>& vec) {
     Meta cm = m;
-    bool route_assigned = UpdateRoute(m, actors);
-    bool empty_to_barrier = UpdateCollectionRoute(cm, actors);
+    bool route_assigned = UpdateRoute(m, experts);
+    bool empty_to_barrier = UpdateCollectionRoute(cm, experts);
     // <node id, data>
     map<int, vector<pair<history_t, vector<value_t>>>> id2data;
     // store history with empty data
     vector<pair<history_t, vector<value_t>>> empty_his;
 
     bool is_count = false;
-    if (actors[m.step].actor_type == ACTOR_T::COUNT && actors[m.step-1].actor_type != ACTOR_T::INIT) {
+    if (experts[m.step].expert_type == EXPERT_T::COUNT && experts[m.step-1].expert_type != EXPERT_T::INIT) {
         is_count = true;
     }
     bool consider_both_edge = false;
-    if (actors[m.step].actor_type == ACTOR_T::DROP) {
+    if (experts[m.step].expert_type == EXPERT_T::DROP) {
         // For DropE, send edge src_v and dst_v
-        Element_T inType = static_cast<Element_T>(Tool::value_t2int(actors[m.step].params.at(0)));
-        bool isProperty = static_cast<bool>(Tool::value_t2int(actors[m.step].params.at(1)));
+        Element_T inType = static_cast<Element_T>(Tool::value_t2int(experts[m.step].params.at(0)));
+        bool isProperty = static_cast<bool>(Tool::value_t2int(experts[m.step].params.at(1)));
         if (!isProperty) {
             // For DropEP, only send edge to src_v machine
             consider_both_edge = (inType == Element_T::EDGE);
         }
-    } else if (actors[m.step].actor_type == ACTOR_T::ADDE) {
-        ConstructEdge(data, actors[m.step]);
+    } else if (experts[m.step].expert_type == EXPERT_T::ADDE) {
+        ConstructEdge(data, experts[m.step]);
         consider_both_edge = true;
     }
 
     // enable route mapping
-    if ((!route_assigned && actors[this->meta.step].send_remote) || consider_both_edge) {
+    if ((!route_assigned && experts[this->meta.step].send_remote) || consider_both_edge) {
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance();
         for (auto& p : data) {
             map<int, vector<value_t>> id2value_t;
@@ -602,7 +602,7 @@ void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<p
             }
         }
 
-        // no data is added to next actor
+        // no data is added to next expert
         if (id2data.size() == 0 && empty_his.size() == 0) {
             empty_his.emplace_back(history_t(), vector<value_t>());
         }
@@ -622,7 +622,7 @@ void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<p
             }
         }
 
-        // no data is added to next actor
+        // no data is added to next expert
         if (id2data.find(m.recver_nid) == id2data.end() && empty_his.size() == 0) {
             empty_his.emplace_back(history_t(), vector<value_t>());
         }
@@ -635,7 +635,7 @@ void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<p
             msg.max_data_size = this->max_data_size;
             msg.meta.recver_nid = item.first;
             // if (! route_assigned) {
-            msg.meta.recver_tid = core_affinity->GetThreadIdForActor(actors[m.step].actor_type);
+            msg.meta.recver_tid = core_affinity->GetThreadIdForExpert(experts[m.step].expert_type);
             // }
             msg.InsertData(item.second);
             vec.push_back(move(msg));
@@ -648,23 +648,23 @@ void Message::DispatchData(Meta& m, const vector<Actor_Object>& actors, vector<p
         do {
             Message msg(cm);
             msg.max_data_size = this->max_data_size;
-            msg.meta.recver_tid = core_affinity->GetThreadIdForActor(actors[cm.step].actor_type);
+            msg.meta.recver_tid = core_affinity->GetThreadIdForExpert(experts[cm.step].expert_type);
             msg.InsertData(empty_his);
             vec.push_back(move(msg));
         } while ((empty_his.size() != 0));    // Data no consumed
     }
 }
 
-bool Message::UpdateRoute(Meta& m, const vector<Actor_Object>& actors) {
+bool Message::UpdateRoute(Meta& m, const vector<Expert_Object>& experts) {
     int branch_depth = m.branch_infos.size() - 1;
     // update recver route & msg_type
-    if (actors[m.step].IsBarrier()) {
+    if (experts[m.step].IsBarrier()) {
         if (branch_depth >= 0) {
-            // barrier actor in branch
+            // barrier expert in branch
             m.recver_nid = m.branch_infos[branch_depth].node_id;
             // m.recver_tid = m.branch_infos[branch_depth].thread_id;
         } else {
-            // barrier actor in main query
+            // barrier expert in main query
             m.recver_nid = m.parent_nid;
             // m.recver_tid = m.parent_tid;
         }
@@ -674,45 +674,45 @@ bool Message::UpdateRoute(Meta& m, const vector<Actor_Object>& actors) {
         // to branch parent
         CHECK(branch_depth >= 0);
 
-        if (actors[m.step].actor_type == ACTOR_T::BRANCH || actors[m.step].actor_type == ACTOR_T::REPEAT) {
+        if (experts[m.step].expert_type == EXPERT_T::BRANCH || experts[m.step].expert_type == EXPERT_T::REPEAT) {
             // don't need to send msg back to parent branch step
-            // go to next actor of parent
-            m.step = actors[m.step].next_actor;
+            // go to next expert of parent
+            m.step = experts[m.step].next_expert;
             m.branch_infos.pop_back();
 
-            return UpdateRoute(m, actors);
+            return UpdateRoute(m, experts);
         } else {
-            // aggregate labelled branch actors to parent machine
+            // aggregate labelled branch experts to parent machine
             m.recver_nid = m.branch_infos[branch_depth].node_id;
             m.recver_tid = m.branch_infos[branch_depth].thread_id;
             m.msg_type = MSG_T::BRANCH;
             return true;
         }
     } else {
-        // normal actor, recver = sender
+        // normal expert, recver = sender
         m.msg_type = MSG_T::SPAWN;
         return false;
     }
 }
 
-bool Message::UpdateCollectionRoute(Meta& m, const vector<Actor_Object>& actors) {
+bool Message::UpdateCollectionRoute(Meta& m, const vector<Expert_Object>& experts) {
     bool to_barrier = false;
     // empty data should be send to:
-    // 1. barrier actor, msg_type = BARRIER
-    // 2. branch actor: broadcast empty data to barriers inside each branches for msg collection, msg_type = SPAWN
+    // 1. barrier expert, msg_type = BARRIER
+    // 2. branch expert: broadcast empty data to barriers inside each branches for msg collection, msg_type = SPAWN
     // 3. labelled branch parent: which will collect branched msg with label, msg_type = BRANCH
-    while (m.step < actors.size()) {
-        if (actors[m.step].IsBarrier()) {
+    while (m.step < experts.size()) {
+        if (experts[m.step].IsBarrier()) {
             // to barrier
             to_barrier = true;
             break;
-        } else if (actors[m.step].actor_type == ACTOR_T::BRANCH || actors[m.step].actor_type == ACTOR_T::REPEAT) {
+        } else if (experts[m.step].expert_type == EXPERT_T::BRANCH || experts[m.step].expert_type == EXPERT_T::REPEAT) {
             if (m.step <= this->meta.step) {
                 // to branch parent, pop back one branch info
-                // as barrier actor is not founded in sub branch, continue to search
+                // as barrier expert is not founded in sub branch, continue to search
                 m.branch_infos.pop_back();
             } else {
-                // to branch actor for the first time, should broadcast empty data to each branches
+                // to branch expert for the first time, should broadcast empty data to each branches
                 break;
             }
         } else if (m.step <= this->meta.step) {
@@ -720,10 +720,10 @@ bool Message::UpdateCollectionRoute(Meta& m, const vector<Actor_Object>& actors)
             break;
         }
 
-        m.step = actors[m.step].next_actor;
+        m.step = experts[m.step].next_expert;
     }
 
-    UpdateRoute(m, actors);
+    UpdateRoute(m, experts);
 
     return to_barrier;
 }

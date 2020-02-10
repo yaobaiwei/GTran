@@ -57,14 +57,14 @@ class CoreAffinity {
         // Calculate Number of threads for each thread division
         // Fail when number of threads < 6
         if (!get_num_thread_for_each_division(config_->global_num_threads)) {
-            config_->global_enable_actor_division = false;
+            config_->global_enable_expert_division = false;
         }
 
         // Assign thread id to each division according to last function
         get_core_id_for_each_division();
 
-        // Pair Actor Type and ActorDivisionType
-        load_actor_division();
+        // Pair Expert Type and ExpertDivisionType
+        load_expert_division();
 
         // Pair CoreId and ThreadId
         load_core_to_thread_map();
@@ -80,7 +80,7 @@ class CoreAffinity {
         //        core_affinity_->BindToCore(tid);
 
         size_t core;
-        if (config_->global_enable_actor_division)
+        if (config_->global_enable_expert_division)
             core = (size_t)thread_to_core_map[tid];
         else
             core = tid % cpuinfo_->GetTotalThreadCount();
@@ -100,9 +100,9 @@ class CoreAffinity {
         }
     }
 
-    int GetThreadIdForActor(ACTOR_T type) {
-        if (config_->global_enable_actor_division) {
-            return core_to_thread_map[get_core_id_by_actor(type)];
+    int GetThreadIdForExpert(EXPERT_T type) {
+        if (config_->global_enable_expert_division) {
+            return core_to_thread_map[get_core_id_by_expert(type)];
         } else {
             counter++;
             return counter % config_->global_num_threads;
@@ -159,8 +159,8 @@ class CoreAffinity {
 
     // order eq priority
     int num_threads[NUM_THREAD_DIVISION];
-    map<ACTOR_T, ActorDivisionType> actor_division;
-    std::mutex actor_division_mutex;
+    map<EXPERT_T, ExpertDivisionType> expert_division;
+    std::mutex expert_division_mutex;
 
     map<int, vector<int>> core_pool_table;
     map<int, vector<int>::iterator> core_pool_table_itr;
@@ -267,48 +267,48 @@ class CoreAffinity {
         node_.LocalSequentialDebugPrint(ss.str());
     }
 
-    void load_actor_division() {
+    void load_expert_division() {
         // CacheSeq
-        actor_division[ACTOR_T::LABEL] = ActorDivisionType::CACHE_SEQ;
-        actor_division[ACTOR_T::HASLABEL] = ActorDivisionType::CACHE_SEQ;
-        actor_division[ACTOR_T::PROPERTIES] = ActorDivisionType::CACHE_SEQ;
-        actor_division[ACTOR_T::VALUES] = ActorDivisionType::CACHE_SEQ;
-        actor_division[ACTOR_T::HAS] = ActorDivisionType::CACHE_SEQ;
-        actor_division[ACTOR_T::KEY] = ActorDivisionType::CACHE_SEQ;
+        expert_division[EXPERT_T::LABEL] = ExpertDivisionType::CACHE_SEQ;
+        expert_division[EXPERT_T::HASLABEL] = ExpertDivisionType::CACHE_SEQ;
+        expert_division[EXPERT_T::PROPERTIES] = ExpertDivisionType::CACHE_SEQ;
+        expert_division[EXPERT_T::VALUES] = ExpertDivisionType::CACHE_SEQ;
+        expert_division[EXPERT_T::HAS] = ExpertDivisionType::CACHE_SEQ;
+        expert_division[EXPERT_T::KEY] = ExpertDivisionType::CACHE_SEQ;
 
         // CacheBarrier
-        actor_division[ACTOR_T::GROUP] = ActorDivisionType::CACHE_BARR;
-        actor_division[ACTOR_T::ORDER] = ActorDivisionType::CACHE_BARR;
+        expert_division[EXPERT_T::GROUP] = ExpertDivisionType::CACHE_BARR;
+        expert_division[EXPERT_T::ORDER] = ExpertDivisionType::CACHE_BARR;
 
         // Traversal
-        actor_division[ACTOR_T::TRAVERSAL] = ActorDivisionType::TRAVERSAL;
-        actor_division[ACTOR_T::INIT] = ActorDivisionType::TRAVERSAL;
-        actor_division[ACTOR_T::INDEX] = ActorDivisionType::TRAVERSAL;
+        expert_division[EXPERT_T::TRAVERSAL] = ExpertDivisionType::TRAVERSAL;
+        expert_division[EXPERT_T::INIT] = ExpertDivisionType::TRAVERSAL;
+        expert_division[EXPERT_T::INDEX] = ExpertDivisionType::TRAVERSAL;
 
         // NormalBarrier
-        actor_division[ACTOR_T::COUNT] = ActorDivisionType::NORMAL_BARR;
-        actor_division[ACTOR_T::AGGREGATE] = ActorDivisionType::NORMAL_BARR;
-        actor_division[ACTOR_T::CAP] = ActorDivisionType::NORMAL_BARR;
-        actor_division[ACTOR_T::DEDUP] = ActorDivisionType::NORMAL_BARR;
-        actor_division[ACTOR_T::MATH] = ActorDivisionType::NORMAL_BARR;
+        expert_division[EXPERT_T::COUNT] = ExpertDivisionType::NORMAL_BARR;
+        expert_division[EXPERT_T::AGGREGATE] = ExpertDivisionType::NORMAL_BARR;
+        expert_division[EXPERT_T::CAP] = ExpertDivisionType::NORMAL_BARR;
+        expert_division[EXPERT_T::DEDUP] = ExpertDivisionType::NORMAL_BARR;
+        expert_division[EXPERT_T::MATH] = ExpertDivisionType::NORMAL_BARR;
 
         // NormalBranch
-        actor_division[ACTOR_T::RANGE] = ActorDivisionType::NORMAL_BRANCH;
-        actor_division[ACTOR_T::BRANCH] = ActorDivisionType::NORMAL_BRANCH;
-        actor_division[ACTOR_T::BRANCHFILTER] = ActorDivisionType::NORMAL_BRANCH;
+        expert_division[EXPERT_T::RANGE] = ExpertDivisionType::NORMAL_BRANCH;
+        expert_division[EXPERT_T::BRANCH] = ExpertDivisionType::NORMAL_BRANCH;
+        expert_division[EXPERT_T::BRANCHFILTER] = ExpertDivisionType::NORMAL_BRANCH;
 
         // NormalSeq
-        actor_division[ACTOR_T::AS] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::SELECT] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::WHERE] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::IS] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::END] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::ADDV] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::ADDE] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::POSTVALIDATION] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::PROPERTY] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::VALIDATION] = ActorDivisionType::NORMAL_SEQ;
-        actor_division[ACTOR_T::COMMIT] = ActorDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::AS] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::SELECT] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::WHERE] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::IS] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::END] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::ADDV] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::ADDE] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::POSTVALIDATION] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::PROPERTY] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::VALIDATION] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::TERMINATE] = ExpertDivisionType::NORMAL_SEQ;
     }
 
     void dump_node_topo(vector<vector<int>> topo) {
@@ -338,18 +338,18 @@ class CoreAffinity {
             cout << "[Warning] Automatically set ENABLE_CORE_BIND to False" << endl;
             return false;
         } else {
-            num_threads[ActorDivisionType::CACHE_SEQ] = multi_floor(division_level, 3.0 / 2);
-            num_threads[ActorDivisionType::CACHE_BARR] = division_level;
-            num_threads[ActorDivisionType::TRAVERSAL] = multi_ceil(division_level, 1.0 / 2);
-            num_threads[ActorDivisionType::NORMAL_BARR] = division_level;
-            num_threads[ActorDivisionType::NORMAL_BRANCH] = division_level;
-            num_threads[ActorDivisionType::NORMAL_SEQ] = division_level;
+            num_threads[ExpertDivisionType::CACHE_SEQ] = multi_floor(division_level, 3.0 / 2);
+            num_threads[ExpertDivisionType::CACHE_BARR] = division_level;
+            num_threads[ExpertDivisionType::TRAVERSAL] = multi_ceil(division_level, 1.0 / 2);
+            num_threads[ExpertDivisionType::NORMAL_BARR] = division_level;
+            num_threads[ExpertDivisionType::NORMAL_BRANCH] = division_level;
+            num_threads[ExpertDivisionType::NORMAL_SEQ] = division_level;
         }
 
         // Assign rest of threads by priority
         for (int i = 0; i < free_to_assign; i++) {
             int id = i % 6;
-            if (id == ActorDivisionType::TRAVERSAL) {
+            if (id == ExpertDivisionType::TRAVERSAL) {
                 // Traversal Max NumOfThreads == 2
                 if (num_threads[id] == 2) {
                     free_to_assign++;
@@ -429,16 +429,16 @@ class CoreAffinity {
         }
     }
 
-    int get_core_id_by_actor(ACTOR_T type) {
-        ActorDivisionType att;
+    int get_core_id_by_expert(EXPERT_T type) {
+        ExpertDivisionType att;
         {
-            lock_guard<std::mutex> lock(actor_division_mutex);
-            if (actor_division.find(type) == actor_division.end()) {
-                // Assign actor to one division after adding a new actor
-                cout << "[Core Affinity] Assign Actor Type " << ActorType[(int)type] << " to NormalSeq." << endl;
-                actor_division[type] = ActorDivisionType::NORMAL_SEQ;
+            lock_guard<std::mutex> lock(expert_division_mutex);
+            if (expert_division.find(type) == expert_division.end()) {
+                // Assign expert to one division after adding a new expert
+                cout << "[Core Affinity] Assign Expert Type " << ExpertType[(int)type] << " to NormalSeq." << endl;
+                expert_division[type] = ExpertDivisionType::NORMAL_SEQ;
             }
-            att = actor_division[type];
+            att = expert_division[type];
         }
 
         pthread_spin_lock(&(lock_table[att]));
