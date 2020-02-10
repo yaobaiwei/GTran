@@ -33,13 +33,11 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 class CommitExpert : public AbstractExpert {
  public:
     CommitExpert(int id,
-            int num_thread,
             AbstractMailbox * mailbox,
             CoreAffinity * core_affinity,
             map<EXPERT_T, unique_ptr<AbstractExpert>> * experts,
             tbb::concurrent_hash_map<uint64_t, QueryPlan> * msg_logic_table) :
         AbstractExpert(id, core_affinity),
-        num_thread_(num_thread),
         mailbox_(mailbox),
         experts_(experts),
         msg_logic_table_(msg_logic_table),
@@ -52,9 +50,6 @@ class CommitExpert : public AbstractExpert {
     void process(const QueryPlan & qplan, Message & msg);
 
  private:
-    // number of thread
-    int num_thread_;
-
     // Expert type
     EXPERT_T type_;
 

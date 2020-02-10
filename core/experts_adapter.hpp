@@ -85,7 +85,7 @@ class ExpertAdapter {
         experts_[EXPERT_T::BRANCH] = unique_ptr<AbstractExpert>(new BranchExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::BRANCHFILTER] = unique_ptr<AbstractExpert>(new BranchFilterExpert(id ++, num_thread_, mailbox_, core_affinity_, &id_allocator_));
         experts_[EXPERT_T::CAP] = unique_ptr<AbstractExpert>(new CapExpert(id ++, num_thread_, mailbox_, core_affinity_));
-        experts_[EXPERT_T::COMMIT] = unique_ptr<AbstractExpert>(new CommitExpert(id ++, num_thread_, mailbox_, core_affinity_, &experts_, &msg_logic_table_));
+        experts_[EXPERT_T::COMMIT] = unique_ptr<AbstractExpert>(new CommitExpert(id ++, mailbox_, core_affinity_, &experts_, &msg_logic_table_));
         experts_[EXPERT_T::CONFIG] = unique_ptr<AbstractExpert>(new ConfigExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::COUNT] = unique_ptr<AbstractExpert>(new CountExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::DROP] = unique_ptr<AbstractExpert>(new DropExpert(id ++, num_thread_, node_.get_local_rank(), mailbox_, core_affinity_));
