@@ -18,6 +18,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/buffer.hpp"
 #include "tbb/atomic.h"
 #include "utils/config.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 // A cache line (64B)
 // Used for RDMA write

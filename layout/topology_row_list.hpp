@@ -9,7 +9,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "layout/mvcc_list.hpp"
 #include "tbb/atomic.h"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 class GCProducer;
 class GCConsumer;

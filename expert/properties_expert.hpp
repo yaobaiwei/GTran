@@ -35,7 +35,7 @@ class PropertiesExpert : public AbstractExpert {
 
     // inType, [key]+
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         Meta & m = msg.meta;
         Expert_Object expert_obj = qplan.experts[m.step];

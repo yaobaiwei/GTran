@@ -23,7 +23,7 @@ void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
     int cell_id_in_row = cell_id % VE_ROW_CELL_COUNT;
 
     if (cell_id_in_row == 0) {
-        auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+        auto* new_row = mem_pool_->Get(TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
         if (cell_id == 0) {
             head_ = tail_ = new_row;
         } else {
@@ -199,7 +199,7 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
     }
 
     for (int i = row_count - 1; i >= 0; i--) {
-        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+        mem_pool_->Free(row_ptrs[i], TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     }
 
     head_ = nullptr;
@@ -304,7 +304,7 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
     // Recycle removable row
     for (int i = row_count - 1; i > cur_row_count - 1; i--) {
         if (i - 1 >= 0) { row_ptrs[i-1]->next_ = nullptr; }
-        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+        mem_pool_->Free(row_ptrs[i], TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     }
 
     // new property count

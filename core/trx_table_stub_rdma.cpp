@@ -36,7 +36,7 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
         return trx_table_->query_status(trx_id, status);
     }
 
-    int t_id = TidMapper::GetInstance()->GetTid();
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
     uint64_t bucket_id = TrxIDHash(trx_id) % trx_num_main_buckets_;
     DLOG(INFO) << "[RDMATrxTableStub] read_status: t_id = " << t_id << "; bucket_id = " << bucket_id;
 
@@ -82,7 +82,7 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
         return query_status_ret && query_ct_ret;
     }
 
-    int t_id = TidMapper::GetInstance()->GetTid();
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
     uint64_t bucket_id = TrxIDHash(trx_id) % trx_num_main_buckets_;
     DLOG(INFO) << "[RDMATrxTableStub] read_status: t_id = " << t_id << "; bucket_id = " << bucket_id;
 

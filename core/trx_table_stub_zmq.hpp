@@ -17,7 +17,6 @@
 #include "glog/logging.h"
 #include "tbb/concurrent_hash_map.h"
 #include "utils/config.hpp"
-#include "utils/tid_mapper.hpp"
 
 class TcpTrxTableStub : public TrxTableStub {
  private:

@@ -27,6 +27,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "tbb/atomic.h"
 #include "utils/config.hpp"
 #include "utils/distributed_clock.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 struct TimestampRequest {
     TimestampRequest() : trx_id(0) {}

@@ -7,7 +7,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 #include "expert/drop_expert.hpp"
 
 void DropExpert::process(const QueryPlan & qplan, Message & msg) {
-    int tid = TidMapper::GetInstance()->GetTid();
+    int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
     // Get Expert_Object
     Meta & m = msg.meta;

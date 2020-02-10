@@ -30,7 +30,7 @@ class IsExpert : public AbstractExpert {
 
     // [pred_T , pred_params]...
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         // Get Expert_Object
         Meta & m = msg.meta;

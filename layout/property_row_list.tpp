@@ -49,7 +49,7 @@ typename PropertyRowList<PropertyRow>::CellType* PropertyRowList<PropertyRow>::
         int cell_id_in_row = cell_id % PropertyRow::ROW_CELL_COUNT;
 
         if (cell_id_in_row == 0) {
-            auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+            auto* new_row = mem_pool_->Get(TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
             if (cell_id == 0) {
                 head_ = tail_ = new_row;
             } else {
@@ -145,7 +145,7 @@ void PropertyRowList<PropertyRow>::InsertInitialCell(const PidType& pid, const v
     int cell_id_in_row = cell_id % PropertyRow::ROW_CELL_COUNT;
 
     if (cell_id_in_row == 0) {
-        auto* new_row = mem_pool_->Get(TidMapper::GetInstance()->GetTidUnique());
+        auto* new_row = mem_pool_->Get(TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
         if (cell_id == 0) {
             head_ = tail_ = new_row;
         } else {
@@ -157,7 +157,7 @@ void PropertyRowList<PropertyRow>::InsertInitialCell(const PidType& pid, const v
     tail_->cells_[cell_id_in_row].pid = pid;
 
     MVCCListType* mvcc_list = new MVCCListType;
-    *(mvcc_list->AppendInitialVersion()) = value_store_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
+    *(mvcc_list->AppendInitialVersion()) = value_store_->InsertValue(value, TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     tail_->cells_[cell_id_in_row].mvcc_list = mvcc_list;
 }
 
@@ -440,7 +440,7 @@ pair<bool, typename PropertyRowList<PropertyRow>::MVCCListType*> PropertyRowList
     if (version_val_ptr == nullptr)  // modify failed
         return make_pair(true, nullptr);
 
-    *version_val_ptr = value_store_->InsertValue(value, TidMapper::GetInstance()->GetTidUnique());
+    *version_val_ptr = value_store_->InsertValue(value, TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
 
     if (!modify_flag) {
         // For a newly added cell, assign the mvcc_list after it has been initialized.
@@ -511,7 +511,7 @@ void PropertyRowList<PropertyRow>::SelfGarbageCollect() {
     }
 
     for (int i = row_count - 1; i >= 0; i--) {
-        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+        mem_pool_->Free(row_ptrs[i], TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     }
 
     head_ = nullptr;
@@ -613,7 +613,7 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     // Recycle removable row
     for (int i = row_count - 1; i > cur_row_count - 1; i--) {
         if (i-1 >= 0) { row_ptrs[i-1]->next_ = nullptr; }
-        mem_pool_->Free(row_ptrs[i], TidMapper::GetInstance()->GetTidUnique());
+        mem_pool_->Free(row_ptrs[i], TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     }
 
     if (cur_row_count == 0) {

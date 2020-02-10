@@ -26,7 +26,6 @@ void DataStorage::Init() {
     worker_size_ = node_.get_local_size();
     // allow the main thread and GCConsumer threads to use memory pool
     container_nthreads_ = config_->global_num_threads + 1 + config_->num_gc_consumer;
-    TidMapper::GetInstance()->Register(config_->global_num_threads);  // register the main thread in TidMapper
 
     node_.Rank0PrintfWithWorkerBarrier(
                       "VE_ROW_CELL_COUNT = %d, sizeof(EdgeHeader) = %d, sizeof(VertexEdgeRow) = %d\n",

@@ -49,7 +49,7 @@ class HasExpert : public AbstractExpert {
     // HasKey(params) : keys -> [key = pid; pred = ANY; pred_params = -1]
     //
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         // Get Expert_Object
         Meta & m = msg.meta;

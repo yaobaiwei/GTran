@@ -10,7 +10,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 GCConsumer::GCConsumer() {
     config_ = Config::GetInstance();
     data_storage_ = DataStorage::GetInstance();
-    tid_mapper_ = TidMapper::GetInstance();
+    tid_pool_manager_ = TidPoolManager::GetInstance();
     index_store_ = IndexStore::GetInstance();
     running_trx_list_ = RunningTrxList::GetInstance();
     rct_table_ = RCTable::GetInstance();
@@ -32,7 +32,7 @@ void GCConsumer::Stop() {
 }
 
 void GCConsumer::Execute(int tid) {
-    tid_mapper_->Register(tid);
+    tid_pool_manager_->Register(TID_TYPE::CONTAINER);
     while (true) {
         AbstractGCJob * job;
         if (!garbage_collector_->PopJobFromPendingQueue(job)) {
@@ -164,7 +164,7 @@ void GCConsumer::ExecuteVMVCCGCJob(VMVCCGCJob* job) {
             cur_item = cur_item->next;
             // Clean
             to_free->next = nullptr;
-            data_storage_->vertex_mvcc_pool_->Free(to_free, tid_mapper_->GetTidUnique());
+            data_storage_->vertex_mvcc_pool_->Free(to_free, tid_pool_manager_->GetTid(TID_TYPE::CONTAINER));
         }
     }
 }
@@ -179,7 +179,7 @@ void GCConsumer::ExecuteVPMVCCGCJob(VPMVCCGCJob* job) {
             // Clean
             to_free->next = nullptr;
             to_free->ValueGC();
-            data_storage_->vp_mvcc_pool_->Free(to_free, tid_mapper_->GetTidUnique());
+            data_storage_->vp_mvcc_pool_->Free(to_free, tid_pool_manager_->GetTid(TID_TYPE::CONTAINER));
         }
     }
 }
@@ -194,7 +194,7 @@ void GCConsumer::ExecuteEPMVCCGCJob(EPMVCCGCJob* job) {
             // Clean
             to_free->next = nullptr;
             to_free->ValueGC();
-            data_storage_->ep_mvcc_pool_->Free(to_free, tid_mapper_->GetTidUnique());
+            data_storage_->ep_mvcc_pool_->Free(to_free, tid_pool_manager_->GetTid(TID_TYPE::CONTAINER));
         }
     }
 }
@@ -209,7 +209,7 @@ void GCConsumer::ExecuteEMVCCGCJob(EMVCCGCJob* job) {
             // Clean
             to_free->next = nullptr;
             to_free->ValueGC();
-            data_storage_->edge_mvcc_pool_->Free(to_free, tid_mapper_->GetTidUnique());
+            data_storage_->edge_mvcc_pool_->Free(to_free, tid_pool_manager_->GetTid(TID_TYPE::CONTAINER));
         }
     }
 }

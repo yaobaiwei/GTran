@@ -108,8 +108,7 @@ std::string RunningTrxList::PrintList() const {
     return ret;
 }
 
-// not thread-safe
-// call this in locked region
+// called by Worker::ProcessAllocatedTimestamp()
 void RunningTrxList::UpdateMinBT(uint64_t bt) {
     if (min_bt_ == bt)
         return;
@@ -127,7 +126,7 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
         // write to remote
         uint64_t off = config_->min_bt_buffer_offset + node_.get_local_rank() * sizeof(Uint64CLine);
 
-        int t_id = config_->global_num_threads + Config::update_min_bt_tid;
+        int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
         RDMA &rdma = RDMA::get_rdma();
         for (int i = 0; i < node_.get_local_size(); i++) {
             if (i != node_.get_local_rank()) {

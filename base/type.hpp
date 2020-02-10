@@ -79,6 +79,20 @@ enum class ISOLATION_LEVEL {
     SERIALIZABLE,
 };
 
+/*
+In this system, two groups of thread ids are needed: for using RDMA and containers.
+
+For containers, we just need to guarantee that the thread ids are unique.
+
+For RDMA, to ensure the usage of RDMAMailbox, we need to guarantee that the thread ids
+of threads in the thread pool in ExpertAdapter are in range of [0, global_num_threads - 1].
+*/
+enum class TID_TYPE {
+    RDMA,
+    CONTAINER,
+    COUNT,
+};
+
 template <class EnumClass>
 struct EnumClassHash {
     size_t operator() (const EnumClass& v) const {

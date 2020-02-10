@@ -52,7 +52,7 @@ class LabelledBranchExpertBase :  public AbstractExpert {
         id_allocator_(allocator) {}
 
     void process(const QueryPlan & qplan,  Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         if (msg.meta.msg_type == MSG_T::SPAWN) {
             uint64_t msg_id;

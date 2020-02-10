@@ -9,7 +9,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 
 #include "core/common.hpp"
 #include "layout/mvcc_value_store.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 class GCProducer;
 class GCConsumer;
