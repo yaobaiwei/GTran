@@ -308,7 +308,7 @@ class CoreAffinity {
         expert_division[EXPERT_T::POSTVALIDATION] = ExpertDivisionType::NORMAL_SEQ;
         expert_division[EXPERT_T::PROPERTY] = ExpertDivisionType::NORMAL_SEQ;
         expert_division[EXPERT_T::VALIDATION] = ExpertDivisionType::NORMAL_SEQ;
-        expert_division[EXPERT_T::COMMIT] = ExpertDivisionType::NORMAL_SEQ;
+        expert_division[EXPERT_T::TERMINATE] = ExpertDivisionType::NORMAL_SEQ;
     }
 
     void dump_node_topo(vector<vector<int>> topo) {

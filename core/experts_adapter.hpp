@@ -23,7 +23,6 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "expert/as_expert.hpp"
 #include "expert/barrier_expert.hpp"
 #include "expert/branch_expert.hpp"
-#include "expert/commit_expert.hpp"
 #include "expert/config_expert.hpp"
 #include "expert/drop_expert.hpp"
 #include "expert/has_expert.hpp"
@@ -39,6 +38,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "expert/property_expert.hpp"
 #include "expert/select_expert.hpp"
 #include "expert/status_expert.hpp"
+#include "expert/terminate_expert.hpp"
 #include "expert/traversal_expert.hpp"
 #include "expert/values_expert.hpp"
 #include "expert/validation_expert.hpp"
@@ -85,7 +85,6 @@ class ExpertAdapter {
         experts_[EXPERT_T::BRANCH] = unique_ptr<AbstractExpert>(new BranchExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::BRANCHFILTER] = unique_ptr<AbstractExpert>(new BranchFilterExpert(id ++, num_thread_, mailbox_, core_affinity_, &id_allocator_));
         experts_[EXPERT_T::CAP] = unique_ptr<AbstractExpert>(new CapExpert(id ++, num_thread_, mailbox_, core_affinity_));
-        experts_[EXPERT_T::COMMIT] = unique_ptr<AbstractExpert>(new CommitExpert(id ++, mailbox_, core_affinity_, &experts_, &msg_logic_table_));
         experts_[EXPERT_T::CONFIG] = unique_ptr<AbstractExpert>(new ConfigExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::COUNT] = unique_ptr<AbstractExpert>(new CountExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::DROP] = unique_ptr<AbstractExpert>(new DropExpert(id ++, num_thread_, node_.get_local_rank(), mailbox_, core_affinity_));
@@ -110,6 +109,7 @@ class ExpertAdapter {
         experts_[EXPERT_T::REPEAT] = unique_ptr<AbstractExpert>(new RepeatExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::SELECT] = unique_ptr<AbstractExpert>(new SelectExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::STATUS] = unique_ptr<AbstractExpert>(new StatusExpert(id ++, num_thread_, mailbox_, core_affinity_));
+        experts_[EXPERT_T::TERMINATE] = unique_ptr<AbstractExpert>(new TerminateExpert(id ++, mailbox_, core_affinity_, &experts_, &msg_logic_table_));
         experts_[EXPERT_T::TRAVERSAL] = unique_ptr<AbstractExpert>(new TraversalExpert(id ++, num_thread_, mailbox_, core_affinity_));
         experts_[EXPERT_T::VALIDATION] = unique_ptr<AbstractExpert>(new ValidationExpert(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_, &experts_, &msg_logic_table_));
         experts_[EXPERT_T::VALUES] = unique_ptr<AbstractExpert>(new ValuesExpert(id ++, node_.get_local_rank(), num_thread_, mailbox_, core_affinity_));
@@ -136,7 +136,7 @@ class ExpertAdapter {
         Meta & m = msg.meta;
 
         bool acquire_writer_lock = false, check_trx_status = false;
-        if (m.msg_type == MSG_T::INIT && m.qplan.experts[0].expert_type == EXPERT_T::COMMIT) {
+        if (m.msg_type == MSG_T::INIT && m.qplan.experts[0].expert_type == EXPERT_T::TERMINATE) {
             acquire_writer_lock = true;
         }
 
@@ -228,7 +228,7 @@ class ExpertAdapter {
         } while (current_step != msg.meta.step);  // process next expert directly if step is modified
 
         // Commit expert cannot erase its own qid in process
-        if (ac->second.experts[current_step].expert_type == EXPERT_T::COMMIT) {
+        if (ac->second.experts[current_step].expert_type == EXPERT_T::TERMINATE) {
             msg_logic_table_.erase(ac);
         }
     }

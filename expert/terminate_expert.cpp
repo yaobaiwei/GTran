@@ -3,9 +3,9 @@
 Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 */
 
-#include "expert/commit_expert.hpp"
+#include "expert/terminate_expert.hpp"
 
-void CommitExpert::process(const QueryPlan & qplan, Message & msg) {
+void TerminateExpert::process(const QueryPlan & qplan, Message & msg) {
     int tid = TidMapper::GetInstance()->GetTid();
 
     // Get info of transaction
@@ -57,7 +57,7 @@ void CommitExpert::process(const QueryPlan & qplan, Message & msg) {
     mailbox_->Send(tid, msg);
 }
 
-void CommitExpert::prepare_clean_expert_set() {
+void TerminateExpert::prepare_clean_expert_set() {
     // Sequential Experts, clean input set
     need_clean_expert_set_.emplace(EXPERT_T::TRAVERSAL);
     need_clean_expert_set_.emplace(EXPERT_T::VALUES);

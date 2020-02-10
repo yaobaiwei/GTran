@@ -1832,7 +1832,7 @@ void ParserObject::AddCommitStatement(TrxPlan& plan) {
     valid_vec[1].next_expert = 2;
 
     // Add commit query
-    valid_vec.emplace_back(EXPERT_T::COMMIT);
+    valid_vec.emplace_back(EXPERT_T::TERMINATE);
     valid_vec[2].next_expert = 3;
 
     plan.query_plans_[line_index].experts = move(valid_vec);

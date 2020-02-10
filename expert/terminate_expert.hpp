@@ -3,8 +3,8 @@
 Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 */
 
-#ifndef EXPERT_COMMIT_EXPERT_HPP_
-#define EXPERT_COMMIT_EXPERT_HPP_
+#ifndef EXPERT_TERMINATE_EXPERT_HPP_
+#define EXPERT_TERMINATE_EXPERT_HPP_
 
 #include <unistd.h>
 
@@ -30,9 +30,9 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 
 #include "glog/logging.h"
 
-class CommitExpert : public AbstractExpert {
+class TerminateExpert : public AbstractExpert {
  public:
-    CommitExpert(int id,
+    TerminateExpert(int id,
             AbstractMailbox * mailbox,
             CoreAffinity * core_affinity,
             map<EXPERT_T, unique_ptr<AbstractExpert>> * experts,
@@ -41,7 +41,7 @@ class CommitExpert : public AbstractExpert {
         mailbox_(mailbox),
         experts_(experts),
         msg_logic_table_(msg_logic_table),
-        type_(EXPERT_T::COMMIT) {
+        type_(EXPERT_T::TERMINATE) {
         config_ = Config::GetInstance();
         index_store_ = IndexStore::GetInstance();
         prepare_clean_expert_set();
@@ -73,4 +73,4 @@ class CommitExpert : public AbstractExpert {
     void prepare_clean_expert_set();
 };
 
-#endif  // EXPERT_COMMIT_EXPERT_HPP_
+#endif  // EXPERT_TERMINATE_EXPERT_HPP_
