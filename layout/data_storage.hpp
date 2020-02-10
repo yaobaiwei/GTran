@@ -177,8 +177,8 @@ class DataStorage {
     READ_STAT GetVertexIterator(VertexConstIterator& v_iterator, const vid_t& vid, const uint64_t& trx_id,
                                 const uint64_t& begin_time, const bool& read_only);
     // for an eid, there can be multiple versions of edges
-    READ_STAT GetOutEdgeVersion(OutEdgeConstIterator& out_e_iterator, const eid_t& eid, const uint64_t& trx_id,
-                                const uint64_t& begin_time, const bool& read_only, EdgeVersion& item_ref);
+    READ_STAT GetOutEdgeVersion(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+                                const bool& read_only, EdgeVersion& item_ref);
 
 
     // ================ Aggregated data related ================

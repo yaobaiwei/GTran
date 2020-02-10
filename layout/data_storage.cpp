@@ -445,27 +445,6 @@ void DataStorage::FillEdgeContainer() {
     node_.Rank0PrintfWithWorkerBarrier("DataStorage::FillEdgeContainer() finished\n");
 }
 
-READ_STAT DataStorage::GetOutEdgeVersion(OutEdgeConstIterator& out_e_iterator, const eid_t& eid,
-                                         const uint64_t& trx_id, const uint64_t& begin_time,
-                                         const bool& read_only, EdgeVersion& version_ref) {
-    ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
-
-    out_e_iterator = out_edge_map_.find(eid.value());
-
-    if (out_e_iterator == out_edge_map_.end()) {
-        return READ_STAT::NOTFOUND;
-    }
-
-    pair<bool, bool> is_visible = out_e_iterator->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, version_ref);
-
-    if (!is_visible.first)
-        return READ_STAT::ABORT;
-    if (!is_visible.second)
-        return READ_STAT::NOTFOUND;
-
-    return READ_STAT::SUCCESS;
-}
-
 READ_STAT DataStorage::CheckVertexVisibility(const VertexConstIterator& v_iterator, const uint64_t& trx_id,
                                              const uint64_t& begin_time, const bool& read_only) {
     VertexMVCCItem* visible_version;
@@ -474,8 +453,12 @@ READ_STAT DataStorage::CheckVertexVisibility(const VertexConstIterator& v_iterat
 
     if (!is_visible.first)
         return READ_STAT::ABORT;
+
+    // no visible version
     if (!is_visible.second)
         return READ_STAT::NOTFOUND;
+
+    // "dropped" version
     if (!exists)
         return READ_STAT::NOTFOUND;
     return READ_STAT::SUCCESS;
@@ -499,6 +482,33 @@ READ_STAT DataStorage::GetVertexIterator(VertexConstIterator& v_iterator, const 
     }
 
     return read_stat;
+}
+
+READ_STAT DataStorage::GetOutEdgeVersion(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
+                                         const bool& read_only, EdgeVersion& version_ref) {
+    ReaderLockGuard reader_lock_guard(out_edge_erase_rwlock_);
+
+    OutEdgeConstIterator out_e_iterator = out_edge_map_.find(eid.value());
+
+    if (out_e_iterator == out_edge_map_.end())
+        return READ_STAT::NOTFOUND;
+
+    pair<bool, bool> is_visible = out_e_iterator->second.mvcc_list->GetVisibleVersion(trx_id, begin_time, read_only, version_ref);
+
+    if (!is_visible.first) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+        return READ_STAT::ABORT;
+    }
+
+    // no visible version
+    if (!is_visible.second)
+        return READ_STAT::NOTFOUND;
+
+    // "dropped" version
+    if (!version_ref.Exist())
+        return READ_STAT::NOTFOUND;
+
+    return READ_STAT::SUCCESS;
 }
 
 READ_STAT DataStorage::GetVPByPKey(const vpid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time,
@@ -583,122 +593,74 @@ READ_STAT DataStorage::GetEPByPKey(const epid_t& pid, const uint64_t& trx_id, co
                                    const bool& read_only, value_t& ret) {
     eid_t eid = eid_t(pid.dst_vid, pid.src_vid);
 
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
-    if (read_stat != READ_STAT::SUCCESS) {
-        /* The edge with given pid.eid is invisible, which means that the read dependency (edge)
-         * of this transaction has been modified.
-         * Similarly hereinafter.
-         */
+    auto read_stat = GetOutEdgeVersion(eid, trx_id, begin_time, read_only, edge_version);
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
+
+    auto stat = edge_version.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return READ_STAT::ABORT;
-    }
 
-    if (edge_version.Exist()) {
-        auto stat = edge_version.ep_row_list->ReadProperty(pid, trx_id, begin_time, read_only, ret);
-
-        if (stat == READ_STAT::ABORT)
-            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-
-        return stat;
-    }
-
-    /* The edge with given pid.eid is invisible, which means that the read dependency (edge)
-     * of this transaction has been modified.
-     * Similarly hereinafter.
-     */
-    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-    return READ_STAT::ABORT;
+    return stat;
 }
 
 READ_STAT DataStorage::GetAllEP(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                 const bool& read_only, vector<pair<label_t, value_t>>& ret) {
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
-    if (read_stat != READ_STAT::SUCCESS) {
+    auto read_stat = GetOutEdgeVersion(eid, trx_id, begin_time, read_only, edge_version);
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
+
+   auto stat = edge_version.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
+
+   if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return READ_STAT::ABORT;
-    }
 
-    if (edge_version.Exist()) {
-       auto stat = edge_version.ep_row_list->ReadAllProperty(trx_id, begin_time, read_only, ret);
-
-       if (stat == READ_STAT::ABORT)
-            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-
-        return stat;
-    }
-
-    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-    return READ_STAT::ABORT;
+    return stat;
 }
 
 READ_STAT DataStorage::GetEPByPKeyList(const eid_t& eid, const vector<label_t>& p_key,
                                        const uint64_t& trx_id, const uint64_t& begin_time,
                                        const bool& read_only, vector<pair<label_t, value_t>>& ret) {
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
-    if (read_stat != READ_STAT::SUCCESS) {
+    auto read_stat = GetOutEdgeVersion(eid, trx_id, begin_time, read_only, edge_version);
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
+
+    auto stat = edge_version.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return READ_STAT::ABORT;
-    }
 
-    if (edge_version.Exist()) {
-        auto stat = edge_version.ep_row_list->ReadPropertyByPKeyList(p_key, trx_id, begin_time, read_only, ret);
-
-        if (stat == READ_STAT::ABORT)
-            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-
-        return stat;
-    }
-
-    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-    return READ_STAT::ABORT;
+    return stat;
 }
 
 READ_STAT DataStorage::GetEPidList(const eid_t& eid, const uint64_t& trx_id, const uint64_t& begin_time,
                                    const bool& read_only, vector<epid_t>& ret) {
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
-    if (read_stat != READ_STAT::SUCCESS) {
+    auto read_stat = GetOutEdgeVersion(eid, trx_id, begin_time, read_only, edge_version);
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
+
+    auto stat = edge_version.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
+
+    if (stat == READ_STAT::ABORT)
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return READ_STAT::ABORT;
-    }
 
-    if (edge_version.Exist()) {
-        auto stat = edge_version.ep_row_list->ReadPidList(trx_id, begin_time, read_only, ret);
-
-        if (stat == READ_STAT::ABORT)
-            trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-
-        return stat;
-    }
-
-    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-    return READ_STAT::ABORT;
+    return stat;
 }
 
 READ_STAT DataStorage::GetEL(const eid_t& eid, const uint64_t& trx_id,
                              const uint64_t& begin_time, const bool& read_only, label_t& ret) {
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
-    if (read_stat != READ_STAT::SUCCESS) {
-        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return READ_STAT::ABORT;
-    }
+    auto read_stat = GetOutEdgeVersion(eid, trx_id, begin_time, read_only, edge_version);
+    if (read_stat != READ_STAT::SUCCESS)
+        return read_stat;
 
-    if (edge_version.Exist()) {
-        ret = edge_version.label;
-        return READ_STAT::SUCCESS;
-    }
-
-    trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-    return READ_STAT::ABORT;
+    ret = edge_version.label;
+    return READ_STAT::SUCCESS;
 }
 
 READ_STAT DataStorage::GetConnectedVertexList(const vid_t& vid, const label_t& edge_label, const Direction_T& direction,
@@ -820,16 +782,9 @@ bool DataStorage::CheckVertexVisibilityWithVid(const uint64_t& trx_id, const uin
 
 bool DataStorage::CheckEdgeVisibilityWithEid(const uint64_t& trx_id, const uint64_t& begin_time,
                                              const bool& read_only, eid_t& eid) {
-    // Check visibility of the edge
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid, trx_id, begin_time, read_only, edge_version);
+    auto read_stat = GetOutEdgeVersion(eid, trx_id, begin_time, read_only, edge_version);
     if (read_stat != READ_STAT::SUCCESS) {
-        // Invisible
-        return false;
-    }
-
-    if (!edge_version.Exist()) {
         // Invisible
         return false;
     }
@@ -1229,16 +1184,10 @@ PROCESS_STAT DataStorage::ProcessModifyVP(const vpid_t& pid, const value_t& valu
 
 PROCESS_STAT DataStorage::ProcessModifyEP(const epid_t& pid, const value_t& value, value_t& old_value,
                                           const uint64_t& trx_id, const uint64_t& begin_time) {
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid_t(pid.dst_vid, pid.src_vid), trx_id, begin_time, false, edge_version);
+    auto read_stat = GetOutEdgeVersion(eid_t(pid.dst_vid, pid.src_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
-        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return PROCESS_STAT::ABORT_MODIFY_EP_EITEM;
-    }
-
-    if (!edge_version.Exist()) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return PROCESS_STAT::ABORT_MODIFY_EP_DELETED_E;
     }
@@ -1288,16 +1237,10 @@ PROCESS_STAT DataStorage::ProcessDropVP(const vpid_t& pid, const uint64_t& trx_i
 }
 
 PROCESS_STAT DataStorage::ProcessDropEP(const epid_t& pid, const uint64_t& trx_id, const uint64_t& begin_time, value_t & old_value) {
-    OutEdgeConstIterator out_e_iterator;
     EdgeVersion edge_version;
-    auto read_stat = GetOutEdgeVersion(out_e_iterator, eid_t(pid.dst_vid, pid.src_vid), trx_id, begin_time, false, edge_version);
+    auto read_stat = GetOutEdgeVersion(eid_t(pid.dst_vid, pid.src_vid), trx_id, begin_time, false, edge_version);
 
     if (read_stat != READ_STAT::SUCCESS) {
-        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
-        return PROCESS_STAT::ABORT_DROP_EP_EITEM;
-    }
-
-    if (!edge_version.Exist()) {
         trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
         return PROCESS_STAT::ABORT_DROP_EP_DELETED_E;
     }
