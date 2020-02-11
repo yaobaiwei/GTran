@@ -3,7 +3,7 @@
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
  */
 
-#include "core/transactions_table.hpp"
+#include "core/transaction_status_table.hpp"
 
 uint64_t TrxIDHash(uint64_t trx_id) {
     // Because the lowest QIB_BITS bits are 0.
@@ -11,7 +11,7 @@ uint64_t TrxIDHash(uint64_t trx_id) {
     return trx_id >> QID_BITS;
 }
 
-TransactionTable::TransactionTable() {
+TransactionStatusTable::TransactionStatusTable() {
     config_ = Config::GetInstance();
 
     // release version
@@ -26,7 +26,7 @@ TransactionTable::TransactionTable() {
     last_ext_ = 0;
 }
 
-bool TransactionTable::query_ct(uint64_t trx_id, uint64_t& ct) {
+bool TransactionStatusTable::query_ct(uint64_t trx_id, uint64_t& ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p = nullptr;
@@ -37,7 +37,7 @@ bool TransactionTable::query_ct(uint64_t trx_id, uint64_t& ct) {
     return false;
 }
 
-bool TransactionTable::query_status(uint64_t trx_id, TRX_STAT & status) {
+bool TransactionStatusTable::query_status(uint64_t trx_id, TRX_STAT & status) {
     CHECK(IS_VALID_TRX_ID(trx_id));
     TidStatus * p = nullptr;
 
@@ -48,7 +48,7 @@ bool TransactionTable::query_status(uint64_t trx_id, TRX_STAT & status) {
     return false;
 }
 
-bool TransactionTable::register_ct(uint64_t trx_id, uint64_t ct) {
+bool TransactionStatusTable::register_ct(uint64_t trx_id, uint64_t ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     TidStatus * p;
@@ -59,7 +59,7 @@ bool TransactionTable::register_ct(uint64_t trx_id, uint64_t ct) {
     return false;
 }
 
-bool TransactionTable::find_trx(uint64_t trx_id, TidStatus** p) {
+bool TransactionStatusTable::find_trx(uint64_t trx_id, TidStatus** p) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     uint64_t bucket_id = TrxIDHash(trx_id) % trx_num_main_buckets_;
@@ -87,7 +87,7 @@ bool TransactionTable::find_trx(uint64_t trx_id, TidStatus** p) {
     return false;
 }
 
-bool TransactionTable::insert_single_trx(const uint64_t& trx_id, const uint64_t& bt, const bool& readonly) {
+bool TransactionStatusTable::insert_single_trx(const uint64_t& trx_id, const uint64_t& bt, const bool& readonly) {
     // insert into btct_table
     uint64_t bucket_id = TrxIDHash(trx_id) % trx_num_main_buckets_;
 
@@ -138,7 +138,7 @@ done:
     return true;
 }
 
-bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct) {
+bool TransactionStatusTable::modify_status(uint64_t trx_id, TRX_STAT new_status, const uint64_t& ct) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     if (!register_ct(trx_id, ct))
@@ -147,7 +147,7 @@ bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status, const
     return modify_status(trx_id, new_status);
 }
 
-bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status) {
+bool TransactionStatusTable::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     CHECK(IS_VALID_TRX_ID(trx_id));
 
     TRX_STAT old_status;
@@ -186,7 +186,7 @@ bool TransactionTable::modify_status(uint64_t trx_id, TRX_STAT new_status) {
     return false;
 }
 
-void TransactionTable::erase_trx_via_min_bt(uint64_t min_bt) {
+void TransactionStatusTable::erase_trx_via_min_bt(uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids) {
     TsPtrNode *head_snapshot, *tail_snapshot;
 
     // erase readonly trxs
@@ -195,7 +195,7 @@ void TransactionTable::erase_trx_via_min_bt(uint64_t min_bt) {
     if (head_snapshot != nullptr && tail_snapshot != nullptr &&
         head_snapshot != tail_snapshot && head_snapshot->next != tail_snapshot) {
         // Lock-free. Only perform erasure when len(list) > 2
-        ro_trxs_head_ = perform_erasure(head_snapshot, tail_snapshot, min_bt);
+        ro_trxs_head_ = perform_erasure(head_snapshot, tail_snapshot, global_min_bt);
     }
 
     // erase non-readonly trxs
@@ -203,11 +203,11 @@ void TransactionTable::erase_trx_via_min_bt(uint64_t min_bt) {
     tail_snapshot = nro_trxs_tail_;
     if (head_snapshot != nullptr && tail_snapshot != nullptr &&
         head_snapshot != tail_snapshot && head_snapshot->next != tail_snapshot) {
-        nro_trxs_head_ = perform_erasure(head_snapshot, tail_snapshot, min_bt);
+        nro_trxs_head_ = perform_erasure(head_snapshot, tail_snapshot, global_min_bt, non_readonly_trx_ids);
     }
 }
 
-void TransactionTable::record_ro_trx_with_bt(TidStatus* ptr, uint64_t ts) {
+void TransactionStatusTable::record_ro_trx_with_bt(TidStatus* ptr, uint64_t ts) {
     TsPtrNode* new_tail = new TsPtrNode;
     new_tail->ts = ts;
     new_tail->ptr = ptr;
@@ -223,7 +223,7 @@ void TransactionTable::record_ro_trx_with_bt(TidStatus* ptr, uint64_t ts) {
     }
 }
 
-void TransactionTable::record_nro_trx_with_ft(uint64_t trx_id, uint64_t ts) {
+void TransactionStatusTable::record_nro_trx_with_ft(uint64_t trx_id, uint64_t ts) {
     TsPtrNode* new_tail = new TsPtrNode;
     new_tail->ts = ts;
     find_trx(trx_id, &new_tail->ptr);
@@ -239,16 +239,32 @@ void TransactionTable::record_nro_trx_with_ft(uint64_t trx_id, uint64_t ts) {
     }
 }
 
-TsPtrNode* TransactionTable::perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t min_bt) {
+TsPtrNode* TransactionStatusTable::perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids) {
+    /*  TsPtrNode:
+            ts: the erasable timestamp threshold
+            ptr: pointer to a slot in the table_
+            next: pointer to the next TsPtrNode
+
+        From the parameters, a linked-list of TsPtrNode (with timestamp in ascending order) is given (head -> ... -> tail).
+        When non_readonly_trx_ids == nullptr, this is a linked-list of readonly transactions.
+    */
+
     while (true) {
         // To ensure the safety of lockless implementation, when len(list) <= 2, do not perform erasure.
-        // Only perform erasure if the trx_id in the slot will not requested anymore.
-        if (head->next == tail || head->ts >= min_bt)
+        if (head->next == tail)
             break;
+        // Only perform erasure if the trx_id in the slot will not requested anymore (TsPtrNode::ts < global_min_bt)
+        if (head->ts >= global_min_bt)
+            break;
+
+        // record erased trx id if needed
+        if (non_readonly_trx_ids != nullptr)
+            non_readonly_trx_ids->push_back(head->ptr->trx_id);
 
         // Mark the slot as erased, therefore the slot can be reused.
         head->ptr->markErased();
 
+        // shorten the linked-list after erasure
         TsPtrNode* ori_head = head;
         head = head->next;
         delete ori_head;

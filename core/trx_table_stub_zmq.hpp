@@ -35,7 +35,7 @@ class TcpTrxTableStub : public TrxTableStub {
         config_ = Config::GetInstance();
         node_ = Node::StaticInstance();
         coordinator_ = Coordinator::GetInstance();
-        trx_table_ = TransactionTable::GetInstance();
+        trx_table_ = TransactionStatusTable::GetInstance();
     }
 
     void send_req(int n_id, int t_id, ibinstream &in);

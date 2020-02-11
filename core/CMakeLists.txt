@@ -8,7 +8,7 @@ file(GLOB core-src-files
     tcp_mailbox.cpp
     parser.cpp
     RCT.cpp
-    transactions_table.cpp
+    transaction_status_table.cpp
     trx_table_stub_rdma.cpp
     bplustree.cpp
     trx_table_stub_zmq.cpp

@@ -35,7 +35,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "core/rdma_mailbox.hpp"
 #include "core/result_collector.hpp"
 #include "core/tcp_mailbox.hpp"
-#include "core/transactions_table.hpp"
+#include "core/transaction_status_table.hpp"
 #include "core/trx_table_stub_rdma.hpp"
 #include "core/trx_table_stub_zmq.hpp"
 
@@ -915,7 +915,7 @@ class Worker {
                 << buf->GetBufSize() << endl;
 
         // =================TrxTable=========================
-        trx_table_ = TransactionTable::GetInstance();
+        trx_table_ = TransactionStatusTable::GetInstance();
 
         // =================Coordinator=========================
         coordinator_ = Coordinator::GetInstance();
@@ -1130,7 +1130,7 @@ class Worker {
     TrxTableStub * trx_table_stub_;
 
     RCTable* rct_;
-    TransactionTable* trx_table_;
+    TransactionStatusTable* trx_table_;
 
     ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
     ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;

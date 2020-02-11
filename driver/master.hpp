@@ -36,7 +36,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/abstract_thread_safe_queue.hpp"
 #include "base/thread_safe_queue.hpp"
 #include "core/RCT.hpp"
-#include "core/transactions_table.hpp"
+#include "core/transaction_status_table.hpp"
 #include "glog/logging.h"
 #include "core/common.hpp"
 

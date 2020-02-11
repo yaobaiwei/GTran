@@ -23,7 +23,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "core/RCT.hpp"
 #include "core/rdma_mailbox.hpp"
 #include "core/tcp_mailbox.hpp"
-#include "core/transactions_table.hpp"
+#include "core/transaction_status_table.hpp"
 #include "tbb/atomic.h"
 #include "utils/config.hpp"
 #include "utils/distributed_clock.hpp"
@@ -87,7 +87,7 @@ class Coordinator {
         pending_rct_query_request_ = pending_rct_query_request;
     }
 
-    void GetInstancesFromWorker(TransactionTable* trx_table, AbstractMailbox* mailbox,
+    void GetInstancesFromWorker(TransactionStatusTable* trx_table, AbstractMailbox* mailbox,
                                 RCTable* rct, const vector<Node>& workers
                                 ) {
         trx_table_ = trx_table;
@@ -142,7 +142,7 @@ class Coordinator {
     ThreadSafeQueue<ReadTrxStatusReq>* pending_trx_reads_;
     ThreadSafeQueue<QueryRCTRequest>* pending_rct_query_request_;
 
-    TransactionTable* trx_table_;
+    TransactionStatusTable* trx_table_;
     AbstractMailbox* mailbox_;
     RCTable* rct_;
 
