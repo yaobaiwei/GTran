@@ -15,7 +15,7 @@
 #include "core/transactions_table.hpp"
 #include "glog/logging.h"
 #include "utils/config.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 class TrxTableStub {
  protected:

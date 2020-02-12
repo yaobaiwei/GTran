@@ -16,7 +16,6 @@
 #include "core/trx_table_stub.hpp"
 #include "glog/logging.h"
 #include "utils/config.hpp"
-#include "utils/tid_mapper.hpp"
 
 class RDMATrxTableStub : public TrxTableStub{
  private:

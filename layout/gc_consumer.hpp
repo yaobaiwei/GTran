@@ -14,7 +14,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/gc_task.hpp"
 #include "layout/index_store.hpp"
 #include "utils/config.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 class GarbageCollector;
 
@@ -42,7 +42,7 @@ class GCConsumer {
     Config * config_;
     DataStorage * data_storage_;
     GarbageCollector * garbage_collector_;
-    TidMapper * tid_mapper_;
+    TidPoolManager * tid_pool_manager_;
     IndexStore * index_store_;
     RunningTrxList * running_trx_list_;
     RCTable * rct_table_;

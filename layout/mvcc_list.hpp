@@ -14,7 +14,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/mvcc_definition.hpp"
 #include "utils/config.hpp"
 #include "utils/simple_spinlock_guard.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 class GCProducer;
 class GCConsumer;

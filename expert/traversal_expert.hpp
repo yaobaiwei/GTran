@@ -44,7 +44,7 @@ class TraversalExpert : public AbstractExpert {
     //             Edge: INV/OUTV/BOTHV
     //  lid: label_id (e.g. g.V().out("created"))
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         // Get Expert_Object
         Meta & m = msg.meta;

@@ -618,7 +618,7 @@ void CoinExpert::do_work(int tid, const QueryPlan & qplan, Message & msg,
         if (sz > 0) {
             float* tmp_rand_arr = new float[sz];
 
-            MKLUtil::GetInstance()->UniformRNGF4(tmp_rand_arr, sz, 0.0, 1.0);
+            MKLUtil::GetInstance()->UniformRNG(tmp_rand_arr, sz, 0.0f, 1.0f);
 
             for (int i = 0; i < sz; i++) {
                 if (tmp_rand_arr[i] < rate)

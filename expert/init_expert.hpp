@@ -46,7 +46,7 @@ class InitExpert : public AbstractExpert {
 
     // TODO(nick): Need to support dynamic V/E cache
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         Expert_Object expert_obj = qplan.experts[msg.meta.step];
         CHECK(expert_obj.params.size() >= 2);

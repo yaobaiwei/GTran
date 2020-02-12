@@ -16,7 +16,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/data_storage.hpp"
 #include "utils/config.hpp"
 #include "utils/mymath.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 
 /* =====================Struct Region============================== */

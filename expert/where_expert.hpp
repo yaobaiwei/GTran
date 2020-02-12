@@ -38,7 +38,7 @@ class WhereExpert : public AbstractExpert {
     //       g.V().as('a'),,,.as('b').,,,.where('a', neq('b'))
     //
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         // Get Expert_Object
         Meta & m = msg.meta;

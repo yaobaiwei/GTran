@@ -38,7 +38,7 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
         return trx_table_->query_status(trx_id, status);
     }
 
-    int t_id = TidMapper::GetInstance()->GetTid();
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER);
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << false;
 
@@ -66,7 +66,7 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct)
         return query_status_ret && query_ct_ret;
     }
 
-    int t_id = TidMapper::GetInstance()->GetTid();
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER);
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << true;
 

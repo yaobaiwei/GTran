@@ -64,10 +64,9 @@ class Config{
     static const int main_thread_tid = 0;
     static const int process_allocated_ts_tid = 1;
     static const int recv_notification_tid = 2;
-    static const int update_min_bt_tid = 3;
-    static const int perform_calibration_tid = 4;
+    static const int perform_calibration_tid = 3;
 
-    static const int extra_rdma_rc_thread_count = 5;
+    static const int extra_rdma_rc_thread_count = 4;
 
     // Count of extra RDMA send-buf in RDMAMainbox, for:
     // 1. Worker::Start

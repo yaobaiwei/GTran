@@ -15,7 +15,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/core_affinity.hpp"
 #include "core/message.hpp"
 #include "layout/data_storage.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 class AbstractExpert {
  public:

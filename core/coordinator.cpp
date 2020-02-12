@@ -86,7 +86,7 @@ void Coordinator::ProcessTimestampRequest() {
 // Only called in PerformCalibration
 void Coordinator::WriteTimestampToWorker(int worker_id, uint64_t ts, uint64_t tag) {
     RDMA &rdma = RDMA::get_rdma();
-    int t_id = config_->global_num_threads + Config::perform_calibration_tid;
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
     ts_cline_->SetValue(ts, tag);
     rdma.dev->RdmaWrite(t_id, worker_id, rdma_mem_, sizeof(Uint64CLineWithTag), rdma_mem_offset_);
 }
@@ -104,6 +104,8 @@ void Coordinator::PerformCalibration() {
     // Only one worker, do not need to calibrate
     if (comm_sz_ == 1)
         return;
+
+    TidPoolManager::GetInstance()->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::perform_calibration_tid);
 
     // To ensure rdtsc works
     DistributedClock::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);

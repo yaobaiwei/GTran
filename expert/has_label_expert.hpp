@@ -38,7 +38,7 @@ class HasLabelExpert : public AbstractExpert {
     //  inType
     //  vector<value_t> value_t.type = int
     void process(const QueryPlan & qplan, Message & msg) {
-        int tid = TidMapper::GetInstance()->GetTid();
+        int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
         // Get Expert_Object
         Meta & m = msg.meta;

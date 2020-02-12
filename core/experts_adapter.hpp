@@ -56,7 +56,7 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "layout/pmt_rct_table.hpp"
 #include "utils/config.hpp"
 #include "utils/timer.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 using namespace std;
 
@@ -118,7 +118,6 @@ class ExpertAdapter {
 
     void Start() {
         Init();
-        TidMapper* tmp_tid_mapper_ptr = TidMapper::GetInstance();  // in case of initial in parallel region
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
         locks_ = new WritePriorRWLock[config_->msg_lock_count];
@@ -234,7 +233,8 @@ class ExpertAdapter {
     }
 
     void ThreadExecutor(int tid) {
-        TidMapper::GetInstance()->Register(tid);
+        TidPoolManager::GetInstance()->Register(TID_TYPE::CONTAINER);
+        TidPoolManager::GetInstance()->Register(TID_TYPE::RDMA, tid);
         // bind thread to core
         if (config_->global_enable_core_binding) {
             core_affinity_->BindToCore(tid);

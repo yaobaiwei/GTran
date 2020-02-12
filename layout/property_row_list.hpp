@@ -10,7 +10,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "layout/concurrent_mem_pool.hpp"
 #include "layout/mvcc_list.hpp"
 #include "layout/mvcc_value_store.hpp"
-#include "utils/tid_mapper.hpp"
+#include "utils/tid_pool_manager.hpp"
 #include "utils/write_prior_rwlock.hpp"
 #include "tbb/atomic.h"
 #include "tbb/concurrent_hash_map.h"

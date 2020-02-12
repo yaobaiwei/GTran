@@ -1,6 +1,6 @@
 template<class T>
 void BarrierExpertBase<T>::process(const QueryPlan & qplan, Message & msg) {
-    int tid = TidMapper::GetInstance()->GetTid();
+    int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
     // get msg info
     mkey_t key;

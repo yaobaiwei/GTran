@@ -7,7 +7,7 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
 #include "status_expert.hpp"
 
 void StatusExpert::process(const QueryPlan & qplan, Message & msg) {
-    int tid = TidMapper::GetInstance()->GetTid();
+    int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
     // Get Expert_Object
     Meta & m = msg.meta;

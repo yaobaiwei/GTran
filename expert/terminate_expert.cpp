@@ -6,7 +6,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include "expert/terminate_expert.hpp"
 
 void TerminateExpert::process(const QueryPlan & qplan, Message & msg) {
-    int tid = TidMapper::GetInstance()->GetTid();
+    int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
     // Get info of transaction
     Meta & m = msg.meta;

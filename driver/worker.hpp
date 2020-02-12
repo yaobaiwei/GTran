@@ -19,8 +19,9 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "base/type.hpp"
 #include "base/thread_safe_queue.hpp"
 #include "base/throughput_monitor.hpp"
-#include "utils/global.hpp"
 #include "utils/config.hpp"
+#include "utils/global.hpp"
+#include "utils/tid_pool_manager.hpp"
 
 #include "core/buffer.hpp"
 #include "core/coordinator.hpp"
@@ -652,7 +653,7 @@ class Worker {
      *      Trx is not readonly:
      *          Store the Pack in a map, and push request for CT.
      */
-    bool RegisterQuery(TrxPlan& plan, int mailbox_tid) {
+    bool RegisterQuery(TrxPlan& plan) {
         vector<QueryPlan> qplans;
         // Get query plans of next level if any
         if (plan.NextQueries(qplans)) {
@@ -683,10 +684,10 @@ class Worker {
                         // For readonly trx, do not need to allocate CT and query RCT.
                         trx_table_->modify_status(plan.trxid, TRX_STAT::VALIDATING, plan.GetStartTime());
 
-                        SendInitMsgForQuery(pkg, mailbox_tid);
+                        SendInitMsgForQuery(pkg);
                     }
                 } else {
-                    SendInitMsgForQuery(pkg, mailbox_tid);
+                    SendInitMsgForQuery(pkg);
                 }
             }
             return true;
@@ -728,6 +729,7 @@ class Worker {
     // Do not put any compute intensive tasks in this function.
     // Use queues to dispatch them to other threads.
     void RecvNotification() {
+        tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::recv_notification_tid);
         while (1) {
             obinstream out;
             mailbox_->RecvNotification(out);
@@ -741,7 +743,7 @@ class Worker {
                 uint64_t trx_id;
                 out >> trx_id >> trx_id_list;
 
-                InsertQueryRCTResult(trx_id, trx_id_list, config_->global_num_threads + Config::recv_notification_tid);
+                InsertQueryRCTResult(trx_id, trx_id_list);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
                 int n_id;
                 uint64_t trx_id;
@@ -770,7 +772,8 @@ class Worker {
 
     // Create the initMsg of a qplan in pkg, and send it out.
     // Need to specify the tid, since RDMAMailbox needs to find the corresponding send_buf via tid.
-    void SendInitMsgForQuery(Pack pkg, int mailbox_tid) {
+    void SendInitMsgForQuery(Pack pkg) {
+        int mailbox_tid = tid_pool_manager_->GetTid(TID_TYPE::RDMA);
         vector<Message> msgs;
         Message::CreateInitMsg(
             pkg.id.value(), pkg.query_count_in_trx,
@@ -786,6 +789,7 @@ class Worker {
     }
 
     void ProcessAllocatedTimestamp() {
+        tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::process_allocated_ts_tid);
         while (true) {
             // The timestamp is allocated in Coordinator::ProcessTimestampRequest
             AllocatedTimestamp allocated_ts;
@@ -811,7 +815,7 @@ class Worker {
                 // Firstly, query the local RCT
                 std::vector<uint64_t> trx_id_list;
                 rct_->query_trx(bt, ct - 1, trx_id_list);
-                InsertQueryRCTResult(trx_id, trx_id_list, config_->global_num_threads + Config::process_allocated_ts_tid);
+                InsertQueryRCTResult(trx_id, trx_id_list);
 
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
@@ -837,7 +841,7 @@ class Worker {
                 // Set bt for TrxPlan
                 plan.SetST(bt);
 
-                if (!RegisterQuery(plan, config_->global_num_threads + Config::process_allocated_ts_tid)) {
+                if (!RegisterQuery(plan)) {
                     string error_msg = "Error: Empty transaction";
                     value_t v;
                     Tool::str2str(error_msg, v);
@@ -860,7 +864,7 @@ class Worker {
 
     // For non-readonly transaction, need to query trx_ids from RCT from all workers,
     // before the validation query can be sent out.
-    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list, int mailbox_tid) {
+    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list) {
         VPackAccessor accessor;
         CHECK(validaton_query_pkgs_.find(accessor, trx_id));
 
@@ -879,7 +883,7 @@ class Worker {
             }
 
             // Release the validation query.
-            SendInitMsgForQuery(v_pkg.pack, mailbox_tid);
+            SendInitMsgForQuery(v_pkg.pack);
 
             validaton_query_pkgs_.erase(accessor);
         }
@@ -888,6 +892,11 @@ class Worker {
     void Start() {
         // =================IdMapper========================
         SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
+
+        // =================TidPoolManager========================
+        tid_pool_manager_ = TidPoolManager::GetInstance();
+        tid_pool_manager_->Register(TID_TYPE::CONTAINER);
+        tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::main_thread_tid);
 
         // =================CoreAffinity====================
         core_affinity_ = new CoreAffinity();
@@ -1047,7 +1056,7 @@ class Worker {
                 CHECK(false);
             }
 
-            if (!RegisterQuery(plan, config_->global_num_threads + Config::main_thread_tid)) {
+            if (!RegisterQuery(plan)) {
                 // Reply to client when transaction is finished
                 if (!is_emu_mode_) { // If Running EMU, do NOT send result back
                     ReplyClient(plan);
@@ -1102,6 +1111,7 @@ class Worker {
     Monitor * monitor_;
     AbstractMailbox* mailbox_;
     GarbageCollector * garbage_collector_;
+    TidPoolManager* tid_pool_manager_;
 
     bool is_emu_mode_;
     ThroughputMonitor * thpt_monitor_;

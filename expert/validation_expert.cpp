@@ -5,7 +5,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 
 #include "expert/validation_expert.hpp"
 void ValidationExpert::process(const QueryPlan & qplan, Message & msg) {
-    int tid = TidMapper::GetInstance()->GetTid();
+    int tid = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
 
     // Move Update Data of Transaction from IndexBuffer to IndexRegion
     uint64_t self_ct; TRX_STAT stat;
