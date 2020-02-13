@@ -40,7 +40,7 @@ class RDMATrxTableStub : public TrxTableStub{
         node_ = Node::StaticInstance();
         buf_ = Buffer::GetInstance();
         pending_trx_updates_ = pending_trx_updates;
-        trx_table_ = TransactionTable::GetInstance();
+        trx_table_ = TransactionStatusTable::GetInstance();
 
         trx_num_total_buckets_ = config_ -> trx_num_total_buckets;
         trx_num_main_buckets_ = config_ -> trx_num_main_buckets;

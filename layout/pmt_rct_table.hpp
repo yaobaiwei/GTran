@@ -32,6 +32,7 @@ class PrimitiveRCTTable {
     void GetRecentActionSet(Primitive_T p, const vector<uint64_t> & trxIDList,
                             unordered_map<uint64_t, vector<rct_extract_data_t>> & trx_rct_map);
     void InsertRecentActionSet(Primitive_T p, uint64_t trxID, const vector<uint64_t> & data);
+    void EraseRecentActionSet(const vector<uint64_t>& trx_ids);
 
     static PrimitiveRCTTable* GetInstance() {
         static PrimitiveRCTTable* pmt_rct_table_ptr = nullptr;

@@ -52,3 +52,19 @@ void PrimitiveRCTTable::InsertRecentActionSet(Primitive_T p, uint64_t trxID, con
 
     rcta->second.insert(data.begin(), data.end());
 }
+
+// these erasable trx_ids comes from erasing non-readonly transactions in the TransactionStatusTable
+void PrimitiveRCTTable::EraseRecentActionSet(const vector<uint64_t>& trx_ids) {
+    for (int p = 0; p < static_cast<int>(Primitive_T::COUNT); p++) {
+        // recent_action_map: <trx id, set of modified item's ids>
+        rct_type& recent_action_map = rct_map.at((Primitive_T)p);
+        for (uint64_t trx_id : trx_ids) {
+            rct_accessor accessor;
+            bool found = recent_action_map.find(accessor, trx_id);
+
+            // erase the trx_id when it is no longer required by ValidationExpert
+            if (found)
+                recent_action_map.erase(accessor);
+        }
+    }
+}

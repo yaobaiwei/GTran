@@ -31,10 +31,10 @@ extern uint64_t TrxIDHash(uint64_t trx_id);
  * the actual memory region: buffer
  * This class is responsible for managing this region and provide public interfaces   * to access this memory region
  */
-class TransactionTable {
+class TransactionStatusTable {
  public:
-    static TransactionTable* GetInstance() {
-        static TransactionTable instance;
+    static TransactionStatusTable* GetInstance() {
+        static TransactionStatusTable instance;
         return &instance;
     }
 
@@ -52,15 +52,15 @@ class TransactionTable {
 
     // =================GC related=================
     // called by GC thread
-    void erase_trx_via_min_bt(uint64_t min_bt);
+    void erase_trx_via_min_bt(uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids);
     // For non-readonly transaction, record its finish time.
     void record_nro_trx_with_ft(uint64_t trx_id, uint64_t ft);
 
  private:
-    TransactionTable();
-    TransactionTable(const TransactionTable&);  // not to def
-    TransactionTable& operator=(const TransactionTable&);  // not to def
-    ~TransactionTable() {}
+    TransactionStatusTable();
+    TransactionStatusTable(const TransactionStatusTable&);  // not to def
+    TransactionStatusTable& operator=(const TransactionStatusTable&);  // not to def
+    ~TransactionStatusTable() {}
 
     bool find_trx(uint64_t trx_id, TidStatus** p);
     bool register_ct(uint64_t trx_id, uint64_t ct);
@@ -89,5 +89,5 @@ class TransactionTable {
     // For readonly transaction, record its begin time.
     void record_ro_trx_with_bt(TidStatus* ptr, uint64_t bt);
     // Perform the erasure of TrxTable. Return a new head.
-    TsPtrNode* perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t min_bt);
+    TsPtrNode* perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids = nullptr);
 };

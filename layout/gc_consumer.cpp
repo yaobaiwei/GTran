@@ -5,7 +5,7 @@ Authors: Created by Changji LI (cjli@cse.cuhk.edu.hk)
 
 #include "layout/gc_consumer.hpp"
 #include "layout/garbage_collector.hpp"
-#include "layout/data_storage.hpp"
+#include "layout/pmt_rct_table.hpp"
 
 GCConsumer::GCConsumer() {
     config_ = Config::GetInstance();
@@ -14,7 +14,7 @@ GCConsumer::GCConsumer() {
     index_store_ = IndexStore::GetInstance();
     running_trx_list_ = RunningTrxList::GetInstance();
     rct_table_ = RCTable::GetInstance();
-    trx_table_ = TransactionTable::GetInstance();
+    trx_table_ = TransactionStatusTable::GetInstance();
 }
 
 void GCConsumer::Init() {
@@ -245,7 +245,12 @@ void GCConsumer::ExecuteRCTGCJob(RCTGCJob* job) {
 void GCConsumer::ExecuteTrxStatusTableGCJob(TrxStatusTableGCJob* job) {
     // Same with rct, only one task existing
     // Self handle thread safety
-    trx_table_->erase_trx_via_min_bt(running_trx_list_->GetGlobalMinBT());
+    vector<uint64_t> not_readonly_trx_ids;
+
+    trx_table_->erase_trx_via_min_bt(running_trx_list_->GetGlobalMinBT(), &not_readonly_trx_ids);
+
+    // get erasable non-readonly trx_ids by erasing TransactionStatusTable, and use them to clean PrimitiveRCTTable
+    PrimitiveRCTTable::GetInstance()->EraseRecentActionSet(not_readonly_trx_ids);
 }
 
 void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {
