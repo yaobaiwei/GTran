@@ -34,6 +34,7 @@ enum class TaskStatus {
     INVALID,
     BLOCKED,
     PUSHED,
+    COUNT,
 };
 
 enum class DepGCTaskType {
@@ -43,7 +44,15 @@ enum class DepGCTaskType {
     VP_ROW_LIST_DEFRAG,
     EP_ROW_LIST_GC,
     EP_ROW_LIST_DEFRAG,
+    COUNT,
 };
+
+extern const unordered_map<TaskStatus, string, EnumClassHash<TaskStatus>> task_status_string_map;
+extern const unordered_map<DepGCTaskType, string, EnumClassHash<DepGCTaskType>> dep_gc_task_type_string_map;
+
+// for StatusExpert's gc statistics
+void IncreaseTaskStatusCounter(DepGCTaskType type, TaskStatus status);
+void DecreaseTaskStatusCounter(DepGCTaskType type, TaskStatus status);
 
 // ID used for edge related dependent task
 struct CompoundEPRowListID {
@@ -54,7 +63,7 @@ struct CompoundEPRowListID {
     CompoundEPRowListID(eid_t eid_, PropertyRowList<EdgePropertyRow>* ptr_) : eid(eid_), ptr(ptr_) {}
 
     vid_t GetAttachedVid() {
-        return eid.src_v;  // src_v
+        return eid.src_v;
     }
 
     bool operator== (const CompoundEPRowListID& right_id) const {
@@ -108,7 +117,7 @@ class DependentGCTask : public AbstractGCTask {
  public:
     DependentGCTask() { blocked_count_ = 0; }
     DependentGCTask(int cost) : AbstractGCTask(cost) { blocked_count_ = 0; }
-    ~DependentGCTask() {}
+    virtual ~DependentGCTask() {}
 
 
     // upstream_tasks_ stores the incoming neighbors (parent tasks)
@@ -125,18 +134,7 @@ class DependentGCTask : public AbstractGCTask {
     }
 
     string GetTaskStatusStr() {
-        switch (task_status_) {
-            case TaskStatus::ACTIVE:
-                return "ACTIVE";
-            case TaskStatus::EMPTY:
-                return "EMPTY";
-            case TaskStatus::INVALID:
-                return "INVALID";
-            case TaskStatus::BLOCKED:
-                return "BLOCKED";
-            case TaskStatus::PUSHED:
-                return "PUSHED";
-        }
+        return task_status_string_map.at(task_status_);
     }
 
     string GetTaskInfoStr(bool print_adj = true) {
@@ -173,7 +171,9 @@ class DependentGCTask : public AbstractGCTask {
     }
 
     void SetTaskStatus(TaskStatus task_status) {
+        DecreaseTaskStatusCounter(GetTaskType(), task_status_);
         task_status_ = task_status;
+        IncreaseTaskStatusCounter(GetTaskType(), task_status_);
     }
 
  private:
@@ -289,7 +289,14 @@ class TopoRowListGCTask : public DependentGCTask {
     TopologyRowList* target = nullptr;
     vid_t id;
 
-    TopoRowListGCTask(vid_t id_, TopologyRowList* target_) : target(target_), id(id_) {}
+    TopoRowListGCTask(vid_t id_, TopologyRowList* target_) : target(target_), id(id_) {
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::ACTIVE);
+    }
+    TopoRowListGCTask() = delete;
+    ~TopoRowListGCTask() override {
+        DecreaseTaskStatusCounter(GetTaskType(), GetTaskStatus());
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::COUNT);
+    }
 };
 
 // Defrag a TopoRowList
@@ -307,7 +314,14 @@ class TopoRowListDefragTask : public DependentGCTask {
     vid_t id;
 
     TopoRowListDefragTask(vid_t id_, TopologyRowList* target_, int cost) :
-        target(target_), id(id_), DependentGCTask(cost) {}
+        target(target_), id(id_), DependentGCTask(cost) {
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::ACTIVE);
+    }
+    TopoRowListDefragTask() = delete;
+    ~TopoRowListDefragTask() override {
+        DecreaseTaskStatusCounter(GetTaskType(), GetTaskStatus());
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::COUNT);
+    }
 };
 
 // Free a VPRowList
@@ -324,7 +338,14 @@ class VPRowListGCTask : public DependentGCTask {
     PropertyRowList<VertexPropertyRow>* target = nullptr;
     vid_t id;
 
-    VPRowListGCTask(vid_t id_, PropertyRowList<VertexPropertyRow>* target_) : target(target_), id(id_) {}
+    VPRowListGCTask(vid_t id_, PropertyRowList<VertexPropertyRow>* target_) : target(target_), id(id_) {
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::ACTIVE);
+    }
+    VPRowListGCTask() = delete;
+    ~VPRowListGCTask() override {
+        DecreaseTaskStatusCounter(GetTaskType(), GetTaskStatus());
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::COUNT);
+    }
 };
 
 // Defrag a VPRowList
@@ -342,7 +363,14 @@ class VPRowListDefragTask : public DependentGCTask {
     vid_t id;
 
     VPRowListDefragTask(vid_t id_, PropertyRowList<VertexPropertyRow>* target_, int cost) :
-        id(id_), target(target_), DependentGCTask(cost) {}
+        id(id_), target(target_), DependentGCTask(cost) {
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::ACTIVE);
+    }
+    VPRowListDefragTask() = delete;
+    ~VPRowListDefragTask() override {
+        DecreaseTaskStatusCounter(GetTaskType(), GetTaskStatus());
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::COUNT);
+    }
 };
 
 // Free a EPRowList
@@ -359,7 +387,14 @@ class EPRowListGCTask : public DependentGCTask {
     PropertyRowList<EdgePropertyRow>* target = nullptr;
     CompoundEPRowListID id;
 
-    EPRowListGCTask(const CompoundEPRowListID& id_, PropertyRowList<EdgePropertyRow>* target_) : id(id_), target(target_) {}
+    EPRowListGCTask(const CompoundEPRowListID& id_, PropertyRowList<EdgePropertyRow>* target_) : id(id_), target(target_) {
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::ACTIVE);
+    }
+    EPRowListGCTask() = delete;
+    ~EPRowListGCTask() override {
+        DecreaseTaskStatusCounter(GetTaskType(), GetTaskStatus());
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::COUNT);
+    }
 };
 
 // Defrag a EPRowList
@@ -378,6 +413,12 @@ class EPRowListDefragTask : public DependentGCTask {
 
     EPRowListDefragTask(const CompoundEPRowListID& id_, PropertyRowList<EdgePropertyRow>* target_, int cost) :
         id(id_), target(target_), DependentGCTask(cost) {
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::ACTIVE);
+    }
+    EPRowListDefragTask() = delete;
+    ~EPRowListDefragTask() override {
+        DecreaseTaskStatusCounter(GetTaskType(), GetTaskStatus());
+        IncreaseTaskStatusCounter(GetTaskType(), TaskStatus::COUNT);
     }
 };
 

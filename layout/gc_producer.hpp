@@ -105,6 +105,7 @@ class GCProducer {
     void Execute();
 
     friend class GCTaskDAG;
+    friend class GarbageCollector;
 
  private:
     GCProducer() {}

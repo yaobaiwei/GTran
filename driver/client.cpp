@@ -191,6 +191,7 @@ void Client::print_display_status_help() {
     cout << endl;
     cout << "Available status keys:" << endl;
     cout << "    mem: Display memory info of containers " << endl;
+    cout << "    gc: Display dependent gc tasks' status " << endl;
     cout << endl;
     cout << "Example:" << endl;
     cout << "    gquery -q DisplayStatus(mem)" << endl;
