@@ -135,9 +135,6 @@ class GCProducer {
     void ReduceEPRowListGCJobBlockCount(EPRowListGCTask*);
     void ReduceTopoRowListGCJobBlockCount(TopoRowListGCTask*);
 
-    // Increase block count of upstream jobs (for TopoRowListGCJob only)
-    void IncreaseTopoRowListGCJobBlockCount(TopoRowListGCTask*);
-
     // Set task invalid, if its non-empty upstream task is generated
     void SetVPRowListDefragTaskInvalid(VPRowListDefragTask*);
     void SetEPRowListDefragTaskInvalid(EPRowListDefragTask*);

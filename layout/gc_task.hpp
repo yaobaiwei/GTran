@@ -160,7 +160,7 @@ class DependentGCTask : public AbstractGCTask {
         blocked_count_++;
     }
 
-    void DecreaseBLockedCount() {
+    void DecreaseBlockedCount() {
         blocked_count_--;
     }
 
@@ -478,17 +478,12 @@ class DependentGCJob : public AbstractGCJob {
 
     // Invoked when the task is not longer blocked
     void ReduceTaskBlockCount(DependentGCTask* task) {
-        task->DecreaseBLockedCount();
+        task->DecreaseBlockedCount();
         if (task->GetBlockedCount() == 0) {
             task->SetTaskStatus(TaskStatus::ACTIVE);
         }
 
         sum_blocked_count_--;
-    }
-
-    void IncreaseTaskBlockCount(DependentGCTask* task) {
-        task->IncreaseBLockedCount();
-        sum_blocked_count_++;
     }
 
     string DebugString() {
