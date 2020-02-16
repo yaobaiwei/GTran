@@ -401,6 +401,8 @@ class AbstractGCJob {
         sum_of_cost_ = 0;
     }
 
+    virtual ~AbstractGCJob() {}
+
     // Check whether a Job is ready to be consumed
     virtual bool isReady() = 0;
     virtual void Clear() = 0;
@@ -412,7 +414,7 @@ class IndependentGCJob : public AbstractGCJob {
 
     IndependentGCJob() {}
     IndependentGCJob(JobType job_t, int thres) : AbstractGCJob(job_t, thres) {}
-    ~IndependentGCJob() { for (auto t : tasks_) delete t; }
+    ~IndependentGCJob() override { for (auto t : tasks_) delete t; }
 
     void AddTask(IndependentGCTask* task) {
         tasks_.emplace_back(task);
@@ -449,7 +451,7 @@ class DependentGCJob : public AbstractGCJob {
 
     DependentGCJob() {}
     DependentGCJob(JobType job_t, int thres) : AbstractGCJob(job_t, thres) {}
-    ~DependentGCJob() { for (auto t : tasks_) delete t; }
+    ~DependentGCJob() override { for (auto t : tasks_) delete t; }
 
     void Clear() override {
         sum_of_cost_ = 0;
