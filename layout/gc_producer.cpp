@@ -497,7 +497,8 @@ void GCProducer::Execute() {
 
         uint64_t end_time = timer::get_usec();
 
-        cout << "[GCProducer] Scan Time: " << ((end_time - start_time) / 1000) << "ms" << endl;
+        cout << "[Node " << node_.get_local_rank() << "][GCProducer] Scan Time: " << ((end_time - start_time) / 1000)
+             << "ms, container usage: " << data_storage_->GetContainerUsage() * 100 << "%" << endl;
 
         // Currently, sleep for a while and the do next scan
         sleep(SCAN_PERIOD);

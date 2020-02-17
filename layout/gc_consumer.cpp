@@ -257,7 +257,7 @@ void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {
     // Prepare for transfer eids to GCProducer
     vector<pair<eid_t, bool>>* gcable_eid = new vector<pair<eid_t, bool>>();
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfGarbageCollect(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
@@ -269,7 +269,8 @@ void GCConsumer::ExecuteTopoRowListDefragJob(TopoRowListDefragJob* job) {
     // Prepare for transfer eids to GCProducer
     vector<pair<eid_t, bool>>* gcable_eid = new vector<pair<eid_t, bool>>();
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        if (t->GetTaskStatus() == TaskStatus::INVALID) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfDefragment(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
@@ -279,7 +280,7 @@ void GCConsumer::ExecuteTopoRowListDefragJob(TopoRowListDefragJob* job) {
 
 void GCConsumer::ExecuteVPRowListGCJob(VPRowListGCJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfGarbageCollect();
@@ -288,7 +289,8 @@ void GCConsumer::ExecuteVPRowListGCJob(VPRowListGCJob* job) {
 
 void GCConsumer::ExecuteVPRowListDefragJob(VPRowListDefragJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        if (t->GetTaskStatus() == TaskStatus::INVALID) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListDefragTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfDefragment();
@@ -297,7 +299,7 @@ void GCConsumer::ExecuteVPRowListDefragJob(VPRowListDefragJob* job) {
 
 void GCConsumer::ExecuteEPRowListGCJob(EPRowListGCJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListGCTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfGarbageCollect();
@@ -306,7 +308,8 @@ void GCConsumer::ExecuteEPRowListGCJob(EPRowListGCJob* job) {
 
 void GCConsumer::ExecuteEPRowListDefragJob(EPRowListDefragJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        if (t->GetTaskStatus() == TaskStatus::INVALID) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListDefragTask*>(t)->target;
         if (target == nullptr) { continue; }
         target->SelfDefragment();
