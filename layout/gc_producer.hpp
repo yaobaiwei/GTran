@@ -105,6 +105,7 @@ class GCProducer {
     void Execute();
 
     friend class GCTaskDAG;
+    friend class GarbageCollector;
 
  private:
     GCProducer() {}
@@ -134,9 +135,6 @@ class GCProducer {
     void ReduceVPRowListGCJobBlockCount(VPRowListGCTask*);
     void ReduceEPRowListGCJobBlockCount(EPRowListGCTask*);
     void ReduceTopoRowListGCJobBlockCount(TopoRowListGCTask*);
-
-    // Increase block count of upstream jobs (for TopoRowListGCJob only)
-    void IncreaseTopoRowListGCJobBlockCount(TopoRowListGCTask*);
 
     // Set task invalid, if its non-empty upstream task is generated
     void SetVPRowListDefragTaskInvalid(VPRowListDefragTask*);

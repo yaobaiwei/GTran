@@ -23,6 +23,7 @@ VPRowListGCTask* GCTaskDAG::InsertVPRowListGCTask(const vid_t& id, PropertyRowLi
 
         CHECK(task->GetTaskStatus() == TaskStatus::EMPTY) << task->GetTaskInfoStr();
 
+        CHECK(task->downstream_tasks_.size() == 1) << task->GetTaskInfoStr();
         auto* downstream_task = *task->downstream_tasks_.begin();
 
         // substantiate the existing EMPTY task
@@ -108,6 +109,8 @@ void GCTaskDAG::DisconnectInvalidVPRowListDefragTask(VPRowListDefragTask* task) 
     VPRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
     task->upstream_tasks_.clear();
 
+    upstream_task->downstream_tasks_.erase(task);
+
     CHECK(upstream_task->downstream_tasks_.size() == 0) << upstream_task->GetTaskInfoStr();
     CHECK(upstream_task->GetTaskStatus() == TaskStatus::ACTIVE) << upstream_task->GetTaskInfoStr();
 }
@@ -178,7 +181,6 @@ TopoRowListDefragTask* GCTaskDAG::InsertTopoRowListDefragTask(const vid_t& id, T
             // Record Dependent relationship
             dep_task->downstream_tasks_.emplace(task);
             task->upstream_tasks_.emplace(dep_task);
-            gc_producer_->IncreaseTopoRowListGCJobBlockCount(dep_task);
         } else {
             // Do not generate a task, since the upstream task exists
             return nullptr;
@@ -369,7 +371,7 @@ void GCTaskDAG::DeleteEPRowListDefragTask(EPRowListDefragTask* task) {
 void GCTaskDAG::DisconnectInvalidTopoRowListDefragTask(TopoRowListDefragTask* task) {
     topo_row_list_defrag_tasks_map.erase(task->id);
 
-    VPRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
+    TopoRowListGCTask* upstream_task = *task->upstream_tasks_.begin();
     task->upstream_tasks_.clear();
 
     upstream_task->downstream_tasks_.erase(task);
@@ -448,10 +450,6 @@ void GCProducer::ReduceTopoRowListGCJobBlockCount(TopoRowListGCTask* task) {
         garbage_collector_->PushJobToPendingQueue(new_job);
         topo_row_list_gc_job.Clear();
     }
-}
-
-void GCProducer::IncreaseTopoRowListGCJobBlockCount(TopoRowListGCTask* task) {
-    topo_row_list_gc_job.IncreaseTaskBlockCount(task);
 }
 
 void GCProducer::SetVPRowListDefragTaskInvalid(VPRowListDefragTask* task) {
