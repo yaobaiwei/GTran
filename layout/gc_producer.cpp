@@ -507,7 +507,7 @@ void GCProducer::Execute() {
         // erase them from dependency dag; and check whether there are some edge
         // related task need to spawn
         check_finished_job();
-        check_returned_edge();
+        check_erasable_eid();
     }
 }
 
@@ -1035,7 +1035,7 @@ void GCProducer::check_finished_job() {
     }
 }
 
-void GCProducer::check_returned_edge() {
+void GCProducer::check_erasable_eid() {
     while (true) {
         vector<pair<eid_t, bool>>* returned_edges = new vector<pair<eid_t, bool>>();
         if (!garbage_collector_->PopGCAbleEidFromQueue(returned_edges)) {

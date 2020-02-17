@@ -158,6 +158,7 @@ class DependentGCTask : public AbstractGCTask {
         blocked_count_++;
     }
 
+    // only call this in DependentGCJob::ReduceTaskBlockCount()
     void DecreaseBlockedCount() {
         blocked_count_--;
     }
@@ -177,12 +178,10 @@ class DependentGCTask : public AbstractGCTask {
     }
 
  private:
-    // Task Status to indicate whether the task is
-    // active, invalid or other status
     TaskStatus task_status_ = TaskStatus::ACTIVE;
 
     // How many dependent tasks has been pushed out.
-    // Will be maintained only when a task is not EMPTY
+    // Will be maintained only when a task is not EMPTY and added to a job.
     int blocked_count_ = 0;
 };
 
@@ -514,12 +513,13 @@ class DependentGCJob : public AbstractGCJob {
         sum_blocked_count_ += task->GetBlockedCount();
     }
 
+    // called when a EMPTY upstream task of this task is substanitiated
     void SetTaskInvalid(DependentGCTask* task) {
         task->SetTaskStatus(TaskStatus::INVALID);
         sum_of_cost_ -= task->cost_;
     }
 
-    // Invoked when the task is not longer blocked
+    // called when PUSHED downstream tasks is finished
     void ReduceTaskBlockCount(DependentGCTask* task) {
         task->DecreaseBlockedCount();
         if (task->GetBlockedCount() == 0) {
