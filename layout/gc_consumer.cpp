@@ -108,7 +108,7 @@ void GCConsumer::ExecuteEraseVJob(EraseVJob * job) {
     // Erase a set of vertices from vertex_map in data_storage
     WriterLockGuard writer_lock_guard(data_storage_->vertex_map_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        CHECK(t != nullptr);
         data_storage_->vertex_map_.unsafe_erase(static_cast<EraseVTask*>(t)->target.value());
     }
 }
@@ -117,7 +117,7 @@ void GCConsumer::ExecuteEraseOutEJob(EraseOutEJob * job) {
     // Erase a set of edges (out_edge) from out_e_map
     WriterLockGuard writer_lock_guard(data_storage_->out_edge_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        CHECK(t != nullptr);
 
         uint64_t eid_value = static_cast<EraseOutETask*>(t)->target.value();
         DataStorage::OutEdgeIterator out_e_iterator = data_storage_->out_edge_map_.find(eid_value);
@@ -137,7 +137,7 @@ void GCConsumer::ExecuteEraseInEJob(EraseInEJob * job) {
     // Erase a set of edges (in_edge) from in_e_map
     WriterLockGuard writer_lock_guard(data_storage_->in_edge_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        CHECK(t != nullptr);
 
         uint64_t eid_value = static_cast<EraseInETask*>(t)->target.value();
         DataStorage::InEdgeIterator in_e_iterator = data_storage_->in_edge_map_.find(eid_value);

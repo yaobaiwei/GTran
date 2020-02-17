@@ -519,12 +519,12 @@ void GCProducer::scan_vertex_map() {
         auto& v_item = v_pair->second;
 
         MVCCList<VertexMVCCItem>* mvcc_list = v_item.mvcc_list;
-        if (mvcc_list == nullptr) { continue; }
+        if (mvcc_list == nullptr) { continue; }  // the insertion is not finished
 
         SimpleSpinLockGuard lock_guard(&(mvcc_list->lock_));
 
         VertexMVCCItem* mvcc_item = mvcc_list->GetHead();
-        if (mvcc_item == nullptr) { continue; }
+        if (mvcc_item == nullptr) { continue; }  // already marked to be erased
 
         // Uncommitted Version, ignore
         if (mvcc_item->GetTransactionID() != 0) { continue; }
@@ -535,6 +535,7 @@ void GCProducer::scan_vertex_map() {
         // (i.e. version->end_time < MINIMUM_ACTIVE_TRANSACTION_BT), the vertex can be GC.
         vid_t vid;
         uint2vid_t(v_pair->first, vid);
+
         if (mvcc_item->GetEndTime() < running_trx_list_->GetGlobalMinBT()) {
             // Vertex GCable
             mvcc_list->head_ = nullptr;
