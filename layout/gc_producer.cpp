@@ -514,7 +514,7 @@ void GCProducer::Execute() {
 
 void GCProducer::scan_vertex_map() {
     // Scan the vertex map
-    ReaderLockGuard writer_lock_guard(data_storage_->vertex_map_erase_rwlock_);
+    ReaderLockGuard reader_lock_guard(data_storage_->vertex_map_erase_rwlock_);
     for (auto v_pair = data_storage_->vertex_map_.begin(); v_pair != data_storage_->vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
@@ -526,7 +526,7 @@ void GCProducer::scan_vertex_map() {
         VertexMVCCItem* mvcc_item = mvcc_list->GetHead();
         if (mvcc_item == nullptr) { continue; }  // already marked to be erased
 
-        // Uncommitted Version, ignore
+        // Uncommitted new vertex, ignore
         if (mvcc_item->GetTransactionID() != 0) { continue; }
 
         // VertexMVCCList is different with other MVCCList since it only has at most
@@ -537,7 +537,7 @@ void GCProducer::scan_vertex_map() {
         uint2vid_t(v_pair->first, vid);
 
         if (mvcc_item->GetEndTime() < running_trx_list_->GetGlobalMinBT()) {
-            // Vertex GCable
+            // Deleted vertex, GCable
             mvcc_list->head_ = nullptr;
             mvcc_list->tail_ = nullptr;
             mvcc_list->pre_tail_ = nullptr;

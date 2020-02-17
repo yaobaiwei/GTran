@@ -1040,6 +1040,8 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
 
     MVCCList<EdgeMVCCItem>* mvcc_list;
 
+    // Need to guarantee that the existance of an edge in edge maps should be consistent with TopologyRowList
+    // Thus, when executing TopoRowListDefragTask and erasing some edges in the TopologyRowList, the edge maps should also be locked and erased
     if (is_new) {
         // a new MVCCList<EdgeVersion> will be created; a cell in VertexEdgeRow will be allocated
         PropertyRowList<EdgePropertyRow>* ep_row_list;
