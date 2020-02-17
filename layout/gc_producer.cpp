@@ -774,8 +774,10 @@ void GCProducer::spawn_edge_mvcc_list_gctask(EdgeMVCCItem* gc_header,
     EdgeMVCCItem* itr = gc_header;
     // For each version, attached EPRowList should be gc as well
     while (true) {
-        PropertyRowList<EdgePropertyRow>* row_list = itr->GetValue().ep_row_list;
-        spawn_ep_row_list_gctask(row_list, eid);
+        // get ep_row_list when setting it as nullptr, to make sure that only EPRowListGCTask can access this ep_row_list
+        PropertyRowList<EdgePropertyRow>* row_list = itr->CutEPRowList();
+        if (row_list != nullptr)
+            spawn_ep_row_list_gctask(row_list, eid);
         if (itr->next != nullptr) {
             itr = itr->next;
         } else {

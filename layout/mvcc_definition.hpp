@@ -161,7 +161,16 @@ struct EdgeVersion {
 struct EdgeMVCCItem : public AbstractMVCCItem {
  private:
     EdgeVersion val;
+
  public:
+    // set ep_row_list as nullptr, and return the original value
+    // should call this when spawning EPRowListGCTask, to make sure that ep_row_list will not be double-freed
+    PropertyRowList<EdgePropertyRow>* CutEPRowList() {
+        auto* ret = val.ep_row_list;
+        val.ep_row_list = nullptr;
+        return ret;
+    }
+
     EdgeVersion GetValue() const {return val;}
 
     bool NeedGC() const {return val.ep_row_list != nullptr;}
