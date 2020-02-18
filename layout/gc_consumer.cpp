@@ -262,7 +262,8 @@ void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {
         CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
         CHECK(target != nullptr);
-        target->SelfGarbageCollect(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
+        target->SelfGarbageCollect(gcable_eid);
+        delete target;
     }
     garbage_collector_->PushGCAbleEidToQueue(gcable_eid);
 }
@@ -280,7 +281,7 @@ void GCConsumer::ExecuteTopoRowListDefragJob(TopoRowListDefragJob* job) {
         CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
         CHECK(target != nullptr);
-        target->SelfDefragment(static_cast<TopoRowListGCTask*>(t)->id, &gcable_eid);
+        target->SelfDefragment(&gcable_eid);
     }
 
     // erase edges with erasable eids from defraging TopologyRowList
@@ -311,6 +312,7 @@ void GCConsumer::ExecuteVPRowListGCJob(VPRowListGCJob* job) {
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListGCTask*>(t)->target;
         CHECK(target != nullptr);
         target->SelfGarbageCollect();
+        delete target;
     }
 }
 
@@ -330,6 +332,7 @@ void GCConsumer::ExecuteEPRowListGCJob(EPRowListGCJob* job) {
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListGCTask*>(t)->target;
         CHECK(target != nullptr);
         target->SelfGarbageCollect();
+        delete target;
     }
 }
 

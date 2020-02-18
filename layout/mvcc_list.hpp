@@ -37,6 +37,7 @@ class MVCCList {
     typedef Item MVCCItemType;
 
     MVCCList();
+    ~MVCCList();
 
     typedef decltype(Item::val) ValueType;
     // Invoked only when data loading

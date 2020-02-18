@@ -35,6 +35,7 @@ class TopologyRowList {
 
  public:
     void Init(const vid_t& my_vid);
+    ~TopologyRowList();
 
     // This function will only be called when loading data from hdfs
     MVCCList<EdgeMVCCItem>* InsertInitialCell(const bool& is_out, const vid_t& conn_vtx_id,
@@ -61,8 +62,8 @@ class TopologyRowList {
         mem_pool_ = mem_pool;
     }
 
-    void SelfGarbageCollect(const vid_t& vid, vector<pair<eid_t, bool>>* vec);
-    void SelfDefragment(const vid_t&, vector<pair<eid_t, bool>>*);
+    void SelfGarbageCollect(vector<pair<eid_t, bool>>* vec);
+    void SelfDefragment(vector<pair<eid_t, bool>>*);
 
     friend class GCProducer;
     friend class GCConsumer;

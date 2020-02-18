@@ -12,6 +12,11 @@ void TopologyRowList::Init(const vid_t& my_vid) {
     edge_count_ = 0;
     pthread_spin_init(&lock_, 0);
 }
+
+TopologyRowList::~TopologyRowList() {
+    pthread_spin_destroy(&lock_);
+}
+
 /* For an specific eid on a vertex, ProcessAddEdge will only be called once.
  * This is guaranteed by DataStorage::ProcessAddE
  * So we do not need to perform cell check like PropertyRowList::AllocateCell
@@ -148,7 +153,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
     return mvcc_list;
 }
 
-void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
+void TopologyRowList::SelfGarbageCollect(vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
 
@@ -174,14 +179,12 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
         // Collect deleted eid for spawning erase_e_map_task
-        if (origin_vid == NULL) {
-            if (cell_ref.is_out) {
-                eid_t eid(cell_ref.conn_vtx_id.value(), origin_vid.value());
-                gcable_eids->emplace_back(eid, true);
-            } else {
-                eid_t eid(origin_vid.value(), cell_ref.conn_vtx_id.value());
-                gcable_eids->emplace_back(eid, false);
-            }
+        if (cell_ref.is_out) {
+            eid_t eid(cell_ref.conn_vtx_id.value(), my_vid_.value());
+            gcable_eids->emplace_back(eid, true);
+        } else {
+            eid_t eid(my_vid_.value(), cell_ref.conn_vtx_id.value());
+            gcable_eids->emplace_back(eid, false);
         }
 
         EdgeMVCCItem* itr = cell_ref.mvcc_list->GetHead();
@@ -208,7 +211,7 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
     delete[] row_ptrs;
 }
 
-void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
+void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
 
@@ -237,10 +240,10 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
         if (cell_ref.mvcc_list->GetHead() == nullptr) {
             // Collect deleted eid for spawning erase_e_map_task
             if (cell_ref.is_out) {
-                eid_t eid(cell_ref.conn_vtx_id.value(), origin_vid.value());
+                eid_t eid(cell_ref.conn_vtx_id.value(), my_vid_.value());
                 gcable_eids->emplace_back(eid, true);
             } else {
-                eid_t eid(origin_vid.value(), cell_ref.conn_vtx_id.value());
+                eid_t eid(my_vid_.value(), cell_ref.conn_vtx_id.value());
                 gcable_eids->emplace_back(eid, false);
             }
 

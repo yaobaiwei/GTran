@@ -1371,7 +1371,7 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 vector<pair<eid_t, bool>> * deletable_eids = new vector<pair<eid_t, bool>>();
                 vid_t vid;
                 uint2vid_t(mvcclist_to_vid_map[v_mvcc_list], vid);
-                v_iterator->second.ve_row_list->SelfGarbageCollect(vid, deletable_eids);
+                v_iterator->second.ve_row_list->SelfGarbageCollect(deletable_eids);
                 garbage_collector_->PushGCAbleEidToQueue(deletable_eids);
 
                 delete v_iterator->second.ve_row_list;
