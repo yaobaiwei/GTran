@@ -32,10 +32,13 @@ void GCProducer::scan_prop_row_list(const uint64_t& element_id, PropertyRowList<
         }
     }
 
-    // gcable_cell_counter must NOT be zero since if the number of cells MOD row
-    // capacity is exactly zero (mostly happened after one defragment), a defrag
-    // task will be generated since 0 == 0;
-    if (gcable_cell_counter >= property_count_snapshot % prop_row_list->MAP_THRESHOLD && gcable_cell_counter != 0) {
+    int original_row_count = (property_count_snapshot / prop_row_list->MAP_THRESHOLD) +
+                             (property_count_snapshot % prop_row_list->MAP_THRESHOLD > 0) ? 1 : 0;
+    int after_row_count = ((property_count_snapshot - gcable_cell_counter) / prop_row_list->MAP_THRESHOLD) +
+                          ((property_count_snapshot - gcable_cell_counter) % prop_row_list->MAP_THRESHOLD > 0) ? 1 : 0;
+
+    // spawn defrag task when one or more rows can be recycled
+    if (original_row_count > after_row_count) {
         spawn_prop_row_defrag_gctask(prop_row_list, element_id, gcable_cell_counter);
     }
 }

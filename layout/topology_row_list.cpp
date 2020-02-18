@@ -19,7 +19,7 @@ TopologyRowList::~TopologyRowList() {
 
 /* For an specific eid on a vertex, ProcessAddEdge will only be called once.
  * This is guaranteed by DataStorage::ProcessAddE
- * So we do not need to perform cell check like PropertyRowList::AllocateCell
+ * So we do not need to perform cell check like TopologyRowList::AllocateCell
  */
 void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
                                    MVCCList<EdgeMVCCItem>* mvcc_list) {
@@ -250,20 +250,12 @@ void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
             // gc cell, record to empty cell
             empty_cell_queue.emplace((int)(i / VE_ROW_CELL_COUNT), cell_id_in_row);
 
-            EdgeMVCCItem* itr = cell_ref.mvcc_list->GetHead();
-            while (itr != nullptr) {
-                if (itr->GetValue().ep_row_list == nullptr) {
-                    itr = itr->GetNext();
-                    continue;
-                }
-                itr->GetValue().ep_row_list->SelfGarbageCollect();
-                itr = itr->GetNext();
-            }
-
-            cell_ref.mvcc_list->SelfGarbageCollect();
             // Do not need to delete mvcc_list, since mvcc_list is still referred by e_map
         }
     }
+
+    if (empty_cell_queue.size() == 0)
+        return;
 
     int inverse_cell_index = edge_count_ - 1;
     int cur_edge_count = edge_count_ - empty_cell_queue.size();
@@ -275,9 +267,7 @@ void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
     if (cur_edge_count % VE_ROW_CELL_COUNT == 0) {
         cur_row_count--;
     }
-    int num_gcable_rows = row_count - cur_row_count;
 
-    bool first_iteration = true;
     // move cell from tail to empty cell
     while (true) {
         int cell_id_in_row = inverse_cell_index % VE_ROW_CELL_COUNT;
@@ -290,6 +280,7 @@ void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
         auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
         MVCCList<EdgeMVCCItem>* mvcc_list = cell_ref.mvcc_list;
 
+        // move a non-empty cell to an empty cell
         if (mvcc_list->GetHead() != nullptr) {
             num_movable_cell--;
             pair<int, int> empty_cell = empty_cell_queue.front();
@@ -310,7 +301,7 @@ void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
         mem_pool_->Free(row_ptrs[i], TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     }
 
-    // new property count
+    // new edge count
     edge_count_ = cur_edge_count;
     if (cur_row_count == 0) {
         head_ = nullptr;
@@ -318,4 +309,6 @@ void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
     } else {
         tail_ = row_ptrs[cur_row_count - 1];
     }
+
+    delete[] row_ptrs;
 }

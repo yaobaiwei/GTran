@@ -587,7 +587,13 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
         }
     }
 
-    if (gcable_cell_count >= edge_count_snapshot % VE_ROW_CELL_COUNT && gcable_cell_count != 0) {
+    int original_row_count = (edge_count_snapshot / VE_ROW_CELL_COUNT) +
+                             (edge_count_snapshot % VE_ROW_CELL_COUNT > 0) ? 1 : 0;
+    int after_row_count = ((edge_count_snapshot - gcable_cell_count) / VE_ROW_CELL_COUNT) +
+                          ((edge_count_snapshot - gcable_cell_count) % VE_ROW_CELL_COUNT > 0) ? 1 : 0;
+
+    // spawn defrag task when one or more rows can be recycled
+    if (original_row_count > after_row_count) {
         spawn_topo_row_list_defrag_gctask(topo_row_list, vid, gcable_cell_count);
     }
 }
