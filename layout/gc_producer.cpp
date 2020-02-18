@@ -497,7 +497,8 @@ void GCProducer::Execute() {
 
         uint64_t end_time = timer::get_usec();
 
-        cout << "[GCProducer] Scan Time: " << ((end_time - start_time) / 1000) << "ms" << endl;
+        cout << "[Node " << node_.get_local_rank() << "][GCProducer] Scan Time: " << ((end_time - start_time) / 1000)
+             << "ms, container usage: " << data_storage_->GetContainerUsage() * 100 << "%" << endl;
 
         // Currently, sleep for a while and the do next scan
         sleep(SCAN_PERIOD);
@@ -506,26 +507,26 @@ void GCProducer::Execute() {
         // erase them from dependency dag; and check whether there are some edge
         // related task need to spawn
         check_finished_job();
-        check_returned_edge();
+        check_erasable_eid();
     }
 }
 
 
 void GCProducer::scan_vertex_map() {
     // Scan the vertex map
-    ReaderLockGuard writer_lock_guard(data_storage_->vertex_map_erase_rwlock_);
+    ReaderLockGuard reader_lock_guard(data_storage_->vertex_map_erase_rwlock_);
     for (auto v_pair = data_storage_->vertex_map_.begin(); v_pair != data_storage_->vertex_map_.end(); v_pair++) {
         auto& v_item = v_pair->second;
 
         MVCCList<VertexMVCCItem>* mvcc_list = v_item.mvcc_list;
-        if (mvcc_list == nullptr) { continue; }
+        if (mvcc_list == nullptr) { continue; }  // the insertion is not finished
 
         SimpleSpinLockGuard lock_guard(&(mvcc_list->lock_));
 
         VertexMVCCItem* mvcc_item = mvcc_list->GetHead();
-        if (mvcc_item == nullptr) { continue; }
+        if (mvcc_item == nullptr) { continue; }  // already marked to be erased
 
-        // Uncommitted Version, ignore
+        // Uncommitted new vertex, ignore
         if (mvcc_item->GetTransactionID() != 0) { continue; }
 
         // VertexMVCCList is different with other MVCCList since it only has at most
@@ -534,8 +535,9 @@ void GCProducer::scan_vertex_map() {
         // (i.e. version->end_time < MINIMUM_ACTIVE_TRANSACTION_BT), the vertex can be GC.
         vid_t vid;
         uint2vid_t(v_pair->first, vid);
+
         if (mvcc_item->GetEndTime() < running_trx_list_->GetGlobalMinBT()) {
-            // Vertex GCable
+            // Deleted vertex, GCable
             mvcc_list->head_ = nullptr;
             mvcc_list->tail_ = nullptr;
             mvcc_list->pre_tail_ = nullptr;
@@ -773,8 +775,10 @@ void GCProducer::spawn_edge_mvcc_list_gctask(EdgeMVCCItem* gc_header,
     EdgeMVCCItem* itr = gc_header;
     // For each version, attached EPRowList should be gc as well
     while (true) {
-        PropertyRowList<EdgePropertyRow>* row_list = itr->GetValue().ep_row_list;
-        spawn_ep_row_list_gctask(row_list, eid);
+        // get ep_row_list when setting it as nullptr, to make sure that only EPRowListGCTask can access this ep_row_list
+        PropertyRowList<EdgePropertyRow>* row_list = itr->CutEPRowList();
+        if (row_list != nullptr)
+            spawn_ep_row_list_gctask(row_list, eid);
         if (itr->next != nullptr) {
             itr = itr->next;
         } else {
@@ -1031,7 +1035,7 @@ void GCProducer::check_finished_job() {
     }
 }
 
-void GCProducer::check_returned_edge() {
+void GCProducer::check_erasable_eid() {
     while (true) {
         vector<pair<eid_t, bool>>* returned_edges = new vector<pair<eid_t, bool>>();
         if (!garbage_collector_->PopGCAbleEidFromQueue(returned_edges)) {

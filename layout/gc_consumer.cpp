@@ -108,8 +108,12 @@ void GCConsumer::ExecuteEraseVJob(EraseVJob * job) {
     // Erase a set of vertices from vertex_map in data_storage
     WriterLockGuard writer_lock_guard(data_storage_->vertex_map_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
-        data_storage_->vertex_map_.unsafe_erase(static_cast<EraseVTask*>(t)->target.value());
+        CHECK(t != nullptr);
+        auto iterator = data_storage_->vertex_map_.find(static_cast<EraseVTask*>(t)->target.value());
+        CHECK(iterator != data_storage_->vertex_map_.end());
+
+        delete iterator->second.mvcc_list;
+        data_storage_->vertex_map_.unsafe_erase(iterator);
     }
 }
 
@@ -117,19 +121,18 @@ void GCConsumer::ExecuteEraseOutEJob(EraseOutEJob * job) {
     // Erase a set of edges (out_edge) from out_e_map
     WriterLockGuard writer_lock_guard(data_storage_->out_edge_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        CHECK(t != nullptr);
 
         uint64_t eid_value = static_cast<EraseOutETask*>(t)->target.value();
         DataStorage::OutEdgeIterator out_e_iterator = data_storage_->out_edge_map_.find(eid_value);
         if (out_e_iterator != data_storage_->out_edge_map_.end()) {
             // Erase mvcc_list linked on the edge
             MVCCList<EdgeMVCCItem>* mvcc_list = out_e_iterator->second.mvcc_list;
-            if (mvcc_list->head_ == nullptr) { continue; }
             CHECK(mvcc_list != nullptr);
+            if (mvcc_list->head_ != nullptr) { continue; }  // // this edge was added back after its deletion
             delete mvcc_list;
+            data_storage_->out_edge_map_.unsafe_erase(eid_value);
         }
-
-        data_storage_->out_edge_map_.unsafe_erase(eid_value);
     }
 }
 
@@ -137,19 +140,18 @@ void GCConsumer::ExecuteEraseInEJob(EraseInEJob * job) {
     // Erase a set of edges (in_edge) from in_e_map
     WriterLockGuard writer_lock_guard(data_storage_->in_edge_erase_rwlock_);
     for (auto t : job->tasks_) {
-        if (t == nullptr) { continue; }
+        CHECK(t != nullptr);
 
         uint64_t eid_value = static_cast<EraseInETask*>(t)->target.value();
         DataStorage::InEdgeIterator in_e_iterator = data_storage_->in_edge_map_.find(eid_value);
         if (in_e_iterator != data_storage_->in_edge_map_.end()) {
             // Erase mvcc_list linked on the edge
             MVCCList<EdgeMVCCItem>* mvcc_list = in_e_iterator->second.mvcc_list;
-            if (mvcc_list->head_ == nullptr) { continue; }
             CHECK(mvcc_list != nullptr);
+            if (mvcc_list->head_ != nullptr) { continue; }  // // this edge was added back after its deletion
             delete mvcc_list;
+            data_storage_->in_edge_map_.unsafe_erase(eid_value);
         }
-
-        data_storage_->in_edge_map_.unsafe_erase(eid_value);
     }
 }
 
@@ -257,58 +259,86 @@ void GCConsumer::ExecuteTopoRowListGCJob(TopoRowListGCJob* job) {
     // Prepare for transfer eids to GCProducer
     vector<pair<eid_t, bool>>* gcable_eid = new vector<pair<eid_t, bool>>();
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
-        if (target == nullptr) { continue; }
+        CHECK(target != nullptr);
         target->SelfGarbageCollect(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
     }
     garbage_collector_->PushGCAbleEidToQueue(gcable_eid);
 }
 
 void GCConsumer::ExecuteTopoRowListDefragJob(TopoRowListDefragJob* job) {
-    // Prepare for transfer eids to GCProducer
-    vector<pair<eid_t, bool>>* gcable_eid = new vector<pair<eid_t, bool>>();
+    // To ensure consistency between TopologyRowList and edge maps, the edge maps should be erased right after defraging TopologyRowList
+    // Otherwise, in DataStorage::ProcessAddE(), error will occur when an edge is erased from TopologyRowList but still exists in edge maps.
+    // Writer locks are needed to ensure the consistency
+    WriterLockGuard writer_lock_guard_oute(data_storage_->out_edge_erase_rwlock_);
+    WriterLockGuard writer_lock_guard_ine(data_storage_->in_edge_erase_rwlock_);
+
+    vector<pair<eid_t, bool>> gcable_eid;
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        if (t->GetTaskStatus() == TaskStatus::INVALID) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         TopologyRowList* target = static_cast<TopoRowListGCTask*>(t)->target;
-        if (target == nullptr) { continue; }
-        target->SelfDefragment(static_cast<TopoRowListGCTask*>(t)->id, gcable_eid);
+        CHECK(target != nullptr);
+        target->SelfDefragment(static_cast<TopoRowListGCTask*>(t)->id, &gcable_eid);
     }
-    garbage_collector_->PushGCAbleEidToQueue(gcable_eid);
+
+    // erase edges with erasable eids from defraging TopologyRowList
+    for (pair<eid_t, bool> p : gcable_eid) {
+        if (p.second) {
+            DataStorage::OutEdgeIterator out_e_iterator = data_storage_->out_edge_map_.find(p.first.value());
+            if (out_e_iterator != data_storage_->out_edge_map_.end()) {
+                MVCCList<EdgeMVCCItem>* mvcc_list = out_e_iterator->second.mvcc_list;
+                CHECK(mvcc_list->head_ == nullptr);
+                delete mvcc_list;
+                data_storage_->out_edge_map_.unsafe_erase(p.first.value());
+            }
+        } else {
+            DataStorage::InEdgeIterator in_e_iterator = data_storage_->in_edge_map_.find(p.first.value());
+            if (in_e_iterator != data_storage_->in_edge_map_.end()) {
+                MVCCList<EdgeMVCCItem>* mvcc_list = in_e_iterator->second.mvcc_list;
+                CHECK(mvcc_list->head_ == nullptr);
+                delete mvcc_list;
+                data_storage_->in_edge_map_.unsafe_erase(p.first.value());
+            }
+        }
+    }
 }
 
 void GCConsumer::ExecuteVPRowListGCJob(VPRowListGCJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListGCTask*>(t)->target;
-        if (target == nullptr) { continue; }
+        CHECK(target != nullptr);
         target->SelfGarbageCollect();
     }
 }
 
 void GCConsumer::ExecuteVPRowListDefragJob(VPRowListDefragJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        if (t->GetTaskStatus() == TaskStatus::INVALID) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<VertexPropertyRow>* target = static_cast<VPRowListDefragTask*>(t)->target;
-        if (target == nullptr) { continue; }
+        CHECK(target != nullptr);
         target->SelfDefragment();
     }
 }
 
 void GCConsumer::ExecuteEPRowListGCJob(EPRowListGCJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListGCTask*>(t)->target;
-        if (target == nullptr) { continue; }
+        CHECK(target != nullptr);
         target->SelfGarbageCollect();
     }
 }
 
 void GCConsumer::ExecuteEPRowListDefragJob(EPRowListDefragJob* job) {
     for (auto t : job->tasks_) {
-        if (t->GetTaskStatus() != TaskStatus::ACTIVE) { continue; }
+        if (t->GetTaskStatus() == TaskStatus::INVALID) { continue; }
+        CHECK(t->GetTaskStatus() == TaskStatus::PUSHED);
         PropertyRowList<EdgePropertyRow>* target = static_cast<EPRowListDefragTask*>(t)->target;
-        if (target == nullptr) { continue; }
+        CHECK(target != nullptr);
         target->SelfDefragment();
     }
 }

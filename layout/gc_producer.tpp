@@ -53,7 +53,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
     if (cur_ptr == nullptr) { return true; }
     bool uncommitted_version_exists = false;
     if (iterate_tail->GetTransactionID() != 0) {
-        if (cur_ptr == iterate_tail) { return false; }
+        if (cur_ptr == iterate_tail) { return false; }  // only one uncommitted version
 
         iterate_tail = mvcc_list->pre_tail_;
         uncommitted_version_exists = true;
@@ -69,6 +69,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
         } else {
             if (cur_ptr == iterate_tail) {
                 if (cur_ptr->GetValue().IsEmpty()) {
+                    // the last version is a "deleted" version
                     gc_checkpoint = cur_ptr;
                     gc_version_count++;
                     break;
@@ -78,6 +79,7 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
             if (is_base_of<PropertyMVCCItem, MVCCItem>::value) {
                 break;
             } else {
+                CHECK(bool(is_same<EdgeMVCCItem, MVCCItem>::value));
                 scan_prop_row_list(element_id, ((EdgeMVCCItem*)cur_ptr)->GetValue().ep_row_list);
             }
         }
@@ -87,9 +89,12 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
     }
 
     if (gc_checkpoint != nullptr) {
+        auto* new_head = gc_checkpoint->next;
+        gc_checkpoint->next = nullptr;
+
         spawn_mvcc_list_gctask(mvcc_list->head_, element_id, gc_version_count);
         // Cut the mvcc_list down
-        mvcc_list->head_ = gc_checkpoint->next;  // Could be nullptr or a uncommitted version
+        mvcc_list->head_ = new_head;  // Could be nullptr or a uncommitted version
         if (gc_checkpoint == iterate_tail) {  // There is at most one left
             if (!uncommitted_version_exists) {
                 mvcc_list->tail_ = nullptr;
@@ -107,8 +112,6 @@ bool GCProducer::scan_mvcc_list(const uint64_t& element_id, MVCCList<MVCCItem>* 
                 mvcc_list->tmp_pre_tail_ = mvcc_list->pre_tail_;
             }
         }
-
-        gc_checkpoint->next = nullptr;
     }
 
     return false;

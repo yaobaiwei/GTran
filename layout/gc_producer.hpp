@@ -26,17 +26,42 @@ Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
  * If the sum of costs of a specific type of GC task has reach the given threshold, all tasks of this
  * type will be packed as a Job and push to GCConsumer.
  *
- * GCProducer maintains containers of tasks without dependency. For tasks with dependency, their containers
- * are in GCTaskDAG.
+ * GCProducer maintains containers (jobs) of unpushed tasks.
+ * For tasks with dependency, their pointers are also stored in the GCTaskDAG.
  */
 
 class GarbageCollector;
 
-// The container of dependent tasks
-//  Insert Function will check dependency and erase downsteam tasks or delete self
-//  since upstream tasks existing
-//
-//  Delete Function will delete finished tasks and release blocking tasks
+/*
+The dependency of dependent tasks can form a DAG.
+
+
+The task DAG is stored in two parts (nodes and connections):
+    - 6 maps of tasks indexed by task id. Each type of dependent task is in different maps, respectively.
+    - The connections are stored in the tasks themselves, by two sets: upstream_tasks_ and downstream_tasks_.
+      For example, For TopoRowListGCTask *a and EPRowListDefragTask *b with dependency: a->downstream_tasks_ will contains b, and b->upstream_tasks_ will contains a.
+Thus, "connect A (upstream task) with B (downstream task) in the DAG means":
+    Add the pointer of B in A->upstream_tasks_
+    Add the pointer of A in B->downstream_tasks_
+
+
+Dependency management:
+    INVALID task
+        1. A task will become INVALID when its upstream task is converted from EMPTY to ACTIVE.
+        2. When a task is converted to INVALID, it will be removed from the map, and all its connections will be removed.
+    EMPTY task
+        1. An EMPTY task will be added to the DAG when its downstream task is created.
+        2. When a same-type task with the same id is to be created, it will just replace the EMPTY task.
+            (1). If any of its downstream tasks are PUSHED, the task will be BLOCKED.
+            (2). All of its ACTIVE downstream tasks will be marked as INVALID and disconnect from the DAG.
+        3. If all of its downstream tasks disappear (become INVALID, and disconnect with the EMPTY task), the EMPTY task will be erased from the DAG and deleted.
+    BLOCKED task
+        1. A task is BLOCKED when one or more of its downstream tasks are PUSHED.
+        2. When all of its PUSHED tasks are finished and deleted, this task will become ACTIVE.
+    PUSHED task
+        1. An ACTIVE task will become PUSHED when pushed from GCProducer to GCConsumer.
+        2. Notice that an INVALID task will remain INVALID when pushed to GCConsumer!
+*/
 class GCTaskDAG {
  private:
     GCTaskDAG();
@@ -59,10 +84,15 @@ class GCTaskDAG {
     unordered_map<vid_t, VPRowListGCTask*, VidHash> vp_row_list_gc_tasks_map;
     unordered_map<vid_t, VPRowListDefragTask*, VidHash> vp_row_list_defrag_tasks_map;
 
+    // Insert*Task functions will return the pointer of inserted task if the insertion is successful. Else, nullptr will be returned.
     VPRowListGCTask* InsertVPRowListGCTask(const vid_t&, PropertyRowList<VertexPropertyRow>*);
     VPRowListDefragTask* InsertVPRowListDefragTask(const vid_t&, PropertyRowList<VertexPropertyRow>*, int);
+
+    // Delete*Task functions will be called when a task is finished.
     void DeleteVPRowListGCTask(VPRowListGCTask*);
     void DeleteVPRowListDefragTask(VPRowListDefragTask*);
+
+    // DisconnectInvalid*Task functions will be called when a EMPTY upstream task is substaintiated and its ACTIVE downstream tasks becomes INVALID
     void DisconnectInvalidVPRowListDefragTask(VPRowListDefragTask*);
 
     /*
@@ -87,9 +117,93 @@ class GCTaskDAG {
     void DeleteTopoRowListDefragTask(TopoRowListDefragTask*);
     void DeleteEPRowListGCTask(EPRowListGCTask*);
     void DeleteEPRowListDefragTask(EPRowListDefragTask*);
+
     void DisconnectInvalidTopoRowListDefragTask(TopoRowListDefragTask*);
     void DisconnectInvalidEPRowListDefragTask(EPRowListDefragTask*);
 };
+
+/*
+This is the scanning process of in GCProducer::Execute(): (||: one to many, |: one to one)
+
+    vertex_map
+        ||
+        ||
+        ||
+      Vertex---------------------------------------------------MVCCList<V> (EraseVTask, VMVCCGCTask, VPRowListGCTask, TopoRowListGCTask)
+         |                                       |
+         |                                       |
+         |                                       |
+    VPRowList (VPRowListDefragTask)         TopoRowList (TopoRowListDefragTask)
+        ||                                       ||
+        ||                                       ||
+        ||                                       ||
+     VPHeader                                EdgeHeader
+         |                                       |
+         |                                       |
+         |                                       |
+    MVCCList<VP> (VPMVCCGCTask)             MVCCList<E> (EMVCCGCTask, EPRowListGCTask)
+                                                 ||
+                                                 ||
+                                                 ||
+                                            EdgeMVCCItem
+                                                 |
+                                                 |
+                                                 |
+                                            EdgeVersion
+                                                 |
+                                                 |
+                                                 |
+                                             EPRowList (EPRowListDefragTask)
+                                                 ||
+                                                 ||
+                                                 ||
+                                              EPHeader
+                                                 |
+                                                 |
+                                                 |
+                                            MVCCList<EP> (EPMVCCGCTask)
+
+
+The execution of TopoRowListGCTask will and the abort of transaction can produce some gcable eids.
+In GCProducer::check_returned_edge(), EraseInETask and EraseOutETask will spawn from those tasks.
+
+
+Besides, for other components outside DataStorage in the code, GC is also needed, and GCProducer will spawn their GCTasks:
+    RCTable, IndexStore, TransactionStatusTable, PrimitiveRCTTable.
+
+
+Dependent task insertion rules:
+    For downstream tasks (VPRowListGCTask, EPRowListGCTask, and TopoRowListGCTask):
+        Firstly, check if the same-type task with the same id exists. If so, do not generate the new task.
+        Then, check if its potential upstream task exists:
+            Exists:
+                If the upstream task is EMPTY:
+                    1. Generate an ACTIVE task, add this task to the related job and GCTaskDAG.
+                    2. Connect the new task and the EMPTY upstream task in the GCTaskDAG.
+                Else, do not generate the new task.
+            Does not exist:
+                1. Generate an ACTIVE task, add this task to the related job and GCTaskDAG.
+                2. Generate an EMPTY upstream task in the GCTaskDAG, and connect it with the new ACTIVE task.
+
+    For upstream tasks (VPRowListDefragTask, EPRowListDefragTask and TopoRowListDefragTask)
+        Check if the same-type tasl with the same id exists.
+            Exists:
+                Empty:
+                    1. Substantiate the empty task with specific target.
+                    2. All ACTIVE downstream tasks will become INVALID, and be disconnected from the DAG.
+                    3. If any PUSHED downstream tasks remain, the task will become BLOCKED. Else, the task will become ACTIVE.
+                    4. Add this task to the related job. If this task is BLOCKED, the job will be blocked until PUSHED downstream tasks are finished.
+                Not empty:
+                    Just do not generate.
+            Does not exist:
+                Generate the ACTIVE task, and add it to GCTaskDAG and the related job.
+
+
+When a job is finished, for all of its PUSHED tasks:
+    1. Erase them from the GCTaskDAG.
+    2. If some of their EMPTY upstream tasks are no longer connected, those EMPTY tasks should be erased and deleted.
+    3. Reduce the blocked_count_ of their BLOCKED upstream tasks. Also, the sum_blocked_count_ in corresponding jobs will be reduced.
+*/
 
 class GCProducer {
  public:
@@ -112,7 +226,10 @@ class GCProducer {
     GCProducer(const GCProducer&);
     ~GCProducer() {}
 
-    // -------GC Job For Each Tyep---------
+    // -------GC Job For Each Type---------
+    // When a job is ready to be pushed, a new job will be created and copy the ready job,
+    // and the new job will be pushed when the original job below will be cleared.
+
     EraseVJob erase_v_job;
     EraseOutEJob erase_out_e_job;
     EraseInEJob erase_in_e_job;
@@ -131,6 +248,7 @@ class GCProducer {
     EPRowListGCJob ep_row_list_gc_job;
     EPRowListDefragJob ep_row_list_defrag_job;
 
+    // Called when deleting finished tasks
     // Reduce block count of upstream jobs, and push out them if ready
     void ReduceVPRowListGCJobBlockCount(VPRowListGCTask*);
     void ReduceEPRowListGCJobBlockCount(EPRowListGCTask*);
@@ -223,7 +341,7 @@ class GCProducer {
     // -------Other help functions--------
     void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&);
     void check_finished_job();
-    void check_returned_edge();
+    void check_erasable_eid();
 
     void DebugPrint();
 };
