@@ -165,7 +165,7 @@ This is the scanning process of in GCProducer::Execute(): (||: one to many, |: o
 
 
 The execution of TopoRowListGCTask will and the abort of transaction can produce some gcable eids.
-In GCProducer::check_returned_edge(), EraseInETask and EraseOutETask will spawn from those tasks.
+In GCProducer::check_erasable_eid(), EraseInETask and EraseOutETask will spawn from those tasks.
 
 
 Besides, for other components outside DataStorage in the code, GC is also needed, and GCProducer will spawn their GCTasks:
@@ -342,6 +342,7 @@ class GCProducer {
     void construct_edge_id(const vid_t&, EdgeHeader*, eid_t&);
     void check_finished_job();
     void check_erasable_eid();
+    void check_erasable_vid();
 
     void DebugPrint();
 };

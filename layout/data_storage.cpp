@@ -1004,6 +1004,12 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     vid_t src_vid = eid.src_v, dst_vid = eid.dst_v;
     vid_t adj_vid, vid;
 
+    // abort when trying to add an edge pointing to the vertex itself
+    if (src_vid == dst_vid) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+        return PROCESS_STAT::ABORT_ADD_E_SAME_VID;
+    }
+
     /* if is_out == true, this function will add an outE, which means that src_vid is on this worker;
      *              else, this function will add an inE, which means that dst_vid is on this worker.
      */
@@ -1371,7 +1377,7 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 vector<pair<eid_t, bool>> * deletable_eids = new vector<pair<eid_t, bool>>();
                 vid_t vid;
                 uint2vid_t(mvcclist_to_vid_map[v_mvcc_list], vid);
-                v_iterator->second.ve_row_list->SelfGarbageCollect(vid, deletable_eids);
+                v_iterator->second.ve_row_list->SelfGarbageCollect(deletable_eids);
                 garbage_collector_->PushGCAbleEidToQueue(deletable_eids);
 
                 delete v_iterator->second.ve_row_list;
@@ -1382,6 +1388,10 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 v_iterator->second.mvcc_list->SelfGarbageCollect();
                 // Do not delete v_iterator->second.mvcc_list, since it will still be referred during scanning.
                 // Delete it during erasing v_map.
+
+                // The aborted MVCCList<V> is empty. In GC scanning, empty MVCCList<V> means "already marked to be erased".
+                // Thus, GCProducer cannot spawn EraseVTask on this vertex during scanning.
+                garbage_collector_->PushGCAbleVidToQueue(vid);
             }
         } else if (process_item.type == TrxProcessHistory::PROCESS_ADD_E ||
                    process_item.type == TrxProcessHistory::PROCESS_DROP_E) {

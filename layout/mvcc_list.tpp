@@ -10,6 +10,11 @@ MVCCList<Item>::MVCCList() {
 }
 
 template<class Item>
+MVCCList<Item>::~MVCCList() {
+    pthread_spin_destroy(&lock_);
+}
+
+template<class Item>
 Item* MVCCList<Item>::GetHead() {
     return head_;
 }

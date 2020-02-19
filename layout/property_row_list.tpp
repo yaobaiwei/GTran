@@ -552,16 +552,19 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
         auto& cell_ref = current_row->cells_[cell_id_in_row];
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
-        if (mvcc_list == nullptr) {
-            empty_cell_queue.emplace((int) (i / PropertyRow::ROW_CELL_COUNT), cell_id_in_row);
-            continue;
-        }
+        CHECK(mvcc_list != nullptr);
 
+        // mark the gcable cell's mvcc_list as nullptr
         if (mvcc_list->GetHead() == nullptr) {
             // gc cell, record to empty cell
             empty_cell_queue.emplace((int) (i / PropertyRow::ROW_CELL_COUNT), cell_id_in_row);
             mvcc_list->SelfGarbageCollect();
             delete mvcc_list;
+            cell_ref.mvcc_list = nullptr;
+
+            // erase from the index map
+            if (cell_map_ != nullptr)
+                cell_map_->erase(cell_ref.pid.pid);
         }
     }
 
@@ -578,9 +581,7 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     if (cur_property_count % PropertyRow::ROW_CELL_COUNT == 0) {
         cur_row_count--;
     }
-    int num_gcable_rows = row_count - cur_row_count;
 
-    bool first_iteration = true;
     // move cell from tail to empty cell
     while (true) {
         int cell_id_in_row = inverse_cell_index % PropertyRow::ROW_CELL_COUNT;
@@ -593,11 +594,9 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
         auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
         MVCCListType* mvcc_list = cell_ref.mvcc_list;
 
-        if (mvcc_list == nullptr) {
-            continue;
-        }
-
-        if (mvcc_list->GetHead() != nullptr) {
+        // move a non-empty cell to an empty cell
+        if (mvcc_list != nullptr) {
+            CHECK(mvcc_list->GetHead() != nullptr);
             num_movable_cell--;
             pair<int, int> empty_cell = empty_cell_queue.front();
             empty_cell_queue.pop();
@@ -624,4 +623,24 @@ void PropertyRowList<PropertyRow>::SelfDefragment() {
     }
 
     property_count_ = cur_property_count;
+
+    delete[] row_ptrs;
+
+    if (cell_map_ == nullptr)
+        return;
+
+    // reindex the cell_map_ for the remaining properties
+    current_row = head_;
+    for (int i = 0; i < property_count_; i++) {
+        int cell_id_in_row = i % PropertyRow::ROW_CELL_COUNT;
+        if (i > 0 && cell_id_in_row == 0)
+            current_row = current_row->next_;
+
+        auto& cell_ref = current_row->cells_[cell_id_in_row];
+
+        CellAccessor accessor;
+        CHECK(cell_map_->find(accessor, cell_ref.pid.pid));
+
+        accessor->second = &cell_ref;
+    }
 }

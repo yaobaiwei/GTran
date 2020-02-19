@@ -12,9 +12,14 @@ void TopologyRowList::Init(const vid_t& my_vid) {
     edge_count_ = 0;
     pthread_spin_init(&lock_, 0);
 }
+
+TopologyRowList::~TopologyRowList() {
+    pthread_spin_destroy(&lock_);
+}
+
 /* For an specific eid on a vertex, ProcessAddEdge will only be called once.
  * This is guaranteed by DataStorage::ProcessAddE
- * So we do not need to perform cell check like PropertyRowList::AllocateCell
+ * So we do not need to perform cell check like TopologyRowList::AllocateCell
  */
 void TopologyRowList::AllocateCell(const bool& is_out, const vid_t& conn_vtx_id,
                                    MVCCList<EdgeMVCCItem>* mvcc_list) {
@@ -148,7 +153,7 @@ MVCCList<EdgeMVCCItem>* TopologyRowList::ProcessAddEdge(const bool& is_out, cons
     return mvcc_list;
 }
 
-void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
+void TopologyRowList::SelfGarbageCollect(vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
 
@@ -174,14 +179,12 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
 
         auto& cell_ref = current_row->cells_[cell_id_in_row];
         // Collect deleted eid for spawning erase_e_map_task
-        if (origin_vid == NULL) {
-            if (cell_ref.is_out) {
-                eid_t eid(cell_ref.conn_vtx_id.value(), origin_vid.value());
-                gcable_eids->emplace_back(eid, true);
-            } else {
-                eid_t eid(origin_vid.value(), cell_ref.conn_vtx_id.value());
-                gcable_eids->emplace_back(eid, false);
-            }
+        if (cell_ref.is_out) {
+            eid_t eid(cell_ref.conn_vtx_id.value(), my_vid_.value());
+            gcable_eids->emplace_back(eid, true);
+        } else {
+            eid_t eid(my_vid_.value(), cell_ref.conn_vtx_id.value());
+            gcable_eids->emplace_back(eid, false);
         }
 
         EdgeMVCCItem* itr = cell_ref.mvcc_list->GetHead();
@@ -208,7 +211,7 @@ void TopologyRowList::SelfGarbageCollect(const vid_t& origin_vid, vector<pair<ei
     delete[] row_ptrs;
 }
 
-void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t, bool>>* gcable_eids) {
+void TopologyRowList::SelfDefragment(vector<pair<eid_t, bool>>* gcable_eids) {
     WriterLockGuard writer_lock_guard(gc_rwlock_);
     VertexEdgeRow* current_row = head_;
 
@@ -237,30 +240,22 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
         if (cell_ref.mvcc_list->GetHead() == nullptr) {
             // Collect deleted eid for spawning erase_e_map_task
             if (cell_ref.is_out) {
-                eid_t eid(cell_ref.conn_vtx_id.value(), origin_vid.value());
+                eid_t eid(cell_ref.conn_vtx_id.value(), my_vid_.value());
                 gcable_eids->emplace_back(eid, true);
             } else {
-                eid_t eid(origin_vid.value(), cell_ref.conn_vtx_id.value());
+                eid_t eid(my_vid_.value(), cell_ref.conn_vtx_id.value());
                 gcable_eids->emplace_back(eid, false);
             }
 
             // gc cell, record to empty cell
             empty_cell_queue.emplace((int)(i / VE_ROW_CELL_COUNT), cell_id_in_row);
 
-            EdgeMVCCItem* itr = cell_ref.mvcc_list->GetHead();
-            while (itr != nullptr) {
-                if (itr->GetValue().ep_row_list == nullptr) {
-                    itr = itr->GetNext();
-                    continue;
-                }
-                itr->GetValue().ep_row_list->SelfGarbageCollect();
-                itr = itr->GetNext();
-            }
-
-            cell_ref.mvcc_list->SelfGarbageCollect();
             // Do not need to delete mvcc_list, since mvcc_list is still referred by e_map
         }
     }
+
+    if (empty_cell_queue.size() == 0)
+        return;
 
     int inverse_cell_index = edge_count_ - 1;
     int cur_edge_count = edge_count_ - empty_cell_queue.size();
@@ -272,9 +267,7 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
     if (cur_edge_count % VE_ROW_CELL_COUNT == 0) {
         cur_row_count--;
     }
-    int num_gcable_rows = row_count - cur_row_count;
 
-    bool first_iteration = true;
     // move cell from tail to empty cell
     while (true) {
         int cell_id_in_row = inverse_cell_index % VE_ROW_CELL_COUNT;
@@ -287,6 +280,7 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
         auto& cell_ref = row_ptrs[inverse_row_index]->cells_[cell_id_in_row];
         MVCCList<EdgeMVCCItem>* mvcc_list = cell_ref.mvcc_list;
 
+        // move a non-empty cell to an empty cell
         if (mvcc_list->GetHead() != nullptr) {
             num_movable_cell--;
             pair<int, int> empty_cell = empty_cell_queue.front();
@@ -307,7 +301,7 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
         mem_pool_->Free(row_ptrs[i], TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER));
     }
 
-    // new property count
+    // new edge count
     edge_count_ = cur_edge_count;
     if (cur_row_count == 0) {
         head_ = nullptr;
@@ -315,4 +309,6 @@ void TopologyRowList::SelfDefragment(const vid_t& origin_vid, vector<pair<eid_t,
     } else {
         tail_ = row_ptrs[cur_row_count - 1];
     }
+
+    delete[] row_ptrs;
 }

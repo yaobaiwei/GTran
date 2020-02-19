@@ -503,10 +503,10 @@ void GCProducer::Execute() {
         // Currently, sleep for a while and the do next scan
         sleep(SCAN_PERIOD);
 
-        // After one round, check whether there are some tasks already done,
-        // erase them from dependency dag; and check whether there are some edge
-        // related task need to spawn
+        // After one round, check whether there are some tasks already done, and erase them from dependency dag;
         check_finished_job();
+        // Check if some vid/eid are erasable, and spawn tasks of erasing v/e maps
+        check_erasable_vid();
         check_erasable_eid();
     }
 }
@@ -587,7 +587,13 @@ void GCProducer::scan_topo_row_list(const vid_t& vid, TopologyRowList* topo_row_
         }
     }
 
-    if (gcable_cell_count >= edge_count_snapshot % VE_ROW_CELL_COUNT && gcable_cell_count != 0) {
+    int original_row_count = (edge_count_snapshot / VE_ROW_CELL_COUNT) +
+                             (edge_count_snapshot % VE_ROW_CELL_COUNT > 0) ? 1 : 0;
+    int after_row_count = ((edge_count_snapshot - gcable_cell_count) / VE_ROW_CELL_COUNT) +
+                          ((edge_count_snapshot - gcable_cell_count) % VE_ROW_CELL_COUNT > 0) ? 1 : 0;
+
+    // spawn defrag task when one or more rows can be recycled
+    if (original_row_count > after_row_count) {
         spawn_topo_row_list_defrag_gctask(topo_row_list, vid, gcable_cell_count);
     }
 }
@@ -1037,12 +1043,12 @@ void GCProducer::check_finished_job() {
 
 void GCProducer::check_erasable_eid() {
     while (true) {
-        vector<pair<eid_t, bool>>* returned_edges = new vector<pair<eid_t, bool>>();
-        if (!garbage_collector_->PopGCAbleEidFromQueue(returned_edges)) {
+        vector<pair<eid_t, bool>>* erasable_eids = new vector<pair<eid_t, bool>>();
+        if (!garbage_collector_->PopGCAbleEidFromQueue(erasable_eids)) {
             break;
         }
 
-        for (auto & pair : returned_edges[0]) {
+        for (auto & pair : erasable_eids[0]) {
             if (pair.second) {  // is_out
                 spawn_erase_out_edge_gctask(pair.first);
             } else {
@@ -1050,7 +1056,18 @@ void GCProducer::check_erasable_eid() {
             }
         }
 
-        delete returned_edges;
+        delete erasable_eids;
+    }
+}
+
+void GCProducer::check_erasable_vid() {
+    while (true) {
+        vid_t erasable_vid;
+        if (!garbage_collector_->PopGCAbleVidFromQueue(erasable_vid)) {
+            break;
+        }
+
+        spawn_erase_vertex_gctask(erasable_vid);
     }
 }
 

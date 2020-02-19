@@ -124,6 +124,14 @@ bool GarbageCollector::PopGCAbleEidFromQueue(vector<pair<eid_t, bool>>*& vec_p) 
     return gcable_eid_queue.try_pop(vec_p);
 }
 
+void GarbageCollector::PushGCAbleVidToQueue(vid_t vid) {
+    gcable_vid_queue.push(vid);
+}
+
+bool GarbageCollector::PopGCAbleVidFromQueue(vid_t& vid) {
+    return gcable_vid_queue.try_pop(vid);
+}
+
 string GarbageCollector::GetDepGCTaskStatusStatistics() {
     string ret;
     for (int i = 0; i < (int)DepGCTaskType::COUNT; i++) {
