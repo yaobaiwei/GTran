@@ -34,6 +34,8 @@ class GarbageCollector {
 
     void PushGCAbleEidToQueue(vector<pair<eid_t, bool>>*);
     bool PopGCAbleEidFromQueue(vector<pair<eid_t, bool>>*&);
+    void PushGCAbleVidToQueue(vid_t);
+    bool PopGCAbleVidFromQueue(vid_t&);
 
     // Used in StatusExpert
     string GetDepGCTaskStatusStatistics();
@@ -52,6 +54,7 @@ class GarbageCollector {
     // must executed before erase_e_map. Therefore, consumer need to
     // return gcable eid to produce to create erase_e_map task
     tbb::concurrent_queue<vector<pair<eid_t, bool>>*> gcable_eid_queue;
+    tbb::concurrent_queue<vid_t> gcable_vid_queue;
 
     // the pointer of job instances in GCProducer
     DependentGCJob* producer_jobs_[(int)DepGCTaskType::COUNT];

@@ -1388,6 +1388,10 @@ void DataStorage::Abort(const uint64_t& trx_id) {
                 v_iterator->second.mvcc_list->SelfGarbageCollect();
                 // Do not delete v_iterator->second.mvcc_list, since it will still be referred during scanning.
                 // Delete it during erasing v_map.
+
+                // The aborted MVCCList<V> is empty. In GC scanning, empty MVCCList<V> means "already marked to be erased".
+                // Thus, GCProducer cannot spawn EraseVTask on this vertex during scanning.
+                garbage_collector_->PushGCAbleVidToQueue(vid);
             }
         } else if (process_item.type == TrxProcessHistory::PROCESS_ADD_E ||
                    process_item.type == TrxProcessHistory::PROCESS_DROP_E) {
