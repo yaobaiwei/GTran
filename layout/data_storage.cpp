@@ -1004,6 +1004,12 @@ PROCESS_STAT DataStorage::ProcessAddE(const eid_t& eid, const label_t& label, co
     vid_t src_vid = eid.src_v, dst_vid = eid.dst_v;
     vid_t adj_vid, vid;
 
+    // abort when trying to add an edge pointing to the vertex itself
+    if (src_vid == dst_vid) {
+        trx_table_stub_->update_status(trx_id, TRX_STAT::ABORT);
+        return PROCESS_STAT::ABORT_ADD_E_SAME_VID;
+    }
+
     /* if is_out == true, this function will add an outE, which means that src_vid is on this worker;
      *              else, this function will add an inE, which means that dst_vid is on this worker.
      */
