@@ -78,6 +78,10 @@ class ConfigExpert : public AbstractExpert {
             config_->global_enable_opt_preread = enable;
         } else if (config_name == "opt_validation") {
             config_->global_enable_opt_validation = enable;
+        } else if (config_name == "abort_rerun_times") {
+            int i = Tool::value_t2int(expert_obj.params[1]);
+            cout << i << endl;
+            config_->abort_rerun_times = i;
         } else {
             s = "Config name should be: ";
             s += "1. caching\n";
@@ -90,6 +94,7 @@ class ConfigExpert : public AbstractExpert {
             s += "8. opt_preread\n";
             s += "9. opt_validation\n";
             s += "10. iso_level (Not Supported Yet)\n";
+            s += "11. abort_rerun_times\n";
         }
 
         s += "\n";
@@ -103,6 +108,7 @@ class ConfigExpert : public AbstractExpert {
         s += "OptPreread : " + string(config_->global_enable_opt_preread ? "True" : "False") + "\n";
         s += "OptValidation : " + string(config_->global_enable_opt_validation ? "True" : "False") + "\n";
         s += "Isolation Level: " + string((config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) ? "SERIALIZABLE" : "SNAPSHOT") + "\n";
+        s += "Abort Rerun Times: " + to_string(config_->abort_rerun_times) + "\n";
 
         if (m.recver_nid == m.parent_nid) {
             value_t v;

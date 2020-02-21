@@ -150,6 +150,7 @@ void Client::print_set_config_help() {
     cout << "    opt_preread: boolean" << endl;
     cout << "    opt_validation: boolean" << endl;
     cout << "    iso_level (Not Supported Yet): isolation_level" << endl;
+    cout << "    abort_rerun_times: int" << endl;
     cout << endl;
     cout << "Example:" << endl;
     cout << "    gquery -q SetConfig(expert_division,f)" << endl;
