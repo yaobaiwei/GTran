@@ -394,7 +394,7 @@ void ValidationExpert::valid_optimistic_validation(vector<uint64_t> & optimistic
 
         if (!optimistic_validation_trx.size() == 0) {
             // Sleep for a while
-            usleep(OPT_VALID_SLEEP_TIME_);
+            this_thread::sleep_for(chrono::microseconds(OPT_VALID_SLEEP_TIME_));
         } else { return; }
 
         opt_valid_counter++;
@@ -427,7 +427,7 @@ void ValidationExpert::valid_optimistic_read(set<uint64_t> & homo_dep_read, bool
 
         if (!homo_dep_read.size() == 0) {
             // Sleep for a while
-            usleep(OPT_VALID_SLEEP_TIME_);
+            this_thread::sleep_for(chrono::microseconds(OPT_VALID_SLEEP_TIME_));
         } else { return; }
 
         opt_read_counter++;

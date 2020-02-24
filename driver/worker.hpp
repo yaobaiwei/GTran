@@ -174,11 +174,9 @@ class Worker {
 
         // Read Config file
         string line_in_file;
-        uint64_t test_time, paralellfactor;
+        uint64_t total_trx_count, parallel_factor;
         int r_ratio, w_ratio;  // Read v.s. Write (e.g. 20 : 80)
-        config_ifs >> test_time >> paralellfactor >> r_ratio >> w_ratio;
-
-        test_time *= 1000000;
+        config_ifs >> total_trx_count >> parallel_factor >> r_ratio >> w_ratio;
 
         // Read query file
         string query_line;
@@ -258,23 +256,20 @@ class Worker {
         srand(time(NULL));
         regex match("\\$RAND");
 
-        vector<string> pushed_trxs;
+        vector<string> generated_trxs;
 
-        // suppose one query will be generated within 10 us
-        pushed_trxs.reserve(test_time / 10);
+        generated_trxs.reserve(total_trx_count);
         // wait for all nodes
         worker_barrier(my_node_);
 
-        thpt_monitor_->StartEmu();
-        if (is_main_worker) { cout << "RunEmu Starts" << endl; }
-        uint64_t start = timer::get_usec();
         int first_name_idx_count = 0;
         int brand_idx_count = 0;
-        while (timer::get_usec() - start < test_time) {
-            if (thpt_monitor_->WorksRemaining() > paralellfactor) {
-                continue;
-            }
 
+        // key: query string, value: <max_executed_times, executed_times>
+        unordered_map<string, pair<int, int>> emu_execution_threshold_map;
+
+        // generate all trxs
+        for (int i = 0; i < total_trx_count; i++) {
             // pick read or write transaction
             EmuTrxString emu_trx_string;
             int r = rand() % 100;
@@ -293,7 +288,7 @@ class Worker {
                     emu_trx_string = trx_map.at("MIX").at(inner_r - trx_count_map.at("READ"));
                 }
             } else {
-                is_update = true;
+                // is_update = true;  // only specify this if you want to reduce conflicts between update transactions
                 // Update Transaction
                 // INSERT, UPDATE, DROP
                 int total_trx_number = trx_count_map.at("INSERT") + trx_count_map.at("UPDATE") + trx_count_map.at("DROP");
@@ -311,10 +306,10 @@ class Worker {
                 }
             }
 
-            string trx_tmp = emu_trx_string.query;
-            if (trx_tmp.find("$READ") != string::npos) {
+            string generated_trx = emu_trx_string.query;
+            if (generated_trx.find("$READ") != string::npos) {
                 vector<string> rand_val;
-                if (trx_tmp.find("ori_id") != string::npos) {
+                if (generated_trx.find("ori_id") != string::npos) {
                     int person_idx;
                     uint64_t start_time = timer::get_usec();
                     while (true) {
@@ -331,14 +326,14 @@ class Worker {
                     }
 
                     rand_val.emplace_back(ldbc_person_ori_id_set.at(person_idx));
-                } else if (trx_tmp.find("firstName") != string::npos) {
+                } else if (generated_trx.find("firstName") != string::npos) {
                     rand_val.emplace_back(ldbc_first_name_set.at(first_name_idx_count));
                     first_name_idx_count++;
 
                     if (first_name_idx_count >= ldbc_first_name_size) {
                         first_name_idx_count = 0;
                     }
-                } else if (trx_tmp.find("brand") != string::npos) {
+                } else if (generated_trx.find("brand") != string::npos) {
                     while (!CheckCandidateString(amazon_brand_set.at(brand_idx_count))) {
                         brand_idx_count++;
 
@@ -354,10 +349,10 @@ class Worker {
                         brand_idx_count = 0;
                     }
                 } else {
-                    cout << "Wrong $READ for trx "  << trx_tmp << endl;
+                    cout << "Wrong $READ for trx "  << generated_trx << endl;
                     return;
                 }
-                trx_tmp = Tool::my_regex_replace(trx_tmp, regex("\\$READ"), rand_val); 
+                generated_trx = Tool::my_regex_replace(generated_trx, regex("\\$READ"), rand_val); 
             } else {
                 if (emu_trx_string.num_rand_values != 0) {
                     vector<string> rand_values;
@@ -370,23 +365,69 @@ class Worker {
                         rand_values.emplace_back(r_val);
                     }
 
-                    trx_tmp = Tool::my_regex_replace(trx_tmp, match, rand_values);
+                    generated_trx = Tool::my_regex_replace(generated_trx, match, rand_values);
                 }
             }
 
-            RequestParsingTrx(trx_tmp, client_host, emu_trx_string.trx_type, true);
-            pushed_trxs.emplace_back(trx_tmp);
-            thpt_monitor_->RecordPushed();
+            assert(generated_trx.size() != 0);
+            generated_trxs.emplace_back(generated_trx);
+            pending_trx_.push(make_pair(generated_trx, emu_trx_string.trx_type));
+
+            // Each transaction can be executed for certain times
+            // If transaction rerunning is not enabled (config_->abort_rerun_times == 0), each transaction can be executed once
+            if (emu_execution_threshold_map.count(generated_trx) == 0) {
+                emu_execution_threshold_map.emplace(make_pair(generated_trx, make_pair(config_->abort_rerun_times + 1, 0)));
+            } else {
+                // identical trx occurs
+                emu_execution_threshold_map.at(generated_trx).first += config_->abort_rerun_times + 1;
+            }
+        }
+
+        int num_abandoned = 0;
+
+        thpt_monitor_->StartEmu();
+        if (is_main_worker) {
+            printf("####################\n");
+            printf("RunEmu Starts, total_trx_count = %d, parallel_factor = %d, r_ratio = %d, w_ratio = %d, abort_rerun_times = %d\n",
+                    total_trx_count, parallel_factor, r_ratio, w_ratio, config_->abort_rerun_times);
+            printf("####################\n");
+        }
+        uint64_t start = timer::get_usec();
+
+        while (thpt_monitor_->GetCommittedTrx() + num_abandoned != total_trx_count) {
+            pair<string, int> rerun_trx_pair;
+
+            if (thpt_monitor_->WorksRemaining() > parallel_factor) {
+                continue;
+            }
+
+            if (pending_trx_.try_pop(rerun_trx_pair)) {
+                if (emu_execution_threshold_map.count(rerun_trx_pair.first) == 0) {
+                    cout << rerun_trx_pair.first.size() << " " << rerun_trx_pair.first << " not found in the rerun map" << endl;
+                    CHECK(false);
+                }
+
+                emu_execution_threshold_map.at(rerun_trx_pair.first).second++;
+
+                // do not run the trx when reach the execution threshold
+                if (emu_execution_threshold_map.at(rerun_trx_pair.first).first < emu_execution_threshold_map.at(rerun_trx_pair.first).second) {
+                    num_abandoned++;
+                    continue;
+                }
+
+                assert(rerun_trx_pair.first.size() != 0);
+                // ParseTransaction(rerun_trx_pair.first, client_host, rerun_trx_pair.second, true);  // bad
+                RequestParsingTrx(rerun_trx_pair.first, client_host, rerun_trx_pair.second, true);
+                thpt_monitor_->RecordPushed();
+                thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
+                continue;
+            }
 
             thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
         }
+        cout << "RunEmu Stops on worker " << my_node_.get_local_rank() << ", committed = " <<
+                thpt_monitor_->GetCommittedTrx() << ", abandoned = " << num_abandoned << endl;  // Do not comment this.
         thpt_monitor_->StopEmu();
-
-        while (thpt_monitor_->WorksRemaining() != 0) {
-            cout << "Node " << my_node_.get_local_rank() << " still has " << thpt_monitor_->WorksRemaining() << "queries" << endl;
-
-            usleep(500000);
-        }
 
         double thpt = thpt_monitor_->GetThroughput();
         int num_completed_trx = thpt_monitor_->GetCompletedTrx();
@@ -415,7 +456,7 @@ class Worker {
             stringstream ss;
 
             ss << "#################################" << endl;
-            ss << "Emulator result with workload r:w is " << r_ratio << ":" << w_ratio << " and parrell factor: " << paralellfactor << endl;
+            ss << "Emulator result with workload r:w is " << r_ratio << ":" << w_ratio << " and parrell factor: " << parallel_factor << endl;
             ss << "Throughput of node 0: " << thpt << " K queries/sec" << endl;
             for (int i = 1; i < my_node_.get_local_size(); i++) {
                 thpt += thpt_list[i];
@@ -456,12 +497,20 @@ class Worker {
             rw_ofs << rw_rec.DebugString();
         }
 
-        // output all commited_queries to file
-        string ofname = "Thpt_Queries_" + to_string(my_node_.get_local_rank()) + ".txt";
-        ofstream ofs(ofname, ofstream::out);
-        ofs << pushed_trxs.size() << endl;
-        for (auto & trx : pushed_trxs) {
-            ofs << trx << endl;
+        // output all generated to file
+        string queries_fname = "Thpt_Queries_" + to_string(my_node_.get_local_rank()) + ".txt";
+        ofstream queries_file(queries_fname, ofstream::out);
+        queries_file << generated_trxs.size() << endl;
+        for (auto & trx : generated_trxs) {
+            queries_file << trx << endl;
+        }
+
+        // output trx execution statistics
+        string emu_statistics_fname = "EMU_Thresholds_" + to_string(my_node_.get_local_rank()) + ".txt";
+        ofstream emu_statistics_file(emu_statistics_fname, ofstream::out);
+        emu_statistics_file << emu_execution_threshold_map.size() << endl;
+        for (auto p : emu_execution_threshold_map) {
+            emu_statistics_file << p.second.first << " " << p.second.second << " " << p.first << endl;
         }
 
         index_store_->CleanRandomCount();
@@ -473,8 +522,6 @@ class Worker {
             value_t v;
             Tool::str2str(result_string, v);
             vector<value_t> result = {v};
-            // thpt_monitor_->SetEmuStartTime(qid.value());
-            // rc_->InsertResult(qid.value(), result);
             emu_command_plan.FillResult(-1, result);
             ReplyClient(emu_command_plan);
         }
@@ -585,7 +632,7 @@ class Worker {
         coordinator_->RegisterTrx(trxid);
 
         TrxPlan plan(trxid, client_host);
-        if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type); }
+        if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type, trx_str); }
 
         string error_msg;
         bool success = parser_->Parse(trx_str, plan, error_msg);
@@ -1027,6 +1074,16 @@ class Worker {
         fflush(stdout);
         worker_barrier(my_node_);
 
+        // create a signal file when the system is ready
+        // necessary for using auto-test scripts
+        if (my_node_.get_local_rank() == 0) {
+            ofstream signal_file("INIT_FINISHED.SIGNAL");
+            if (signal_file.good()) {
+                signal_file << to_string(my_node_.get_local_size());
+                signal_file.close();
+            }
+        }
+
         // pop out the query result from collector, automatically block when it's empty and wait
         // fake, should find a way to stop
         while (1) {
@@ -1066,7 +1123,14 @@ class Worker {
                     TRX_STAT trx_stat;
                     trx_table_stub_->read_status(plan.trxid, trx_stat);
 
-                    thpt_monitor_->RecordEnd(qid.trxid, trx_stat == TRX_STAT::ABORT);
+                    string trx_string;
+                    int trx_type;
+                    thpt_monitor_->RecordEnd(qid.trxid, trx_stat == TRX_STAT::ABORT, trx_string, trx_type);
+
+                    if (trx_stat == TRX_STAT::ABORT) {
+                        // try to rerun the trx
+                        pending_trx_.push(make_pair(trx_string, trx_type));
+                    }
                 }
                 NotifyTrxFinished(qid.trxid, plan.GetStartTime());
                 // if not readonly, abtain its finished time
@@ -1138,6 +1202,8 @@ class Worker {
     ThreadSafeQueue<AllocatedTimestamp> pending_allocated_timestamp_;
     ThreadSafeQueue<QueryRCTRequest> pending_rct_query_request_;
     ThreadSafeQueue<ParseTrxReq> pending_parse_trx_req_;
+
+    tbb::concurrent_queue<pair<string, int>> pending_trx_;
 
     Coordinator* coordinator_;
     RunningTrxList* running_trx_list_;

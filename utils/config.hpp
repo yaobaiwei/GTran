@@ -119,6 +119,11 @@ class Config{
     int max_data_size;
     int msg_lock_count;  // The count of read-write locks used in ExpertAdapter::execute
 
+
+    // by default, do not rerun trx
+    int abort_rerun_times = 0;
+
+
     int Erase_V_Task_THRESHOLD;
     int Erase_OUTE_Task_THRESHOLD;
     int Erase_INE_Task_THRESHOLD;

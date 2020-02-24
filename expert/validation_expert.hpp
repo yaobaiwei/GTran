@@ -10,6 +10,7 @@ Authors: Created by Aaron Li (cjli@cse.cuhk.edu.hk)
 #include <tbb/concurrent_hash_map.h>
 
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <set>
@@ -82,8 +83,8 @@ class ValidationExpert : public AbstractExpert {
     PrimitiveRCTTable * pmt_rct_table_;
 
     // TIMEOUT
-    static const uint64_t OPT_VALID_TIMEOUT_ = 5;
-    static const uint64_t OPT_VALID_SLEEP_TIME_ = 1000;
+    static const uint64_t OPT_VALID_TIMEOUT_ = 1;
+    static const uint64_t OPT_VALID_SLEEP_TIME_ = 100;
 
     enum { EXPERT_TYPE_BITS = 15 };
     enum { ONLY_FIRST_STEP_BITS = 1 };
