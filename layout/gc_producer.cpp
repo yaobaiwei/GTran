@@ -486,6 +486,8 @@ void GCProducer::Execute() {
     while (true) {
         // Do Scan with DFS for whole DataStorage
         uint64_t start_time = timer::get_usec();
+        running_trx_list_->UpdateGlobalMinBT();
+
         scan_vertex_map();
 
         // Scan Index Store
