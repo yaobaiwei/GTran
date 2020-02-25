@@ -197,7 +197,6 @@ class EraseOutETask : public IndependentGCTask {
  public:
     eid_t target;
 
-    EraseOutETask() {}
     EraseOutETask(eid_t& eid) : target(eid) {}
 };
 
@@ -206,7 +205,6 @@ class EraseInETask : public IndependentGCTask {
  public:
     eid_t target;
 
-    EraseInETask() {}
     EraseInETask(eid_t& eid) : target(eid) {}
 };
 
@@ -432,11 +430,6 @@ class AbstractGCJob {
 
     JobType job_t_;
 
-    AbstractGCJob() {
-        sum_of_cost_ = 0;
-        COST_THRESHOLD = 0;
-    }
-
     AbstractGCJob(JobType _job_t, int thres) : job_t_(_job_t), COST_THRESHOLD(thres) {
         sum_of_cost_ = 0;
     }
@@ -452,7 +445,6 @@ class IndependentGCJob : public AbstractGCJob {
  public:
     vector<IndependentGCTask*> tasks_;
 
-    IndependentGCJob() {}
     IndependentGCJob(JobType job_t, int thres) : AbstractGCJob(job_t, thres) {}
     ~IndependentGCJob() override { for (auto t : tasks_) delete t; }
 
@@ -489,7 +481,6 @@ class DependentGCJob : public AbstractGCJob {
     int sum_blocked_count_;
     vector<DependentGCTask*> tasks_;
 
-    DependentGCJob() {}
     DependentGCJob(JobType job_t, int thres) : AbstractGCJob(job_t, thres) {}
     ~DependentGCJob() override { for (auto t : tasks_) delete t; }
 
