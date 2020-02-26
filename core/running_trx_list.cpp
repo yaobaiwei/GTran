@@ -12,7 +12,7 @@ void Uint64CLine::SetValue(uint64_t val) {
     memcpy(data, tmp_data, 64);
 }
 
-bool Uint64CLine::GetValue(uint64_t& val) {
+bool Uint64CLine::GetValue(uint64_t& val) const {
     uint64_t tmp_data[8] __attribute__((aligned(64)));
     memcpy(tmp_data, data, 64);
 
@@ -131,15 +131,13 @@ void RunningTrxList::UpdateMinBT(uint64_t bt) {
         for (int i = 0; i < node_.get_local_size(); i++) {
             if (i != node_.get_local_rank()) {
                 rdma.dev->RdmaWrite(t_id, i, my_buff_addr, sizeof(Uint64CLine), off);
-                // printf("[UpdateMinBT], worker %d, dst_tid = %d, dst_nid = %d, off = %lu\n",
-                //         node_.get_local_rank(), t_id, i, off);
             }
         }
     }
 }
 
-uint64_t RunningTrxList::GetGlobalMinBT() {
-    uint64_t ret = 0;
+uint64_t RunningTrxList::UpdateGlobalMinBT() {
+    uint64_t global_min_bt = 0;
     if (config_->global_use_rdma) {
         // The remote workers will update rdma_mem_ with their MIN_BT via RDMA
         // Thus, from rdma_mem_, the global MIN_BT can be obtained.
@@ -147,7 +145,7 @@ uint64_t RunningTrxList::GetGlobalMinBT() {
             uint64_t min_bt;
             Uint64CLine* cline = (Uint64CLine*)(rdma_mem_ + i * sizeof(Uint64CLine));
             while (!cline->GetValue(min_bt));
-            ret = max(ret, min_bt);
+            global_min_bt = max(global_min_bt, min_bt);
         }
     } else {
         pthread_spin_lock(&lock_);
@@ -160,11 +158,15 @@ uint64_t RunningTrxList::GetGlobalMinBT() {
                 send_data(node_, node_.get_local_rank(), i, false, MINBT_REQUEST_CHANNEL);
                 min_bt = recv_data<uint64_t>(node_, i, false, MINBT_REPLY_CHANNEL);
             }
-            ret = max(ret, min_bt);
+            global_min_bt = max(global_min_bt, min_bt);
         }
         pthread_spin_unlock(&lock_);
     }
-    return ret;
+    global_min_bt_ = global_min_bt;
+}
+
+uint64_t RunningTrxList::GetGlobalMinBT() {
+    return global_min_bt_;
 }
 
 void RunningTrxList::ProcessReadMinBTRequest() {

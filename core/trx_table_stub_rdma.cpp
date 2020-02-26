@@ -42,12 +42,11 @@ bool RDMATrxTableStub::read_status(uint64_t trx_id, TRX_STAT &status) {
 
     while (true) {
         char * send_buffer = buf_->GetSendBuf(t_id);
-        uint64_t off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus);
+        uint64_t off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
         uint64_t sz = ASSOCIATIVITY_ * sizeof(TidStatus);
 
         RDMA &rdma = RDMA::get_rdma();
 
-        off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
         rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
 
         TidStatus *trx_status = (TidStatus *)(send_buffer);
@@ -88,12 +87,11 @@ bool RDMATrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct
 
     while (true) {
         char * send_buffer = buf_->GetSendBuf(t_id);
-        uint64_t off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus);
+        uint64_t off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
         uint64_t sz = ASSOCIATIVITY_ * sizeof(TidStatus);
 
         RDMA &rdma = RDMA::get_rdma();
 
-        off = bucket_id * ASSOCIATIVITY_ * sizeof(TidStatus) + config_->trx_table_offset;
         rdma.dev->RdmaRead(t_id, worker_id, send_buffer, sz, off);
 
         TidStatus *trx_status = (TidStatus *)(send_buffer);

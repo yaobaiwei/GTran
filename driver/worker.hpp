@@ -52,10 +52,10 @@ struct Pack {
 };
 
 struct ValidationQueryPack {
-    vector<uint64_t> trx_id_list;
-    // Since we need to query RCT from multible workers,
-    // a counter is needed to ensure that all trx_id_list from those workers.
-    int collected_count = 0;
+    vector<uint64_t> rct_trx_id_list;
+    // When a non-readonly transaction enters validation phase, we need to query RCT from multible workers.
+    // Thus, a counter is needed to ensure that all rct_trx_id_list are received from those workers.
+    int collected_rct_result_count = 0;
     Pack pack;
 };
 
@@ -416,7 +416,6 @@ class Worker {
                 }
 
                 assert(rerun_trx_pair.first.size() != 0);
-                // ParseTransaction(rerun_trx_pair.first, client_host, rerun_trx_pair.second, true);  // bad
                 RequestParsingTrx(rerun_trx_pair.first, client_host, rerun_trx_pair.second, true);
                 thpt_monitor_->RecordPushed();
                 thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
@@ -426,7 +425,7 @@ class Worker {
             thpt_monitor_->PrintThroughput(my_node_.get_local_rank());
         }
         cout << "RunEmu Stops on worker " << my_node_.get_local_rank() << ", committed = " <<
-                thpt_monitor_->GetCommittedTrx() << ", abandoned = " << num_abandoned << endl;  // Do not comment this.
+                thpt_monitor_->GetCommittedTrx() << ", abandoned = " << num_abandoned << endl;
         thpt_monitor_->StopEmu();
 
         double thpt = thpt_monitor_->GetThroughput();
@@ -607,9 +606,6 @@ class Worker {
         return true;
     }
 
-    /**
-     *  Submit a request of parsing transaction string to a thread safe queue.
-     */
     void RequestParsingTrx(string trx_str, string client_host, int trx_type = -1, bool is_emu_mode = false) {
         ParseTrxReq req(trx_str, client_host, trx_type, is_emu_mode);
         pending_parse_trx_req_.Push(req);
@@ -638,14 +634,15 @@ class Worker {
         bool success = parser_->Parse(trx_str, plan, error_msg);
 
         if (success) {
+            // valid transaction, insert the TrxPlan into trx_plans_map_, and request its BT
             TrxPlanAccessor accessor;
-            plans_.insert(accessor, trxid);
+            trx_plans_map_.insert(accessor, trxid);
             accessor->second = move(plan);
 
-            // Request begin time
             TimestampRequest req(trxid, TIMESTAMP_TYPE::BEGIN_TIME);
             pending_timestamp_request_.Push(req);
         } else {
+            // invalid transaction string
   ERROR:
             if (is_emu_mode) {
                 cout << "[" << client_host <<  "] Parser Failed: " << trx_str << " with error " << error_msg << endl;
@@ -663,7 +660,6 @@ class Worker {
      *  regular recv thread for transaction processing request
      */
     void RecvRequest() {
-        // Fake id and start time
         while (1) {
             zmq::message_t request;
             receiver_->recv(&request);
@@ -684,7 +680,7 @@ class Worker {
             if (query.find("emu") == 0) {
                 RunEMU(query, client_host);
             } else {
-                // parse and insert into plans_
+                // parse and insert into trx_plans_map_
                 RequestParsingTrx(query, client_host);
             }
         }
@@ -696,9 +692,9 @@ class Worker {
      * For non-validation query, just send initMsg of it.
      * For validation query:
      *      Trx is readonly:
-     *          Update status in trx_table, send initMsg of it.
+     *          Update status in TransactionStatusTable, send initMsg of it.
      *      Trx is not readonly:
-     *          Store the Pack in a map, and push request for CT.
+     *          Store the Pack in the validaton_query_pkgs_map_, and request its commit time.
      */
     bool RegisterQuery(TrxPlan& plan) {
         vector<QueryPlan> qplans;
@@ -716,19 +712,19 @@ class Worker {
                 if (pkg.qplan.experts[0].expert_type == EXPERT_T::VALIDATION) {
                     if (pkg.qplan.trx_type != TRX_READONLY) {
                         VPackAccessor accessor;
-                        validaton_query_pkgs_.insert(accessor, pkg.qplan.trxid);
+                        validaton_query_pkgs_map_.insert(accessor, pkg.qplan.trxid);
 
                         ValidationQueryPack v_pkg;
                         v_pkg.pack = move(pkg);
 
-                        // Before obtaining CT and quering RCT, the qplan cannot be executed.
+                        // Before obtaining commit time and quering RCT, the qplan cannot be executed, and is stored in validaton_query_pkgs_map_
                         accessor->second = move(v_pkg);
 
                         // Request commit time
                         TimestampRequest req(pkg.qplan.trxid, TIMESTAMP_TYPE::COMMIT_TIME);
                         pending_timestamp_request_.Push(req);
                     } else {
-                        // For readonly trx, do not need to allocate CT and query RCT.
+                        // For readonly trx, do not need to allocate commit time and query RCT.
                         trx_table_->modify_status(plan.trxid, TRX_STAT::VALIDATING, plan.GetStartTime());
 
                         SendInitMsgForQuery(pkg);
@@ -786,11 +782,11 @@ class Worker {
 
             if (notification_type == (int)(NOTIFICATION_TYPE::RCT_TIDS)) {
                 // RCT query result from remote workers
-                vector<uint64_t> trx_id_list;
+                vector<uint64_t> rct_trx_id_list;
                 uint64_t trx_id;
-                out >> trx_id >> trx_id_list;
+                out >> trx_id >> rct_trx_id_list;
 
-                InsertQueryRCTResult(trx_id, trx_id_list);
+                InsertQueryRCTResult(trx_id, rct_trx_id_list);
             } else if (notification_type == (int)(NOTIFICATION_TYPE::UPDATE_STATUS)) {
                 int n_id;
                 uint64_t trx_id;
@@ -798,7 +794,7 @@ class Worker {
                 bool is_read_only;
                 out >> n_id >> trx_id >> status_i >> is_read_only;
 
-                // P->V request will not go here. (Directly append to pending_trx_updates_)
+                // P->V request will not go here. (Directly append to pending_trx_updates_ in Worker::RegisterQuery)
                 CHECK(status_i != (int)(TRX_STAT::VALIDATING));
 
                 UpdateTrxStatusReq req{n_id, trx_id, TRX_STAT(status_i), is_read_only};
@@ -854,15 +850,15 @@ class Worker {
                 trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
 
                 TrxPlanAccessor accessor;
-                CHECK(plans_.find(accessor, trx_id));
+                CHECK(trx_plans_map_.find(accessor, trx_id));
 
                 TrxPlan& plan = accessor->second;
                 uint64_t bt = plan.GetStartTime();
 
                 // Firstly, query the local RCT
-                std::vector<uint64_t> trx_id_list;
-                rct_->query_trx(bt, ct - 1, trx_id_list);
-                InsertQueryRCTResult(trx_id, trx_id_list);
+                std::vector<uint64_t> rct_trx_id_list;
+                rct_->query_trx(bt, ct - 1, rct_trx_id_list);
+                InsertQueryRCTResult(trx_id, rct_trx_id_list);
 
                 int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
                 ibinstream in;
@@ -879,7 +875,7 @@ class Worker {
                 running_trx_list_->InsertTrx(bt);
 
                 TrxPlanAccessor accessor;
-                CHECK(plans_.find(accessor, trx_id));
+                CHECK(trx_plans_map_.find(accessor, trx_id));
 
                 TrxPlan& plan = accessor->second;
 
@@ -896,7 +892,7 @@ class Worker {
                     plan.FillResult(-1, vec);
                     ReplyClient(plan);
                     NotifyTrxFinished(trx_id, plan.GetStartTime());
-                    plans_.erase(accessor);
+                    trx_plans_map_.erase(accessor);
                 }
             } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::FINISH_TIME) {
                 // The finish time for a non-readonly transaction is allocated.
@@ -911,19 +907,19 @@ class Worker {
 
     // For non-readonly transaction, need to query trx_ids from RCT from all workers,
     // before the validation query can be sent out.
-    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& trx_id_list) {
+    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& rct_trx_id_list) {
         VPackAccessor accessor;
-        CHECK(validaton_query_pkgs_.find(accessor, trx_id));
+        CHECK(validaton_query_pkgs_map_.find(accessor, trx_id));
 
         ValidationQueryPack& v_pkg = accessor->second;
 
-        v_pkg.trx_id_list.insert(v_pkg.trx_id_list.end(), trx_id_list.begin(), trx_id_list.end());
-        v_pkg.collected_count++;
+        v_pkg.rct_trx_id_list.insert(v_pkg.rct_trx_id_list.end(), rct_trx_id_list.begin(), rct_trx_id_list.end());
+        v_pkg.collected_rct_result_count++;
 
-        if (v_pkg.collected_count == config_->global_num_workers) {
-            // RCT trx_id_list on all workers are collected.
+        if (v_pkg.collected_rct_result_count == config_->global_num_workers) {
+            // RCT rct_trx_id_list on all workers are collected.
 
-            for (auto & trxID : v_pkg.trx_id_list) {
+            for (auto & trxID : v_pkg.rct_trx_id_list) {
                 value_t v;
                 Tool::uint64_t2value_t(trxID, v);
                 v_pkg.pack.qplan.experts[0].params.emplace_back(v);
@@ -932,7 +928,7 @@ class Worker {
             // Release the validation query.
             SendInitMsgForQuery(v_pkg.pack);
 
-            validaton_query_pkgs_.erase(accessor);
+            validaton_query_pkgs_map_.erase(accessor);
         }
     }
 
@@ -1095,7 +1091,7 @@ class Worker {
             uint2qid_t(re.qid, qid);
 
             TrxPlanAccessor accessor;
-            bool found = plans_.find(accessor, qid.trxid);
+            bool found = trx_plans_map_.find(accessor, qid.trxid);
 
             if (!found)
                 continue;
@@ -1139,7 +1135,7 @@ class Worker {
                     pending_timestamp_request_.Push(req);
                 }
 
-                plans_.erase(accessor);
+                trx_plans_map_.erase(accessor);
             }
         }
 
@@ -1183,9 +1179,9 @@ class Worker {
     zmq::context_t context_;
     zmq::socket_t * receiver_;
 
-    tbb::concurrent_hash_map<uint64_t, TrxPlan> plans_;
+    tbb::concurrent_hash_map<uint64_t, TrxPlan> trx_plans_map_;
     typedef tbb::concurrent_hash_map<uint64_t, TrxPlan>::accessor TrxPlanAccessor;
-    tbb::concurrent_hash_map<uint64_t, ValidationQueryPack> validaton_query_pkgs_;
+    tbb::concurrent_hash_map<uint64_t, ValidationQueryPack> validaton_query_pkgs_map_;
     typedef tbb::concurrent_hash_map<uint64_t, ValidationQueryPack>::accessor VPackAccessor;
 
     vector<zmq::socket_t *> senders_;

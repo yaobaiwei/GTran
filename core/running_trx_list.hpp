@@ -28,7 +28,7 @@ struct Uint64CLine {
     // called by Master
     void SetValue(uint64_t val);
     // called by Worker
-    bool GetValue(uint64_t& val);
+    bool GetValue(uint64_t& val) const;
 } __attribute__((aligned(64)));
 
 // Containing a list of running transactions, from which we can get the minimum BT of them.
@@ -37,7 +37,6 @@ class RunningTrxList {
     // Only one thread will perform modification
     void InsertTrx(uint64_t bt);
     void EraseTrx(uint64_t bt);
-    void UpdateMinBT(uint64_t bt);
 
     uint64_t GetMinBT() const {return min_bt_;}
     std::string PrintList() const;
@@ -54,7 +53,8 @@ class RunningTrxList {
     void ProcessReadMinBTRequest();
 
     // Called by the GC thread.
-    uint64_t GetGlobalMinBT();
+    uint64_t UpdateGlobalMinBT();  // update global_min_bt_
+    uint64_t GetGlobalMinBT();  // simply read global_min_bt_
 
  private:
     struct ListNode {
@@ -63,10 +63,13 @@ class RunningTrxList {
         uint64_t bt;
     };
 
+    void UpdateMinBT(uint64_t bt);
+
     Node node_;
     Config* config_;
 
-    tbb::atomic<uint64_t> min_bt_ = 0;
+    tbb::atomic<uint64_t> min_bt_ = 0;  // the min BT on this worker
+    tbb::atomic<uint64_t> global_min_bt_ = 0;  // the global min BT, used by GCProducer: updated in UpdateGlobalMinBT(), read by GetGlobalMinBT()
     uint64_t max_bt_ = 0;
 
     // Enable fast erasure in the list
