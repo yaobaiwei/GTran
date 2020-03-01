@@ -10,7 +10,7 @@ if ( len(sys.argv) != 3 ) :
     sys.exit(2)
 
 for num in range(int(sys.argv[1]), int(sys.argv[2])) :
-    fname = prefix + "gquery/output/outputworker" + str(num)
+    fname = prefix + "gtran/output/outputworker" + str(num)
     file = open(fname, "r")
 
     for line in file :

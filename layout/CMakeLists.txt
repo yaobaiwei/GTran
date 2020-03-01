@@ -1,4 +1,4 @@
-include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
+include_directories(${PROJECT_SOURCE_DIR} ${GTRAN_EXTERNAL_INCLUDES})
  
 file(GLOB layout-src-files
     data_storage.cpp
@@ -16,4 +16,4 @@ file(GLOB layout-src-files
 
 add_library(layout-objs OBJECT ${layout-src-files})
 
-#target_link_libraries(layout-objs ${GQUERY_EXTERNAL_LIBRARIES})
+#target_link_libraries(layout-objs ${GTRAN_EXTERNAL_LIBRARIES})

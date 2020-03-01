@@ -1,4 +1,4 @@
-include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
+include_directories(${PROJECT_SOURCE_DIR} ${GTRAN_EXTERNAL_INCLUDES})
  
 add_library(all-deps STATIC
   $<TARGET_OBJECTS:iniparser-objs>
@@ -13,8 +13,8 @@ add_library(all-deps STATIC
 
 add_executable(client client.cpp )
 target_link_libraries(client all-deps)
-target_link_libraries(client ${GQUERY_EXTERNAL_LIBRARIES})
+target_link_libraries(client ${GTRAN_EXTERNAL_LIBRARIES})
 
 add_executable(server server.cpp)
 target_link_libraries(server all-deps)
-target_link_libraries(server ${GQUERY_EXTERNAL_LIBRARIES})
+target_link_libraries(server ${GTRAN_EXTERNAL_LIBRARIES})

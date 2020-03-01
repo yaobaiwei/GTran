@@ -1,4 +1,4 @@
-include_directories(${PROJECT_SOURCE_DIR} ${GQUERY_EXTERNAL_INCLUDES})
+include_directories(${PROJECT_SOURCE_DIR} ${GTRAN_EXTERNAL_INCLUDES})
 
 file(GLOB base-src-files
     cpuinfo_util.cpp
@@ -13,4 +13,4 @@ file(GLOB base-src-files
 
 add_library(base-objs OBJECT ${base-src-files})
 
-#target_link_libraries(base-objs ${GQUERY_EXTERNAL_LIBRARIES})
+#target_link_libraries(base-objs ${GTRAN_EXTERNAL_LIBRARIES})

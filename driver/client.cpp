@@ -96,14 +96,14 @@ void Client::run_query(string query, string& result, bool isBatch) {
 
 void Client::print_help() {
     cout << endl;
-    cout << "GQuery commands: " << endl;
+    cout << "GTran commands: " << endl;
     cout << "    help                display general help infomation" << endl;
     cout << "    help index          display help infomation for building index" << endl;
     cout << "    help config         display help infomation for setting config" << endl;
     cout << "    help emu            display help infomation for running emulation of througput test" << endl;
     cout << "    help status         display help infomation for displaying system status" << endl;
     cout << "    quit                quit from console" << endl;
-    cout << "    gquery <args>       run Gremlin-Like queries" << endl;
+    cout << "    gtran <args>       run Gremlin-Like queries" << endl;
     cout << "        -q <query> [<args>] a single query input by user" << endl;
     cout << "           -o <file>           output results into <file>" << endl;
     cout << "        -f <file> [<args>]  a single query from <file>" << endl;
@@ -123,7 +123,7 @@ void Client::print_build_index_help() {
     cout << "    BuildIndex(<V/E>,'<property_key>')" << endl;
     cout << endl;
     cout << "Example:" << endl;
-    cout << "    gquery -q BuildIndex(V,'name')" << endl;
+    cout << "    gtran -q BuildIndex(V,'name')" << endl;
     cout << endl;
 }
 
@@ -153,7 +153,7 @@ void Client::print_set_config_help() {
     cout << "    abort_rerun_times: int" << endl;
     cout << endl;
     cout << "Example:" << endl;
-    cout << "    gquery -q SetConfig(expert_division,f)" << endl;
+    cout << "    gtran -q SetConfig(expert_division,f)" << endl;
     cout << endl;
 }
 
@@ -195,7 +195,7 @@ void Client::print_display_status_help() {
     cout << "    gc: Display dependent gc tasks' status " << endl;
     cout << endl;
     cout << "Example:" << endl;
-    cout << "    gquery -q DisplayStatus(mem)" << endl;
+    cout << "    gtran -q DisplayStatus(mem)" << endl;
     cout << endl;
 }
 
@@ -235,12 +235,12 @@ void Client::run_console(string query_fname) {
     }
 
     ConsoleUtil* console = ConsoleUtil::GetInstance();
-    console->SetConsoleHistory("history_gquery.log");
-    console->SetOnQuitWrite("history_gquery.log");
+    console->SetConsoleHistory("history_gtran.log");
+    console->SetOnQuitWrite("history_gtran.log");
 
     while (true) {
     next:
-        string cmd = console->TryConsoleInput("GQuery> ");
+        string cmd = console->TryConsoleInput("GTran> ");
 
         // Timer
         uint64_t enter_t = timer::get_usec();
@@ -284,7 +284,7 @@ void Client::run_console(string query_fname) {
           std::string token;
 
           cmd_ss >> token;
-          if (token == "gquery") {
+          if (token == "gtran") {
             string query, result;
             string fname, bname, ofname, tname;
             bool s_enable = false, f_enable = false, b_enable = false, o_enable = false, t_enable = false;
@@ -318,7 +318,7 @@ void Client::run_console(string query_fname) {
               } else {
                 goto failed;
               }
-            }  // gquery_while
+            }  // gtran_while
 
             if (!s_enable && !f_enable && !b_enable && !t_enable) goto failed;  // meaningless
 
@@ -418,7 +418,7 @@ void Client::run_console(string query_fname) {
                 cout << "[Client] result: " << result << endl << endl;
               }
             }
-          } else {  // if token != "gquery"
+          } else {  // if token != "gtran"
         failed:
             cout << "[Client][ERROR]: Failed to run the command: " << cmd << endl << endl;
             print_help();

@@ -103,7 +103,7 @@ class Config{
     // transaction table
     int trx_table_sz_mb;
 
-    // read the configuration from gquery-ini
+    // read the configuration from gtran-ini
     bool global_use_rdma;
     bool global_enable_caching;
     bool global_enable_core_binding;
@@ -235,16 +235,16 @@ class Config{
 
         Node node = Node::StaticInstance();
 
-        const char* GQUERY_HOME = getenv("GQUERY_HOME");
-        if (GQUERY_HOME == NULL) {
-            fprintf(stderr, "must conf the ENV: GQUERY_HOME. exits.\n");
+        const char* GTRAN_HOME = getenv("GTRAN_HOME");
+        if (GTRAN_HOME == NULL) {
+            fprintf(stderr, "must conf the ENV: GTRAN_HOME. exits.\n");
             exit(-1);
         }
-        string conf_path(GQUERY_HOME);
-        conf_path.append("/gquery-conf.ini");
+        string conf_path(GTRAN_HOME);
+        conf_path.append("/gtran-conf.ini");
         ini = iniparser_load(conf_path.c_str());
         if (ini == NULL) {
-            fprintf(stderr, "can not open %s. exits.\n", "gquery-conf.ini");
+            fprintf(stderr, "can not open %s. exits.\n", "gtran-conf.ini");
             exit(-1);
         }
 
