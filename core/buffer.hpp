@@ -165,16 +165,10 @@ class Buffer {
             config_->dgram_send_buf = buffer_ + config_->dgram_send_buffer_offset;
             config_->dgram_recv_buf = buffer_ + config_->dgram_recv_buffer_offset;
         } else {  // without rdma
-            if (node.get_world_rank() != 0) {  // workers
-                buffer_ = new char[config_->kvstore_sz + config_->trx_table_sz];
-                memset(buffer_, 0, config_->kvstore_sz + config_->trx_table_sz);
-                config_->kvstore = buffer_ + config_->kvstore_offset;
-                config_->trx_table = buffer_ + config_->kvstore_sz;
-            } else {  // master
-                buffer_ = new char[config_->trx_table_sz];
-                memset(buffer_, 0, config_->trx_table_sz);
-                config_->trx_table = buffer_ + config_->trx_table_offset;
-            }
+            buffer_ = new char[config_->kvstore_sz + config_->trx_table_sz];
+            memset(buffer_, 0, config_->kvstore_sz + config_->trx_table_sz);
+            config_->kvstore = buffer_ + config_->kvstore_offset;
+            config_->trx_table = buffer_ + config_->kvstore_sz;
         }
     }
 

@@ -1,7 +1,7 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
- * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
- *          Modified by Changji LI (cjli@cse.cuhk.edu.hk)
+ * Authors: Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+ *          Changji LI (cjli@cse.cuhk.edu.hk)
  */
 #pragma once
 
@@ -54,7 +54,7 @@ class TransactionStatusTable {
     // called by GC thread
     void erase_trx_via_min_bt(uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids);
     // For non-readonly transaction, record its finish time.
-    void record_nro_trx_with_ft(uint64_t trx_id, uint64_t ft);
+    void record_nro_trx_with_et(uint64_t trx_id, uint64_t endtime);
 
  private:
     TransactionStatusTable();
@@ -89,5 +89,5 @@ class TransactionStatusTable {
     // For readonly transaction, record its begin time.
     void record_ro_trx_with_bt(TidStatus* ptr, uint64_t bt);
     // Perform the erasure of TrxTable. Return a new head.
-    TsPtrNode* perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids = nullptr);
+    TsPtrNode* erase(TsPtrNode* head, TsPtrNode* tail, uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids = nullptr);
 };

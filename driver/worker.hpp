@@ -896,9 +896,9 @@ class Worker {
                 }
             } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::FINISH_TIME) {
                 // The finish time for a non-readonly transaction is allocated.
-                uint64_t ft = allocated_ts.timestamp;
+                uint64_t endtime = allocated_ts.timestamp;
                 // Record it in the TrxTable, to help the GC thread decide when to erase it in the TrxTable.
-                trx_table_->record_nro_trx_with_ft(trx_id, ft);
+                trx_table_->record_nro_trx_with_et(trx_id, endtime);
             } else {
                 CHECK(false);
             }
@@ -934,7 +934,7 @@ class Worker {
 
     void Start() {
         // =================IdMapper========================
-        SimpleIdMapper * id_mapper = SimpleIdMapper::GetInstance(&my_node_);
+        SimpleIdMapper::GetInstance(&my_node_);
 
         // =================TidPoolManager========================
         tid_pool_manager_ = TidPoolManager::GetInstance();

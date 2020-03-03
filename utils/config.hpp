@@ -117,9 +117,6 @@ class Config{
 
 
     int max_data_size;
-    int msg_lock_count;  // The count of read-write locks used in ExpertAdapter::execute
-
-
     // by default, do not rerun trx
     int abort_rerun_times = 0;
 
@@ -566,14 +563,6 @@ class Config{
             max_data_size = val;
         } else {
             fprintf(stderr, "must enter the MAX_MSG_SIZE. exits.\n");
-            exit(-1);
-        }
-
-        val = iniparser_getint(ini, "SYSTEM:MSG_LOCK_COUNT", val_not_found);
-        if (val != val_not_found) {
-            msg_lock_count = val;
-        } else {
-            fprintf(stderr, "must enter the MSG_LOCK_COUNT. exits.\n");
             exit(-1);
         }
 

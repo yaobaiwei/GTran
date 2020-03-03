@@ -60,6 +60,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 
 using namespace std;
 
+#define MSG_LOCK_NUM 4096 // The count of read-write locks used in ExpertAdapter::execute
+
 class ExpertAdapter {
  public:
     ExpertAdapter(Node & node,
@@ -120,7 +122,7 @@ class ExpertAdapter {
         Init();
         trx_table_stub_ = TrxTableStubFactory::GetTrxTableStub();
 
-        locks_ = new WritePriorRWLock[config_->msg_lock_count];
+        locks_ = new WritePriorRWLock[MSG_LOCK_NUM];
 
         for (int i = 0; i < num_thread_; ++i)
             thread_pool_.emplace_back(&ExpertAdapter::ThreadExecutor, this, i);
@@ -140,7 +142,7 @@ class ExpertAdapter {
         }
 
         uint64_t trx_id = m.qid & _56HFLAG;
-        uint64_t lock_id = (trx_id >> QID_BITS) % config_->msg_lock_count;
+        uint64_t lock_id = (trx_id >> QID_BITS) % MSG_LOCK_NUM;
         uint8_t query_index = m.qid - trx_id;
         CHECK(m.query_count_in_trx > 1);
 

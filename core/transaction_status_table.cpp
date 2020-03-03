@@ -1,6 +1,6 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
- * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ * Authors: Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
  */
 
 #include "core/transaction_status_table.hpp"
@@ -104,6 +104,7 @@ bool TransactionStatusTable::insert_single_trx(const uint64_t& trx_id, const uin
                 table_[slot_id].enterProcessState(trx_id);
 
                 // For non-readonly transactions, record them to GC list when they are finished.
+                // in here, we only code for ro case:
                 if (readonly)
                     record_ro_trx_with_bt(table_ + slot_id, bt);
 
@@ -186,6 +187,7 @@ bool TransactionStatusTable::modify_status(uint64_t trx_id, TRX_STAT new_status)
     return false;
 }
 
+// called by GC thread
 void TransactionStatusTable::erase_trx_via_min_bt(uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids) {
     TsPtrNode *head_snapshot, *tail_snapshot;
 
@@ -195,7 +197,7 @@ void TransactionStatusTable::erase_trx_via_min_bt(uint64_t global_min_bt, vector
     if (head_snapshot != nullptr && tail_snapshot != nullptr &&
         head_snapshot != tail_snapshot && head_snapshot->next != tail_snapshot) {
         // Lock-free. Only perform erasure when len(list) > 2
-        ro_trxs_head_ = perform_erasure(head_snapshot, tail_snapshot, global_min_bt);
+        ro_trxs_head_ = erase(head_snapshot, tail_snapshot, global_min_bt);
     }
 
     // erase non-readonly trxs
@@ -203,13 +205,13 @@ void TransactionStatusTable::erase_trx_via_min_bt(uint64_t global_min_bt, vector
     tail_snapshot = nro_trxs_tail_;
     if (head_snapshot != nullptr && tail_snapshot != nullptr &&
         head_snapshot != tail_snapshot && head_snapshot->next != tail_snapshot) {
-        nro_trxs_head_ = perform_erasure(head_snapshot, tail_snapshot, global_min_bt, non_readonly_trx_ids);
+        nro_trxs_head_ = erase(head_snapshot, tail_snapshot, global_min_bt, non_readonly_trx_ids);
     }
 }
 
-void TransactionStatusTable::record_ro_trx_with_bt(TidStatus* ptr, uint64_t ts) {
+void TransactionStatusTable::record_ro_trx_with_bt(TidStatus* ptr, uint64_t bt) {
     TsPtrNode* new_tail = new TsPtrNode;
-    new_tail->ts = ts;
+    new_tail->ts = bt;
     new_tail->ptr = ptr;
     // Record pair<BeginTime, TidStatus*>.
 
@@ -223,9 +225,9 @@ void TransactionStatusTable::record_ro_trx_with_bt(TidStatus* ptr, uint64_t ts) 
     }
 }
 
-void TransactionStatusTable::record_nro_trx_with_ft(uint64_t trx_id, uint64_t ts) {
+void TransactionStatusTable::record_nro_trx_with_et(uint64_t trx_id, uint64_t endtime) {
     TsPtrNode* new_tail = new TsPtrNode;
-    new_tail->ts = ts;
+    new_tail->ts = endtime;
     find_trx(trx_id, &new_tail->ptr);
     // Record pair<FinishTime, TidStatus*>.
 
@@ -239,7 +241,8 @@ void TransactionStatusTable::record_nro_trx_with_ft(uint64_t trx_id, uint64_t ts
     }
 }
 
-TsPtrNode* TransactionStatusTable::perform_erasure(TsPtrNode* head, TsPtrNode* tail, uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids) {
+//This function will be called by erase_trx_via_min_bt()
+TsPtrNode* TransactionStatusTable::erase(TsPtrNode* head, TsPtrNode* tail, uint64_t global_min_bt, vector<uint64_t> *non_readonly_trx_ids) {
     /*  TsPtrNode:
             ts: the erasable timestamp threshold
             ptr: pointer to a slot in the table_

@@ -47,7 +47,7 @@ class PrimitiveRCTTable {
  private:
     // Insert V/E, Delete V/E (4 tables)
     // Insert/Modify/Delete VP/EP (6 tables)
-    // TrxID --> ObjectList
+    // TrxID --> ObjectList (impl by tbb::concurrent_unordered_set<uint64_t>)
     //     Insert -> multi-thread
     //     Read -> single-thread
     typedef tbb::concurrent_hash_map<uint64_t, tbb::concurrent_unordered_set<uint64_t>> rct_type;

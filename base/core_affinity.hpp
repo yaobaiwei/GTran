@@ -169,9 +169,6 @@ class CoreAffinity {
     map<int, int> core_to_thread_map;
     map<int, int> thread_to_core_map;
 
-    // to do:
-    //    to consider NUMA when assigning cores
-    //    thread level assignment if core count is insufficient
     void init_potential_core_pool() {
         // first, try to divide via core
         int cur_step = 0;
