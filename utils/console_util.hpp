@@ -21,7 +21,6 @@ using std::cout;
 using std::ifstream;
 using std::ofstream;
 
-// TODO(Entityless): colorful console
 #define BLUE COLOR_BLUE
 #define RED COLOR_RED
 #define WHITE COLOR_WHITE

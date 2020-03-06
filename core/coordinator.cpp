@@ -1,10 +1,14 @@
 /* Copyright 2019 Husky Data Lab, CUHK
 
 Authors: Created by Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+         Modified by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 */
 
 #include "coordinator.hpp"
 
+//data:     |  8B   |  8B   |8B|8B|8B|8B|  8B   |  8B  |
+//format:   |  tag  | tag+1 |    val    | tag+1 |  tag |
+//for completeness check
 void Uint64CLineWithTag::SetValue(uint64_t val, uint64_t tag) {
     uint64_t tmp_data[8] __attribute__((aligned(64)));
     tmp_data[0] = tmp_data[6] = tag;
@@ -38,6 +42,7 @@ void Coordinator::Init(Node* node) {
 
     config_ = Config::GetInstance();
 
+    //TODO(Hongzhi): add TCP-Support
     if (config_->global_use_rdma) {
         Buffer* buf = Buffer::GetInstance();
         rdma_mem_ = buf->GetTSSyncBuf();
@@ -65,21 +70,33 @@ void Coordinator::WaitForDistributedClockInit() {
     }
 }
 
-void Coordinator::ProcessTimestampRequest() {
-    // To ensure rdtsc works
-    DistributedClock::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
+void Coordinator::PrepareSockets() {
+    if (!config_->global_use_rdma) {
+        char addr[64];
+        trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
+        // Ports with node_->tcp_port + 3 + 1 * config_->global_num_threads are occupied by TCPMailbox
+        snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
+        trx_read_recv_socket_->bind(addr);
+        DLOG(INFO) << "[Master] bind " << string(addr);
 
-    distributed_clock_->Init(node_->local_comm, 3, 1000);
+        trx_read_rep_sockets_.resize(config_->global_num_threads *
+                                    config_->global_num_workers);
 
-    distributed_clock_initialized_ = true;
+        // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
+        for (int i = 0; i < config_->global_num_workers; ++i) {
+            Node& r_node = GetNodeById(workers_, i + 1);
 
-    // To ensure the correctness, only one thread can call GetTimestamp.
-    while (true) {
-        TimestampRequest req;
-        pending_timestamp_request_->WaitAndPop(req);
-
-        AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.ts_type, distributed_clock_->GetTimestamp());
-        pending_allocated_timestamp_->Push(allocated_ts);
+            for (int j = 0; j < config_->global_num_threads; ++j) {
+                trx_read_rep_sockets_[socket_code(i, j)] =
+                    new zmq::socket_t(context_, ZMQ_PUSH);
+                snprintf(
+                    addr, sizeof(addr), "tcp://%s:%d",
+                    workers_[i].ibname.c_str(),
+                    r_node.tcp_port + j + 3 + config_->global_num_threads);
+                trx_read_rep_sockets_[socket_code(i, j)]->connect(addr);
+                DLOG(INFO) << "[Master] connects to " << string(addr);
+            }
+        }
     }
 }
 
@@ -201,34 +218,21 @@ void Coordinator::PerformCalibration() {
     }
 }
 
-void Coordinator::PrepareSockets() {
-    char addr[64];
+void Coordinator::ProcessTimestampRequest() {
+    // To ensure rdtsc works
+    DistributedClock::BindToLogicalCore(CPUInfoUtil::GetInstance()->GetTotalThreadCount() - 1);
 
-    if (!config_->global_use_rdma) {
-        trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
-        // Ports with node_->tcp_port + 3 + 1 * config_->global_num_threads are occupied by TCPMailbox
-        snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
-        trx_read_recv_socket_->bind(addr);
-        DLOG(INFO) << "[Master] bind " << string(addr);
+    distributed_clock_->Init(node_->local_comm, 3, 1000);
 
-        trx_read_rep_sockets_.resize(config_->global_num_threads *
-                                    config_->global_num_workers);
+    distributed_clock_initialized_ = true;
 
-        // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
-        for (int i = 0; i < config_->global_num_workers; ++i) {
-            Node& r_node = GetNodeById(workers_, i + 1);
+    // To ensure the correctness, only one thread can call GetTimestamp.
+    while (true) {
+        TimestampRequest req;
+        pending_timestamp_request_->WaitAndPop(req);
 
-            for (int j = 0; j < config_->global_num_threads; ++j) {
-                trx_read_rep_sockets_[socket_code(i, j)] =
-                    new zmq::socket_t(context_, ZMQ_PUSH);
-                snprintf(
-                    addr, sizeof(addr), "tcp://%s:%d",
-                    workers_[i].ibname.c_str(),
-                    r_node.tcp_port + j + 3 + config_->global_num_threads);
-                trx_read_rep_sockets_[socket_code(i, j)]->connect(addr);
-                DLOG(INFO) << "[Master] connects to " << string(addr);
-            }
-        }
+        AllocatedTimestamp allocated_ts = AllocatedTimestamp(req.trx_id, req.ts_type, distributed_clock_->GetTimestamp());
+        pending_allocated_timestamp_->Push(allocated_ts);
     }
 }
 

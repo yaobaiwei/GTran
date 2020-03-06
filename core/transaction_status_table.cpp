@@ -1,6 +1,7 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Chenghuan Huang (chhuang@cse.cuhk.edu.hk)
+ *          Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
  */
 
 #include "core/transaction_status_table.hpp"

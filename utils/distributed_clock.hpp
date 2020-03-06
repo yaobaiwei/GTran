@@ -14,7 +14,7 @@ Authors: Created by Chenghuan Huang (entityless@gmail.com)
 
 #define TIMESTAMP_MACHINE_ID_BITS 8
 
-// Use only one thread should be used to get the timestamp
+// Only one thread should be used to get the timestamp
 class DistributedClock {
  public:
     static DistributedClock* GetInstance() {

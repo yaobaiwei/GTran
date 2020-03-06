@@ -45,6 +45,8 @@ Authors: Created by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
 #include "layout/pmt_rct_table.hpp"
 
 
+//==============intermediate structures==============//
+//=====================  Start  =====================//
 struct Pack {
     qid_t id;
     uint8_t query_count_in_trx;
@@ -88,6 +90,9 @@ struct ParseTrxReq {
         trx_str(_trx_str), client_host(_client_host), trx_type(_trx_type), is_emu_mode(_is_emu_mode) {}
 };
 
+//======================  End  ======================//
+//==============intermediate structures==============//
+
 class Worker {
  public:
     Worker(Node & my_node, vector<Node> & workers) :
@@ -125,6 +130,90 @@ class Worker {
             }
         }
     }
+
+//============== For Throughtput testing ============//
+//===================== Start =======================//
+
+    bool CheckEmulationQuery(bool is_main_worker, string& emu_query_string, TrxPlan & plan, EmuTrxString & trx_string, bitset<3> & read_flag) {
+        istringstream iss(emu_query_string);
+        iss >> trx_string.query;
+
+        if (trx_string.query.find("$READ") != string::npos) {
+            string read_key;
+            iss >> read_key;
+            if (read_key == "ori_id") {
+                read_flag.set(0, 1);
+            } else if (read_key == "firstName") {
+                read_flag.set(1, 1);
+            } else if (read_key == "brand") {
+                read_flag.set(2, 1);
+            } else {
+                cout << "Unexpected read key :" << read_key << endl;
+                return false;
+            }
+            return true;
+        }
+
+        if (trx_string.query.find("$RAND") == string::npos) {
+            return true;
+        }
+
+        // Get Number of property key
+        while (!iss.eof()) {
+            string cur_type, cur_pkey;
+            iss >> cur_type >> cur_pkey;
+            Element_T type;
+            // get Type
+            if (cur_type == "V") {
+                type = Element_T::VERTEX;
+                trx_string.types.emplace_back(type);
+            } else if (cur_type == "E") {
+                type = Element_T::EDGE;
+                trx_string.types.emplace_back(type);
+            } else {
+                if (is_main_worker) {
+                    string return_msg = "EMU Invalid Object Type";
+                    value_t v;
+                    Tool::str2str(return_msg, v);
+                    vector<value_t> vec = {v};
+                    thpt_monitor_->RecordStart(plan.trxid);
+                    plan.FillResult(-1, vec);
+                    ReplyClient(plan);
+                }
+                return false;
+            }
+
+            int pid = parser_->GetPid(type, cur_pkey);
+            if (pid == -1) {
+                if (is_main_worker) {
+                    string return_msg = "EMU Invalid Random PKey";
+                    value_t v;
+                    Tool::str2str(return_msg, v);
+                    vector<value_t> vec = {v};
+                    plan.FillResult(-1, vec);
+                    ReplyClient(plan);
+                }
+                return false;
+            }
+
+            trx_string.num_rand_values++;
+            trx_string.pkeys.emplace_back(pid);
+        }
+
+        return true;
+    }
+
+
+    bool CheckCandidateString(string& str) {
+        if (str.find(";") != string::npos ||
+            str.find("=") != string::npos ||
+            str.find("(") != string::npos ||
+            str.find(")") != string::npos) {
+            return false;
+        }
+        return true;
+    }
+
 
     void RunEMU(string& cmd, string& client_host) {
         string emu_host = "EMUWORKER";
@@ -525,166 +614,14 @@ class Worker {
             ReplyClient(emu_command_plan);
         }
     }
+//=====================  End  =======================//
+//============== For Throughtput testing ============//
 
-    bool CheckEmulationQuery(bool is_main_worker, string& emu_query_string, TrxPlan & plan, EmuTrxString & trx_string, bitset<3> & read_flag) {
-        istringstream iss(emu_query_string);
-        iss >> trx_string.query;
 
-        if (trx_string.query.find("$READ") != string::npos) {
-            string read_key;
-            iss >> read_key;
-            if (read_key == "ori_id") {
-                read_flag.set(0, 1);
-            } else if (read_key == "firstName") {
-                read_flag.set(1, 1);
-            } else if (read_key == "brand") {
-                read_flag.set(2, 1);
-            } else {
-                cout << "Unexpected read key :" << read_key << endl;
-                return false;
-            }
-            return true;
-        }
 
-        if (trx_string.query.find("$RAND") == string::npos) {
-            return true;
-        }
 
-        // Get Number of property key
-        while (!iss.eof()) {
-            string cur_type, cur_pkey;
-            iss >> cur_type >> cur_pkey;
-            Element_T type;
-            // get Type
-            if (cur_type == "V") {
-                type = Element_T::VERTEX;
-                trx_string.types.emplace_back(type);
-            } else if (cur_type == "E") {
-                type = Element_T::EDGE;
-                trx_string.types.emplace_back(type);
-            } else {
-                if (is_main_worker) {
-                    string return_msg = "EMU Invalid Object Type";
-                    value_t v;
-                    Tool::str2str(return_msg, v);
-                    vector<value_t> vec = {v};
-                    thpt_monitor_->RecordStart(plan.trxid);
-                    plan.FillResult(-1, vec);
-                    ReplyClient(plan);
-                }
-                return false;
-            }
-
-            int pid = parser_->GetPid(type, cur_pkey);
-            if (pid == -1) {
-                if (is_main_worker) {
-                    string return_msg = "EMU Invalid Random PKey";
-                    value_t v;
-                    Tool::str2str(return_msg, v);
-                    vector<value_t> vec = {v};
-                    plan.FillResult(-1, vec);
-                    ReplyClient(plan);
-                }
-                return false;
-            }
-
-            trx_string.num_rand_values++;
-            trx_string.pkeys.emplace_back(pid);
-        }
-
-        return true;
-    }
-
-    bool CheckCandidateString(string& str) {
-        if (str.find(";") != string::npos ||
-            str.find("=") != string::npos ||
-            str.find("(") != string::npos ||
-            str.find(")") != string::npos) {
-            return false;
-        }
-
-        return true;
-    }
-
-    void RequestParsingTrx(string trx_str, string client_host, int trx_type = -1, bool is_emu_mode = false) {
-        ParseTrxReq req(trx_str, client_host, trx_type, is_emu_mode);
-        pending_parse_trx_req_.Push(req);
-    }
-
-    void ProcessingParseTrxReq() {
-        while (true) {
-            ParseTrxReq req;
-            pending_parse_trx_req_.WaitAndPop(req);
-            // Parse the transaction, and push the transaction to be executed
-            ParseTransaction(req.trx_str, req.client_host, req.trx_type, req.is_emu_mode);
-        }
-    }
-
-    /**
-     *  Parse the transaction string into TrxPlan
-     */
-    void ParseTransaction(string trx_str, string client_host, int trx_type, bool is_emu_mode) {
-        uint64_t trxid;
-        coordinator_->RegisterTrx(trxid);
-
-        TrxPlan plan(trxid, client_host);
-        if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type, trx_str); }
-
-        string error_msg;
-        bool success = parser_->Parse(trx_str, plan, error_msg);
-
-        if (success) {
-            // valid transaction, insert the TrxPlan into trx_plans_map_, and request its BT
-            TrxPlanAccessor accessor;
-            trx_plans_map_.insert(accessor, trxid);
-            accessor->second = move(plan);
-
-            TimestampRequest req(trxid, TIMESTAMP_TYPE::BEGIN_TIME);
-            pending_timestamp_request_.Push(req);
-        } else {
-            // invalid transaction string
-  ERROR:
-            if (is_emu_mode) {
-                cout << "[" << client_host <<  "] Parser Failed: " << trx_str << " with error " << error_msg << endl;
-            } else {
-                value_t v;
-                Tool::str2str(error_msg, v);
-                vector<value_t> vec = {v};
-                plan.FillResult(-1, vec);
-                ReplyClient(plan);
-            }
-        }
-    }
-
-    /**
-     *  regular recv thread for transaction processing request
-     */
-    void RecvRequest() {
-        while (1) {
-            zmq::message_t request;
-            receiver_->recv(&request);
-
-            char* buf = new char[request.size()];
-            memcpy(buf, reinterpret_cast<char*>(request.data()), request.size());
-            obinstream um(buf, request.size());
-
-            string client_host;
-            string query;
-
-            um >> client_host;
-            um >> query;
-            cout << "worker_node" << my_node_.get_local_rank()
-                    << " gets one QUERY: \"" << query << "\" from host "
-                    << client_host << endl;
-
-            if (query.find("emu") == 0) {
-                RunEMU(query, client_host);
-            } else {
-                // parse and insert into trx_plans_map_
-                RequestParsingTrx(query, client_host);
-            }
-        }
-    }
+//================== Helper Functions ===============//
+//====================  Start  ======================//
 
     /* Get all queries without dependency from the given TrxPlan.
      * For each query, pack it into a Pack with its query_index.
@@ -726,7 +663,6 @@ class Worker {
                     } else {
                         // For readonly trx, do not need to allocate commit time and query RCT.
                         trx_table_->modify_status(plan.trxid, TRX_STAT::VALIDATING, plan.GetStartTime());
-
                         SendInitMsgForQuery(pkg);
                     }
                 } else {
@@ -764,14 +700,248 @@ class Worker {
         monitor_->IncreaseCounter(1);
     }
 
-    void NotifyTrxFinished(uint64_t trx_id, uint64_t bt) {
+    /* To erase the trx from running_trx_list
+     * It works based on the mechanism that one trx has only one unique BT
+     */
+    void NotifyTrxFinished(uint64_t bt) {
         // printf("[Worker%d] EraseTrx(%lu)\n", my_node_.get_local_rank(), bt);
         running_trx_list_->EraseTrx(bt);
     }
 
-    // Do not put any compute intensive tasks in this function.
-    // Use queues to dispatch them to other threads.
+    // Create the initMsg of one qplan in pkg, and then send it out.
+    // Need to specify the tid, since RDMAMailbox needs to find the corresponding send_buf via tid.
+    void SendInitMsgForQuery(Pack pkg) {
+        int mailbox_tid = tid_pool_manager_->GetTid(TID_TYPE::RDMA);
+        vector<Message> msgs;
+        Message::CreateInitMsg(
+            pkg.id.value(), pkg.query_count_in_trx,
+            my_node_.get_local_rank(),
+            my_node_.get_local_size(),
+            core_affinity_->GetThreadIdForExpert(EXPERT_T::INIT),
+            pkg.qplan,
+            msgs);
+        for (int i = 0 ; i < my_node_.get_local_size(); i++) {
+            mailbox_->Send(mailbox_tid, msgs[i]);
+        }
+        mailbox_->Sweep(mailbox_tid);
+    }
+
+    // For non-readonly transaction, need to fetch trans(trx_ids) from RCT from all workers,
+    // before the validation query can be sent out.
+    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& rct_trx_id_list) {
+        VPackAccessor accessor;
+        CHECK(validaton_query_pkgs_map_.find(accessor, trx_id));
+
+        ValidationQueryPack& v_pkg = accessor->second;
+
+        v_pkg.rct_trx_id_list.insert(v_pkg.rct_trx_id_list.end(), rct_trx_id_list.begin(), rct_trx_id_list.end());
+        v_pkg.collected_rct_result_count++;
+
+        if (v_pkg.collected_rct_result_count == config_->global_num_workers) {
+            // RCT rct_trx_id_list on all workers are collected.
+            // then, to send init_msg for validation expert
+            for (auto & trxID : v_pkg.rct_trx_id_list) {
+                value_t v;
+                Tool::uint64_t2value_t(trxID, v);
+                v_pkg.pack.qplan.experts[0].params.emplace_back(v);
+            }
+
+            // Release the validation query.
+            SendInitMsgForQuery(v_pkg.pack);
+            validaton_query_pkgs_map_.erase(accessor);
+        }
+    }
+//=====================  End  =======================//
+//================== Helper Functions ===============//
+
+
+
+
+//=========== Thread Registered Functions ===========//
+//====================  Start  ======================//
+
+    /**
+     * To pack the request content into `ParseTrxReq` and 
+     * then push it into a ThreadSafeQueue
+     * called by RecvRequest() in below
+    */
+    void RequestParsingTrx(string trx_str, string client_host, int trx_type = -1, bool is_emu_mode = false) {
+        ParseTrxReq req(trx_str, client_host, trx_type, is_emu_mode);
+        pending_parse_trx_req_.Push(req);
+    }
+
+    /**
+     * Regular recv thread for transaction processing request sent from clients
+     * Driven by one thread in Worker::Start()
+     */
+    void RecvRequest() {
+        while (1) {
+            zmq::message_t request;
+            receiver_->recv(&request);
+
+            char* buf = new char[request.size()];
+            memcpy(buf, reinterpret_cast<char*>(request.data()), request.size());
+            obinstream um(buf, request.size());
+
+            string client_host;
+            string query;
+
+            um >> client_host;
+            um >> query;
+            cout << "worker_node" << my_node_.get_local_rank()
+                    << " gets one QUERY: \"" << query << "\" from host "
+                    << client_host << endl;
+
+            if (query.find("emu") == 0) {
+                RunEMU(query, client_host);
+            } else {
+                // parse and insert into trx_plans_map_
+                RequestParsingTrx(query, client_host);
+            }
+        }
+    }
+
+    /**
+     * Parse the transaction string into TrxPlan
+     * called by ProcessingParseTrxReq() in below
+     */
+    void ParseTransaction(string trx_str, string client_host, int trx_type, bool is_emu_mode) {
+        uint64_t trxid;
+        coordinator_->RegisterTrx(trxid);
+
+        TrxPlan plan(trxid, client_host);
+        if (is_emu_mode_) { thpt_monitor_->RecordStart(trxid, trx_type, trx_str); }
+
+        string error_msg;
+        bool success = parser_->Parse(trx_str, plan, error_msg);
+
+        if (success) {
+            // valid transaction, insert the TrxPlan into trx_plans_map_, and request its BT
+            TrxPlanAccessor accessor;
+            trx_plans_map_.insert(accessor, trxid);
+            accessor->second = move(plan);
+
+            TimestampRequest req(trxid, TIMESTAMP_TYPE::BEGIN_TIME);
+            pending_timestamp_request_.Push(req);
+        } else {
+            // invalid transaction string
+  ERROR:
+            if (is_emu_mode) {
+                cout << "[" << client_host <<  "] Parser Failed: " << trx_str << " with error " << error_msg << endl;
+            } else {
+                value_t v;
+                Tool::str2str(error_msg, v);
+                vector<value_t> vec = {v};
+                plan.FillResult(-1, vec);
+                ReplyClient(plan);
+            }
+        }
+    }
+
+    /**
+     * Driven by threads taking in charge of the trx parser
+     */
+    void ProcessingParseTrxReq() {
+        while (true) {
+            ParseTrxReq req;
+            pending_parse_trx_req_.WaitAndPop(req);
+            // Parse the transaction, and push the transaction to be executed
+            ParseTransaction(req.trx_str, req.client_host, req.trx_type, req.is_emu_mode);
+        }
+    }
+
+    /* To obtain the allocated timestamp from queue named pending_allocated_timestamp_
+     * and then, to do actions based on the type of timestamp accordingly
+     * 
+     * Driven by one thread in Worker::Start()
+     */
+    void ProcessAllocatedTimestamp() {
+        tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::process_allocated_ts_tid);
+        while (true) {
+            // The timestamp is allocated in Coordinator::ProcessTimestampRequest
+            AllocatedTimestamp allocated_ts;
+            pending_allocated_timestamp_.WaitAndPop(allocated_ts);
+            uint64_t trx_id = allocated_ts.trx_id;
+
+            if (allocated_ts.ts_type == TIMESTAMP_TYPE::COMMIT_TIME) {
+                // Non-readonly transactions, CT allocated
+                uint64_t ct = allocated_ts.timestamp;
+                // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
+
+                if (config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
+                    rct_->insert_trx(ct, trx_id);
+                }
+                trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
+
+                TrxPlanAccessor accessor;
+                CHECK(trx_plans_map_.find(accessor, trx_id));
+
+                TrxPlan& plan = accessor->second;
+                uint64_t bt = plan.GetStartTime();
+
+                // Firstly, query the local RCT to fetch all local rct_trx_id_list,
+                // and insert them v_pkg.rct_trx_id_list
+                std::vector<uint64_t> rct_trx_id_list;
+                rct_->query_trx(bt, ct - 1, rct_trx_id_list);
+                InsertQueryRCTResult(trx_id, rct_trx_id_list);
+
+                // Secondly, query the RCT on other workers (send the query RCT request).
+                int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
+                ibinstream in;
+                in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
+
+                for (int i = 0; i < config_->global_num_workers; i++)
+                    if (i != my_node_.get_local_rank())
+                        mailbox_ ->SendNotification(i, in);
+                //end msg sending
+
+            } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::BEGIN_TIME) {
+                // BT allocated.
+                uint64_t bt = allocated_ts.timestamp;
+                // printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
+                running_trx_list_->InsertTrx(bt);
+
+                TrxPlanAccessor accessor;
+                CHECK(trx_plans_map_.find(accessor, trx_id));
+
+                TrxPlan& plan = accessor->second;
+
+                trx_table_->insert_single_trx(trx_id, bt, plan.GetTrxType() == TRX_READONLY);
+
+                // Set bt for TrxPlan
+                plan.SetST(bt);
+
+                if (!RegisterQuery(plan)) {
+                    string error_msg = "Error: Empty transaction";
+                    value_t v;
+                    Tool::str2str(error_msg, v);
+                    vector<value_t> vec = {v};
+                    plan.FillResult(-1, vec);
+                    ReplyClient(plan);
+                    NotifyTrxFinished(plan.GetStartTime());
+                    trx_plans_map_.erase(accessor);
+                }
+            } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::END_TIME) {
+                // The finish time for a non-readonly transaction is allocated.
+                uint64_t endtime = allocated_ts.timestamp;
+                // Record it in the TrxTable, to help the GC thread decide when to erase it in the TrxTable.
+                trx_table_->record_nro_trx_with_et(trx_id, endtime);
+            } else {
+                CHECK(false);
+            }
+        }
+    }
+    
+    /* This function takes in charge of lightweight msg and respond accordingly
+     * Do not put any compute intensive tasks in this function !!!
+     * 
+     * Three type of msg are involved.
+     * Use queues to dispatch them to other threads.
+     * 
+     * Driven by one thread in Worker::Start()
+     */
     void RecvNotification() {
+        //occupy channel TID_TYPE::RDMA, but actually this thread is used for commun(i.e., RDMA OR TCP)
         tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::recv_notification_tid);
         while (1) {
             obinstream out;
@@ -806,131 +976,16 @@ class Worker {
                 out >> n_id >> trx_id >> bt >> ct;
 
                 QueryRCTRequest request(n_id, trx_id, bt, ct);
+                //interact with coordinator
                 pending_rct_query_request_.Push(request);
             } else {
                 CHECK(false);
             }
         }
     }
+//=====================  End  =======================//
+//=========== Thread Registered Functions ===========//
 
-    // Create the initMsg of a qplan in pkg, and send it out.
-    // Need to specify the tid, since RDMAMailbox needs to find the corresponding send_buf via tid.
-    void SendInitMsgForQuery(Pack pkg) {
-        int mailbox_tid = tid_pool_manager_->GetTid(TID_TYPE::RDMA);
-        vector<Message> msgs;
-        Message::CreateInitMsg(
-            pkg.id.value(), pkg.query_count_in_trx,
-            my_node_.get_local_rank(),
-            my_node_.get_local_size(),
-            core_affinity_->GetThreadIdForExpert(EXPERT_T::INIT),
-            pkg.qplan,
-            msgs);
-        for (int i = 0 ; i < my_node_.get_local_size(); i++) {
-            mailbox_->Send(mailbox_tid, msgs[i]);
-        }
-        mailbox_->Sweep(mailbox_tid);
-    }
-
-    void ProcessAllocatedTimestamp() {
-        tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::process_allocated_ts_tid);
-        while (true) {
-            // The timestamp is allocated in Coordinator::ProcessTimestampRequest
-            AllocatedTimestamp allocated_ts;
-            pending_allocated_timestamp_.WaitAndPop(allocated_ts);
-            uint64_t trx_id = allocated_ts.trx_id;
-
-            if (allocated_ts.ts_type == TIMESTAMP_TYPE::COMMIT_TIME) {
-                // Non-readonly transactions, CT allocated
-                uint64_t ct = allocated_ts.timestamp;
-                // printf("[Worker%d] Allocated CT(%lu)\n", my_node_.get_local_rank(), ct);
-
-                if (config_->isolation_level == ISOLATION_LEVEL::SERIALIZABLE) {
-                    rct_->insert_trx(ct, trx_id);
-                }
-                trx_table_->modify_status(trx_id, TRX_STAT::VALIDATING, ct);
-
-                TrxPlanAccessor accessor;
-                CHECK(trx_plans_map_.find(accessor, trx_id));
-
-                TrxPlan& plan = accessor->second;
-                uint64_t bt = plan.GetStartTime();
-
-                // Firstly, query the local RCT
-                std::vector<uint64_t> rct_trx_id_list;
-                rct_->query_trx(bt, ct - 1, rct_trx_id_list);
-                InsertQueryRCTResult(trx_id, rct_trx_id_list);
-
-                int notification_type = (int)(NOTIFICATION_TYPE::QUERY_RCT);
-                ibinstream in;
-                in << notification_type << my_node_.get_local_rank() << trx_id << bt << ct;
-
-                // Secondly, query the RCT on other workers (send the query RCT request).
-                for (int i = 0; i < config_->global_num_workers; i++)
-                    if (i != my_node_.get_local_rank())
-                        mailbox_ ->SendNotification(i, in);
-            } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::BEGIN_TIME) {
-                // BT allocated.
-                uint64_t bt = allocated_ts.timestamp;
-                // printf("[Worker%d] Allocated BT(%lu)\n", my_node_.get_local_rank(), bt);
-                running_trx_list_->InsertTrx(bt);
-
-                TrxPlanAccessor accessor;
-                CHECK(trx_plans_map_.find(accessor, trx_id));
-
-                TrxPlan& plan = accessor->second;
-
-                trx_table_->insert_single_trx(trx_id, bt, plan.GetTrxType() == TRX_READONLY);
-
-                // Set bt for TrxPlan
-                plan.SetST(bt);
-
-                if (!RegisterQuery(plan)) {
-                    string error_msg = "Error: Empty transaction";
-                    value_t v;
-                    Tool::str2str(error_msg, v);
-                    vector<value_t> vec = {v};
-                    plan.FillResult(-1, vec);
-                    ReplyClient(plan);
-                    NotifyTrxFinished(trx_id, plan.GetStartTime());
-                    trx_plans_map_.erase(accessor);
-                }
-            } else if (allocated_ts.ts_type == TIMESTAMP_TYPE::FINISH_TIME) {
-                // The finish time for a non-readonly transaction is allocated.
-                uint64_t endtime = allocated_ts.timestamp;
-                // Record it in the TrxTable, to help the GC thread decide when to erase it in the TrxTable.
-                trx_table_->record_nro_trx_with_et(trx_id, endtime);
-            } else {
-                CHECK(false);
-            }
-        }
-    }
-
-    // For non-readonly transaction, need to query trx_ids from RCT from all workers,
-    // before the validation query can be sent out.
-    void InsertQueryRCTResult(uint64_t trx_id, const vector<uint64_t>& rct_trx_id_list) {
-        VPackAccessor accessor;
-        CHECK(validaton_query_pkgs_map_.find(accessor, trx_id));
-
-        ValidationQueryPack& v_pkg = accessor->second;
-
-        v_pkg.rct_trx_id_list.insert(v_pkg.rct_trx_id_list.end(), rct_trx_id_list.begin(), rct_trx_id_list.end());
-        v_pkg.collected_rct_result_count++;
-
-        if (v_pkg.collected_rct_result_count == config_->global_num_workers) {
-            // RCT rct_trx_id_list on all workers are collected.
-
-            for (auto & trxID : v_pkg.rct_trx_id_list) {
-                value_t v;
-                Tool::uint64_t2value_t(trxID, v);
-                v_pkg.pack.qplan.experts[0].params.emplace_back(v);
-            }
-
-            // Release the validation query.
-            SendInitMsgForQuery(v_pkg.pack);
-
-            validaton_query_pkgs_map_.erase(accessor);
-        }
-    }
 
     void Start() {
         // =================IdMapper========================
@@ -975,8 +1030,7 @@ class Worker {
             mailbox_ = new TCPMailbox(my_node_);
         }
         mailbox_->Init(workers_);
-        cout << "[Worker" << my_node_.get_local_rank()
-             << "]: DONE -> Mailbox->Init()" << endl;
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Mailbox->Init()" << endl;
 
         // =================TransactionTableStub============
         if (config_->global_use_rdma) {
@@ -985,8 +1039,7 @@ class Worker {
             trx_table_stub_ = TcpTrxTableStub::GetInstance(mailbox_, workers_, &pending_trx_updates_);
         }
         trx_table_stub_->Init();
-        cout << "[Worker" << my_node_.get_local_rank()
-             << "]: DONE -> TrxTableStub->Init()" << endl;
+        cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> TrxTableStub->Init()" << endl;
 
         // =================DataStorage=====================
         data_storage_ = DataStorage::GetInstance();
@@ -1024,20 +1077,21 @@ class Worker {
         // =================Other threads=================
         // Recv&Send Thread
         thread recvreq(&Worker::RecvRequest, this);
-        // Process notification msgs among workers
-        thread recvnotification(&Worker::RecvNotification, this);
+        // Parse transaction
+        vector<thread> parser_threads;
+        for (int i = 0; i < config_->num_parser_threads; i++)
+            parser_threads.emplace_back(&Worker::ProcessingParseTrxReq, this);
         // Deal with allocated timestamps
         thread timestamp_consumer(&Worker::ProcessAllocatedTimestamp, this);
+        // Process notification msgs among workers in case of TCP-enabled version
+        thread recvnotification(&Worker::RecvNotification, this);
+
         // Send RCT query request to remote workers
         thread process_rct_query_request(&Coordinator::ProcessQueryRCTRequest, coordinator_);
         // Execute TrxTable modification request from update_status
         thread trx_table_write_executor(&Coordinator::ProcessTrxTableWriteReqs, coordinator_);
         // Perform clock calibration
         thread timestamp_calibration(&Coordinator::PerformCalibration, coordinator_);
-        // Parse transaction
-        vector<thread> parser_threads;
-        for (int i = 0; i < config_->num_parser_threads; i++)
-            parser_threads.emplace_back(&Worker::ProcessingParseTrxReq, this);
 
         // For non-rdma configuration
         thread *trx_table_tcp_read_listener, *trx_table_tcp_read_executor, *running_trx_min_bt_listener;
@@ -1128,10 +1182,10 @@ class Worker {
                         pending_trx_.push(make_pair(trx_string, trx_type));
                     }
                 }
-                NotifyTrxFinished(qid.trxid, plan.GetStartTime());
+                NotifyTrxFinished(plan.GetStartTime());
                 // if not readonly, abtain its finished time
                 if (plan.GetTrxType() != TRX_READONLY) {
-                    TimestampRequest req(qid.trxid, TIMESTAMP_TYPE::FINISH_TIME);
+                    TimestampRequest req(qid.trxid, TIMESTAMP_TYPE::END_TIME);
                     pending_timestamp_request_.Push(req);
                 }
 
@@ -1191,13 +1245,15 @@ class Worker {
 
     RCTable* rct_;
     TransactionStatusTable* trx_table_;
+    ThreadSafeQueue<ParseTrxReq> pending_parse_trx_req_;
 
+    //the following five queues will be internally managed by Coordinator
     ThreadSafeQueue<UpdateTrxStatusReq> pending_trx_updates_;
     ThreadSafeQueue<ReadTrxStatusReq> pending_trx_reads_;
     ThreadSafeQueue<TimestampRequest> pending_timestamp_request_;
     ThreadSafeQueue<AllocatedTimestamp> pending_allocated_timestamp_;
     ThreadSafeQueue<QueryRCTRequest> pending_rct_query_request_;
-    ThreadSafeQueue<ParseTrxReq> pending_parse_trx_req_;
+
 
     tbb::concurrent_queue<pair<string, int>> pending_trx_;
 

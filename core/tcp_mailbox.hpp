@@ -2,6 +2,7 @@
  *
  * Authors: Created by Changji Li (cjli@cse.cuhk.edu.hk)
  *          Modified by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ *          Modified by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
  */
 
 #pragma once
@@ -59,6 +60,7 @@ class TCPMailbox : public AbstractMailbox {
     inline int port_code (int nid, int tid) { return nid * config_->global_num_threads + tid; }
 
     // among workers: support tcp_trx_table_stub part
+    // mapping to worker::RecvNotification()
     socket_vector notification_senders_;
     zmq::socket_t* notificaton_receiver_;
 

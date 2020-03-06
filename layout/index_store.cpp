@@ -793,7 +793,7 @@ void IndexStore::get_elements_by_predicate(Element_T type, int pid,
         break;
     }
 
-    // TODO: OLTP Situation always needs sort
+    // TODO: OLTP situation always needs sort
     if (need_sort && num_set > 1) {
         sort(vec.begin(), vec.end());
     }
