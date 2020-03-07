@@ -59,8 +59,7 @@ class TCPMailbox : public AbstractMailbox {
 
     inline int port_code (int nid, int tid) { return nid * config_->global_num_threads + tid; }
 
-    // among workers: support tcp_trx_table_stub part
-    // mapping to worker::RecvNotification()
+    // additional sockets for other commun channels, mapping to SendNotification(), RecvNotification()
     socket_vector notification_senders_;
     zmq::socket_t* notificaton_receiver_;
 

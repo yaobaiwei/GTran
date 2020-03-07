@@ -42,7 +42,6 @@ void Coordinator::Init(Node* node) {
 
     config_ = Config::GetInstance();
 
-    //TODO(Hongzhi): add TCP-Support
     if (config_->global_use_rdma) {
         Buffer* buf = Buffer::GetInstance();
         rdma_mem_ = buf->GetTSSyncBuf();
@@ -71,31 +70,33 @@ void Coordinator::WaitForDistributedClockInit() {
 }
 
 void Coordinator::PrepareSockets() {
-    if (!config_->global_use_rdma) {
-        char addr[64];
-        trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
-        // Ports with node_->tcp_port + 3 + 1 * config_->global_num_threads are occupied by TCPMailbox
-        snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
-        trx_read_recv_socket_->bind(addr);
-        DLOG(INFO) << "[Master] bind " << string(addr);
+    char addr[64];
 
-        trx_read_rep_sockets_.resize(config_->global_num_threads *
-                                    config_->global_num_workers);
+    trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
+    // The port is matched with the senders_ in TcpTrxTableStub::send_req
+    // to listen req from TcpTrxTableStub.read from other workers
+    snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
+    trx_read_recv_socket_->bind(addr);
+    DLOG(INFO) << "[Master] bind " << string(addr);
 
-        // connect to p+3+global_num_threads ~ p+2+2*global_num_threads
-        for (int i = 0; i < config_->global_num_workers; ++i) {
-            Node& r_node = GetNodeById(workers_, i + 1);
 
-            for (int j = 0; j < config_->global_num_threads; ++j) {
-                trx_read_rep_sockets_[socket_code(i, j)] =
-                    new zmq::socket_t(context_, ZMQ_PUSH);
-                snprintf(
-                    addr, sizeof(addr), "tcp://%s:%d",
-                    workers_[i].ibname.c_str(),
-                    r_node.tcp_port + j + 3 + config_->global_num_threads);
-                trx_read_rep_sockets_[socket_code(i, j)]->connect(addr);
-                DLOG(INFO) << "[Master] connects to " << string(addr);
-            }
+    trx_read_rep_sockets_.resize(config_->global_num_threads * config_->global_num_workers);
+    // connect to port + 3 + [global_num_threads, ... 2*global_num_threads)
+    // The ports are matched with the receivers_ in TcpTrxTableStub.
+    // to return the value of trx_stat read requests as the response
+    for (int i = 0; i < config_->global_num_workers; ++i) {
+        // input (i+1) because node_rank is counted by get_world_rank() 
+        Node& r_node = GetNodeById(nodes_, i + 1); 
+
+        for (int j = 0; j < config_->global_num_threads; ++j) {
+            trx_read_rep_sockets_[socket_code(i, j)] = new zmq::socket_t(context_, ZMQ_PUSH);
+            snprintf(
+                addr, sizeof(addr), "tcp://%s:%d",
+                nodes_[i].ibname.c_str(),
+                r_node.tcp_port + 3 + j + config_->global_num_threads);
+
+            trx_read_rep_sockets_[socket_code(i, j)]->connect(addr);
+            DLOG(INFO) << "[Master] connects to " << string(addr);
         }
     }
 }

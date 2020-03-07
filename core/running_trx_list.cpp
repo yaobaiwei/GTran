@@ -172,6 +172,7 @@ uint64_t RunningTrxList::GetGlobalMinBT() {
 void RunningTrxList::ProcessReadMinBTRequest() {
     if (config_->global_use_rdma)
         return;
+    //mapping with the code branch of !config_->global_use_rdma in UpdateGlobalMinBT
     while (1) {
         int n_id = recv_data<int>(node_, MPI_ANY_SOURCE, false, MINBT_REQUEST_CHANNEL);
         uint64_t min_bt = GetMinBT();

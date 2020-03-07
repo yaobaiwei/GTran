@@ -113,6 +113,7 @@ class Worker {
     }
 
     void Init() {
+        //receiver_, for sockets from clients
         receiver_ = new zmq::socket_t(context_, ZMQ_PULL);
         thpt_monitor_ = new ThroughputMonitor();
         rc_ = new ResultCollector;
@@ -121,6 +122,7 @@ class Worker {
         snprintf(addr, sizeof(addr), "tcp://*:%d", my_node_.tcp_port);
         receiver_->bind(addr);
 
+        //for RunEMU() only
         for (int i = 0; i < my_node_.get_local_size(); i++) {
             if (i != my_node_.get_local_rank()) {
                 zmq::socket_t * sender = new zmq::socket_t(context_, ZMQ_PUSH);
@@ -1067,7 +1069,8 @@ class Worker {
         running_trx_list_->Init(my_node_);
 
         coordinator_->GetInstancesFromWorker(trx_table_, mailbox_, rct_, workers_);
-        coordinator_->PrepareSockets();
+        if (!config_->global_use_rdma)
+            coordinator_->PrepareSockets();
 
         // =================Timestamp generator thread=================
         thread timestamp_generator(&Coordinator::ProcessTimestampRequest, coordinator_);

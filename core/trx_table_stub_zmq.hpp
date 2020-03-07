@@ -1,6 +1,7 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ *          Modified by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
  */
 
 #pragma once
@@ -38,13 +39,12 @@ class TcpTrxTableStub : public TrxTableStub {
         trx_table_ = TransactionStatusTable::GetInstance();
     }
 
-    void send_req(int n_id, int t_id, ibinstream &in);
-
-    bool recv_rep(int t_id, obinstream &out);
-
     inline int socket_code(int n_id, int t_id) {
         return config_ -> global_num_threads * n_id + t_id;
     }
+
+    void send_req(int n_id, int t_id, ibinstream &in);
+    bool recv_rep(int t_id, obinstream &out);
 
  public:
     static TcpTrxTableStub * GetInstance(AbstractMailbox * mailbox,
@@ -71,34 +71,8 @@ class TcpTrxTableStub : public TrxTableStub {
         return instance_;
     }
 
-    bool Init() override {
-        char addr[64] = "";
-
-        receivers_.resize(config_->global_num_threads);
-        senders_.resize(config_->global_num_threads * config_->global_num_workers);
-
-        for (int i = 0; i < config_->global_num_threads; ++i) {
-            receivers_[i] = new zmq::socket_t(context, ZMQ_PULL);
-            snprintf(addr, sizeof(addr), "tcp://*:%d",
-                    node_.tcp_port + i + 3 + config_->global_num_threads);
-            receivers_[i]->bind(addr);
-            DLOG(INFO) << "Worker " << node_.hostname << ": " << "bind " << string(addr);
-        }
-
-        for (int j = 0; j < config_->global_num_workers; j++) {
-            for (int i = 0; i < config_->global_num_threads; ++i) {
-                senders_[socket_code(j, i)] = new zmq::socket_t(context, ZMQ_PUSH);
-                snprintf(addr, sizeof(addr), "tcp://%s:%d", workers_[j].ibname.c_str(),
-                        workers_[j].tcp_port + 3 + 2 * config_->global_num_threads);
-                senders_[socket_code(j, i)]->connect(
-                    addr);  // connect to the same port with update_status reqs
-                DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
-            }
-        }
-    }
-
+    bool Init() override;
     bool update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only = false) override;
-
     bool read_status(uint64_t trx_id, TRX_STAT &status) override;
     bool read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct) override;
 };

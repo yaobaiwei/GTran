@@ -27,29 +27,28 @@ TCPMailbox::~TCPMailbox() {
 }
 
 void TCPMailbox::Init(vector<Node> &nodes) {
-    notification_senders_.resize(config_->global_num_workers);
+    char addr[64] = "";
 
+    notificaton_receiver_ = new zmq::socket_t(context, ZMQ_PULL);
+    snprintf(addr, sizeof(addr), "tcp://*:%d", 
+            my_node_->tcp_port + 2 + config_->global_num_threads);
+    notificaton_receiver_->bind(addr);
+    DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname 
+            << "'s Notificaton receiver binds " << string(addr);
+
+    notification_senders_.resize(config_->global_num_workers);
     for (int nid = 0; nid < config_->global_num_workers; nid++) {
         notification_senders_[nid] = new zmq::socket_t(context, ZMQ_PUSH);
-        char addr[64] = "";
         const Node& r_node = GetNodeById(nodes, nid + 1);  // remote worker node
         snprintf(addr, sizeof(addr), "tcp://%s:%d", r_node.ibname.c_str(),
             r_node.tcp_port + 2 + config_->global_num_threads);  // TODO: check the port
         notification_senders_[nid] -> connect(addr);
-        DLOG(INFO) << "[TCPMailbox::Init] Notificaton sender connect to " << string(addr);
+        DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << "'s Notificaton senders connect to " << string(addr);
     }
 
-    receivers_.resize(config_->global_num_threads);
 
-    for (int tid = 0; tid < config_->global_num_threads; tid++) {
-        receivers_[tid] = new zmq::socket_t(context, ZMQ_PULL);
-        char addr[64] = "";
-        snprintf(addr, sizeof(addr), "tcp://*:%d",
-                 my_node_.tcp_port + 1 + tid);
-        receivers_[tid]->bind(addr);
-        // DLOG(INFO) << "[TCPMailbox::Init] Worker bind " << string(addr);
-    }
 
+    //The regular senders for threads[0, global_num_workers), by using constant +1 to distinguish with above channels (i.e., +2)
     for (int nid = 0; nid < config_->global_num_workers; nid++) {
         Node &r_node = GetNodeById(nodes, nid + 1);
         string ibname = r_node.ibname;
@@ -63,8 +62,18 @@ void TCPMailbox::Init(vector<Node> &nodes) {
                      r_node.tcp_port + 1 + tid);
             // FIXME: check return value
             senders_[pcode]->connect(addr);
-            DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << "connect to " << string(addr);
+            DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << " connect to " << string(addr);
         }
+    }
+
+    receivers_.resize(config_->global_num_threads);
+    for (int tid = 0; tid < config_->global_num_threads; tid++) {
+        receivers_[tid] = new zmq::socket_t(context, ZMQ_PULL);
+        char addr[64] = "";
+        snprintf(addr, sizeof(addr), "tcp://*:%d",
+                 my_node_.tcp_port + 1 + tid);
+        receivers_[tid]->bind(addr);
+        DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname << " binds " << string(addr);
     }
 
     locks = (pthread_spinlock_t *)malloc(

@@ -88,12 +88,12 @@ class Coordinator {
     }
 
     void GetInstancesFromWorker(TransactionStatusTable* trx_table, AbstractMailbox* mailbox,
-                                RCTable* rct, const vector<Node>& workers
+                                RCTable* rct, const vector<Node>& nodes
                                 ) {
         trx_table_ = trx_table;
         mailbox_ = mailbox;
         rct_ = rct;
-        workers_ = workers;
+        nodes_ = nodes; //delete master in nodes already, but the world_rank starting from 1
     }
 
     // Create tcp sockets
@@ -146,7 +146,7 @@ class Coordinator {
     AbstractMailbox* mailbox_;
     RCTable* rct_;
 
-    vector<Node> workers_;
+    vector<Node> nodes_;
     zmq::context_t context_;
     zmq::socket_t* trx_read_recv_socket_;
     vector<zmq::socket_t*> trx_read_rep_sockets_;

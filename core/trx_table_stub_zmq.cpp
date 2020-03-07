@@ -1,11 +1,39 @@
 /**
  * Copyright 2019 Husky Data Lab, CUHK
  * Authors: Created by Jian Zhang (jzhang@cse.cuhk.edu.hk)
+ *          Modified by Hongzhi Chen (hzchen@cse.cuhk.edu.hk)
  */
 
 #include "core/trx_table_stub_zmq.hpp"
 
 TcpTrxTableStub * TcpTrxTableStub::instance_ = nullptr;
+
+bool TcpTrxTableStub::Init() {
+    char addr[64] = "";
+    
+    //the ports are matched with the trx_read_rep_sockets_ in coordinator
+    receivers_.resize(config_->global_num_threads);
+    for (int i = 0; i < config_->global_num_threads; ++i) {
+        receivers_[i] = new zmq::socket_t(context, ZMQ_PULL);
+        snprintf(addr, sizeof(addr), "tcp://*:%d",
+                node_.tcp_port + 3 + i + config_->global_num_threads);
+        receivers_[i]->bind(addr);
+        DLOG(INFO) << "Worker " << node_.hostname << ": " << "bind " << string(addr);
+    }
+
+    //the port is matched with the trx_read_recv_socket_ in coordinator
+    senders_.resize(config_->global_num_threads * config_->global_num_workers);
+    for (int j = 0; j < config_->global_num_workers; j++) {
+        for (int i = 0; i < config_->global_num_threads; ++i) {
+            senders_[socket_code(j, i)] = new zmq::socket_t(context, ZMQ_PUSH);
+            snprintf(addr, sizeof(addr), "tcp://%s:%d", workers_[j].ibname.c_str(),
+                    workers_[j].tcp_port + 3 + 2 * config_->global_num_threads);
+            // for all threads sending msgs to the same worker, connect to the same port for TcpTrxTableStub::send_req
+            senders_[socket_code(j, i)]->connect(addr);
+            DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
+        }
+    }
+}
 
 bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool is_read_only) {
     CHECK(new_status != TRX_STAT::VALIDATING);
