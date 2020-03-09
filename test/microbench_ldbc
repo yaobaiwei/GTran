@@ -1,0 +1,19 @@
+[INSERT]
+A=g.addV("person");g.V().has("firstName","$RAND").limit(1).addE("knows").to(A)    V   firstName
+A=g.addV("person");g.V(A).property("ori_id","doge");g.V().has("firstName","$RAND").limit(1).addE("knows").to(A)    V   firstName
+A=g.V().has("firstName","$RAND").limit(1);g.V().has("ori_id","$RAND").limit(1).addE("knows").to(A).property("classYear",2010)  V firstName  V   ori_id
+[READ]
+g.V().has("ori_id","$RAND")    V   ori_id
+g.V().has("firstName","$RAND").limit(1).properties();g.V().has("ori_id","$RAND").limit(1).properties()  V firstName  V   ori_id
+[UPDATE]
+g.V().has("ori_id","$RAND").or(hasLabel("post"),hasLabel("comment")).property("browserUsed","Chrome")    V   ori_id
+g.V().has("firstName","$RAND").property("browserUsed","2")    V   firstName
+g.V().has("firstName","$RAND").count()    V   firstName
+g.V().has("firstName","$RAND").limit(1).property("browserUsed","2")    V   firstName
+[DROP]
+g.V().has("ori_id","$RAND").properties("browserUsed").drop()    V   ori_id
+g.V().has("ori_id","$RAND").drop()    V   ori_id
+g.V().has("firstName","$RAND").outE().limit(1).drop()    V   firstName
+g.V().has("firstName","$RAND").outE().limit(1).properties("classYear").drop()    V   firstName
+[MIX]
+#

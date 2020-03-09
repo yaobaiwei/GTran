@@ -1,0 +1,2 @@
+BuildIndex(V, "ori_id")
+BuildIndex(V, "firstName")

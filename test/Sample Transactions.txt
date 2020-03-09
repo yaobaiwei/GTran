@@ -1,0 +1,33 @@
+g.V().hasLabel("comment").count();
+Result: 17230494
+Running Time: 12080.98ms
+
+g.V().has("firstName", "Yang").count();
+Result: 775
+Running Time: 623us
+
+g.V().has("ori_id", "4947804876981").properties();
+Result: 
+	{ori_id:4947804876981}
+	{creationDate:2019-12-21T22_20_59.211+0000}
+	{locationIP:14.102.187.12}
+	{browserUsed:Firefox}
+	{content:maybe}
+	{length:5}
+Running Time: 452us
+
+A = g.addV("person"); g.V().has("firstName", "Aaron").limit(1).addE("knows").to(A)
+Result:
+	Query1
+	23850378
+	Query2
+	1600571791280354 [This does not need to be the same since limit will random choose one]
+Running Time: 923us ~ 1.98ms
+
+g.V().has("firstName", "Jack").drop();
+Result: Empty
+Running Time: 361ms 
+
+g.V().count()
+Result: 23,850,230
+Running Time: 107.24ms
