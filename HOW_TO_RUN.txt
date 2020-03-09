@@ -1,0 +1,80 @@
+# README
+
+1. Replace your machine.cfg and ib_conf with given one.
+
+2. Start the server on worker21. [Double check there is no other programs running on each machines]
+
+   `bash> bash start-server.sh 4 machine.cfg ib_conf`
+
+3. Start a client on worker24
+
+   `bash> bash start-client.sh ib_conf`
+
+4. Build Index in console
+
+   `GTran> gtran -b ldbc_index_build`
+
+5. Run queries sequentially in console and check the result
+
+   `GTran> gtran -q g.V().hasLabel("comment").count()`
+
+   `GTran> gtran -q g.V().has("firstName", "Yang").count() `
+
+   `GTran> gtran -q g.V().has("ori_id", "4947804876981").properties() `
+
+   `GTran> gtran -q A = g.addV("person"); g.V().has("firstName", "Aaron").limit(1).addE("knows").to(A) `
+
+   `GTran> gtran -q g.V().has("firstName", "Jack").drop()`
+
+   `GTran> gtran -q g.V().count()`
+
+6. Run three throughput tests in console.
+
+   `GTran> gtran -q emu thpt_config1 microbench_ldbc`
+
+   Result: 19.8779 Kqueries/sec
+
+   `GTran> gtran -q emu thpt_config2 microbench_ldbc`
+
+   Result: 15.8851 Kqueries/sec
+
+   `GTran> gtran -q emu thpt_config3 microbench_ldbc`
+
+   Result: 7.0241 Kqueries/sec
+
+   Three `thpt_config` represents three workloads: ReadOnly, ReadIntensive and WriteIntensive
+
+#############################################################################
+g.V().hasLabel("comment").count();
+Result: 17230494
+Running Time: 12080.98ms
+
+g.V().has("firstName", "Yang").count();
+Result: 775
+Running Time: 623us
+
+g.V().has("ori_id", "4947804876981").properties();
+Result: 
+	{ori_id:4947804876981}
+	{creationDate:2019-12-21T22_20_59.211+0000}
+	{locationIP:14.102.187.12}
+	{browserUsed:Firefox}
+	{content:maybe}
+	{length:5}
+Running Time: 452us
+
+A = g.addV("person"); g.V().has("firstName", "Aaron").limit(1).addE("knows").to(A)
+Result:
+	Query1
+	23850378
+	Query2
+	1600571791280354 [This does not need to be the same since limit will random choose one]
+Running Time: 923us ~ 1.98ms
+
+g.V().has("firstName", "Jack").drop();
+Result: Empty
+Running Time: 361ms 
+
+g.V().count()
+Result: 23,850,230
+Running Time: 107.24ms

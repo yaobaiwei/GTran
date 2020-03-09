@@ -30,8 +30,8 @@ void TCPMailbox::Init(vector<Node> &nodes) {
     char addr[64] = "";
 
     notificaton_receiver_ = new zmq::socket_t(context, ZMQ_PULL);
-    snprintf(addr, sizeof(addr), "tcp://*:%d", 
-            my_node_->tcp_port + 2 + config_->global_num_threads);
+    snprintf(addr, sizeof(addr), "tcp://*:%d",
+            my_node_.tcp_port + 2 + config_->global_num_threads);
     notificaton_receiver_->bind(addr);
     DLOG(INFO) << "[TCPMailbox::Init] Worker " << my_node_.hostname 
             << "'s Notificaton receiver binds " << string(addr);
