@@ -990,12 +990,13 @@ class Worker {
 
 
     void Start() {
+        //The main thread id should be config_->global_num_threads + Config::main_thread_tid
         // =================IdMapper========================
         SimpleIdMapper::GetInstance(&my_node_);
 
         // =================TidPoolManager========================
         tid_pool_manager_ = TidPoolManager::GetInstance();
-        tid_pool_manager_->Register(TID_TYPE::CONTAINER);
+        tid_pool_manager_->Register(TID_TYPE::CONTAINER, config_->global_num_threads + Config::main_thread_tid);
         tid_pool_manager_->Register(TID_TYPE::RDMA, config_->global_num_threads + Config::main_thread_tid);
 
         // =================CoreAffinity====================

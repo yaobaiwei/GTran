@@ -20,8 +20,7 @@ GCConsumer::GCConsumer() {
 void GCConsumer::Init() {
     garbage_collector_ = GarbageCollector::GetInstance();
     for (int i = 0; i < config_->num_gc_consumer; i++) {
-        int tid = config_->global_num_threads + 1 + i;
-        consumer_thread_pool_.emplace_back(&GCConsumer::Execute, this, tid);
+        consumer_thread_pool_.emplace_back(&GCConsumer::Execute, this);
     }
 }
 
@@ -31,7 +30,7 @@ void GCConsumer::Stop() {
     }
 }
 
-void GCConsumer::Execute(int tid) {
+void GCConsumer::Execute() {
     tid_pool_manager_->Register(TID_TYPE::CONTAINER);
     while (true) {
         AbstractGCJob * job;

@@ -234,8 +234,9 @@ class ExpertAdapter {
         }
     }
 
+    //tid --> [0, config->global_num_threads)
     void ThreadExecutor(int tid) {
-        TidPoolManager::GetInstance()->Register(TID_TYPE::CONTAINER);
+        TidPoolManager::GetInstance()->Register(TID_TYPE::CONTAINER, tid);
         TidPoolManager::GetInstance()->Register(TID_TYPE::RDMA, tid);
         // bind thread to core
         if (config_->global_enable_core_binding) {

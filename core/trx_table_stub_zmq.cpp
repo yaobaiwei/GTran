@@ -11,23 +11,25 @@ TcpTrxTableStub * TcpTrxTableStub::instance_ = nullptr;
 bool TcpTrxTableStub::Init() {
     char addr[64] = "";
     
-    //the ports are matched with the trx_read_rep_sockets_ in coordinator
-    receivers_.resize(config_->global_num_threads);
-    for (int i = 0; i < config_->global_num_threads; ++i) {
+    //we should count on the main thread as well
+    int num_channels = config_->global_num_threads + 1;
+    receivers_.resize(num_channels);
+    for (int i = 0; i < num_channels; ++i) {
         receivers_[i] = new zmq::socket_t(context, ZMQ_PULL);
+        //the ports are matched with the trx_read_rep_sockets_ in coordinator
         snprintf(addr, sizeof(addr), "tcp://*:%d",
                 node_.tcp_port + 3 + i + config_->global_num_threads);
         receivers_[i]->bind(addr);
         DLOG(INFO) << "Worker " << node_.hostname << ": " << "bind " << string(addr);
     }
-
-    //the port is matched with the trx_read_recv_socket_ in coordinator
-    senders_.resize(config_->global_num_threads * config_->global_num_workers);
+    
+    senders_.resize(num_channels * config_->global_num_workers);
     for (int j = 0; j < config_->global_num_workers; j++) {
-        for (int i = 0; i < config_->global_num_threads; ++i) {
+        for (int i = 0; i < num_channels; ++i) {
             senders_[socket_code(j, i)] = new zmq::socket_t(context, ZMQ_PUSH);
+            //the port is matched with the trx_read_recv_socket_ in coordinator
             snprintf(addr, sizeof(addr), "tcp://%s:%d", workers_[j].ibname.c_str(),
-                    workers_[j].tcp_port + 3 + 2 * config_->global_num_threads);
+                    workers_[j].tcp_port + 4 + 2 * config_->global_num_threads);
             // for all threads sending msgs to the same worker, connect to the same port for TcpTrxTableStub::send_req
             senders_[socket_code(j, i)]->connect(addr);
             DLOG(INFO) << "Worker " << node_.hostname << ": connects to " << string(addr);
@@ -57,8 +59,7 @@ bool TcpTrxTableStub::update_status(uint64_t trx_id, TRX_STAT new_status, bool i
 }
 
 bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
-    CHECK(IS_VALID_TRX_ID(trx_id))
-        << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
+    CHECK(IS_VALID_TRX_ID(trx_id)) << "[TcpTrxTableStub::read_status] Please provide valid trx_id";
 
     int worker_id = coordinator_->GetWorkerFromTrxID(trx_id);
 
@@ -66,7 +67,8 @@ bool TcpTrxTableStub::read_status(uint64_t trx_id, TRX_STAT& status) {
         return trx_table_->query_status(trx_id, status);
     }
 
-    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER);
+    //Channel TID_TYPE::RDMA should be renamed to TID_TYPE::COMMUN
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << false;
 
@@ -94,7 +96,8 @@ bool TcpTrxTableStub::read_ct(uint64_t trx_id, TRX_STAT & status, uint64_t & ct)
         return query_status_ret && query_ct_ret;
     }
 
-    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::CONTAINER);
+    //Channel TID_TYPE::RDMA should be renamed to TID_TYPE::COMMUN
+    int t_id = TidPoolManager::GetInstance()->GetTid(TID_TYPE::RDMA);
     ibinstream in;
     in << node_.get_local_rank() << t_id << trx_id << true;
 

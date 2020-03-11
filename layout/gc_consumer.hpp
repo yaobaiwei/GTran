@@ -30,7 +30,7 @@ class GCConsumer {
 
     // Each thread as GCConsumer will use Execute()
     // to try pop Jobs from GarbageCollector
-    void Execute(int tid);
+    void Execute();
 
  private:
     GCConsumer();

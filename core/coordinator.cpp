@@ -75,20 +75,21 @@ void Coordinator::PrepareSockets() {
     trx_read_recv_socket_ = new zmq::socket_t(context_, ZMQ_PULL);
     // The port is matched with the senders_ in TcpTrxTableStub::send_req
     // to listen req from TcpTrxTableStub.read from other workers
-    snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 3 + 2 * config_->global_num_threads);
+    snprintf(addr, sizeof(addr), "tcp://*:%d", node_->tcp_port + 4 + 2 * config_->global_num_threads);
     trx_read_recv_socket_->bind(addr);
     DLOG(INFO) << "[Master] bind " << string(addr);
 
-
-    trx_read_rep_sockets_.resize(config_->global_num_threads * config_->global_num_workers);
-    // connect to port + 3 + [global_num_threads, ... 2*global_num_threads)
+    //we should count on the main thread as well
+    int num_channels = config_->global_num_threads + 1;
+    trx_read_rep_sockets_.resize(num_channels * config_->global_num_workers);
+    // connect to port + 3 + [global_num_threads, ... 2*global_num_threads]
     // The ports are matched with the receivers_ in TcpTrxTableStub.
     // to return the value of trx_stat read requests as the response
     for (int i = 0; i < config_->global_num_workers; ++i) {
         // input (i+1) because node_rank is counted by get_world_rank() 
         Node& r_node = GetNodeById(nodes_, i + 1); 
 
-        for (int j = 0; j < config_->global_num_threads; ++j) {
+        for (int j = 0; j < num_channels; ++j) {
             trx_read_rep_sockets_[socket_code(i, j)] = new zmq::socket_t(context_, ZMQ_PUSH);
             snprintf(
                 addr, sizeof(addr), "tcp://%s:%d",

@@ -40,7 +40,7 @@ class TcpTrxTableStub : public TrxTableStub {
     }
 
     inline int socket_code(int n_id, int t_id) {
-        return config_ -> global_num_threads * n_id + t_id;
+        return (config_ -> global_num_threads + 1) * n_id + t_id;
     }
 
     void send_req(int n_id, int t_id, ibinstream &in);
