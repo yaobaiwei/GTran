@@ -1011,9 +1011,10 @@ class Worker {
 
         // =================RDMABuffer======================
         Buffer* buf = Buffer::GetInstance(&my_node_);
-        cout << "[Worker" << my_node_.get_local_rank()
-                << "]: DONE -> Register RDMA MEM, SIZE = "
-                << buf->GetBufSize() << endl;
+        if (config_->global_use_rdma)
+            cout << "[Worker" << my_node_.get_local_rank() << "]: DONE -> Register RDMA MEM, SIZE = " << buf->GetBufSize() << endl;
+        else
+            cout << "[Worker" << my_node_.get_local_rank() << ":] DONE -> Register MEM for KVS, SIZE = " << buf->GetBufSize() << endl;
 
         // =================TrxTable=========================
         trx_table_ = TransactionStatusTable::GetInstance();
