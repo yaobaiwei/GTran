@@ -1,14 +1,14 @@
 # README
 
-1. Replace your machine.cfg and ib_conf with given one.
+1. Replace your machine.cfg and ib_cfg with the given one.
 
-2. Start the server on worker21. [Double check there is no other programs running on each machines]
+2. Start the server on worker1. [Double check there is no other programs running on each machine]
 
-   `bash> bash start-server.sh 4 machine.cfg ib_conf`
+   `bash> bash start-server.sh 4 machine.cfg ib_cfg`
 
-3. Start a client on worker24
+3. Start a client on worker1
 
-   `bash> bash start-client.sh ib_conf`
+   `bash> bash start-client.sh ib_cfg`
 
 4. Build Index in console
 
