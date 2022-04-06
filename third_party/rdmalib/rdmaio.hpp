@@ -1,4 +1,4 @@
-/* Copyright 2019 Husky Data Lab, CUHK
+/* Copyright 2020 Husky Data Lab, CUHK
 
 Authors: Modified by Nick Fang (jcfang6@cse.cuhk.edu.hk)
 
